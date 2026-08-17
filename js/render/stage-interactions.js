@@ -1,6 +1,6 @@
-import { Rational } from "../js/core/rational.js";
-import { TimingMap } from "../js/core/timing.js";
-import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../js/core/geometry.js";
+import { Rational } from "../core/rational.js";
+import { TimingMap } from "../core/timing.js";
+import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
 
@@ -165,10 +165,10 @@ export const withStageInteractions = Base => class extends Base {
 			const project = projectState(this.state);
 			const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale });
 			this.curvePreview = snap ? { x: snap.x, y: snap.y } : chart;
-			this.render();
+			this.requestRender();
 		} else if (this.callbacks.getCreationMode?.()) {
 			this._previewAt(this.surface.toLocal(event));
-			this.render();
+			this.requestRender();
 		}
 	}
 
@@ -177,7 +177,7 @@ export const withStageInteractions = Base => class extends Base {
 		this.creationPreview = null;
 		this.curvePreview = null;
 		this.callbacks.onCreationPreview?.(null);
-		this.render();
+		this.requestRender();
 	}
 
 	_pointerDown(event) {
@@ -255,7 +255,6 @@ export const withStageInteractions = Base => class extends Base {
 			this.drag = { type: "snappee", hit, start: point };
 		} else {
 			this.drag = { type: "box", start: point, mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace" };
-			this.selectionBox = { x1: point.x, y1: point.y, x2: point.x, y2: point.y };
 		}
 		document.addEventListener("pointermove", this.boundMove);
 		document.addEventListener("pointerup", this.boundUp, { once: true });
@@ -339,6 +338,8 @@ export const withStageInteractions = Base => class extends Base {
 		} else if (this.drag.type === "draft-pen-handle") {
 			this.callbacks.onPreviewPenHandle?.(this.drag.hit.index, this.drag.hit.kind, chart);
 		} else if (this.drag.type === "box") {
+			if (!this.pointerMoved) return;
+			this.selectionBox ||= { x1: this.drag.start.x, y1: this.drag.start.y, x2: point.x, y2: point.y };
 			this.selectionBox.x2 = point.x;
 			this.selectionBox.y2 = point.y;
 			const x1 = Math.min(this.selectionBox.x1, point.x);
@@ -348,7 +349,7 @@ export const withStageInteractions = Base => class extends Base {
 			this.callbacks.onPreviewBoxSelect?.(this.visibleEvents.filter(item => item.screen.x >= x1 && item.screen.x <= x2
 				&& item.screen.y >= y1 && item.screen.y <= y2).map(item => item.event.id), this.drag.mode);
 		}
-		this.render();
+		this.requestRender();
 	}
 
 	_pointerUp(event) {
@@ -406,7 +407,7 @@ export const withStageInteractions = Base => class extends Base {
 		document.removeEventListener("pointermove", this.boundMove);
 		document.removeEventListener("pointerup", this.boundUp);
 		document.removeEventListener("pointercancel", this.boundUp);
-		this.render();
+		this.requestRender();
 	}
 
 	_doubleClick(event) {
@@ -441,7 +442,11 @@ export const withStageInteractions = Base => class extends Base {
 		document.removeEventListener("pointerup", this.boundUp);
 		document.removeEventListener("pointercancel", this.boundUp);
 		cancelAnimationFrame(this.particleAnimationFrame);
+		cancelAnimationFrame(this.renderAnimationFrame);
+		cancelAnimationFrame(this.pointerMoveAnimationFrame);
 		this.particleAnimationFrame = 0;
+		this.renderAnimationFrame = 0;
+		this.pointerMoveAnimationFrame = 0;
 		this.surface.destroy();
 	}
 };

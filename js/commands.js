@@ -1,4 +1,4 @@
-export const ICON_BASE = 'maker/svg/icons';
+export const ICON_BASE = 'svg/icons';
 
 const icon = name => `${ICON_BASE}/${name}.svg`;
 
@@ -23,9 +23,11 @@ const DEFINITIONS = [
 	define('file.setBackground'),
 	define('file.save', 'Ctrl+S', null, {allowInInput: true}),
 	define('file.saveAs', null, null, {allowInInput: true}),
+	define('file.saveProject', null, null, {allowInInput: true, desktopOnly: true}),
 	define('file.saveLevel', 'Ctrl+Shift+S', null, {allowInInput: true}),
 	define('file.importClipboard'),
 	define('file.exportClipboard'),
+	define('file.openProjectFolder', null, null, {desktopOnly: true}),
 	define('file.chartProperties'),
 	define('file.preferences'),
 
@@ -37,7 +39,7 @@ const DEFINITIONS = [
 	define('edit.pasteDuplicateSnappees', 'Ctrl+Shift+V'),
 	define('edit.selectAll', 'Ctrl+A'),
 	define('edit.selectChannel', 'Ctrl+Shift+A'),
-	define('edit.selectNone', 'Ctrl+D'),
+	define('edit.selectNone', 'Ctrl+D', null, {allowWhenBlocked: true}),
 	define('edit.selectFilter', 'Ctrl+F'),
 	define('edit.delete', 'Delete'),
 
@@ -47,7 +49,7 @@ const DEFINITIONS = [
 	define('events.flick', 'F', 'create-flick', {checkable: true}),
 	define('events.bgNote', 'B', 'create-bg-note', {checkable: true}),
 	define('events.bgPattern', 'P', 'create-bg-pattern'),
-	define('events.bpmChange', null, 'bpm-change'),
+	define('events.bpmChange', 'M', 'bpm-change'),
 	define('events.moveChannelAbove', 'Ctrl+Shift+ArrowUp', 'move-to-channel-above'),
 	define('events.moveChannelBelow', 'Ctrl+Shift+ArrowDown', 'move-to-channel-below'),
 	define('events.reverseTime'),
@@ -121,10 +123,11 @@ export const MENU_DEFINITION = Object.freeze([
 		id: 'file', labelKey: 'menu.file', mnemonic: 'f', items: Object.freeze([
 			item('file.newProject'), item('file.newChart'), separator,
 			item('file.openProject'), item('file.openChart'), separator,
-			item('file.save'), item('file.saveAs'), separator,
+			item('file.save'), item('file.saveAs'), item('file.saveProject'), separator,
 			item('file.importFile'), item('file.importClipboard'), separator,
 			item('file.saveLevel'), item('file.exportClipboard'), separator,
 			item('file.setMusic'), item('file.setBackground'), separator,
+			item('file.openProjectFolder'), separator,
 			item('file.chartProperties'), separator, item('file.preferences')
 		])
 	}),

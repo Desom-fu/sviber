@@ -1,6 +1,6 @@
-import { Rational } from "../js/core/rational.js";
-import { TimingMap } from "../js/core/timing.js";
-import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../js/core/geometry.js";
+import { Rational } from "../core/rational.js";
+import { TimingMap } from "../core/timing.js";
+import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee, sampleSnappeePath } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
@@ -30,10 +30,16 @@ export class StageViewCore {
 		this.backgroundDirty = true;
 		this.particles = [];
 		this.particleAnimationFrame = 0;
+		this.renderAnimationFrame = 0;
+		this.pointerMoveAnimationFrame = 0;
+		this.pendingPointerMove = null;
 		this.lastHudCombo = null;
 		this.hudComboAnimationStarted = null;
-		this.boundMove = event => this._pointerMove(event);
-		this.boundUp = event => this._pointerUp(event);
+		this.boundMove = event => this._queuePointerMove(event);
+		this.boundUp = event => {
+			this._flushPointerMove();
+			this._pointerUp(event);
+		};
 		this.surface.ready.then(() => {
 			this.surface.canvas.addEventListener("pointerdown", event => this._pointerDown(event));
 			this.surface.canvas.addEventListener("pointermove", event => this._hoverMove(event));
@@ -106,9 +112,41 @@ export class StageViewCore {
 	}
 
 	render() {
+		if (this.renderAnimationFrame) {
+			cancelAnimationFrame(this.renderAnimationFrame);
+			this.renderAnimationFrame = 0;
+		}
 		if (!this.state || !this.surface.context) return;
 		if (this.surface.resize()) this.backgroundDirty = true;
 		this.surface.render((context, width, height) => this._draw(context, width, height));
+	}
+
+	requestRender() {
+		if (this.renderAnimationFrame) return;
+		this.renderAnimationFrame = requestAnimationFrame(() => {
+			this.renderAnimationFrame = 0;
+			this.render();
+		});
+	}
+
+	_queuePointerMove(event) {
+		this.pendingPointerMove = {
+			clientX: event.clientX,
+			clientY: event.clientY,
+			ctrlKey: event.ctrlKey,
+			shiftKey: event.shiftKey,
+			altKey: event.altKey,
+		};
+		if (this.pointerMoveAnimationFrame) return;
+		this.pointerMoveAnimationFrame = requestAnimationFrame(() => this._flushPointerMove());
+	}
+
+	_flushPointerMove() {
+		if (this.pointerMoveAnimationFrame) cancelAnimationFrame(this.pointerMoveAnimationFrame);
+		this.pointerMoveAnimationFrame = 0;
+		const event = this.pendingPointerMove;
+		this.pendingPointerMove = null;
+		if (event) this._pointerMove(event);
 	}
 
 	_mapping(width, height) {
@@ -182,6 +220,7 @@ export class StageViewCore {
 		this._drawParticles(context, mapping);
 		this._drawSnappees(context, project, mapping);
 		this._drawNotes(context, project, mapping, now);
+		this._drawCreationEchoes(context, project, mapping, now);
 		this._drawTipPoints(context, project, mapping, now);
 		this._drawSelectedInvisible(context, project, mapping, now);
 		this._drawSelectionHandles(context, project, mapping);
@@ -395,33 +434,16 @@ export class StageViewCore {
 				}
 				context.stroke();
 			} else if (snappee.type === "radialMesh") {
-				const byRadius = new Map();
-				for (const value of points) {
-					const [angle, radius] = value.snapPoint;
-					if (!byRadius.has(radius)) byRadius.set(radius, []);
-					byRadius.get(radius).push({ ...value, angle });
-				}
-				for (const values of byRadius.values()) {
-					if (values.length <= 1) continue;
-					context.beginPath();
-					values.sort((left, right) => left.angle - right.angle).forEach((value, index) => {
-						const point = mapping.toScreen(value);
-						if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
-					});
-					context.closePath();
-					context.stroke();
-				}
-				const center = points.find(value => value.snapPoint[1] === 0);
-				if (center) {
-					const origin = mapping.toScreen(center);
-					context.beginPath();
-					for (const value of points.filter(candidate => candidate.snapPoint[1] === (snappee.radialTiles || 1))) {
-						const end = mapping.toScreen(value);
-						context.moveTo(origin.x, origin.y);
-						context.lineTo(end.x, end.y);
-					}
-					context.stroke();
-				}
+				this._drawRadialMeshPath(context, snappee, mapping);
+			} else if (snappee.type === "bezierCurve" || snappee.type === "penCurve") {
+				let path;
+				try { path = sampleSnappeePath(snappee); } catch { path = points; }
+				context.beginPath();
+				path.forEach((value, index) => {
+					const point = mapping.toScreen(value);
+					if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
+				});
+				context.stroke();
 			} else {
 				context.beginPath();
 				points.forEach((value, index) => {
@@ -440,6 +462,36 @@ export class StageViewCore {
 			if (snappee.selected) this._drawSnappeeHandles(context, snappee, points, mapping);
 			context.restore();
 		}
+	}
+
+	_drawRadialMeshPath(context, snappee, mapping) {
+		const [a, b, c, d, e, f] = snappee.transformation || [1, 0, 0, 1, 0, 0];
+		const radialTiles = Math.max(1, Number(snappee.radialTiles) || 1);
+		const azimuthalTiles = Math.max(1, Number(snappee.azimuthalTiles) || 1);
+		const radius = Math.abs(Number(snappee.radius) || 0);
+		const centerX = Number(snappee.centerX) || 0;
+		const centerY = Number(snappee.centerY) || 0;
+		const angle = Number(snappee.startingAngle) || 0;
+		context.save();
+		context.transform(
+			mapping.scale * a, -mapping.scale * b,
+			mapping.scale * c, -mapping.scale * d,
+			mapping.originX + mapping.scale * e,
+			mapping.originY - mapping.scale * f,
+		);
+		context.lineWidth = Math.max(0.2, context.lineWidth / Math.max(mapping.scale, 0.001));
+		context.beginPath();
+		for (let index = 1; index <= radialTiles; index += 1) {
+			context.moveTo(centerX + radius * index / radialTiles, centerY);
+			context.arc(centerX, centerY, radius * index / radialTiles, 0, Math.PI * 2);
+		}
+		for (let index = 0; index < azimuthalTiles; index += 1) {
+			const direction = angle + index * Math.PI * 2 / azimuthalTiles;
+			context.moveTo(centerX, centerY);
+			context.lineTo(centerX + Math.cos(direction) * radius, centerY + Math.sin(direction) * radius);
+		}
+		context.stroke();
+		context.restore();
 	}
 
 	_drawSnappeeHandles(context, snappee, points, mapping) {

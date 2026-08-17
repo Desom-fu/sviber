@@ -1,39 +1,4 @@
 @import url("./overlays.css");
-@font-face {
-	font-family: "Sviber Note";
-	src: url("../assets/fonts/LXGWWenKai-Regular.ttf") format("truetype"),
-		url("https://cdn.jsdelivr.net/gh/lxgw/LxgwWenKai@1.245.1/fonts/TTF/LXGWWenKai-Regular.ttf") format("truetype");
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "Noto Sans Math";
-	src: url("../assets/fonts/NotoSansMath-Regular.ttf") format("truetype"),
-		url("https://cdn.jsdelivr.net/gh/notofonts/math@53eb8eb200ed8fc73fa13d97d26a2c9c56428c17/fonts/NotoSansMath/full/ttf/NotoSansMath-Regular.ttf") format("truetype");
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "Noto Sans CJK TC";
-	src: url("../assets/fonts/NotoSansCJKtc-Regular.otf") format("opentype"),
-		url("https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf") format("opentype");
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "Sviber Big Text";
-	src: url("../assets/fonts/HanWangShinSuMedium.ttf") format("truetype"),
-		url("https://cdn.jsdelivr.net/gh/kaio/wangfonts@268666d80f8029bb8c61b9668352c7a375873301/TrueType/wt071.ttf") format("truetype");
-	font-display: swap;
-}
-
-@font-face {
-	font-family: "YujiBoku";
-	src: url("../assets/fonts/YujiBoku-Regular.ttf") format("truetype"),
-		url("https://cdn.jsdelivr.net/gh/Kinutafontfactory/Yuji@efec977b14b57c19eb85d468edcfbbad13139e67/fonts/ttf/YujiBoku-Regular.ttf") format("truetype");
-	font-display: swap;
-}
-
 :root {
 	color-scheme: light dark;
 	--chrome: #eceeef;

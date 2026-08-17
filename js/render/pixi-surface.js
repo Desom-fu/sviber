@@ -3,6 +3,9 @@ export class PixiCanvasSurface {
 		this.host = host;
 		this.background = options.background || "#090a0c";
 		this.onResize = options.onResize || null;
+		// The renderer already draws with Canvas2D. Uploading that full canvas into
+		// a one-sprite WebGL scene adds a costly copy without changing the output.
+		this.directCanvas = options.directCanvas ?? true;
 		this.app = null;
 		this.canvas = null;
 		this.buffer = document.createElement("canvas");
@@ -16,8 +19,8 @@ export class PixiCanvasSurface {
 	}
 
 	async #initialize() {
-		await globalThis.sviberDependenciesReady;
-		if (globalThis.PIXI) {
+		if (!this.directCanvas) await globalThis.sviberDependenciesReady;
+		if (!this.directCanvas && globalThis.PIXI) {
 			this.app = new PIXI.Application();
 			await this.app.init({
 				width: 1,
@@ -33,6 +36,7 @@ export class PixiCanvasSurface {
 			this.host.append(this.canvas);
 		} else {
 			this.canvas = this.buffer;
+			this.canvas.className = "pixi-canvas";
 			this.host.append(this.canvas);
 		}
 		this.resizeObserver = new ResizeObserver(() => {

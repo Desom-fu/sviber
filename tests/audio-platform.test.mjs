@@ -9,9 +9,9 @@ import {
 	decodeAudioBytes,
 	isNwRuntime,
 	resolveAudioDecode,
-} from "../audio/decoder.js";
-import { AudioPlayer, createSunniesnowHitSamples } from "../audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
+} from "../js/audio/decoder.js";
+import { AudioPlayer, createSunniesnowHitSamples } from "../js/audio/player.js";
+import { collectHitSchedule, collectHoldReleaseSchedule } from "../js/audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
@@ -95,9 +95,28 @@ test("source NW.js startup prepares the same local decoder bundle", async () => 
 	const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
 	const bootstrap = await readFile(new URL("../js/nw-source-bootstrap.js", import.meta.url), "utf8");
 	const buildScript = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
-	assert.match(bootstrap, /bundleAudioDecoderSync/);
+	assert.match(bootstrap, /sviberSourcePreparation/);
+	assert.match(bootstrap, /bundleAudioDecoder\(/);
+	assert.doesNotMatch(bootstrap, /bundleAudioDecoderSync/);
 	assert.ok(index.indexOf("js/nw-source-bootstrap.js") < index.indexOf("js/app.js"));
 	assert.match(buildScript, /bundleAudioDecoderFile/);
+});
+
+test("NW.js decoder import waits for asynchronous source preparation", async () => {
+	let releasePreparation;
+	let prepared = false;
+	const preparationPromise = new Promise(resolve => { releasePreparation = resolve; });
+	const loading = resolveAudioDecode({
+		nw: true,
+		preparationPromise,
+		importModule: async () => {
+			assert.equal(prepared, true);
+			return { default: async () => ({ channelData: [], sampleRate: 44100 }) };
+		},
+	});
+	prepared = true;
+	releasePreparation();
+	assert.equal(typeof await loading, "function");
 });
 
 test("audio-decode falls back to native decodeAudioData", async () => {
@@ -309,7 +328,7 @@ test("service worker returns Response.error on an uncached offline CDN request",
 	await installPromise;
 	const response = await context.testStaleWhileRevalidate("https://cdn.jsdelivr.net/npm/missing/+esm");
 	assert.equal(response.type, "error");
-	assert.match(source, /\.\/audio\/decoder\.js/);
+	assert.match(source, /\.\/js\/audio\/decoder\.js/);
 	assert.match(source, /audio-decode@3\.12\.0\/\+esm/);
 });
 

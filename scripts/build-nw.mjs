@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import nwbuild from "nw-builder";
+import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
 
 const { bundleAudioDecoder: bundleAudioDecoderFile } = decoderBundler;
@@ -222,18 +223,43 @@ async function copyProductionDependencies(applicationDirectory) {
 	}
 }
 
-async function localizePackagedFontCss(applicationDirectory) {
-	const filename = path.join(applicationDirectory, "css", "app.css");
-	const source = await readFile(filename, "utf8");
-	const localized = source.replace(
-		/,\s*url\((["'])https?:\/\/.*?\1\)\s*format\((["']).*?\2\)/g,
-		"",
-	);
-	for (const block of localized.matchAll(/@font-face\s*\{[\s\S]*?\}/g)) {
-		if (/https?:\/\//i.test(block[0])) throw new Error("Packaged @font-face rules must not contain remote URLs.");
-	}
-	if (localized === source) throw new Error("No remote font fallbacks were removed from packaged app.css.");
-	await writeFile(filename, localized);
+async function verifyPackagedFontCss(applicationDirectory) {
+	const source = await readFile(path.join(applicationDirectory, "css", "fonts-local.css"), "utf8");
+	if (/https?:\/\//i.test(source)) throw new Error("Packaged local font CSS must not contain remote URLs.");
+}
+
+async function generateWindowsIcon(source, destination) {
+	const sizes = [16, 32, 48, 64, 128, 256];
+	const images = await Promise.all(sizes.map(size => sharp(source)
+		.resize(size, size, { fit: "contain" })
+		.png()
+		.toBuffer()));
+	const headerSize = 6 + images.length * 16;
+	const header = Buffer.alloc(headerSize);
+	header.writeUInt16LE(1, 2);
+	header.writeUInt16LE(images.length, 4);
+	let offset = headerSize;
+	images.forEach((image, index) => {
+		const size = sizes[index];
+		const entry = 6 + index * 16;
+		header.writeUInt8(size === 256 ? 0 : size, entry);
+		header.writeUInt8(size === 256 ? 0 : size, entry + 1);
+		header.writeUInt16LE(1, entry + 4);
+		header.writeUInt16LE(32, entry + 6);
+		header.writeUInt32LE(image.length, entry + 8);
+		header.writeUInt32LE(offset, entry + 12);
+		offset += image.length;
+	});
+	await writeFile(destination, Buffer.concat([header, ...images]));
+}
+
+async function generatePackagedIcons(applicationDirectory) {
+	const source = path.join(applicationDirectory, "svg", "icon.svg");
+	await Promise.all([
+		generateWindowsIcon(source, path.join(applicationDirectory, "icon.ico")),
+		sharp(source).resize(512, 512, { fit: "contain" }).png()
+			.toFile(path.join(applicationDirectory, "icon.png")),
+	]);
 }
 
 async function copyApplication() {
@@ -252,8 +278,9 @@ async function copyApplication() {
 	await cp(repositoryLicense, path.join(stageDirectory, "LICENSE"));
 	await cp(repositoryLicense, path.join(applicationDirectory, "LICENSE"));
 	await copyProductionDependencies(applicationDirectory);
-	await bundleAudioDecoderFile(path.join(applicationDirectory, "audio", "audio-decode.bundle.js"), { minify: true });
-	await localizePackagedFontCss(applicationDirectory);
+	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), { minify: true });
+	await generatePackagedIcons(applicationDirectory);
+	await verifyPackagedFontCss(applicationDirectory);
 
 	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
 	const packageJson = {
@@ -262,7 +289,7 @@ async function copyApplication() {
 		main: "sviber/index.html",
 		window: {
 			...sourcePackage.window,
-			icon: "sviber/icon.ico",
+			icon: process.platform === "win32" ? "sviber/icon.ico" : "sviber/icon.png",
 		},
 	};
 	await writeFile(path.join(stageDirectory, "package.json"), `${JSON.stringify(packageJson, null, "\t")}\n`);

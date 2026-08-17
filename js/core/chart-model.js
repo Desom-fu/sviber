@@ -266,7 +266,7 @@ export function connectSelectedTipPointChain(events) {
 function defaultSnappeeFields(type) {
 	switch (type) {
 		case "rectangularMesh":
-			return { topLeftX: -100, topLeftY: 50, bottomRightX: 100, bottomRightY: -50, horizontalTiles: 8, verticalTiles: 4 };
+			return { topLeftX: -100, topLeftY: 50, bottomRightX: 100, bottomRightY: -50, horizontalTiles: 16, verticalTiles: 8 };
 		case "radialMesh":
 			return { centerX: 0, centerY: 0, radius: 50, azimuthalTiles: 8, radialTiles: 4, startingAngle: 0 };
 		case "parametricMesh":
@@ -316,7 +316,7 @@ export function createDefaultSnappees() {
 	return [
 		createSnappee("rectangularMesh", {
 			name: "Playfield grid", topLeftX: -100, topLeftY: 50,
-			bottomRightX: 100, bottomRightY: -50, horizontalTiles: 8, verticalTiles: 4,
+			bottomRightX: 100, bottomRightY: -50, horizontalTiles: 16, verticalTiles: 8,
 		}),
 		createSnappee("radialMesh", {
 			name: "Radial grid", centerX: 0, centerY: 0, radius: 50,

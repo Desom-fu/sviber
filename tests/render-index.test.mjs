@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { collectIndexedHitSchedule } from "../audio/scheduler.js";
+import { collectIndexedHitSchedule } from "../js/audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
-import { ChartRenderIndex } from "../render/chart-index.js";
+import { ChartRenderIndex } from "../js/render/chart-index.js";
 
 function largeProject(eventCount = 10_000) {
 	const channels = Array.from({ length: 4 }, (_, id) => ({ id }));
@@ -53,4 +53,19 @@ test("render index caches selection, lane offsets, and duration overlap", () => 
 	assert.deepEqual(index.timelineRecords(3, 3).map(record => record.event.id), [1]);
 	assert.equal(index.hudHitCount(1), 1);
 	assert.equal(index.hudHitCount(5), 2);
+});
+
+test("creation echoes use an indexed one-over-speed interval after event end", () => {
+	const project = {
+		channels: [{ id: 0 }],
+		snappees: [],
+		events: [
+			{ id: 1, type: "tap", channel: 0, time: [2, 0, 1], x: 0, y: 0 },
+			{ id: 2, type: "hold", channel: 0, time: [1, 0, 1], duration: [2, 0, 1], x: 0, y: 0 },
+		],
+	};
+	const index = new ChartRenderIndex(project, new TimingMap({ initialBpm: 60 }), { noteSpeed: 4 });
+	assert.deepEqual(index.creationEchoRecords(2.1).map(record => record.event.id), [1]);
+	assert.deepEqual(index.creationEchoRecords(3.1).map(record => record.event.id), [2]);
+	assert.equal(index.creationEchoRecords(3.3).length, 0);
 });

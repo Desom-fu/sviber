@@ -7,10 +7,10 @@ import { History } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
-import { AudioPlayer } from "../audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
-import { TimelineView } from "../render/timeline.js";
-import { StageView } from "../render/stage.js";
+import { AudioPlayer } from "./audio/player.js";
+import { collectHitSchedule, collectHoldReleaseSchedule } from "./audio/scheduler.js";
+import { TimelineView } from "./render/timeline.js";
+import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
@@ -27,7 +27,7 @@ export const withFileWorkflows = Base => class extends Base {
 				{ id: "cancel", labelKey: "dialog.cancel", cancel: true, value: "cancel", validate: false },
 			],
 		});
-		if (result?.value === "save") return Boolean(await this.saveChart());
+		if (result?.value === "save") return Boolean(await (globalThis.nw ? this.saveProject() : this.saveChart()));
 		return result?.value === "discard";
 	}
 
@@ -469,32 +469,40 @@ export const withFileWorkflows = Base => class extends Base {
 	async saveChart() {
 		try {
 			if (this.freeTransform) this.finishFreeTransform();
-			let location;
-			if (globalThis.nw) {
-				const result = await this.files.saveProject(this.projectSnapshot());
-				if (!result) return null;
-				location = result.location;
-				this.projectName = result.manifest.name;
-				this.projectMusic = result.manifest.music;
-				this.projectImage = result.manifest.image;
-				this.syncProjectSharedFields();
-				this.syncProjectHistorySharedFields({ metadata: false });
-				this.markProjectSaved();
-				for (const entry of this.difficulties) entry.history.markCurrent("save");
-			} else {
-				location = await this.files.saveChart(this.model);
-				if (!location) return null;
-				this.markSaved();
-				this.projectDirty = false;
-				this.updateDirty();
-				this.history.markCurrent("save");
-			}
+			const location = await this.files.saveChart(this.model, {
+				projectFilename: this.activeDifficultyState()?.file,
+			});
+			if (!location) return null;
+			this.markSaved();
+			this.history.markCurrent("save");
 			this.autosave.markManualSave();
-			this.toast.show(globalThis.nw ? "toast.projectSaved" : "toast.saved");
+			this.toast.show("toast.saved");
 			this.refresh();
 			return location;
 		} catch (error) {
-			this.toast.error(globalThis.nw ? "toast.projectSaveFailed" : "toast.saveFailed", { message: localizedErrorMessage(error) });
+			this.toast.error("toast.saveFailed", { message: localizedErrorMessage(error) });
+			return null;
+		}
+	}
+
+	async saveProject() {
+		try {
+			if (this.freeTransform) this.finishFreeTransform();
+			const result = await this.files.saveProject(this.projectSnapshot());
+			if (!result) return null;
+			this.projectName = result.manifest.name;
+			this.projectMusic = result.manifest.music;
+			this.projectImage = result.manifest.image;
+			this.syncProjectSharedFields();
+			this.syncProjectHistorySharedFields({ metadata: false });
+			this.markProjectSaved();
+			for (const entry of this.difficulties) entry.history.markCurrent("save");
+			this.autosave.markManualSave();
+			this.toast.show("toast.projectSaved");
+			this.refresh();
+			return result.location;
+		} catch (error) {
+			this.toast.error("toast.projectSaveFailed", { message: localizedErrorMessage(error) });
 			return null;
 		}
 	}

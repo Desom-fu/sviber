@@ -26,6 +26,7 @@ import {
 	penCommandsFromNodes,
 	resolveAttachedPosition,
 	sampleSnappee,
+	sampleSnappeePath,
 } from "../js/core/geometry.js";
 import { History } from "../js/core/history.js";
 import {
@@ -199,6 +200,22 @@ test("pen nodes preserve straight segments, dragged Bezier handles, and curved c
 	assert.ok(sampled.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)));
 });
 
+test("Bezier and pen display paths retain smooth points between snap points", () => {
+	const bezier = createSnappee("bezierCurve", {
+		controlPoints: [{ x: 0, y: 0 }, { x: 50, y: 100 }, { x: 100, y: 0 }],
+		segments: 2,
+	});
+	const pen = createSnappee("penCurve", {
+		commands: [
+			{ type: "M", x: 0, y: 0 },
+			{ type: "C", x1: 25, y1: 100, x2: 75, y2: -100, x: 100, y: 0 },
+		],
+		segments: 2,
+	});
+	assert.ok(sampleSnappeePath(bezier).length > sampleSnappee(bezier).length * 20);
+	assert.ok(sampleSnappeePath(pen).length > sampleSnappee(pen).length * 10);
+});
+
 test("geometry transforms, nearest-point lookup, and attachment resolution agree", () => {
 	assert.deepEqual(applyTransform({ x: 0, y: 0 }, [0, 1, -1, 0, 5, 6]), { x: 5, y: 6 });
 
@@ -329,7 +346,7 @@ test("new charts activate only the rectangular default snappee", () => {
 		"regularPolygonCurve", "regularPolygonCurve", "regularPolygonCurve",
 	]);
 	assert.deepEqual(snappees.map(item => item.active), [true, false, false, false, false, false]);
-	assert.deepEqual([snappees[0].horizontalTiles, snappees[0].verticalTiles], [8, 4]);
+	assert.deepEqual([snappees[0].horizontalTiles, snappees[0].verticalTiles], [16, 8]);
 	assert.deepEqual([snappees[1].azimuthalTiles, snappees[1].radialTiles], [16, 4]);
 	assert.deepEqual(snappees.slice(2).map(item => [item.sides, item.segmentsPerSide]), [[6, 4], [6, 4], [6, 2], [5, 4]]);
 	assert.ok(Math.abs(snappees[2].radius - 100 / Math.sqrt(3)) < 1e-12);

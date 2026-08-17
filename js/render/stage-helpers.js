@@ -1,6 +1,6 @@
-import { Rational } from "../js/core/rational.js";
-import { TimingMap } from "../js/core/timing.js";
-import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../js/core/geometry.js";
+import { Rational } from "../core/rational.js";
+import { TimingMap } from "../core/timing.js";
+import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 
 export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);

@@ -6,15 +6,22 @@ import { pathToFileURL } from "node:url";
 const projectDirectory = path.resolve(import.meta.dirname, "..");
 const originalDirectory = path.resolve(projectDirectory, "..", "sviber_original");
 const sharedFiles = [
-	"audio/decoder.js", "audio/player.js", "audio/scheduler.js", "audio/waveform.js",
+	["js/audio/decoder.js", "audio/decoder.js"],
+	["js/audio/player.js", "audio/player.js"],
+	["js/audio/scheduler.js", "audio/scheduler.js"],
+	["js/audio/waveform.js", "audio/waveform.js"],
 	"js/app-chart-tools.js", "js/app-event-editing.js",
 	"js/core/chart-model.js", "js/core/geometry.js", "js/core/history.js",
 	"js/core/rational.js", "js/core/timing.js", "js/panels.js",
 	"js/ui.js", "js/ui-dialogs.js", "js/ui-fields.js", "js/ui-panels.js",
 	"js/ui-shared.js", "js/ui-shell.js",
-	"render/pixi-surface.js", "render/stage.js", "render/stage-core.js",
-	"render/stage-helpers.js", "render/stage-interactions.js", "render/stage-notes.js",
-	"render/timeline.js",
+	["js/render/pixi-surface.js", "render/pixi-surface.js"],
+	["js/render/stage.js", "render/stage.js"],
+	["js/render/stage-core.js", "render/stage-core.js"],
+	["js/render/stage-helpers.js", "render/stage-helpers.js"],
+	["js/render/stage-interactions.js", "render/stage-interactions.js"],
+	["js/render/stage-notes.js", "render/stage-notes.js"],
+	["js/render/timeline.js", "render/timeline.js"],
 ];
 
 let originalAvailable = true;
@@ -26,12 +33,13 @@ try {
 }
 
 if (originalAvailable) {
-	for (const filename of sharedFiles) {
+	for (const entry of sharedFiles) {
+		const [currentFilename, originalFilename] = Array.isArray(entry) ? entry : [entry, entry];
 		const [current, original] = await Promise.all([
-			readFile(path.join(projectDirectory, filename)),
-			readFile(path.join(originalDirectory, filename)),
+			readFile(path.join(projectDirectory, currentFilename)),
+			readFile(path.join(originalDirectory, originalFilename)),
 		]);
-		assert.deepEqual(current, original, `Shared editor module differs: ${filename}`);
+		assert.deepEqual(current, original, `Shared editor module differs: ${currentFilename}`);
 	}
 
 	const [currentCommands, originalCommands, currentHelpers, originalHelpers] = await Promise.all([

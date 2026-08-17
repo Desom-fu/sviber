@@ -17,6 +17,7 @@ export async function resolveAudioDecode(options = {}) {
 	const importModule = options.importModule ?? (url => import(url));
 	if (nw) {
 		try {
+			await (options.preparationPromise ?? globalThis.sviberSourcePreparation);
 			return moduleDefault(await importModule(new URL("./audio-decode.bundle.js", import.meta.url)));
 		} catch (error) {
 			const preparationError = options.preparationError ?? globalThis.sviberSourceBootstrapError;

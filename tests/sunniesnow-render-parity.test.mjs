@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createSunniesnowHitSamples, sunniesnowHitSample } from "../audio/player.js";
+import { createSunniesnowHitSamples, sunniesnowHitSample } from "../js/audio/player.js";
 import {
 	StageView,
 	SUNNIESNOW_AUTOPLAY_GRADIENT,
@@ -18,7 +18,7 @@ import {
 	sunniesnowPatternVisualState,
 	sunniesnowRegularPolygonPoints,
 	sunniesnowTapDoubleLinePairs,
-} from "../render/stage.js";
+} from "../js/render/stage.js";
 
 function assertPoint(actual, expectedX, expectedY) {
 	assert.ok(Math.abs(actual.x - expectedX) < 1e-12, `expected x=${expectedX}, got ${actual.x}`);

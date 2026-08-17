@@ -7,10 +7,10 @@ import { History } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
-import { AudioPlayer } from "../audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
-import { TimelineView } from "../render/timeline.js";
-import { StageView } from "../render/stage.js";
+import { AudioPlayer } from "./audio/player.js";
+import { collectHitSchedule, collectHoldReleaseSchedule } from "./audio/scheduler.js";
+import { TimelineView } from "./render/timeline.js";
+import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
@@ -48,9 +48,12 @@ export const withHistoryCommands = Base => class extends Base {
 		command("file.setBackground", () => { this.exitModes(); document.getElementById("background-file-input").click(); });
 		command("file.save", () => void this.saveChart());
 		command("file.saveAs", () => void this.saveChartAs());
+		command("file.saveProject", () => void this.saveProject());
 		command("file.saveLevel", () => void this.saveLevel());
 		command("file.importClipboard", () => void this.importClipboard());
 		command("file.exportClipboard", () => void this.exportClipboard());
+		command("file.openProjectFolder", () => this.files.openProjectFolder(),
+			() => Boolean(globalThis.nw && this.files.projectPath));
 		command("file.chartProperties", () => void this.showChartProperties(false));
 		command("file.preferences", () => void this.showPreferences());
 
@@ -126,7 +129,9 @@ export const withHistoryCommands = Base => class extends Base {
 	undo() {
 		if (this.freeTransform) this.cancelFreeTransform();
 		this.cancelPreview();
-		this.creationMode = null;
+		const previousMode = this.creationMode;
+		const creationAction = this.history.currentEntry.metadata?.creationMode;
+		this.creationMode = creationAction ? previousMode || creationAction : null;
 		this.curveDraft = null;
 		const snapshot = this.history.undo();
 		if (!snapshot) return;
@@ -140,7 +145,9 @@ export const withHistoryCommands = Base => class extends Base {
 	redo() {
 		if (this.freeTransform) this.cancelFreeTransform();
 		this.cancelPreview();
-		this.creationMode = null;
+		const previousMode = this.creationMode;
+		const creationAction = this.history.entries[this.history.cursor + 1]?.metadata?.creationMode;
+		this.creationMode = creationAction ? previousMode || creationAction : null;
 		this.curveDraft = null;
 		const snapshot = this.history.redo();
 		if (!snapshot) return;
@@ -152,9 +159,12 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	chooseEventTool(type) {
-		this.exitModes();
+		const alreadyCreating = Boolean(this.creationMode);
+		this.curveDraft = null;
+		this.cancelFreeTransform();
+		this.cancelPreview();
 		const chosen = selected(this.model).filter(event => !PATTERN_TYPES.has(event.type));
-		if (chosen.length) {
+		if (!alreadyCreating && chosen.length) {
 			this.commit(i18n.t("history.editEvent", { type: eventTypeLabel(type) }), model => {
 				for (const event of model.events.filter(item => item.selected && !PATTERN_TYPES.has(item.type))) {
 					const overrides = { ...event, id: event.id, selected: true };
@@ -191,7 +201,7 @@ export const withHistoryCommands = Base => class extends Base {
 		this.commit(i18n.t("history.createEvent", { type: eventTypeLabel(type) }), model => {
 			for (const event of model.events) event.selected = false;
 			model.addEvent(type, overrides);
-		});
+		}, { metadata: { creationMode: type } });
 		this.rememberCreationDefaults(selected(this.model));
 	}
 
@@ -261,7 +271,6 @@ export const withHistoryCommands = Base => class extends Base {
 			this.audio.pause();
 			return;
 		}
-		this.exitModes();
 		this.audio.seek(this.currentSeconds());
 		this.audio.setRate(this.model.editor.speed);
 		await this.audio.play();

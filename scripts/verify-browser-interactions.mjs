@@ -344,7 +344,7 @@ export async function runInteractionChecks(page, outputDirectory) {
 	await page.locator('.tool-button[data-command="events.tap"]').click();
 	await page.waitForFunction(() => globalThis.sviber.creationMode === "tap");
 	await page.locator('.tool-button[data-command="music.subdivision4"]').click();
-	await page.waitForFunction(() => globalThis.sviber.creationMode === null && globalThis.sviber.model.editor.subdivision === 4);
+	await page.waitForFunction(() => globalThis.sviber.creationMode === "tap" && globalThis.sviber.model.editor.subdivision === 4);
 	await page.locator('.tool-button[data-command="music.subdivision2"]').click();
 
 	await page.locator('.tool-button[data-command="events.tap"]').click();
@@ -570,6 +570,13 @@ export async function runInteractionChecks(page, outputDirectory) {
 	await page.mouse.dblclick(curvePoints[2].x, curvePoints[2].y);
 	await page.waitForFunction(() => globalThis.sviber.curveDraft === null
 		&& globalThis.sviber.model.snappees.some(snappee => snappee.type === "bezierCurve"));
+	await page.locator(".dialog").waitFor();
+	assert.equal(await page.evaluate(() => {
+		const entry = globalThis.sviber.dialogs.active?.entries.find(candidate => candidate.field.id === "segments");
+		return Boolean(entry?.control.element.contains(document.activeElement)
+			|| entry?.control.element === document.activeElement);
+	}), true, "the curve parameter dialog did not focus the segments field");
+	await page.locator('.dialog-button[data-dialog-action="cancel"]').click();
 	const historyAfterCurve = await page.evaluate(() => globalThis.sviber.history.length);
 	assert.ok(historyAfterCurve >= historyBeforeCurve + 4,
 		`curve control-point actions were not recorded separately: ${historyBeforeCurve} -> ${historyAfterCurve}`);
@@ -647,6 +654,13 @@ export async function runInteractionChecks(page, outputDirectory) {
 	await page.keyboard.press("Enter");
 	await page.waitForFunction(() => globalThis.sviber.curveDraft === null
 		&& globalThis.sviber.model.snappees.some(snappee => snappee.type === "penCurve"));
+	await page.locator(".dialog").waitFor();
+	assert.equal(await page.evaluate(() => {
+		const entry = globalThis.sviber.dialogs.active?.entries.find(candidate => candidate.field.id === "segments");
+		return Boolean(entry?.control.element.contains(document.activeElement)
+			|| entry?.control.element === document.activeElement);
+	}), true, "the pen parameter dialog did not focus the segments field");
+	await page.locator('.dialog-button[data-dialog-action="cancel"]').click();
 	const penCommands = await page.evaluate(() => globalThis.sviber.model.snappees.find(snappee => snappee.type === "penCurve").commands);
 	assert.equal(penCommands[0].type, "M");
 	assert.ok(penCommands.some(command => command.type === "C"), "dragging a pen node did not create a Bezier segment");

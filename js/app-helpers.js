@@ -6,10 +6,10 @@ import { History } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
-import { AudioPlayer } from "../audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
-import { TimelineView } from "../render/timeline.js";
-import { StageView } from "../render/stage.js";
+import { AudioPlayer } from "./audio/player.js";
+import { collectHitSchedule, collectHoldReleaseSchedule } from "./audio/scheduler.js";
+import { TimelineView } from "./render/timeline.js";
+import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 

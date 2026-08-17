@@ -8,7 +8,7 @@ import {
 	tipPointPathBetween,
 	tipPointTrailEdges,
 	tipPointVisualState,
-} from "../render/stage.js";
+} from "../js/render/stage.js";
 
 function note(id, beat, tipPointSpawnType, overrides = {}) {
 	return {

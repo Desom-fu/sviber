@@ -1,5 +1,5 @@
-import { Rational } from "../js/core/rational.js";
-import { resolveAttachedPosition, sampleSnappee } from "../js/core/geometry.js";
+import { Rational } from "../core/rational.js";
+import { resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import {
 	DURATION_TYPES,
 	MOVABLE_TYPES,
@@ -98,6 +98,7 @@ export class ChartRenderIndex {
 		this.selectedEvents = this.selectedRecords.map(record => record.event);
 		this.movableRecords = this.eventRecords.filter(record => MOVABLE_TYPES.has(record.event.type));
 		this.movableIndex = new IntervalIndex(this.movableRecords, "visibleStart", "visibleEnd");
+		this.creationEchoIndex = new IntervalIndex(this.movableRecords, "echoStart", "echoEnd");
 		this.timelineIndex = new IntervalIndex(this.eventRecords, "start", "end");
 		this.patternRecords = this.eventRecords.filter(record => PATTERN_TYPES.has(record.event.type))
 			.sort((left, right) => left.start - right.start || left.sequence - right.sequence);
@@ -158,6 +159,8 @@ export class ChartRenderIndex {
 			end,
 			visibleStart: start - 1 / this.approachSpeed - SUNNIESNOW_SKIN.noteFadeInDuration,
 			visibleEnd: end + eventFadeOutDuration(event),
+			echoStart: end,
+			echoEnd: end + 1 / this.approachSpeed,
 			position: MOVABLE_TYPES.has(event.type) ? this.#resolve(event) : null,
 			tipSpawnPosition: this.#resolve(event, "tipPointSpawn"),
 		};
@@ -211,6 +214,10 @@ export class ChartRenderIndex {
 
 	visibleMovableRecords(now) {
 		return this.movableIndex.query(now);
+	}
+
+	creationEchoRecords(now) {
+		return this.creationEchoIndex.query(now);
 	}
 
 	timelineRecords(beginning, ending) {

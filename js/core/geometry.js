@@ -279,6 +279,28 @@ function sampleBezierCurve(snappee) {
 	return sampled.map(({ x, y }, index) => point(x, y, index));
 }
 
+export function sampleSnappeePath(snappee, options = {}) {
+	if (!snappee || typeof snappee !== "object") throw new TypeError("snappee must be an object");
+	let raw;
+	if (snappee.type === "bezierCurve") {
+		const controlPoints = (snappee.controlPoints ?? []).map((value, index) => ({
+			x: finiteNumber(value?.x ?? value?.[0], `controlPoints[${index}].x`),
+			y: finiteNumber(value?.y ?? value?.[1], `controlPoints[${index}].y`),
+		}));
+		if (controlPoints.length < 2) return [];
+		const resolution = Math.max(256, positiveInteger(snappee.segments, "segments", 1) * 16,
+			controlPoints.length * 64);
+		raw = Array.from({ length: resolution + 1 }, (_, index) => bezierPoint(controlPoints, index / resolution));
+	} else if (snappee.type === "penCurve") {
+		raw = penPolyline(snappee.commands);
+	} else {
+		return sampleSnappee(snappee, options);
+	}
+	if (snappee.closed && raw.length > 1 && distance(raw[0], raw.at(-1)) > EPSILON) raw.push({ ...raw[0] });
+	const transform = normalizeTransform(snappee.transformation ?? IDENTITY_TRANSFORM);
+	return raw.map(point => applyTransform(point, transform));
+}
+
 function normalizedPositiveAngle(angle) {
 	const result = angle % TAU;
 	return result < 0 ? result + TAU : result;

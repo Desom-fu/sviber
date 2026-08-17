@@ -6,10 +6,10 @@ import { History } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
-import { AudioPlayer } from "../audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
-import { TimelineView } from "../render/timeline.js";
-import { StageView } from "../render/stage.js";
+import { AudioPlayer } from "./audio/player.js";
+import { collectHitSchedule, collectHoldReleaseSchedule } from "./audio/scheduler.js";
+import { TimelineView } from "./render/timeline.js";
+import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
@@ -218,7 +218,7 @@ export const withChartTools = Base => class extends Base {
 		if (type === "rectangularMesh") Object.assign(values, {
 			topLeft: [source.topLeftX ?? -100, source.topLeftY ?? 50],
 			bottomRight: [source.bottomRightX ?? 100, source.bottomRightY ?? -50],
-			tiles: [source.horizontalTiles ?? 8, source.verticalTiles ?? 4],
+			tiles: [source.horizontalTiles ?? 16, source.verticalTiles ?? 8],
 		});
 		if (type === "radialMesh") Object.assign(values, {
 			center: [source.centerX ?? 0, source.centerY ?? 0], radius: source.radius ?? "50",
@@ -322,13 +322,14 @@ export const withChartTools = Base => class extends Base {
 		return result;
 	}
 
-	async showSnappeeDialog(type, id = null) {
+	async showSnappeeDialog(type, id = null, options = {}) {
 		this.exitModes();
 		const source = id == null ? null : this.model.snappees.find(snappee => snappee.id === id);
 		const values = await this.dialogs.form({
 			titleKey: "dialog.editSnappee",
 			values: this.snappeeFormValues(type, source),
 			fields: this.snappeeFields(type, Boolean(source)),
+			focusField: options.focusField,
 		});
 		if (!values) return;
 		const data = this.formToSnappee(type, values);
@@ -516,7 +517,13 @@ export const withChartTools = Base => class extends Base {
 				segments: Math.max(8, draft.points.length * 4), closed: Boolean(draft.closed) };
 		}
 		this.curveDraft = null;
-		this.commit(i18n.t("history.createSnappee"), model => model.addSnappee(draft.type, data));
+		let createdId = null;
+		this.commit(i18n.t("history.createSnappee"), model => {
+			createdId = model.addSnappee(draft.type, data).id;
+		});
+		if (createdId != null && ["bezierCurve", "penCurve"].includes(draft.type)) {
+			void this.showSnappeeDialog(draft.type, createdId, { focusField: "segments" });
+		}
 	}
 
 	fillSelectedCurve() {

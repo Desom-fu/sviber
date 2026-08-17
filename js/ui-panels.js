@@ -285,7 +285,7 @@ export class SnappeesPanel {
 		button.className = 'snappee-action';
 		if (iconType === 'activate' || iconType === 'deactivate') {
 			const image = this.document.createElement('img');
-			image.src = `maker/svg/icons/${iconType}-snappee.svg`;
+			image.src = `svg/icons/${iconType}-snappee.svg`;
 			image.alt = '';
 			image.draggable = false;
 			button.appendChild(image);

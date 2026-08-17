@@ -6,10 +6,10 @@ import { History } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
-import { AudioPlayer } from "../audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
-import { TimelineView } from "../render/timeline.js";
-import { StageView } from "../render/stage.js";
+import { AudioPlayer } from "./audio/player.js";
+import { collectHitSchedule, collectHoldReleaseSchedule } from "./audio/scheduler.js";
+import { TimelineView } from "./render/timeline.js";
+import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
@@ -39,9 +39,12 @@ export const withEventEditing = Base => class extends Base {
 				this.resumePlaybackAfterSeek = false;
 				if (resume) void this.audio.play();
 			},
-			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
-			onRangeSelect: (beat, channel, mode) => this.rangeSelect(beat, channel, mode),
-			onSeekBeat: (beat, channel, clearSelection) => this.seekBeat(beat, channel, clearSelection),
+			onSelectEvents: (ids, mode) => { this.exitCreationModes(); this.selectEvents(ids, mode); },
+			onRangeSelect: (beat, channel, mode) => { this.exitCreationModes(); this.rangeSelect(beat, channel, mode); },
+			onSeekBeat: (beat, channel, clearSelection) => {
+				if (clearSelection) this.exitCreationModes();
+				this.seekBeat(beat, channel, clearSelection);
+			},
 			onPreviewMoveEvents: (delta, channelDelta, copy) => this.previewMoveEvents(delta, channelDelta, copy),
 			onMoveEvents: (delta, channelDelta, copy) => this.moveEvents(delta, channelDelta, copy),
 			onPreviewDuration: (id, duration) => this.preview("Resize event", model => { const event = model.events.find(item => item.id === id); if (event) event.duration = duration; }),
@@ -52,8 +55,8 @@ export const withEventEditing = Base => class extends Base {
 				});
 				this.rememberCreationDefaults(this.model.events.filter(event => event.id === id));
 			},
-			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode),
-			onBoxSelect: (ids, mode) => this.selectEvents(ids, mode),
+			onPreviewBoxSelect: (ids, mode) => { this.exitCreationModes(); this.previewSelection(ids, mode); },
+			onBoxSelect: (ids, mode) => { this.exitCreationModes(); this.selectEvents(ids, mode); },
 			onEndPreview: () => this.cancelPreview(),
 			onVisibleRange: (beginning, end) => this.setVisibleRange(beginning, end),
 			onEditBpm: index => void this.showBpmDialog(index),
@@ -69,7 +72,7 @@ export const withEventEditing = Base => class extends Base {
 			getCurveDraft: () => this.curveDraft,
 			getFreeTransform: () => this.freeTransform,
 			getTimeBounds: () => this.timeBounds(true),
-			onCreationPreview: () => this._updateStatus(),
+			onCreationPreview: () => this.requestStatusUpdate(),
 			onCreateEvent: (type, preview) => this.createPositionedEvent(type, preview),
 			onCurvePoint: (point, finish) => this.addCurvePoint(point, finish),
 			onPenNodeStart: point => this.startPenNode(point),
@@ -112,7 +115,7 @@ export const withEventEditing = Base => class extends Base {
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false });
+		}, { dirty: false, allowPlaying: true });
 	}
 
 	_reconcileStageMoveAttachmentException(selectionBefore) {
@@ -224,14 +227,24 @@ export const withEventEditing = Base => class extends Base {
 			return;
 		}
 		const direction = Math.sign(deltaY);
-		const nextBeat = this.currentBeat().add(new Rational(direction, this.model.editor.subdivision));
+		if (!direction) return;
+		const editor = this.model.editor;
 		const oldSeconds = this.currentSeconds();
+		const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
+		const moveVisibleRange = oldSeconds >= center
+			&& oldSeconds >= editor.visibleRangeBeginning && oldSeconds <= editor.visibleRangeEnd;
+		const nextBeat = this.currentBeat().add(new Rational(direction, this.model.editor.subdivision));
 		const nextSeconds = this.timing().beatToSeconds(nextBeat);
 		const bounds = this.timeBounds();
 		if (nextSeconds < bounds[0] - 1e-8 || nextSeconds > bounds[1] + 1e-8) return;
 		const delta = nextSeconds - oldSeconds;
 		this.model.editor.currentTime = nextBeat.toJSON();
 		this.model.editor.timeSnapped = true;
+		if (!moveVisibleRange) {
+			this.refresh();
+			this.audio.seek(nextSeconds);
+			return;
+		}
 		this.model.editor.visibleRangeBeginning += delta;
 		this.model.editor.visibleRangeEnd += delta;
 		const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;

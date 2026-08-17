@@ -7,16 +7,16 @@ import { History } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
-import { AudioPlayer } from "../audio/player.js";
+import { AudioPlayer } from "./audio/player.js";
 import {
 	collectHitSchedule,
 	collectHoldReleaseSchedule,
 	collectIndexedHitSchedule,
 	collectIndexedHoldReleaseSchedule,
-} from "../audio/scheduler.js";
-import { TimelineView } from "../render/timeline.js";
-import { StageView } from "../render/stage.js";
-import { ChartRenderIndex } from "../render/chart-index.js";
+} from "./audio/scheduler.js";
+import { TimelineView } from "./render/timeline.js";
+import { StageView } from "./render/stage.js";
+import { ChartRenderIndex } from "./render/chart-index.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
@@ -43,6 +43,7 @@ export class SviberAppCore {
 		this.resumePlaybackAfterSeek = false;
 		this.stageMoveAttachmentException = null;
 		this.renderQueued = false;
+		this.statusUpdateFrame = 0;
 		this.renderIndex = null;
 		this.mediaSync = Promise.resolve();
 		this.audio = new AudioPlayer();
@@ -56,10 +57,15 @@ export class SviberAppCore {
 			blocked: () => this.audio.playing || Boolean(this.freeTransform),
 			hardBlocked: () => Boolean(this.dialogs.active),
 		});
+		this.dialogs.onStateChange = () => this.registry.notifyAll();
 		this.menu = new MenuBar({ registry: this.registry, i18n, tooltip: this.tooltip, contextProvider: () => this });
 		this.toolbar = new Toolbar({ registry: this.registry, i18n, tooltip: this.tooltip, contextProvider: () => this });
 		this.unsubscribeCommandModes = this.registry.subscribe(change => {
-			if (change.type === "execute" && change.phase === "before") this.exitCreationModes();
+			if (change.type !== "execute" || change.phase !== "before") return;
+			const creationTools = new Set(["events.tap", "events.hold", "events.drag", "events.flick", "events.bgNote"]);
+			if (change.id.startsWith("music.") || creationTools.has(change.id)
+				|| change.id === "edit.undo" || change.id === "edit.redo") return;
+			this.exitCreationModes();
 		});
 
 		this.timeline = new TimelineView(document.getElementById("timeline-surface"), this._timelineCallbacks());
@@ -183,7 +189,7 @@ export class SviberAppCore {
 	}
 
 	commit(label, mutation, options = {}) {
-		if (this.audio.playing) return undefined;
+		if (this.audio.playing && !options.allowPlaying) return undefined;
 		if (this.freeTransform) this.finishFreeTransform();
 		if (this.previewBase) {
 			this.model.restore(this.previewBase);
@@ -197,7 +203,7 @@ export class SviberAppCore {
 			return result;
 		}
 		this._reconcileStageMoveAttachmentException(selectionBefore);
-		this.history.record(this.model.snapshot(), label);
+		this.history.record(this.model.snapshot(), label, options.metadata ?? null);
 		if (options.dirty !== false) this.updateDirty();
 		this.refresh();
 		return result;
@@ -471,6 +477,14 @@ export class SviberAppCore {
 		} else operation.textContent = "";
 	}
 
+	requestStatusUpdate() {
+		if (this.statusUpdateFrame) return;
+		this.statusUpdateFrame = requestAnimationFrame(() => {
+			this.statusUpdateFrame = 0;
+			this._updateStatus();
+		});
+	}
+
 	_syncCheckedCommands() {
 		for (const type of ["tap", "hold", "drag", "flick", "bgNote"]) {
 			this.registry.setChecked(`events.${type}`, this.creationMode === type);
@@ -519,13 +533,19 @@ export class SviberAppCore {
 			const time = event.detail;
 			this.model.editor.timeSnapped = false;
 			this.model.editor.currentTime = time;
-			if (this.playFollowOffset != null) {
-				const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
+			const editor = this.model.editor;
+			const span = editor.visibleRangeEnd - editor.visibleRangeBeginning;
+			const center = editor.visibleRangeBeginning + span / 2;
+			if (this.playFollowOffset === null && time >= center && time <= editor.visibleRangeEnd) {
+				this.playFollowOffset = time - editor.visibleRangeBeginning;
+			}
+			if (typeof this.playFollowOffset === "number") {
 				const bounds = this.timeBounds();
-				let beginning = time - this.playFollowOffset;
-				beginning = Math.max(bounds[0], Math.min(bounds[1] - span, beginning));
-				this.model.editor.visibleRangeBeginning = beginning;
-				this.model.editor.visibleRangeEnd = beginning + span;
+				const requested = time - this.playFollowOffset;
+				const beginning = Math.max(bounds[0], Math.min(bounds[1] - span, requested));
+				editor.visibleRangeBeginning = beginning;
+				editor.visibleRangeEnd = beginning + span;
+				if (Math.abs(beginning - requested) > 1e-8) this.playFollowOffset = false;
 			}
 			this._scheduleHits(time);
 			this.refreshPlaybackFrame();
@@ -534,8 +554,10 @@ export class SviberAppCore {
 			this._rebuildRenderIndex();
 			const time = this.currentSeconds();
 			const editor = this.model.editor;
-			this.playFollowOffset = time >= editor.visibleRangeBeginning && time <= editor.visibleRangeEnd
-				? time - editor.visibleRangeBeginning : null;
+			const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
+			this.playFollowOffset = time > editor.visibleRangeEnd ? false
+				: time >= center && time >= editor.visibleRangeBeginning
+					? time - editor.visibleRangeBeginning : null;
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
 			this._scheduleHits(time);
@@ -661,6 +683,7 @@ export class SviberAppCore {
 		this.toolbar.destroy();
 		this.tooltip.destroy();
 		this.unsubscribeCommandModes?.();
+		cancelAnimationFrame(this.statusUpdateFrame);
 	}
 
 }

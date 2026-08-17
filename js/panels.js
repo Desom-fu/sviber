@@ -520,7 +520,7 @@ export class SnappeesPanel {
 		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
 		if (icon === "activate" || icon === "deactivate") {
 			const image = document.createElement("img");
-			image.src = `maker/svg/icons/${icon}-snappee.svg`;
+			image.src = `svg/icons/${icon}-snappee.svg`;
 			image.alt = "";
 			image.draggable = false;
 			button.append(image);

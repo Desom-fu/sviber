@@ -1,8 +1,8 @@
 import { performance } from "node:perf_hooks";
 
-import { collectIndexedHitSchedule } from "../audio/scheduler.js";
+import { collectIndexedHitSchedule } from "../js/audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
-import { ChartRenderIndex } from "../render/chart-index.js";
+import { ChartRenderIndex } from "../js/render/chart-index.js";
 
 const EVENT_COUNT = 100_000;
 const FRAME_COUNT = 600;

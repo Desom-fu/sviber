@@ -1,5 +1,5 @@
-import { Rational } from "../js/core/rational.js";
-import { TimingMap } from "../js/core/timing.js";
+import { Rational } from "../core/rational.js";
+import { TimingMap } from "../core/timing.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
 import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointVisualState } from "./stage.js";
@@ -16,7 +16,7 @@ const NOTE_COLORS = {
 	tap: "#55d7bf",
 	hold: "#ad7cf4",
 	drag: "#f3ca4f",
-	flick: "#ef526f",
+	flick: "#43a5ff",
 	bgNote: "#8b949d",
 	bigText: "#edf0f2",
 	grid: "#69b7ff",
@@ -118,6 +118,25 @@ function drawPatternIcon(context, type, x, y, radius, color) {
 	context.restore();
 }
 
+export function timelineTipConnector(checkpoints, tailLength = 18) {
+	if (!Array.isArray(checkpoints) || checkpoints.length < 2) return [];
+	const spawn = checkpoints[0];
+	const firstEvent = checkpoints[1];
+	let dx = Number(spawn.x) - Number(firstEvent.x);
+	let dy = Number(spawn.y) - Number(firstEvent.y);
+	let length = Math.hypot(dx, dy);
+	if (!(length > 1e-8)) {
+		dx = -1;
+		dy = 0;
+		length = 1;
+	}
+	const fixedLength = Math.max(1, Number(tailLength) || 18);
+	return [
+		{ ...firstEvent, x: firstEvent.x + dx / length * fixedLength, y: firstEvent.y + dy / length * fixedLength },
+		...checkpoints.slice(1),
+	];
+}
+
 export class TimelineView {
 	constructor(host, callbacks = {}) {
 		this.host = host;
@@ -136,8 +155,14 @@ export class TimelineView {
 		this.drag = null;
 		this.selectionBox = null;
 		this.pointerMoved = false;
-		this.boundMove = event => this.#pointerMove(event);
-		this.boundUp = event => this.#pointerUp(event);
+		this.renderAnimationFrame = 0;
+		this.pointerMoveAnimationFrame = 0;
+		this.pendingPointerMove = null;
+		this.boundMove = event => this.#queuePointerMove(event);
+		this.boundUp = event => {
+			this.#flushPointerMove();
+			this.#pointerUp(event);
+		};
 		this.surface.ready.then(() => {
 			this.surface.canvas.addEventListener("pointerdown", event => this.#pointerDown(event));
 			this.surface.canvas.addEventListener("dblclick", event => this.#doubleClick(event));
@@ -157,9 +182,41 @@ export class TimelineView {
 	}
 
 	render() {
+		if (this.renderAnimationFrame) {
+			cancelAnimationFrame(this.renderAnimationFrame);
+			this.renderAnimationFrame = 0;
+		}
 		if (!this.state || !this.surface.context) return;
 		this.surface.resize();
 		this.surface.render((context, width, height) => this.#draw(context, width, height));
+	}
+
+	requestRender() {
+		if (this.renderAnimationFrame) return;
+		this.renderAnimationFrame = requestAnimationFrame(() => {
+			this.renderAnimationFrame = 0;
+			this.render();
+		});
+	}
+
+	#queuePointerMove(event) {
+		this.pendingPointerMove = {
+			clientX: event.clientX,
+			clientY: event.clientY,
+			ctrlKey: event.ctrlKey,
+			shiftKey: event.shiftKey,
+			altKey: event.altKey,
+		};
+		if (this.pointerMoveAnimationFrame) return;
+		this.pointerMoveAnimationFrame = requestAnimationFrame(() => this.#flushPointerMove());
+	}
+
+	#flushPointerMove() {
+		if (this.pointerMoveAnimationFrame) cancelAnimationFrame(this.pointerMoveAnimationFrame);
+		this.pointerMoveAnimationFrame = 0;
+		const event = this.pendingPointerMove;
+		this.pendingPointerMove = null;
+		if (event) this.#pointerMove(event);
 	}
 
 	#layout(width, height) {
@@ -470,10 +527,7 @@ export class TimelineView {
 		for (const guide of guides) {
 			const checkpoints = this.#tipPointCheckpoints(guide, layout, project, offsets);
 			if (!checkpoints) continue;
-			const lineBeginning = Math.max(beginning, checkpoints[0].time);
-			const lineEnding = Math.min(ending, checkpoints.at(-1).time);
-			const line = lineBeginning <= lineEnding
-				? tipPointPathBetween(checkpoints, lineBeginning, lineEnding) : [];
+			const line = tipPointPathBetween(timelineTipConnector(checkpoints), beginning, ending);
 			context.save();
 			context.strokeStyle = "rgba(255,255,255,0.24)";
 			context.lineWidth = 5;
@@ -536,7 +590,7 @@ export class TimelineView {
 			const change = project.timing.bpmChanges[index];
 			const x = this.#timeToX(this.timing.beatToSeconds(change.time), rectangle.width);
 			if (x < -40 || x > rectangle.width + 4) continue;
-			const text = `${Number(change.bpm).toFixed(Number.isInteger(change.bpm) ? 0 : 2)} BPM`;
+			const text = Number(change.bpm).toFixed(Number.isInteger(change.bpm) ? 0 : 2);
 			const metrics = context.measureText(text);
 			context.fillStyle = "#d567ff";
 			context.fillText(text, x + 3, rectangle.height - 3);
@@ -682,9 +736,13 @@ export class TimelineView {
 			}
 			if (event.ctrlKey && !hit.event.selected) this.callbacks.onSelectEvents?.([hit.event.id], "add");
 			else if (!event.ctrlKey && !hit.event.selected) this.callbacks.onSelectEvents?.([hit.event.id], "replace");
+			const selectedEvents = project.events.filter(candidate => candidate.selected);
+			const simultaneous = selectedEvents.length > 0
+				&& selectedEvents.every(candidate => Rational.from(candidate.time).equals(hit.event.time));
 			this.drag = {
 				type: "event", event: hit.event, start: point,
 				startBeat: Rational.from(hit.event.time), copy: event.ctrlKey,
+				absoluteBeatSnap: simultaneous,
 				collapseSelectionOnClick: !event.ctrlKey && Boolean(hit.event.selected),
 			};
 		} else if (hit?.type === "duration") {
@@ -710,7 +768,6 @@ export class TimelineView {
 			} else {
 				this.drag = { type: "box", start: point, channelId: channel?.id,
 					mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace" };
-				this.selectionBox = { x1: point.x, y1: point.y, x2: point.x, y2: point.y };
 			}
 		}
 		if (!this.drag) return;
@@ -733,7 +790,8 @@ export class TimelineView {
 				const beginning = this.timing.secondsToSnappedBeat(this.#xToSeconds(this.drag.start.x, layout.channels.width), project.editor.subdivision);
 				const ending = this.timing.secondsToSnappedBeat(this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision);
 				const channelDelta = Math.round((point.y - this.drag.start.y) / layout.channelHeight);
-				this.callbacks.onPreviewMoveEvents?.(ending.sub(beginning).toJSON(), channelDelta, this.drag.copy);
+				const delta = this.drag.absoluteBeatSnap ? ending.sub(this.drag.startBeat) : ending.sub(beginning);
+				this.callbacks.onPreviewMoveEvents?.(delta.toJSON(), channelDelta, this.drag.copy);
 				break;
 			}
 			case "duration": {
@@ -744,6 +802,8 @@ export class TimelineView {
 				break;
 			}
 			case "box": {
+				if (!this.pointerMoved) break;
+				this.selectionBox ||= { x1: this.drag.start.x, y1: this.drag.start.y, x2: point.x, y2: point.y };
 				this.selectionBox.x2 = point.x;
 				this.selectionBox.y2 = point.y;
 				const x1 = Math.min(this.selectionBox.x1, point.x);
@@ -753,7 +813,7 @@ export class TimelineView {
 				const ids = this.eventCenters.filter(center => center.x >= x1 && center.x <= x2 && center.y >= y1 && center.y <= y2)
 					.map(center => center.event.id);
 				this.callbacks.onPreviewBoxSelect?.(ids, this.drag.mode);
-				this.render();
+				this.requestRender();
 				break;
 			}
 			case "scroll-current":
@@ -768,7 +828,7 @@ export class TimelineView {
 				const available = this.drag.hit.height - this.drag.hit.thumbHeight;
 				this.channelOffset = Math.round(Math.max(0, Math.min(1,
 					(point.y - layout.channels.y - this.drag.hit.thumbHeight / 2) / Math.max(1, available))) * this.drag.hit.maxOffset);
-				this.render();
+				this.requestRender();
 				break;
 			}
 		}
@@ -784,7 +844,8 @@ export class TimelineView {
 			const beginning = this.timing.secondsToSnappedBeat(this.#xToSeconds(drag.start.x, layout.channels.width), project.editor.subdivision);
 			const ending = this.timing.secondsToSnappedBeat(this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision);
 			const channelDelta = Math.round((point.y - drag.start.y) / layout.channelHeight);
-			this.callbacks.onMoveEvents?.(ending.sub(beginning).toJSON(), channelDelta, drag.copy);
+			const delta = drag.absoluteBeatSnap ? ending.sub(drag.startBeat) : ending.sub(beginning);
+			this.callbacks.onMoveEvents?.(delta.toJSON(), channelDelta, drag.copy);
 		} else if (drag.type === "event" && drag.collapseSelectionOnClick) {
 			this.callbacks.onSelectEvents?.([drag.event.id], "replace");
 		} else if (drag.type === "duration" && this.pointerMoved) {
@@ -810,7 +871,7 @@ export class TimelineView {
 		document.removeEventListener("pointermove", this.boundMove);
 		document.removeEventListener("pointerup", this.boundUp);
 		document.removeEventListener("pointercancel", this.boundUp);
-		this.render();
+		this.requestRender();
 	}
 
 	#doubleClick(event) {
@@ -858,7 +919,7 @@ export class TimelineView {
 		if (project.channels.length > 3 && event.shiftKey) {
 			this.channelOffset = Math.max(0, Math.min(project.channels.length - 3,
 				this.channelOffset + Math.sign(event.deltaY)));
-			this.render();
+			this.requestRender();
 			return;
 		}
 		this.callbacks.onWheel?.(event);
@@ -868,6 +929,8 @@ export class TimelineView {
 		document.removeEventListener("pointermove", this.boundMove);
 		document.removeEventListener("pointerup", this.boundUp);
 		document.removeEventListener("pointercancel", this.boundUp);
+		cancelAnimationFrame(this.renderAnimationFrame);
+		cancelAnimationFrame(this.pointerMoveAnimationFrame);
 		this.surface.destroy();
 	}
 }

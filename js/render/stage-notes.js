@@ -1,6 +1,6 @@
-import { Rational } from "../js/core/rational.js";
-import { TimingMap } from "../js/core/timing.js";
-import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../js/core/geometry.js";
+import { Rational } from "../core/rational.js";
+import { TimingMap } from "../core/timing.js";
+import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
 
@@ -197,6 +197,37 @@ export const withStageNotes = Base => class extends Base {
 		context.arc(screen.x, screen.y, Math.max(0, radius - lineWidth / 2), 0, Math.PI * 2);
 		context.stroke();
 		context.restore();
+	}
+
+	_drawCreationEchoes(context, project, mapping, now) {
+		if (!this.callbacks.getCreationMode?.()) return;
+		const speed = Number(this.state?.preferences?.noteSpeed) > 0
+			? Number(this.state.preferences.noteSpeed) : SUNNIESNOW_SKIN.approachSpeed;
+		const records = this.renderIndex?.creationEchoRecords(now)
+			|| project.events.filter(event => MOVABLE_TYPES.has(event.type)).map(event => ({
+				event,
+				end: this._eventTimes(event).end,
+				position: resolveAttachedPosition(event, project.snappees) || event,
+			}));
+		for (const record of records) {
+			const elapsed = now - record.end;
+			if (elapsed < 0 || elapsed > 1 / speed) continue;
+			const position = record.position || this.renderIndex?.positionFor(record.event)
+				|| resolveAttachedPosition(record.event, project.snappees) || record.event;
+			const screen = mapping.toScreen(position);
+			const radius = sunniesnowNoteRadius(record.event.type) * mapping.scale;
+			context.save();
+			context.globalAlpha = (1 - elapsed * speed) * 0.48;
+			context.strokeStyle = "#ffffff";
+			context.lineWidth = Math.max(1, radius / 10);
+			if (record.event.type === "bgNote") polygonPath(context, screen.x, screen.y, radius, 6, 0);
+			else {
+				context.beginPath();
+				context.arc(screen.x, screen.y, radius, 0, Math.PI * 2);
+			}
+			context.stroke();
+			context.restore();
+		}
 	}
 
 	_drawSelectedInvisible(context, project, mapping, now) {

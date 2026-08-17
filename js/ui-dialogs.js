@@ -11,6 +11,7 @@ export class DialogManager {
 		this.document = options.document || globalThis.document;
 		this.i18n = options.i18n || defaultI18n;
 		this.tooltip = options.tooltip || null;
+		this.onStateChange = options.onStateChange || null;
 		this.layer = resolveElement(options.layer, 'modal-layer', this.document);
 		this.appElement = resolveElement(options.appElement, 'app', this.document);
 		this.active = null;
@@ -148,10 +149,12 @@ export class DialogManager {
 				previousAriaHidden,
 				drag: null
 			};
+			this.onStateChange?.(true);
 			this.installDialogListeners();
 			this.refreshDialogState();
 			queueMicrotask(() => {
-				const first = entries.find(entry => !entry.disabled)?.control;
+				const first = entries.find(entry => entry.field.id === options.focusField && !entry.disabled)?.control
+					|| entries.find(entry => !entry.disabled)?.control;
 				if (first?.focus) first.focus();
 				else buttons[0]?.element.focus();
 			});
@@ -314,6 +317,7 @@ export class DialogManager {
 			else this.appElement.setAttribute('aria-hidden', active.previousAriaHidden);
 		}
 		this.active = null;
+		this.onStateChange?.(false);
 		active.previousFocus?.focus?.();
 	}
 

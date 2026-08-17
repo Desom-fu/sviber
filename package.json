@@ -13,7 +13,7 @@
 		"min_width": 960,
 		"min_height": 620,
 		"position": "center",
-		"icon": "icon.ico"
+		"icon": "svg/icon.svg"
 	},
 	"scripts": {
 		"start": "http-server .. -p 4173 -c-1",
@@ -36,6 +36,7 @@
 		"nw": "^0.114.2",
 		"nw-builder": "^4.18.0",
 		"playwright-core": "^1.62.1",
-		"pngjs": "^7.0.0"
+		"pngjs": "^7.0.0",
+		"sharp": "^0.35.3"
 	}
 }

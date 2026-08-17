@@ -407,6 +407,12 @@ export class FileManager {
 		};
 	}
 
+	openProjectFolder() {
+		if (!globalThis.nw || !this.projectPath) return false;
+		globalThis.nw.Shell.openItem(this.projectPath);
+		return true;
+	}
+
 	async parseFile(file, importOptions = null) {
 		if (!file) return null;
 		const fileExtension = extension(file.name);
@@ -477,6 +483,14 @@ export class FileManager {
 		const filename = `${sanitizeFilename(model.metadata.title)}-${sanitizeFilename(model.metadata.difficultyName)}.json`;
 		const blob = new Blob([model.serialize(2)], { type: "application/json" });
 		const modules = nwModules();
+		if (!options.saveAs && modules && this.projectPath && options.projectFilename) {
+			const pathname = modules.path.resolve(this.projectPath, sanitizeFilename(options.projectFilename));
+			if (modules.path.dirname(pathname) !== modules.path.resolve(this.projectPath)) throw new Error("Invalid project chart filename.");
+			await writeLocalFile(modules.fs, pathname, blob);
+			this.chartPath = pathname;
+			this.chartFilename = modules.path.basename(pathname);
+			return pathname;
+		}
 		if (!options.saveAs && modules && this.chartPath) {
 			await writeLocalFile(modules.fs, this.chartPath, blob);
 			return this.chartPath;

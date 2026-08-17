@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v20";
+const CACHE_VERSION = "sviber-v21";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -8,6 +8,8 @@ const APP_SHELL = [
 	"./index.html",
 	"./css/app.css",
 	"./css/overlays.css",
+	"./css/fonts-local.css",
+	"./css/fonts-web.css",
 	"./js/app-helpers.js",
 	"./js/app-core.js",
 	"./js/app-event-editing.js",
@@ -19,11 +21,13 @@ const APP_SHELL = [
 	"./js/ui-fields.js",
 	"./js/ui-dialogs.js",
 	"./js/ui-panels.js",
-	"./render/stage-helpers.js",
-	"./render/stage-core.js",
-	"./render/stage-notes.js",
-	"./render/stage-interactions.js",
-	"./icon.svg",
+	"./js/nw-source-bootstrap.js",
+	"./js/font-loader.js",
+	"./js/render/stage-helpers.js",
+	"./js/render/stage-core.js",
+	"./js/render/stage-notes.js",
+	"./js/render/stage-interactions.js",
+	"./svg/icon.svg",
 	"./js/vendor-loader.js",
 	"./js/app.js?v=19",
 	"./js/commands.js",
@@ -37,13 +41,13 @@ const APP_SHELL = [
 	"./js/core/project.js",
 	"./js/core/rational.js",
 	"./js/core/timing.js",
-	"./audio/player.js",
-	"./audio/decoder.js",
-	"./audio/scheduler.js",
-	"./audio/waveform.js",
-	"./render/pixi-surface.js",
-	"./render/stage.js",
-	"./render/timeline.js",
+	"./js/audio/player.js",
+	"./js/audio/decoder.js",
+	"./js/audio/scheduler.js",
+	"./js/audio/waveform.js",
+	"./js/render/pixi-surface.js",
+	"./js/render/stage.js",
+	"./js/render/timeline.js",
 	"./manifest.webmanifest",
 	...[
 		"activate-snappee.svg", "attach.svg", "bpm-change.svg", "create-bezier-curve.svg",
@@ -57,7 +61,7 @@ const APP_SHELL = [
 		"speed-0-25.svg", "speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",
 		"time-lattice-2.svg", "time-lattice-3.svg", "time-lattice-4.svg",
 		"time-lattice-6.svg", "time-lattice-8.svg", "zoom-in.svg", "zoom-out.svg",
-	].map(name => `maker/svg/icons/${name}`),
+	].map(name => `svg/icons/${name}`),
 ];
 const CDN_ASSETS = [
 	"https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js",
