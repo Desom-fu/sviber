@@ -5,6 +5,7 @@
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",
 	"main": "index.html",
+	"sviber-source": true,
 	"window": {
 		"title": "sviber",
 		"width": 1440,

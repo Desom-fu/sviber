@@ -4,8 +4,10 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { build as esbuild } from "esbuild";
 import nwbuild from "nw-builder";
+import decoderBundler from "./audio-decoder-bundle.cjs";
+
+const { bundleAudioDecoder: bundleAudioDecoderFile } = decoderBundler;
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const sviberDirectory = path.resolve(scriptDirectory, "..");
@@ -220,23 +222,6 @@ async function copyProductionDependencies(applicationDirectory) {
 	}
 }
 
-async function bundleAudioDecoder(applicationDirectory) {
-	await esbuild({
-		entryPoints: [path.join(sviberDirectory, "node_modules", "audio-decode", "audio-decode.js")],
-		outfile: path.join(applicationDirectory, "audio", "audio-decode.bundle.js"),
-		bundle: true,
-		define: {
-			process: "undefined",
-			"globalThis.process": "undefined",
-		},
-		external: ["node:module"],
-		format: "esm",
-		legalComments: "eof",
-		platform: "browser",
-		target: "chrome136",
-	});
-}
-
 async function localizePackagedFontCss(applicationDirectory) {
 	const filename = path.join(applicationDirectory, "css", "app.css");
 	const source = await readFile(filename, "utf8");
@@ -267,7 +252,7 @@ async function copyApplication() {
 	await cp(repositoryLicense, path.join(stageDirectory, "LICENSE"));
 	await cp(repositoryLicense, path.join(applicationDirectory, "LICENSE"));
 	await copyProductionDependencies(applicationDirectory);
-	await bundleAudioDecoder(applicationDirectory);
+	await bundleAudioDecoderFile(path.join(applicationDirectory, "audio", "audio-decode.bundle.js"), { minify: true });
 	await localizePackagedFontCss(applicationDirectory);
 
 	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));

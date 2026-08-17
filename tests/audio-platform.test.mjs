@@ -89,18 +89,15 @@ test("audio-decode uses the versioned CDN on web and the bundled module in NW.js
 	assert.ok(buffer.getChannelData(0).some(sample => sample !== 0));
 });
 
-test("NW.js falls back to its local Node module when the bundle is unavailable", async () => {
-	let requiredFilename = "";
-	const decoder = () => {};
-	const resolved = await resolveAudioDecode({
-		nw: { require(filename) {
-			requiredFilename = filename;
-			return { default: decoder };
-		} },
-		importModule: async () => { throw new TypeError("bundle is unavailable"); },
-	});
-	assert.equal(resolved, decoder);
-	assert.equal(requiredFilename, "./node_modules/audio-decode/audio-decode.js");
+test("source NW.js startup prepares the same local decoder bundle", async () => {
+	const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
+	assert.equal(packageJson["sviber-source"], true);
+	const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
+	const bootstrap = await readFile(new URL("../js/nw-source-bootstrap.js", import.meta.url), "utf8");
+	const buildScript = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
+	assert.match(bootstrap, /bundleAudioDecoderSync/);
+	assert.ok(index.indexOf("js/nw-source-bootstrap.js") < index.indexOf("js/app.js"));
+	assert.match(buildScript, /bundleAudioDecoderFile/);
 });
 
 test("audio-decode falls back to native decodeAudioData", async () => {
