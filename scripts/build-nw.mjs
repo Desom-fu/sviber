@@ -4,6 +4,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { build as esbuild } from "esbuild";
 import nwbuild from "nw-builder";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -219,6 +220,23 @@ async function copyProductionDependencies(applicationDirectory) {
 	}
 }
 
+async function bundleAudioDecoder(applicationDirectory) {
+	await esbuild({
+		entryPoints: [path.join(sviberDirectory, "node_modules", "audio-decode", "audio-decode.js")],
+		outfile: path.join(applicationDirectory, "audio", "audio-decode.bundle.js"),
+		bundle: true,
+		define: {
+			process: "undefined",
+			"globalThis.process": "undefined",
+		},
+		external: ["node:module"],
+		format: "esm",
+		legalComments: "eof",
+		platform: "browser",
+		target: "chrome136",
+	});
+}
+
 async function copyApplication() {
 	await rm(buildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
@@ -241,6 +259,7 @@ async function copyApplication() {
 	await cp(repositoryLicense, path.join(stageDirectory, "LICENSE"));
 	await cp(repositoryLicense, path.join(applicationDirectory, "LICENSE"));
 	await copyProductionDependencies(applicationDirectory);
+	await bundleAudioDecoder(applicationDirectory);
 
 	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
 	const packageJson = {
@@ -249,19 +268,20 @@ async function copyApplication() {
 		main: "sviber/index.html",
 		window: {
 			...sourcePackage.window,
-			icon: "sviber/icon.svg",
+			icon: "sviber/icon.ico",
 		},
 	};
 	await writeFile(path.join(stageDirectory, "package.json"), `${JSON.stringify(packageJson, null, "\t")}\n`);
 }
 
 async function runBuilder() {
+	const nwPackage = JSON.parse(await readFile(path.join(sviberDirectory, "node_modules", "nw", "package.json"), "utf8"));
 	const previousDirectory = process.cwd();
 	process.chdir(stageDirectory);
 	try {
 		await nwbuild({
 			mode: "build",
-			version: "0.114.1",
+			version: nwPackage.version,
 			flavor: "normal",
 			glob: false,
 			srcDir: stageDirectory,

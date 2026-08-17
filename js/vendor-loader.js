@@ -10,7 +10,7 @@
 		{
 			name: "PIXI",
 			local: "node_modules/pixi.js/dist/pixi.min.js",
-			cdn: "https://cdn.jsdelivr.net/npm/pixi.js@8.18.1/dist/pixi.min.js",
+			cdn: "https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js",
 		},
 		{
 			name: "math",

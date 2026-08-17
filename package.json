@@ -12,7 +12,7 @@
 		"min_width": 960,
 		"min_height": 620,
 		"position": "center",
-		"icon": "icon.svg"
+		"icon": "icon.ico"
 	},
 	"scripts": {
 		"start": "http-server .. -p 4173 -c-1",
@@ -21,15 +21,16 @@
 		"verify:browser": "node scripts/verify-browser.mjs"
 	},
 	"dependencies": {
-		"audio-decode": "3.9.3",
-		"jszip": "3.10.1",
-		"mathjs": "15.2.0",
-		"pixi.js": "8.18.1"
+		"audio-decode": "^3.12.0",
+		"jszip": "^3.10.1",
+		"mathjs": "^15.2.0",
+		"pixi.js": "^8.19.0"
 	},
 	"devDependencies": {
-		"http-server": "14.1.1",
-		"nw": "0.114.1",
-		"nw-builder": "4.18.0",
+		"esbuild": "^0.28.2",
+		"http-server": "^14.1.1",
+		"nw": "^0.114.2",
+		"nw-builder": "^4.18.0",
 		"playwright-core": "^1.62.1",
 		"pngjs": "^7.0.0"
 	}

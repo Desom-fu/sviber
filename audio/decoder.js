@@ -1,4 +1,4 @@
-export const AUDIO_DECODE_CDN_URL = "https://cdn.jsdelivr.net/npm/audio-decode@3.9.3/+esm";
+export const AUDIO_DECODE_CDN_URL = "https://cdn.jsdelivr.net/npm/audio-decode@3.12.0/+esm";
 
 let sharedDecoderPromise = null;
 
@@ -10,16 +10,8 @@ function moduleDefault(module) {
 
 export async function resolveAudioDecode(options = {}) {
 	const nw = options.nw ?? globalThis.nw;
-	if (nw) {
-		const requireModule = options.requireModule
-			?? (typeof nw.require === "function" ? nw.require.bind(nw) : globalThis.require);
-		if (typeof requireModule !== "function") throw new Error("NW.js cannot load the local audio decoder.");
-		const { fileURLToPath } = requireModule("url");
-		const filename = fileURLToPath(new URL("../node_modules/audio-decode/audio-decode.js", import.meta.url));
-		return moduleDefault(requireModule(filename));
-	}
-
 	const importModule = options.importModule ?? (url => import(url));
+	if (nw) return moduleDefault(await importModule(new URL("./audio-decode.bundle.js", import.meta.url)));
 	return moduleDefault(await importModule(AUDIO_DECODE_CDN_URL));
 }
 

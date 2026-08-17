@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { createRequire } from "node:module";
 import test from "node:test";
 import vm from "node:vm";
 
@@ -53,7 +52,7 @@ function fakeAudioContext() {
 	};
 }
 
-test("audio-decode uses the pinned CDN on web and local node_modules in NW.js", async () => {
+test("audio-decode uses the versioned CDN on web and the bundled module in NW.js", async () => {
 	let importedUrl = "";
 	const webDecoder = () => {};
 	assert.equal(await resolveAudioDecode({
@@ -65,7 +64,15 @@ test("audio-decode uses the pinned CDN on web and local node_modules in NW.js", 
 	}), webDecoder);
 	assert.equal(importedUrl, AUDIO_DECODE_CDN_URL);
 
-	const decoder = await resolveAudioDecode({ nw: { require: createRequire(import.meta.url) } });
+	let nwUrl = "";
+	const decoder = await resolveAudioDecode({
+		nw: {},
+		importModule: async url => {
+			nwUrl = String(url);
+			return import("audio-decode");
+		},
+	});
+	assert.match(nwUrl, /audio-decode\.bundle\.js$/);
 	const decoded = await decoder(new Uint8Array(wavBytes()));
 	assert.equal(decoded.sampleRate, 8000);
 	assert.equal(decoded.channelData.length, 1);
@@ -225,7 +232,7 @@ test("service worker returns Response.error on an uncached offline CDN request",
 	const response = await context.testStaleWhileRevalidate("https://cdn.jsdelivr.net/npm/missing/+esm");
 	assert.equal(response.type, "error");
 	assert.match(source, /\.\/audio\/decoder\.js/);
-	assert.match(source, /audio-decode@3\.9\.3\/\+esm/);
+	assert.match(source, /audio-decode@3\.12\.0\/\+esm/);
 });
 
 test("new charts are explicitly left dirty", async () => {
