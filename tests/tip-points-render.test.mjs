@@ -9,6 +9,7 @@ import {
 	tipPointTrailEdges,
 	tipPointVisualState,
 } from "../js/render/stage.js";
+import { timelineTipConnector } from "../js/render/timeline.js";
 
 function note(id, beat, tipPointSpawnType, overrides = {}) {
 	return {
@@ -161,6 +162,20 @@ test("tip point trail inserts the unstable tail connector only when crossing its
 	assert.deepEqual(trail.map(point => point.index), [0.5, 1, 1.5, 1.5]);
 	assert.ok(Math.abs(trail[2].time - 0.12) < 1e-12);
 	assert.ok(Math.abs(trail[2].y - 0.736842105263158) < 1e-12);
+});
+
+test("timeline tip connectors keep spawn time and clip safely outside the viewport", () => {
+	const connector = timelineTipConnector([
+		{ time: 4.574774774774775, x: 100, y: 20 },
+		{ time: 5.574774774774775, x: 200, y: 20 },
+	]);
+	assert.equal(connector[0].time, 4.574774774774775);
+	assert.equal(Math.hypot(connector[0].x - connector[1].x, connector[0].y - connector[1].y), 18);
+	assert.deepEqual(tipPointPathBetween(connector, 5.844540540540349, 18.900119328556773), []);
+	assert.deepEqual(tipPointPathBetween(connector, -10, -1), []);
+	assert.deepEqual(tipPointPathBetween([{ time: 1, x: 2, y: 3 }], 0, 2), [
+		{ time: 1, x: 2, y: 3, index: 0 },
+	]);
 });
 
 test("tip point corner geometry stays finite across coincident checkpoints", () => {

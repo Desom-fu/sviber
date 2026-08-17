@@ -132,7 +132,7 @@ export function timelineTipConnector(checkpoints, tailLength = 18) {
 	}
 	const fixedLength = Math.max(1, Number(tailLength) || 18);
 	return [
-		{ ...firstEvent, x: firstEvent.x + dx / length * fixedLength, y: firstEvent.y + dy / length * fixedLength },
+		{ ...spawn, x: firstEvent.x + dx / length * fixedLength, y: firstEvent.y + dy / length * fixedLength },
 		...checkpoints.slice(1),
 	];
 }

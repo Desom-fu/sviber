@@ -327,8 +327,18 @@ export function sampleTipPointPath(checkpoints, time) {
 }
 
 export function tipPointPathBetween(checkpoints, beginning, ending) {
-	const source = checkpoints;
+	const source = Array.isArray(checkpoints) ? checkpoints : [];
 	const points = [];
+	const finish = () => {
+		Object.defineProperty(points, "checkpoints", { value: source });
+		return points;
+	};
+	if (!source.length || !Number.isFinite(beginning) || !Number.isFinite(ending) || ending < beginning) return finish();
+	if (ending < source[0].time || beginning > source.at(-1).time) return finish();
+	if (source.length === 1) {
+		if (source[0].time >= beginning && source[0].time <= ending) points.push({ ...source[0], index: 0 });
+		return finish();
+	}
 	let low = 0;
 	let high = source.length;
 	while (low < high) {
@@ -372,8 +382,7 @@ export function tipPointPathBetween(checkpoints, beginning, ending) {
 	if (points.at(-1)?.time !== ending && nextCheckpointIndex !== null) {
 		points.push(interpolate(nextCheckpointIndex - 1, ending));
 	}
-	Object.defineProperty(points, "checkpoints", { value: source });
-	return points;
+	return finish();
 }
 
 export function tipPointVisualState(checkpoints, now) {
