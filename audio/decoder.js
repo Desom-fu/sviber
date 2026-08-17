@@ -12,10 +12,40 @@ export function isNwRuntime(scope = globalThis) {
 	return Boolean(scope?.nw || scope?.process?.versions?.nw);
 }
 
+function nwRequireDecoder(options, nw) {
+	const requireModule = options.requireModule
+		?? (typeof nw?.require === "function" ? nw.require.bind(nw) : null)
+		?? (typeof globalThis.require === "function" ? globalThis.require : null);
+	if (typeof requireModule !== "function") return null;
+	const failures = [];
+	for (const filename of [
+		"./node_modules/audio-decode/audio-decode.js",
+		"./sviber/node_modules/audio-decode/audio-decode.js",
+	]) {
+		try {
+			return moduleDefault(requireModule(filename));
+		} catch (error) {
+			failures.push(`${filename}: ${failureSummary(error)}`);
+		}
+	}
+	return { failures };
+}
+
 export async function resolveAudioDecode(options = {}) {
 	const nw = options.nw === undefined ? isNwRuntime(options.scope) : Boolean(options.nw);
 	const importModule = options.importModule ?? (url => import(url));
-	if (nw) return moduleDefault(await importModule(new URL("./audio-decode.bundle.js", import.meta.url)));
+	if (nw) {
+		let bundleError;
+		try {
+			return moduleDefault(await importModule(new URL("./audio-decode.bundle.js", import.meta.url)));
+		} catch (error) {
+			bundleError = error;
+		}
+		const local = nwRequireDecoder(options, options.nw ?? options.scope?.nw ?? globalThis.nw);
+		if (typeof local === "function") return local;
+		const details = local?.failures?.length ? `\n${local.failures.join("\n")}` : "";
+		throw new Error(`Unable to load the NW.js audio decoder bundle: ${failureSummary(bundleError)}${details}`, { cause: bundleError });
+	}
 	return moduleDefault(await importModule(AUDIO_DECODE_CDN_URL));
 }
 

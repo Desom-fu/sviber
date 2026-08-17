@@ -89,6 +89,20 @@ test("audio-decode uses the versioned CDN on web and the bundled module in NW.js
 	assert.ok(buffer.getChannelData(0).some(sample => sample !== 0));
 });
 
+test("NW.js falls back to its local Node module when the bundle is unavailable", async () => {
+	let requiredFilename = "";
+	const decoder = () => {};
+	const resolved = await resolveAudioDecode({
+		nw: { require(filename) {
+			requiredFilename = filename;
+			return { default: decoder };
+		} },
+		importModule: async () => { throw new TypeError("bundle is unavailable"); },
+	});
+	assert.equal(resolved, decoder);
+	assert.equal(requiredFilename, "./node_modules/audio-decode/audio-decode.js");
+});
+
 test("audio-decode falls back to native decodeAudioData", async () => {
 	const expected = { duration: 2 };
 	let nativeCalls = 0;
