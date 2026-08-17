@@ -16,7 +16,7 @@ const NOTE_COLORS = {
 	tap: "#55d7bf",
 	hold: "#ad7cf4",
 	drag: "#f3ca4f",
-	flick: "#43a5ff",
+	flick: "#ff9f1c",
 	bgNote: "#8b949d",
 	bigText: "#edf0f2",
 	grid: "#69b7ff",
