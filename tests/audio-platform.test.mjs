@@ -5,7 +5,9 @@ import vm from "node:vm";
 
 import {
 	AUDIO_DECODE_CDN_URL,
+	AudioDecodeError,
 	decodeAudioBytes,
+	isNwRuntime,
 	resolveAudioDecode,
 } from "../audio/decoder.js";
 import { AudioPlayer, createSunniesnowHitSamples } from "../audio/player.js";
@@ -54,6 +56,8 @@ function fakeAudioContext() {
 }
 
 test("audio-decode uses the versioned CDN on web and the bundled module in NW.js", async () => {
+	assert.equal(isNwRuntime({}), false);
+	assert.equal(isNwRuntime({ process: { versions: { nw: "0.114.2" } } }), true);
 	let importedUrl = "";
 	const webDecoder = () => {};
 	assert.equal(await resolveAudioDecode({
@@ -99,6 +103,55 @@ test("audio-decode falls back to native decodeAudioData", async () => {
 	});
 	assert.equal(result, expected);
 	assert.equal(nativeCalls, 1);
+});
+
+test("audio-decode honors an explicit M4A format hint", async () => {
+	let genericCalls = 0;
+	let m4aCalls = 0;
+	const decoder = async () => {
+		genericCalls += 1;
+		throw new Error("generic decoder should not run");
+	};
+	decoder.m4a = async () => {
+		m4aCalls += 1;
+		return { channelData: [new Float32Array([0.25, -0.25])], sampleRate: 44100 };
+	};
+	const buffer = await decodeAudioBytes(new Uint8Array([1, 2, 3]), fakeAudioContext(), {
+		decoder,
+		format: "m4a",
+	});
+	assert.equal(genericCalls, 0);
+	assert.equal(m4aCalls, 1);
+	assert.equal(buffer.sampleRate, 44100);
+});
+
+test("audio decode failures retain and log both underlying errors", async () => {
+	const decoderError = new Error("AAC decoder rejected the MP4 sample table");
+	const nativeError = new DOMException("Unable to decode audio data", "EncodingError");
+	const logged = [];
+	const logger = { error(...values) { logged.push(values); } };
+	await assert.rejects(
+		decodeAudioBytes(new Uint8Array([1, 2, 3]), {
+			decodeAudioData: async () => { throw nativeError; },
+		}, {
+			decoder: async () => { throw decoderError; },
+			logger,
+			mimeType: "audio/mp4",
+			sourceName: "problem.m4a",
+		}),
+		error => {
+			assert.ok(error instanceof AudioDecodeError);
+			assert.equal(error.cause, decoderError);
+			assert.deepEqual(error.errors, [decoderError, nativeError]);
+			assert.match(error.message, /problem\.m4a/);
+			assert.match(error.message, /AAC decoder rejected the MP4 sample table/);
+			assert.match(error.message, /EncodingError: Unable to decode audio data/);
+			return true;
+		},
+	);
+	assert.equal(logged.length, 2);
+	assert.equal(logged[0][1], decoderError);
+	assert.equal(logged[1][1], nativeError);
 });
 
 test("hit scheduling looks ahead in wall-clock time and excludes bgNote", () => {

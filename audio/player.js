@@ -2,6 +2,16 @@ import { decodeAudioBytes } from "./decoder.js";
 import { HIT_SOUND_TYPES } from "./scheduler.js";
 import { WaveformPeaks } from "./waveform.js";
 
+function audioFormatHint(file) {
+	const extension = String(file?.name || "").split(".").pop()?.toLowerCase();
+	if (extension === "m4a" || extension === "mp4") return "m4a";
+	if (extension === "aac") return "aac";
+	const mimeType = String(file?.type || "").toLowerCase();
+	if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "m4a";
+	if (mimeType.includes("aac")) return "aac";
+	return "";
+}
+
 export function sunniesnowHitSample(type, time) {
 	const value = Math.max(0, Number(time) || 0);
 	if (type === "drag") {
@@ -73,7 +83,11 @@ export class AudioPlayer extends EventTarget {
 		const context = await this.ensureContext();
 		if (!context) throw new Error("Web Audio is not supported by this browser.");
 		const bytes = await file.arrayBuffer();
-		this.buffer = await decodeAudioBytes(bytes, context);
+		this.buffer = await decodeAudioBytes(bytes, context, {
+			format: audioFormatHint(file),
+			mimeType: file.type,
+			sourceName: file.name,
+		});
 		this.waveform = WaveformPeaks.fromAudioBuffer(this.buffer);
 		if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
 		this.objectUrl = URL.createObjectURL(file);

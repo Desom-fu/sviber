@@ -8,8 +8,12 @@ function moduleDefault(module) {
 	return decoder;
 }
 
+export function isNwRuntime(scope = globalThis) {
+	return Boolean(scope?.nw || scope?.process?.versions?.nw);
+}
+
 export async function resolveAudioDecode(options = {}) {
-	const nw = options.nw ?? globalThis.nw;
+	const nw = options.nw === undefined ? isNwRuntime(options.scope) : Boolean(options.nw);
 	const importModule = options.importModule ?? (url => import(url));
 	if (nw) return moduleDefault(await importModule(new URL("./audio-decode.bundle.js", import.meta.url)));
 	return moduleDefault(await importModule(AUDIO_DECODE_CDN_URL));
@@ -41,6 +45,41 @@ export function audioDataToBuffer(context, audioData) {
 	return buffer;
 }
 
+function failureSummary(error) {
+	if (error instanceof Error) return `${error.name}: ${error.message}`;
+	return String(error);
+}
+
+function audioSourceLabel(options) {
+	const name = String(options.sourceName || "").trim();
+	const mimeType = String(options.mimeType || "").trim();
+	if (name && mimeType) return `: \"${name}\" (${mimeType})`;
+	if (name) return `: \"${name}\"`;
+	if (mimeType) return ` (${mimeType})`;
+	return "";
+}
+
+export class AudioDecodeError extends Error {
+	constructor(decoderError, nativeError, options = {}) {
+		super([
+			`Unable to decode the selected audio file${audioSourceLabel(options)}.`,
+			`audio-decode: ${failureSummary(decoderError)}`,
+			`Web Audio decodeAudioData: ${failureSummary(nativeError)}`,
+		].join("\n"));
+		this.name = "AudioDecodeError";
+		this.cause = decoderError;
+		this.decoderError = decoderError;
+		this.nativeError = nativeError;
+		this.errors = [decoderError, nativeError];
+	}
+}
+
+function reportDecodeFailures(logger, decoderError, nativeError) {
+	if (typeof logger?.error !== "function") return;
+	logger.error("[sviber] audio-decode failed:", decoderError);
+	logger.error("[sviber] Web Audio decodeAudioData failed:", nativeError);
+}
+
 export async function decodeAudioBytes(bytes, context, options = {}) {
 	const source = bytes instanceof ArrayBuffer
 		? bytes
@@ -48,7 +87,10 @@ export async function decodeAudioBytes(bytes, context, options = {}) {
 	let decoderError;
 	try {
 		const decoder = options.decoder ?? await (options.loadDecoder ?? loadAudioDecode)();
-		return audioDataToBuffer(context, await decoder(new Uint8Array(source)));
+		const decode = options.format && typeof decoder[options.format] === "function"
+			? decoder[options.format].bind(decoder)
+			: decoder;
+		return audioDataToBuffer(context, await decode(new Uint8Array(source)));
 	} catch (error) {
 		decoderError = error;
 	}
@@ -56,6 +98,7 @@ export async function decodeAudioBytes(bytes, context, options = {}) {
 	try {
 		return await context.decodeAudioData(source.slice(0));
 	} catch (nativeError) {
-		throw new AggregateError([decoderError, nativeError], "Unable to decode the selected audio file.");
+		reportDecodeFailures(options.logger ?? globalThis.console, decoderError, nativeError);
+		throw new AudioDecodeError(decoderError, nativeError, options);
 	}
 }
