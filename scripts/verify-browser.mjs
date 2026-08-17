@@ -367,25 +367,42 @@ try {
 			app.refreshNow();
 			app.stage.render();
 			const { buffer, context } = app.stage.surface;
-			return context.getImageData(0, 0, buffer.width, buffer.height).data.slice();
+			const stagePixels = context.getImageData(0, 0, buffer.width, buffer.height).data.slice();
+			const preview = document.querySelector("#snappees-panel .snappee-preview canvas");
+			const previewPixels = preview?.getContext("2d")
+				?.getImageData(0, 0, preview.width, preview.height).data || [];
+			let previewOpaque = 0;
+			for (let index = 3; index < previewPixels.length; index += 4) {
+				if (previewPixels[index] > 0) previewOpaque += 1;
+			}
+			return { stagePixels, previewOpaque };
 		};
-		const absent = pixels(null);
+		const absent = pixels(null).stagePixels;
 		const deactivated = pixels(false);
 		const activated = pixels(true);
 		let deactivatedDifference = 0;
 		let activatedDifference = 0;
 		for (let index = 0; index < absent.length; index += 1) {
-			if (absent[index] !== deactivated[index]) deactivatedDifference += 1;
-			if (absent[index] !== activated[index]) activatedDifference += 1;
+			if (absent[index] !== deactivated.stagePixels[index]) deactivatedDifference += 1;
+			if (absent[index] !== activated.stagePixels[index]) activatedDifference += 1;
 		}
 		app.model.restore(snapshot);
 		app.refreshNow();
-		return { deactivatedDifference, activatedDifference };
+		return {
+			deactivatedDifference,
+			activatedDifference,
+			deactivatedPreviewOpaque: deactivated.previewOpaque,
+			activatedPreviewOpaque: activated.previewOpaque,
+		};
 	});
 	assert.equal(snappeeVisibility.deactivatedDifference, 0,
 		"a deactivated snappee remains visible on the stage");
 	assert.ok(snappeeVisibility.activatedDifference > 0,
 		"the activated snappee visibility fixture did not draw anything");
+	assert.equal(snappeeVisibility.deactivatedPreviewOpaque, 0,
+		"a deactivated snappee preview remains visible in the sidebar");
+	assert.ok(snappeeVisibility.activatedPreviewOpaque > 0,
+		"the activated snappee preview is not visible in the sidebar");
 
 	const canvasSummaries = {
 		timeline: await assertCanvas(page.locator("#timeline-surface canvas"), "timeline-desktop"),

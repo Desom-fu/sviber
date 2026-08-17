@@ -1671,7 +1671,7 @@ function drawSnappeePreview(canvas, item) {
 	context.strokeStyle = item.color || '#50a226';
 	context.fillStyle = item.color || '#50a226';
 	context.lineWidth = 1.5;
-	context.globalAlpha = item.active === false ? 0.45 : 0.95;
+	context.globalAlpha = item.active === false ? 0 : 0.95;
 	const type = item.type || '';
 	if (type.includes('rectangular') || type.includes('parametricMesh')) {
 		for (const coordinate of [5, 12, 19]) {

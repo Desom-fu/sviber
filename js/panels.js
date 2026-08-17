@@ -214,7 +214,7 @@ function drawSnappeePreview(canvas, snappee, size) {
 	context.lineWidth = Math.max(1, size / 18);
 	context.lineJoin = "round";
 	context.lineCap = "round";
-	context.globalAlpha = snappee.active === false ? 0.42 : 0.95;
+	context.globalAlpha = snappee.active === false ? 0 : 0.95;
 	if (snappee.type === "radialMesh") {
 		grouped(0, 1).forEach(line => drawLine(line));
 		grouped(1, 0).forEach((line, index) => drawLine(line, index > 0));
