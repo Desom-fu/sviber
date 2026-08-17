@@ -182,14 +182,15 @@ export const withStageInteractions = Base => class extends Base {
 
 	_pointerDown(event) {
 		if (event.button !== 0) return;
-		if (this.callbacks.isPlaying?.()) return;
 		event.preventDefault();
 		const point = this.surface.toLocal(event);
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		this.pointerMoved = false;
+		const playing = Boolean(this.callbacks.isPlaying?.());
 		const creationMode = this.callbacks.getCreationMode?.();
 		if (creationMode && MOVABLE_TYPES.has(creationMode)) {
+			if (playing) return;
 			this._previewAt(point);
 			if (this.creationPreview) this.callbacks.onCreateEvent?.(creationMode, this.creationPreview);
 			return;
@@ -197,6 +198,7 @@ export const withStageInteractions = Base => class extends Base {
 		const hit = this._hitTest(point);
 		const curveDraft = this.callbacks.getCurveDraft?.();
 		if (curveDraft) {
+			if (playing) return;
 			if (hit?.type === "draft-pen-handle") {
 				this.drag = { type: "draft-pen-handle", hit, start: point };
 				document.addEventListener("pointermove", this.boundMove);
@@ -225,6 +227,7 @@ export const withStageInteractions = Base => class extends Base {
 		}
 		const freeTransform = this.callbacks.getFreeTransform?.();
 		if (freeTransform) {
+			if (playing) return;
 			if (!hit?.type?.startsWith("free-")) return;
 			const chart = mapping.toChart(point);
 			this.drag = {
@@ -254,7 +257,25 @@ export const withStageInteractions = Base => class extends Base {
 		} else if (hit?.type === "snappee-handle") {
 			this.drag = { type: "snappee", hit, start: point };
 		} else {
-			this.drag = { type: "box", start: point, mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace" };
+			const activeChannels = this.renderIndex?.activeChannelIds
+				|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+			const primary = event.shiftKey
+				? project.events.findLast(candidate => candidate.selected && MOVABLE_TYPES.has(candidate.type)
+					&& activeChannels.has(candidate.channel))
+				: null;
+			if (primary) {
+				const position = this.renderIndex?.positionFor(primary)
+					|| resolveAttachedPosition(primary, project.snappees) || primary;
+				this.drag = {
+					type: "event",
+					hit: { type: "event", event: primary, position },
+					start: point,
+					startChart: position,
+					collapseSelectionOnClick: false,
+				};
+			} else {
+				this.drag = { type: "box", start: point, mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace" };
+			}
 		}
 		document.addEventListener("pointermove", this.boundMove);
 		document.addEventListener("pointerup", this.boundUp, { once: true });
@@ -411,11 +432,13 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_doubleClick(event) {
-		if (this.callbacks.isPlaying?.()) return;
+		const playing = Boolean(this.callbacks.isPlaying?.());
 		if (this.callbacks.getCurveDraft?.()) {
+			if (playing) return;
 			this.callbacks.onCurveDoubleClick?.();
 			return;
 		}
+		if (playing && (this.callbacks.getCreationMode?.() || this.callbacks.getFreeTransform?.())) return;
 		const point = this.surface.toLocal(event);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		const chartPoint = mapping.toChart(point);

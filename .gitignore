@@ -3,3 +3,4 @@ build/
 test-results/
 audio/audio-decode.bundle.js
 js/audio/audio-decode.bundle.js
+assets/

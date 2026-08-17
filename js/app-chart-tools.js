@@ -41,7 +41,18 @@ export const withChartTools = Base => class extends Base {
 			],
 		});
 		if (!values) return;
-		const ids = this.model.events.filter(event => {
+		const activeChannels = new Set(this.model.channels
+			.filter(channel => channel.active !== false).map(channel => channel.id));
+		const candidates = this.model.events.filter(event => activeChannels.has(event.channel));
+		const simultaneousCounts = new Map();
+		if (values.enableSimultaneous) {
+			for (const event of candidates) {
+				if (!values[`simultaneous_${event.type}`]) continue;
+				const key = Rational.from(event.time).toString();
+				simultaneousCounts.set(key, (simultaneousCounts.get(key) || 0) + 1);
+			}
+		}
+		const ids = candidates.filter(event => {
 			if (values.enableTypes && !values[`type_${event.type}`]) return false;
 			if (values.enableTime) {
 				const beat = Rational.from(event.time);
@@ -54,10 +65,10 @@ export const withChartTools = Base => class extends Base {
 				if (duration.compare(values.durationStart) < 0 || duration.compare(values.durationEnd) > 0) return false;
 			}
 			if (values.enableSimultaneous) {
-				const hasMatch = this.model.events.some(other => other.id !== event.id
-					&& values[`simultaneous_${other.type}`]
-					&& Rational.compare(other.time, event.time) === 0);
-				if (!hasMatch) return false;
+				const key = Rational.from(event.time).toString();
+				const matching = (simultaneousCounts.get(key) || 0)
+					- (values[`simultaneous_${event.type}`] ? 1 : 0);
+				if (matching <= 0) return false;
 			}
 			return true;
 		}).map(event => event.id);
@@ -117,6 +128,29 @@ export const withChartTools = Base => class extends Base {
 			if (index >= 0) changes.splice(index, 1);
 			changes.push({ time: eventBeat.toJSON(), bpm: values.bpm });
 			model.timing.setBpmChanges(changes);
+		});
+	}
+
+	async showCommentDialog() {
+		this.exitModes();
+		const values = await this.dialogs.form({
+			titleKey: "dialog.comment",
+			values: { text: "", duration: [1, 0, 1] },
+			fields: [
+				{ id: "text", type: "textarea", rows: 5, labelKey: "field.text" },
+				{ id: "duration", type: "rational", labelKey: "field.duration", nonnegative: true },
+			],
+		});
+		if (!values) return;
+		this.commit(i18n.t("history.createEvent", { type: eventTypeLabel("comment") }), model => {
+			for (const event of model.events) event.selected = false;
+			model.addEvent("comment", {
+				time: this.currentBeat().toJSON(),
+				channel: model.editor.currentChannel,
+				duration: values.duration,
+				text: values.text,
+				selected: true,
+			});
 		});
 	}
 
@@ -340,7 +374,6 @@ export const withChartTools = Base => class extends Base {
 	}
 
 	selectSnappee(id) {
-		if (this.audio.playing) return;
 		for (const snappee of this.model.snappees) snappee.selected = snappee.id === id && snappee.active;
 		this.refresh();
 	}

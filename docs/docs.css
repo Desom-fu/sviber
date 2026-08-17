@@ -1,0 +1,129 @@
+:root {
+	color-scheme: dark;
+	font-family: Inter, "Segoe UI", "Noto Sans CJK SC", sans-serif;
+	background: #151719;
+	color: #e6e8e9;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body { margin: 0; }
+
+.doc-header {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	height: 48px;
+	padding: 0 18px;
+	border-bottom: 1px solid #454a50;
+	background: #202327;
+}
+
+.brand {
+	color: #ffe331;
+	font-size: 20px;
+	font-weight: 750;
+	text-decoration: none;
+}
+
+select {
+	min-height: 30px;
+	padding: 3px 28px 3px 8px;
+	border: 1px solid #59616a;
+	border-radius: 3px;
+	background: #151719;
+	color: inherit;
+}
+
+.doc-layout {
+	display: grid;
+	grid-template-columns: 250px minmax(0, 1fr);
+	min-height: calc(100vh - 48px);
+}
+
+.contents {
+	position: sticky;
+	top: 48px;
+	height: calc(100vh - 48px);
+	padding: 14px 10px;
+	overflow: auto;
+	border-right: 1px solid #3b4045;
+	background: #1b1e21;
+}
+
+.contents-group {
+	display: grid;
+	margin-bottom: 10px;
+}
+
+.contents a {
+	padding: 5px 8px;
+	border-left: 2px solid transparent;
+	color: #d7dade;
+	font-size: 13px;
+	font-weight: 650;
+	text-decoration: none;
+}
+
+.contents a:hover,
+.contents a:focus-visible {
+	border-left-color: #57d59a;
+	background: #2b3035;
+}
+
+.contents a.contents-child {
+	padding-left: 20px;
+	color: #aeb5bc;
+	font-size: 12px;
+	font-weight: 450;
+}
+
+.manual {
+	width: min(860px, 100%);
+	padding: 34px clamp(24px, 5vw, 64px) 80px;
+}
+
+h1 {
+	margin: 0 0 28px;
+	font-size: 34px;
+	letter-spacing: 0;
+}
+
+h2 {
+	margin: 42px 0 12px;
+	padding-bottom: 7px;
+	border-bottom: 1px solid #41474d;
+	font-size: 24px;
+	letter-spacing: 0;
+}
+
+h3 {
+	margin: 25px 0 8px;
+	font-size: 17px;
+	letter-spacing: 0;
+}
+
+p {
+	margin: 8px 0;
+	color: #c7ccd0;
+	font-size: 14px;
+	line-height: 1.75;
+}
+
+@media (max-width: 720px) {
+	.doc-layout { grid-template-columns: 1fr; }
+	.contents {
+		position: static;
+		height: auto;
+		max-height: 38vh;
+		border-right: 0;
+		border-bottom: 1px solid #3b4045;
+	}
+	.manual { padding: 26px 18px 64px; }
+	h1 { font-size: 28px; }
+}

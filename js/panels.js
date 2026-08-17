@@ -2,9 +2,10 @@ import { Rational } from "./core/rational.js";
 import { resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
 
 const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
-const DURATION_TYPES = new Set(["hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"]);
-const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText"]);
+const DURATION_TYPES = new Set(["hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment"]);
+const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText", "comment"]);
 const TIP_TYPES = new Set(["tap", "hold", "drag", "flick"]);
+const ZERO_DURATION_TYPES = new Set(["bgNote", "comment"]);
 const MIXED = Symbol("mixed");
 
 function commonValue(items, getter) {
@@ -214,7 +215,9 @@ function drawSnappeePreview(canvas, snappee, size) {
 	context.lineWidth = Math.max(1, size / 18);
 	context.lineJoin = "round";
 	context.lineCap = "round";
-	context.globalAlpha = snappee.active === false ? 0 : 0.95;
+	// Keep the panel preview visible for inactive snappees; the item CSS applies
+	// the required grayscale/translucent treatment independently of stage visibility.
+	context.globalAlpha = 0.95;
 	if (snappee.type === "radialMesh") {
 		grouped(0, 1).forEach(line => drawLine(line));
 		grouped(1, 0).forEach((line, index) => drawLine(line, index > 0));
@@ -345,7 +348,7 @@ export class InspectorPanel {
 			? `event.${selected[0].type}` : "panel.commonProperties");
 		const types = commonValue(selected, event => event.type);
 		group.append(this.#row("field.type", makeSelect(document, [
-			"tap", "hold", "drag", "flick", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram",
+			"tap", "hold", "drag", "flick", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment",
 		].map(type => ({ value: type, label: this.i18n.t(`event.${type}`) })), types,
 		value => this.onChange("type", value))));
 
@@ -354,7 +357,9 @@ export class InspectorPanel {
 			value => this.onChange("time", value))));
 		const channel = commonValue(selected, event => event.channel);
 		group.append(this.#row("field.channel", makeSelect(document,
-			model.channels.map((item, index) => ({ value: item.id, label: String(index + 1) })), channel,
+			model.channels.map((item, index) => ({ item, index }))
+				.filter(({ item }) => item.active !== false)
+				.map(({ item, index }) => ({ value: item.id, label: String(index + 1) })), channel,
 			value => this.onChange("channel", Number(value)))));
 
 		if (selected.every(event => MOVABLE_TYPES.has(event.type))) {
@@ -385,9 +390,18 @@ export class InspectorPanel {
 			group.append(this.#row("field.duration", makeRationalControl(document,
 				commonValue(selected, event => event.duration), value => {
 					const comparison = Rational.from(value).compare(0);
-					if (comparison > 0 || comparison === 0 && selected.every(event => event.type === "bgNote")) {
+					if (comparison > 0 || comparison === 0 && selected.every(event => ZERO_DURATION_TYPES.has(event.type))) {
 						this.onChange("duration", value);
 					}
+			})));
+			group.append(this.#row("field.endTime", makeRationalControl(document,
+				commonValue(selected, event => Rational.from(event.time).add(event.duration || 0).toJSON()), value => {
+					const end = Rational.from(value);
+					const valid = selected.every(event => {
+						const comparison = end.compare(event.time);
+						return comparison > 0 || comparison === 0 && ZERO_DURATION_TYPES.has(event.type);
+					});
+					if (valid) this.onChange("endTime", value);
 				})));
 		}
 		if (selected.every(event => TEXT_TYPES.has(event.type))) {
@@ -518,17 +532,11 @@ export class SnappeesPanel {
 		button.type = "button";
 		button.className = "snappee-action";
 		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
-		if (icon === "activate" || icon === "deactivate") {
-			const image = document.createElement("img");
-			image.src = `svg/icons/${icon}-snappee.svg`;
-			image.alt = "";
-			image.draggable = false;
-			button.append(image);
-		} else {
-			const canvas = document.createElement("canvas");
-			drawActionIcon(canvas, icon);
-			button.append(canvas);
-		}
+		const image = document.createElement("img");
+		image.src = `svg/icons/${icon}.svg`;
+		image.alt = "";
+		image.draggable = false;
+		button.append(image);
 		button.addEventListener("click", event => {
 			event.stopPropagation();
 			callback();
@@ -550,7 +558,7 @@ export class SnappeesPanel {
 		}
 		for (const snappee of model.snappees) {
 			const item = document.createElement("div");
-			item.className = `snappee-item${snappee.selected ? " is-selected" : ""}`;
+			item.className = `snappee-item${snappee.selected ? " is-selected" : ""}${snappee.active === false ? " is-inactive" : ""}`;
 			item.tabIndex = 0;
 			item.setAttribute("role", "button");
 			item.setAttribute("aria-pressed", String(Boolean(snappee.selected)));
@@ -574,6 +582,74 @@ export class SnappeesPanel {
 			this.cleanup.push(this.tooltip?.register(item, "panel.snappee.edit"));
 			this.element.append(item);
 		}
+	}
+}
+
+export class ChannelsPanel {
+	constructor(options = {}) {
+		this.element = options.element || document.getElementById("channels-panel");
+		this.i18n = options.i18n;
+		this.tooltip = options.tooltip;
+		this.onSelect = options.onSelect || (() => {});
+		this.onToggle = options.onToggle || (() => {});
+		this.onDuplicate = options.onDuplicate || (() => {});
+		this.onDelete = options.onDelete || (() => {});
+		this.onEdit = options.onEdit || (() => {});
+		this.cleanup = [];
+	}
+
+	#action(icon, tooltipKey, callback, disabled = false) {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = "snappee-action";
+		button.disabled = disabled;
+		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
+		const image = document.createElement("img");
+		image.src = `svg/icons/${icon}.svg`;
+		image.alt = "";
+		image.draggable = false;
+		button.append(image);
+		button.addEventListener("click", event => {
+			event.stopPropagation();
+			if (!button.disabled) callback();
+		});
+		this.cleanup.push(this.tooltip?.register(button, tooltipKey));
+		return button;
+	}
+
+	render(model) {
+		this.cleanup.forEach(dispose => dispose?.());
+		this.cleanup = [];
+		clear(this.element);
+		model.channels.forEach((channel, index) => {
+			const item = document.createElement("div");
+			item.className = `snappee-item channel-item${channel.id === model.editor.currentChannel ? " is-selected" : ""}${channel.active === false ? " is-inactive" : ""}`;
+			item.tabIndex = 0;
+			item.setAttribute("role", "button");
+			item.setAttribute("aria-pressed", String(channel.id === model.editor.currentChannel));
+			const ordinal = document.createElement("span");
+			ordinal.className = "channel-index";
+			ordinal.textContent = String(index + 1);
+			const name = document.createElement("span");
+			name.className = "snappee-name";
+			name.textContent = String(channel.name || `Channel ${index + 1}`);
+			item.append(ordinal, name,
+				this.#action(channel.active === false ? "activate" : "deactivate",
+					channel.active === false ? "panel.channel.activate" : "panel.channel.deactivate",
+					() => this.onToggle(channel.id)),
+				this.#action("duplicate", "panel.channel.duplicate", () => this.onDuplicate(channel.id)),
+				this.#action("delete", "panel.channel.delete", () => this.onDelete(channel.id), model.channels.length <= 1),
+			);
+			item.addEventListener("click", () => {
+				if (channel.active !== false) this.onSelect(channel.id);
+			});
+			item.addEventListener("dblclick", () => this.onEdit(channel.id));
+			item.addEventListener("keydown", event => {
+				if (event.key === "Enter") this.onEdit(channel.id);
+			});
+			this.cleanup.push(this.tooltip?.register(item, "panel.channel.edit"));
+			this.element.append(item);
+		});
 	}
 }
 
@@ -603,36 +679,11 @@ export class HistoryPanel {
 			markers.className = "history-markers";
 			for (const kind of ["save", "autosave"]) {
 				if (!entry.metadata?.historyMarkers?.[kind]) continue;
-				const canvas = document.createElement("canvas");
-				canvas.width = 14;
-				canvas.height = 14;
-				canvas.className = `history-marker is-${kind}`;
-				canvas.setAttribute("aria-label", this.i18n.t(`history.marker.${kind}`));
-				const context = canvas.getContext("2d");
-				context.strokeStyle = kind === "save" ? "#d6efff" : "#bceec8";
-				context.fillStyle = kind === "save" ? "#397eaa" : "#3a8957";
-				context.lineWidth = 1.4;
-				if (kind === "save") {
-					context.fillRect(2, 1.5, 10, 11);
-					context.fillStyle = "#eef8ff";
-					context.fillRect(4, 2.5, 5.5, 3);
-					context.strokeRect(4, 8, 6, 3.5);
-				} else {
-					context.beginPath();
-					context.arc(7, 7, 4.4, -Math.PI * 0.25, Math.PI * 1.35);
-					context.stroke();
-					context.beginPath();
-					context.moveTo(2.1, 4.5);
-					context.lineTo(2.5, 8);
-					context.lineTo(5.4, 6.2);
-					context.fill();
-					context.beginPath();
-					context.moveTo(7, 4.5);
-					context.lineTo(7, 7.3);
-					context.lineTo(9, 8.3);
-					context.stroke();
-				}
-				markers.append(canvas);
+				const image = document.createElement("img");
+				image.src = `svg/icons/${kind === "save" ? "save" : "auto-save"}.svg`;
+				image.className = `history-marker is-${kind}`;
+				image.alt = this.i18n.t(`history.marker.${kind}`);
+				markers.append(image);
 			}
 			const time = document.createElement("time");
 			time.className = "history-time";

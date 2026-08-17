@@ -4,6 +4,14 @@
 	"private": true,
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",
+	"license": "AGPL-3.0-or-later",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Desom-fu/sviber.git"
+	},
+	"bugs": {
+		"url": "https://github.com/Desom-fu/sviber/issues"
+	},
 	"main": "index.html",
 	"sviber-source": true,
 	"window": {

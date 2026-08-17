@@ -703,18 +703,19 @@ export async function runInteractionChecks(page, outputDirectory) {
 	assert.ok(Object.values(playbackRenderStats.panels).every(count => count <= 2),
 		`playback rebuilt sidebar panels every frame: ${JSON.stringify(playbackRenderStats)}`);
 	const playbackState = await page.evaluate(() => ({
-		selection: globalThis.sviber.model.events.map(event => event.selected),
-		events: globalThis.sviber.model.events.map(event => ({ ...event })),
+		events: globalThis.sviber.model.events.map(({ selected: _selected, ...event }) => event),
 		saveEnabled: globalThis.sviber.registry.isEnabled("file.save", globalThis.sviber),
 		moveEnabled: globalThis.sviber.registry.isEnabled("transform.moveRight", globalThis.sviber),
 		musicEnabled: globalThis.sviber.registry.isEnabled("music.seekForward", globalThis.sviber),
-		panelsInert: [...document.querySelectorAll("#inspector-panel,#snappees-panel,.history-panel")]
-			.every(element => element.inert),
+		inspectorInert: document.querySelector("#inspector-panel").inert,
+		operationalPanelsInert: [...document.querySelectorAll("#channels-panel,#snappees-panel,.history-panel")]
+			.some(element => element.inert),
 	}));
-	assert.equal(playbackState.saveEnabled, false);
-	assert.equal(playbackState.moveEnabled, false);
+	assert.equal(playbackState.saveEnabled, true);
+	assert.equal(playbackState.moveEnabled, true);
 	assert.equal(playbackState.musicEnabled, true);
-	assert.equal(playbackState.panelsInert, true);
+	assert.equal(playbackState.inspectorInert, false);
+	assert.equal(playbackState.operationalPanelsInert, false);
 	const playbackStageBox = await stage.boundingBox();
 	await page.mouse.click(playbackStageBox.x + playbackStageBox.width * 0.84,
 		playbackStageBox.y + playbackStageBox.height * 0.76);
@@ -724,9 +725,8 @@ export async function runInteractionChecks(page, outputDirectory) {
 	await page.waitForTimeout(120);
 	assert.equal(await page.evaluate(() => globalThis.sviber.audio.playing), true,
 		"an editor-canvas click paused playback");
-	assert.deepEqual(await page.evaluate(() => globalThis.sviber.model.events.map(event => event.selected)), playbackState.selection,
-		"an editor-canvas click changed selection during playback");
-	assert.deepEqual(await page.evaluate(() => globalThis.sviber.model.events.map(event => ({ ...event }))), playbackState.events,
+	assert.deepEqual(await page.evaluate(() => globalThis.sviber.model.events
+		.map(({ selected: _selected, ...event }) => event)), playbackState.events,
 		"an editor-canvas interaction edited events during playback");
 	await page.locator('.tool-button[data-command="music.playPause"]').click();
 	await page.waitForFunction(() => globalThis.sviber.audio.playing === false);

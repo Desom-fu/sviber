@@ -393,13 +393,9 @@ textarea:focus-visible,
 	background: var(--panel);
 }
 
-.is-playback-locked {
-	opacity: 0.55;
-}
-
 .status-panel {
 	padding: 7px 9px;
-	overflow: hidden;
+	overflow: auto;
 }
 
 .status-heading,
@@ -436,6 +432,21 @@ textarea:focus-visible,
 	font-weight: 600;
 }
 
+.status-comments:not(:empty) {
+	margin-top: 5px;
+	padding-top: 5px;
+	border-top: 1px solid var(--border);
+}
+
+.status-comment {
+	padding: 3px 2px;
+	color: #d9f78e;
+	font-size: 12px;
+	line-height: 1.35;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
 .operation-status {
 	margin-top: 5px;
 	padding-top: 7px;
@@ -454,7 +465,7 @@ textarea:focus-visible,
 
 .side-tabs {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 	background: var(--chrome-strong);
 	border-bottom: 1px solid var(--border-strong);
 }
@@ -681,6 +692,26 @@ textarea:focus-visible,
 	background: color-mix(in srgb, var(--focus) 13%, transparent);
 }
 
+.snappee-item.is-inactive .snappee-name,
+.snappee-item.is-inactive .channel-index {
+	color: var(--text-muted);
+	opacity: 0.48;
+}
+
+.snappee-item.is-inactive .snappee-preview {
+	filter: grayscale(1);
+	opacity: 0.48;
+}
+
+.channel-index {
+	display: grid;
+	width: 27px;
+	height: 27px;
+	place-items: center;
+	color: var(--text-muted);
+	font: 11px "Cascadia Mono", Consolas, monospace;
+}
+
 .snappee-preview {
 	display: grid;
 	width: 27px;
@@ -744,8 +775,16 @@ textarea:focus-visible,
 }
 
 #tooltip-text {
+	flex: 1 1 auto;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.javascript-license-link {
+	flex: 0 0 auto;
+	margin-left: 10px;
+	color: var(--text-muted);
+	font-size: 10px;
 }
 
 .modal-layer {
@@ -804,6 +843,27 @@ textarea:focus-visible,
 	margin: 2px 0 8px;
 	line-height: 1.55;
 	white-space: pre-line;
+}
+
+.about-information {
+	display: grid;
+	grid-template-columns: minmax(130px, auto) minmax(0, 1fr);
+	gap: 7px 14px;
+	margin: 0;
+}
+
+.about-information dt {
+	color: var(--text-muted);
+}
+
+.about-information dd {
+	min-width: 0;
+	margin: 0;
+	overflow-wrap: anywhere;
+}
+
+.about-information a {
+	color: var(--accent);
 }
 
 .dialog-field {

@@ -17,8 +17,9 @@ import {
 import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { ChartRenderIndex } from "./render/chart-index.js";
+import { HelpController } from "./help.js";
 import { AutosaveManager, FileManager } from "./platform.js";
-import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
+import { ChannelsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
 export class SviberAppCore {
@@ -32,6 +33,8 @@ export class SviberAppCore {
 		this.freeTransform = null;
 		this.previewBase = null;
 		this.previewLabel = "";
+		this.previewScheduleDirty = false;
+		this.selectionPreview = null;
 		this.lastHoldDuration = [1, 0, 1];
 		this.lastBgNoteDuration = [1, 0, 1];
 		this.lastFlickAngle = Math.PI / 2;
@@ -39,6 +42,7 @@ export class SviberAppCore {
 		this.backgroundUrl = null;
 		this.scheduledHitIds = new Set();
 		this.scheduledHoldReleaseIds = new Set();
+		this.playbackScheduleInvalidated = false;
 		this.playFollowOffset = null;
 		this.resumePlaybackAfterSeek = false;
 		this.stageMoveAttachmentException = null;
@@ -53,8 +57,10 @@ export class SviberAppCore {
 		this.toast = new ToastManager({ i18n });
 		this.dialogs = new DialogManager({ i18n, tooltip: this.tooltip });
 		this.files = new FileManager({ dialogs: this.dialogs, toast: this.toast, i18n });
+		this.help = new HelpController({ dialogs: this.dialogs, i18n });
 		this.registry = new CommandRegistry(undefined, {
-			blocked: () => this.audio.playing || Boolean(this.freeTransform),
+			blocked: () => Boolean(this.freeTransform),
+			playbackBlocked: () => this.audio.playing,
 			hardBlocked: () => Boolean(this.dialogs.active),
 		});
 		this.dialogs.onStateChange = () => this.registry.notifyAll();
@@ -87,6 +93,14 @@ export class SviberAppCore {
 			onDuplicate: id => this.duplicateSnappee(id),
 			onDelete: id => void this.deleteSnappee(id),
 			onEdit: id => void this.editSnappee(id),
+		});
+		this.channelsPanel = new ChannelsPanel({
+			i18n, tooltip: this.tooltip,
+			onSelect: id => this.selectChannel(id),
+			onToggle: id => this.toggleChannel(id),
+			onDuplicate: id => this.duplicateChannel(id),
+			onDelete: id => void this.deleteChannel(id),
+			onEdit: id => void this.editChannel(id),
 		});
 		this.historyPanel = new HistoryPanel({ i18n, tooltip: this.tooltip, onGoTo: index => this.goToHistory(index) });
 		this.savedSignature = this.modelSignature();
@@ -123,7 +137,8 @@ export class SviberAppCore {
 		this.refreshNow();
 		document.getElementById("app").setAttribute("aria-busy", "false");
 		document.getElementById("loading-screen").hidden = true;
-		await this._offerAutosave();
+		const autosaveOffered = await this._offerAutosave();
+		if (!autosaveOffered) await this.reopenLastDocument?.();
 		this.refreshNow();
 		this.autosave.start(() => {
 			if (this.modelSignature() === this.savedSignature) return;
@@ -189,24 +204,38 @@ export class SviberAppCore {
 	}
 
 	commit(label, mutation, options = {}) {
-		if (this.audio.playing && !options.allowPlaying) return undefined;
+		this.cancelSelectionPreview?.();
 		if (this.freeTransform) this.finishFreeTransform();
+		let previewScheduleDirty = false;
 		if (this.previewBase) {
+			previewScheduleDirty = this.previewScheduleDirty;
 			this.model.restore(this.previewBase);
 			this.previewBase = null;
+			this.previewScheduleDirty = false;
 		}
 		const selectionBefore = new Set(this.model.events.filter(event => event.selected).map(event => event.id));
 		const before = JSON.stringify(this.model.snapshot());
 		const result = mutation(this.model);
 		if (JSON.stringify(this.model.snapshot()) === before) {
+			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
 			this.refresh();
 			return result;
 		}
 		this._reconcileStageMoveAttachmentException(selectionBefore);
 		this.history.record(this.model.snapshot(), label, options.metadata ?? null);
 		if (options.dirty !== false) this.updateDirty();
+		if (options.scheduleDirty !== false || previewScheduleDirty) this._invalidatePlaybackSchedule();
 		this.refresh();
 		return result;
+	}
+
+	_invalidatePlaybackSchedule() {
+		if (!this.audio.playing) return;
+		this.audio.cancelScheduledHitSounds();
+		this.stage.cancelScheduledHits();
+		this.scheduledHitIds.clear();
+		this.scheduledHoldReleaseIds.clear();
+		this.playbackScheduleInvalidated = true;
 	}
 
 	modelSignature(model = this.model) {
@@ -278,6 +307,7 @@ export class SviberAppCore {
 		const artist = String(snapshot.metadata?.artist ?? this.projectArtist);
 		const metadataChanged = title !== this.projectTitle || artist !== this.projectArtist;
 		this.model.restore(snapshot);
+		this._invalidatePlaybackSchedule();
 		if (metadataChanged) {
 			this.projectTitle = title;
 			this.projectArtist = artist;
@@ -345,21 +375,26 @@ export class SviberAppCore {
 		return this.dirty;
 	}
 
-	preview(label, mutation) {
-		if (this.audio.playing) return;
+	preview(label, mutation, options = {}) {
 		if (!this.previewBase) {
 			this.previewBase = this.model.snapshot();
 			this.previewLabel = label;
+			this.previewScheduleDirty = false;
 		}
+		this.previewScheduleDirty ||= Boolean(options.scheduleDirty);
 		this.model.restore(this.previewBase);
 		mutation(this.model);
+		if (options.scheduleDirty) this._invalidatePlaybackSchedule();
 		this.refresh();
 	}
 
 	cancelPreview() {
 		if (!this.previewBase) return;
+		const scheduleDirty = this.previewScheduleDirty;
 		this.model.restore(this.previewBase);
 		this.previewBase = null;
+		this.previewScheduleDirty = false;
+		if (scheduleDirty) this._invalidatePlaybackSchedule();
 		this.refresh();
 	}
 
@@ -432,26 +467,21 @@ export class SviberAppCore {
 	}
 
 	refreshNow() {
+		const reschedulePlayback = this.playbackScheduleInvalidated;
+		this.playbackScheduleInvalidated = false;
 		this._rebuildRenderIndex();
 		const view = this.viewState();
 		const timelineHeight = 88 + Math.min(3, Math.max(1, this.model.channels.length)) * 48;
 		document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${timelineHeight}px`);
 		this.timeline.setState(view);
 		this.stage.setState(view);
+		if (reschedulePlayback && this.audio.playing) this._scheduleHits(this.audio.currentTime, 0);
 		this._updateStatus();
 		this.inspectorPanel.render(this.model, { transform: this.freeTransform?.matrix || null });
 		this.snappeesPanel.render(this.model);
+		this.channelsPanel.render(this.model);
 		this.historyPanel.render(this.history);
 		this._refreshDifficultyUi();
-		for (const element of [
-			document.getElementById("inspector-panel"),
-			document.getElementById("snappees-panel"),
-			document.querySelector(".history-panel"),
-		]) {
-			if (!element) continue;
-			element.inert = this.audio.playing;
-			element.classList.toggle("is-playback-locked", this.audio.playing);
-		}
 		this.registry.notifyAll();
 		this._syncCheckedCommands();
 		document.title = `${this.dirty ? "* " : ""}${this.model.metadata.title} ${this.model.metadata.difficultyName} - sviber`;
@@ -466,6 +496,23 @@ export class SviberAppCore {
 		document.getElementById("status-time").textContent = formatTime(seconds);
 		document.getElementById("status-beat").textContent = formatBeat(beat, subdivision);
 		document.getElementById("status-speed").textContent = Number(this.model.editor.speed).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+		const comments = this.renderIndex?.activeComments(seconds) || this.model.events.filter(event => {
+			if (event.type !== "comment") return false;
+			const start = this.timing().beatToSeconds(event.time);
+			const end = this.timing().beatToSeconds(Rational.from(event.time).add(event.duration || 0));
+			return start <= seconds && end > seconds;
+		});
+		const commentsElement = document.getElementById("status-comments");
+		const commentsSignature = JSON.stringify(comments.map(event => [event.id, event.text]));
+		if (commentsElement && commentsElement.dataset.signature !== commentsSignature) {
+			commentsElement.dataset.signature = commentsSignature;
+			commentsElement.replaceChildren(...comments.map(event => {
+				const item = document.createElement("div");
+				item.className = "status-comment";
+				item.textContent = String(event.text || "");
+				return item;
+			}));
+		}
 		const operation = document.getElementById("operation-status");
 		if (this.creationMode && this.stage.creationPreview) {
 			const preview = this.stage.creationPreview;
@@ -501,20 +548,20 @@ export class SviberAppCore {
 	}
 
 	_bindTabs() {
-		const inspectorTab = document.getElementById("inspector-tab");
-		const snappeesTab = document.getElementById("snappees-tab");
-		const inspector = document.getElementById("inspector-panel");
-		const snappees = document.getElementById("snappees-panel");
-		const setTab = useInspector => {
-			inspectorTab.classList.toggle("is-active", useInspector);
-			snappeesTab.classList.toggle("is-active", !useInspector);
-			inspectorTab.setAttribute("aria-selected", String(useInspector));
-			snappeesTab.setAttribute("aria-selected", String(!useInspector));
-			inspector.hidden = !useInspector;
-			snappees.hidden = useInspector;
+		const tabs = ["inspector", "channels", "snappees"].map(id => ({
+			id,
+			tab: document.getElementById(`${id}-tab`),
+			panel: document.getElementById(`${id}-panel`),
+		}));
+		const setTab = activeId => {
+			for (const item of tabs) {
+				const active = item.id === activeId;
+				item.tab.classList.toggle("is-active", active);
+				item.tab.setAttribute("aria-selected", String(active));
+				item.panel.hidden = !active;
+			}
 		};
-		inspectorTab.addEventListener("click", () => setTab(true));
-		snappeesTab.addEventListener("click", () => setTab(false));
+		for (const item of tabs) item.tab.addEventListener("click", () => setTab(item.id));
 	}
 
 	_bindInputs() {
@@ -551,6 +598,7 @@ export class SviberAppCore {
 			this.refreshPlaybackFrame();
 		});
 		this.audio.addEventListener("play", () => {
+			this.playbackScheduleInvalidated = false;
 			this._rebuildRenderIndex();
 			const time = this.currentSeconds();
 			const editor = this.model.editor;
@@ -564,6 +612,7 @@ export class SviberAppCore {
 			this.refresh();
 		});
 		const finish = () => {
+			this.playbackScheduleInvalidated = false;
 			this.stage.cancelScheduledHits();
 			const snapped = this.timing().secondsToSnappedBeat(this.audio.currentTime, this.model.editor.subdivision);
 			this.model.editor.timeSnapped = true;
@@ -587,10 +636,13 @@ export class SviberAppCore {
 		});
 	}
 
-	_scheduleHits(current) {
+	_scheduleHits(current, lateTolerance = 0.02) {
+		if (this.playbackScheduleInvalidated && lateTolerance !== 0) return;
 		const schedule = this.renderIndex
-			? collectIndexedHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate, this.scheduledHitIds)
-			: collectHitSchedule(this.model.events, this.timing(), current, this.audio.rate, this.scheduledHitIds);
+			? collectIndexedHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
+				this.scheduledHitIds, undefined, lateTolerance)
+			: collectHitSchedule(this.model.events, this.timing(), current, this.audio.rate,
+				this.scheduledHitIds, undefined, lateTolerance);
 		for (const { event, delay } of schedule) {
 			this.scheduledHitIds.add(event.id);
 			void this.audio.playHit(event.type, delay);
@@ -598,9 +650,9 @@ export class SviberAppCore {
 		}
 		const releases = this.renderIndex
 			? collectIndexedHoldReleaseSchedule(this.renderIndex.holdReleaseRecords,
-				current, this.audio.rate, this.scheduledHoldReleaseIds)
+				current, this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance)
 			: collectHoldReleaseSchedule(this.model.events, this.timing(), current,
-				this.audio.rate, this.scheduledHoldReleaseIds);
+				this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance);
 		for (const { event, delay } of releases) {
 			this.scheduledHoldReleaseIds.add(event.id);
 			this.stage.triggerHit(event, delay);
@@ -622,9 +674,19 @@ export class SviberAppCore {
 				this.finishCurveDraft();
 			}
 		});
+		this.boundSpaceKeyUp = event => {
+			if (event.key !== " " && event.code !== "Space") return;
+			if (this.spacePlaybackStartedAt == null) return;
+			const held = performance.now() - this.spacePlaybackStartedAt;
+			this.spacePlaybackStartedAt = null;
+			if (held < 300 || !this.audio.playing || this.dialogs.active) return;
+			event.preventDefault();
+			void this.registry.execute("music.playPause", this, event);
+		};
+		document.addEventListener("keyup", this.boundSpaceKeyUp, true);
 		document.addEventListener("wheel", event => {
 			if (this.dialogs.active || event.defaultPrevented
-				|| event.target.closest(".property-panel,.history-list,.menu-popup,.dialog-body,.tool-bar")) return;
+				|| event.target.closest(".property-panel,.history-list,.status-panel,.menu-popup,.dialog-body,.tool-bar,select,textarea")) return;
 			event.preventDefault();
 			this.navigateWheel(event.deltaY, event.ctrlKey);
 		}, { passive: false });
@@ -638,7 +700,7 @@ export class SviberAppCore {
 
 	async _offerAutosave() {
 		const recoveries = this.autosave.recoverable();
-		if (!recoveries.length) return;
+		if (!recoveries.length) return false;
 		const values = await this.dialogs.form({
 			titleKey: "dialog.autosave",
 			messageKey: "dialog.autosaveMessage",
@@ -664,11 +726,13 @@ export class SviberAppCore {
 				model: recovery.model,
 			}], { activeChart: "difficulty-0", name: recovery.model.metadata.title, saved: false });
 		} else this.autosave.markManualSave();
+		return true;
 	}
 
 	exitModes() {
 		this.creationMode = null;
 		this.curveDraft = null;
+		this.cancelSelectionPreview?.();
 		this.cancelFreeTransform();
 		this.cancelPreview();
 	}
@@ -683,6 +747,7 @@ export class SviberAppCore {
 		this.toolbar.destroy();
 		this.tooltip.destroy();
 		this.unsubscribeCommandModes?.();
+		document.removeEventListener("keyup", this.boundSpaceKeyUp, true);
 		cancelAnimationFrame(this.statusUpdateFrame);
 	}
 

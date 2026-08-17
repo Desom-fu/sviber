@@ -99,10 +99,7 @@ export async function decodeAudioBytes(bytes, context, options = {}) {
 	let decoderError;
 	try {
 		const decoder = options.decoder ?? await (options.loadDecoder ?? loadAudioDecode)();
-		const decode = options.format && typeof decoder[options.format] === "function"
-			? decoder[options.format].bind(decoder)
-			: decoder;
-		return audioDataToBuffer(context, await decode(new Uint8Array(source)));
+		return audioDataToBuffer(context, await decoder(new Uint8Array(source)));
 	} catch (error) {
 		decoderError = error;
 	}

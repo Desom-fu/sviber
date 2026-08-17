@@ -211,7 +211,7 @@ export const withStageNotes = Base => class extends Base {
 			}));
 		for (const record of records) {
 			const elapsed = now - record.end;
-			if (elapsed < 0 || elapsed > 1 / speed) continue;
+			if (elapsed <= 0 || elapsed > 1 / speed) continue;
 			const position = record.position || this.renderIndex?.positionFor(record.event)
 				|| resolveAttachedPosition(record.event, project.snappees) || record.event;
 			const screen = mapping.toScreen(position);
@@ -234,7 +234,7 @@ export const withStageNotes = Base => class extends Base {
 		const displayedPattern = (this.renderIndex
 			? this.renderIndex.displayedPattern(now)
 			: sunniesnowDisplayedPattern(project.events, this.timing, now))?.event;
-		const selected = this.renderIndex?.selectedEvents || project.events.filter(event => event.selected);
+		const selected = this.renderIndex?.stageSelectedEvents || project.events.filter(event => event.selected);
 		for (const event of selected) {
 			if (MOVABLE_TYPES.has(event.type)) {
 				if (this._noteVisibility(event, now)) continue;
@@ -292,7 +292,7 @@ export const withStageNotes = Base => class extends Base {
 
 	_drawSelectionHandles(context, project, mapping) {
 		if (this.callbacks.getFreeTransform?.()) return;
-		const selected = (this.renderIndex?.selectedEvents || selectedEvents(project))
+		const selected = [...(this.renderIndex?.stageSelectedEvents || selectedEvents(project))]
 			.filter(event => MOVABLE_TYPES.has(event.type));
 		if (selected.length !== 1) return;
 		const event = selected[0];

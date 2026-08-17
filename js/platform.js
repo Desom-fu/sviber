@@ -235,6 +235,16 @@ export class FileManager {
 		return file;
 	}
 
+	async fileFromLocalPath(pathname, type = "application/json") {
+		const modules = nwModules();
+		if (!modules || !pathname) return null;
+		const resolved = modules.path.resolve(String(pathname));
+		const stat = await modules.fs.promises.stat(resolved);
+		if (!stat.isFile()) return null;
+		const bytes = await modules.fs.promises.readFile(resolved);
+		return fileFromBytes(bytes, modules.path.basename(resolved), type, resolved);
+	}
+
 	async chooseProjectDirectory() {
 		const modules = nwModules();
 		if (modules) {

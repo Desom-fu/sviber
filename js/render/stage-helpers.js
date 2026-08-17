@@ -6,7 +6,7 @@ import { PixiCanvasSurface } from "./pixi-surface.js";
 export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
 export const NOTE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 export const PATTERN_TYPES = new Set(["bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"]);
-export const DURATION_TYPES = new Set(["hold", "bgNote", ...PATTERN_TYPES]);
+export const DURATION_TYPES = new Set(["hold", "bgNote", "comment", ...PATTERN_TYPES]);
 export const TIP_POINT_SPAWN_TYPES = new Set(["inherit", "chain", "drop", "none"]);
 export const TIP_POINT_TRAIL_DURATION = 0.5;
 export const TIP_POINT_ZOOM_DURATION = 0.3;

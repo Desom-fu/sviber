@@ -88,6 +88,7 @@ export async function measureLargeChartEditing(page) {
 		const measurements = await page.evaluate(async () => {
 			const app = globalThis.sviber;
 			app.creationMode = "tap";
+			const eventCount = app.model.events.length;
 			const canvas = app.stage.surface.canvas;
 			const rectangle = canvas.getBoundingClientRect();
 			const warmupFrames = 30;
@@ -108,6 +109,10 @@ export async function measureLargeChartEditing(page) {
 							clientY: rectangle.top + rectangle.height * (0.35 + Math.sin(progress * 20) * 0.2),
 						}));
 					}
+					const firstId = frame * 251 % eventCount;
+					const selectedIds = Array.from({ length: 256 }, (_, offset) => (firstId + offset) % eventCount);
+					app.previewSelection(selectedIds, "replace");
+					app.seekBeat([190 + Math.floor(frame / 9), frame % 9, 9], null, false, { lightweight: true });
 					if (frame >= warmupFrames) cpuTasks.push(performance.now() - cpuStarted);
 					frame += 1;
 					if (frame <= warmupFrames + measuredFrames) requestAnimationFrame(draw);
@@ -121,6 +126,7 @@ export async function measureLargeChartEditing(page) {
 		await page.evaluate(snapshot => {
 			const app = globalThis.sviber;
 			app.creationMode = null;
+			app.cancelSelectionPreview();
 			app.model.restore(snapshot);
 			app.refreshNow();
 		}, fixture.snapshot);

@@ -13,9 +13,36 @@ import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_CHARTER_KEY, LAST_OPEN_KEY, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
 export const withFileWorkflows = Base => class extends Base {
+	rememberLastOpen(kind, pathname) {
+		if (!globalThis.nw || !pathname) return;
+		try { localStorage.setItem(LAST_OPEN_KEY, JSON.stringify({ kind, path: String(pathname) })); } catch { /* Storage may be unavailable. */ }
+	}
+
+	async reopenLastDocument() {
+		if (!globalThis.nw) return false;
+		let recent;
+		try { recent = JSON.parse(localStorage.getItem(LAST_OPEN_KEY) || "null"); } catch { recent = null; }
+		if (!recent?.path || !["project", "chart"].includes(recent.kind)) return false;
+		try {
+			if (recent.kind === "project") {
+				const opened = await this.openProject({ directoryPath: recent.path, skipUnsaved: true, silent: true });
+				if (!opened) throw new Error("The recent project is unavailable.");
+				return true;
+			}
+			const file = await this.files.fileFromLocalPath(recent.path);
+			if (!file) throw new Error("The recent chart is unavailable.");
+			const opened = await this.openFile(file, { skipUnsaved: true, silent: true });
+			if (!opened) throw new Error("The recent chart is unavailable.");
+			return true;
+		} catch (error) {
+			console.warn("Unable to reopen the recent chart or project", error);
+			try { localStorage.removeItem(LAST_OPEN_KEY); } catch { /* Storage may be unavailable. */ }
+			return false;
+		}
+	}
 	async confirmUnsaved() {
 		if (!this.dirty) return true;
 		const result = await this.dialogs.open({
@@ -347,11 +374,11 @@ export const withFileWorkflows = Base => class extends Base {
 		return this.mediaSync;
 	}
 
-	async openProject() {
+	async openProject(options = {}) {
 		this.exitModes();
-		if (!await this.confirmUnsaved()) return null;
+		if (!options.skipUnsaved && !await this.confirmUnsaved()) return null;
 		try {
-			const parsed = await this.files.openProject();
+			const parsed = await this.files.openProject(options);
 			if (!parsed) return null;
 			const charts = parsed.charts.map(entry => ({
 				...entry,
@@ -368,26 +395,27 @@ export const withFileWorkflows = Base => class extends Base {
 			if (parsed.musicFile) await this.loadMusic(parsed.musicFile, false, { reference: parsed.manifest.music });
 			if (parsed.imageFile) await this.loadBackground(parsed.imageFile, false, { reference: parsed.manifest.image });
 			this.markProjectSaved();
-			this.toast.show("toast.projectOpened");
+			this.rememberLastOpen("project", this.files.projectPath);
+			if (!options.silent) this.toast.show("toast.projectOpened");
 			const warnings = this.difficulties.flatMap(entry => entry.model.importWarnings || []);
 			if (warnings.length) this.toast.show(warnings.map(localizedImportWarning).join("\n"), {}, { raw: true, duration: 6500 });
 			this.refresh();
 			return parsed;
 		} catch (error) {
 			console.error(error);
-			this.toast.error("toast.projectOpenFailed", { message: localizedErrorMessage(error) });
+			if (!options.silent) this.toast.error("toast.projectOpenFailed", { message: localizedErrorMessage(error) });
 			return null;
 		}
 	}
 
-	async openFile(file) {
-		if (!file || !await this.confirmUnsaved()) return;
+	async openFile(file, options = {}) {
+		if (!file || !options.skipUnsaved && !await this.confirmUnsaved()) return;
 		try {
 			const parsed = await this.files.parseFile(file);
 			if (!parsed) return;
-			const options = await this.requestImportOptions(parsed.document);
-			if (options == null) return;
-			const model = ChartModel.import(parsed.document, options);
+			const importOptions = await this.requestImportOptions(parsed.document);
+			if (importOptions == null) return;
+			const model = ChartModel.import(parsed.document, importOptions);
 			this.installProject([{
 				id: "difficulty-0",
 				file: uniqueChartFilename(model.metadata.difficultyName),
@@ -407,14 +435,17 @@ export const withFileWorkflows = Base => class extends Base {
 				await this.syncMediaFromModel();
 			}
 			this.markProjectSaved();
-			this.toast.show("toast.opened");
+			this.rememberLastOpen("chart", this.files.chartPath);
+			if (!options.silent) this.toast.show("toast.opened");
 			if (this.model.importWarnings.length) {
 				this.toast.show(this.model.importWarnings.map(localizedImportWarning).join("\n"), {}, { raw: true, duration: 6500 });
 			}
 			this.refresh();
+			return parsed;
 		} catch (error) {
 			console.error(error);
-			this.toast.error("toast.openFailed", { message: localizedErrorMessage(error) });
+			if (!options.silent) this.toast.error("toast.openFailed", { message: localizedErrorMessage(error) });
+			return null;
 		}
 	}
 

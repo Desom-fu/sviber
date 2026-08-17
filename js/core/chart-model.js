@@ -11,7 +11,7 @@ export const SUNNIESNOW_SCHEMA = "https://sunniesnow.github.io/schema/chart-1.0.
 
 export const EVENT_TYPES = Object.freeze([
 	"tap", "hold", "drag", "flick", "bgNote", "bigText",
-	"grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram",
+	"grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment",
 ]);
 
 export const DIFFICULTY_COLORS = Object.freeze({
@@ -28,9 +28,9 @@ const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 const DURATION_TYPES = new Set([
 	"hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard",
-	"diamondGrid", "pentagon", "turntable", "hexagram",
+	"diamondGrid", "pentagon", "turntable", "hexagram", "comment",
 ]);
-const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText"]);
+const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText", "comment"]);
 const POSITIVE_DURATION_TYPES = new Set([
 	"hold", "bigText", "grid", "hexagon", "checkerboard",
 	"diamondGrid", "pentagon", "turntable", "hexagram",
@@ -119,7 +119,7 @@ function normalizeDuration(value, type) {
 		duration = Rational.from(1);
 	}
 	if (duration.compare(0) < 0 || (POSITIVE_DURATION_TYPES.has(type) && duration.compare(0) === 0)) {
-		return Rational.from(type === "bgNote" ? 0 : 1).toJSON();
+		return Rational.from(type === "bgNote" || type === "comment" ? 0 : 1).toJSON();
 	}
 	return duration.toJSON();
 }
@@ -345,7 +345,7 @@ export function createDefaultSnappees() {
 function assignStableIds(items, factory) {
 	const used = new Set();
 	let next = 0;
-	return (Array.isArray(items) ? items : []).map((item) => {
+	return (Array.isArray(items) ? items : []).map((item, index) => {
 		let id = item?.id;
 		if (!validId(id) || used.has(id)) {
 			while (used.has(next)) next += 1;
@@ -353,13 +353,18 @@ function assignStableIds(items, factory) {
 		}
 		used.add(id);
 		next = Math.max(next, id + 1);
-		return factory(item, id);
+		return factory(item, id, index);
 	});
 }
 
 function normalizeChannels(channels) {
 	const source = Array.isArray(channels) && channels.length ? channels : [{ id: 0 }];
-	return assignStableIds(source, (channel, id) => ({ ...clone(channel ?? {}), id }));
+	return assignStableIds(source, (channel, id, index) => ({
+		...clone(channel ?? {}),
+		id,
+		name: String(channel?.name ?? `Channel ${index + 1}`),
+		active: channel?.active !== false,
+	}));
 }
 
 function normalizeEditor(editor, channels) {
@@ -375,6 +380,9 @@ function normalizeEditor(editor, channels) {
 		currentTime = timeSnapped ? [...DEFAULT_EDITOR.currentTime] : 0;
 	}
 	const channelIds = new Set(channels.map(({ id }) => id));
+	const requestedChannel = channelIds.has(source.currentChannel) ? source.currentChannel : channels[0].id;
+	const requested = channels.find(channel => channel.id === requestedChannel);
+	const activeFallback = channels.find(channel => channel.active !== false);
 	return {
 		timeSnapped: Boolean(timeSnapped),
 		subdivision,
@@ -382,7 +390,7 @@ function normalizeEditor(editor, channels) {
 		visibleRangeBeginning: finiteNumber(source.visibleRangeBeginning, DEFAULT_EDITOR.visibleRangeBeginning),
 		visibleRangeEnd: finiteNumber(source.visibleRangeEnd, DEFAULT_EDITOR.visibleRangeEnd),
 		speed: Math.max(0.01, finiteNumber(source.speed, DEFAULT_EDITOR.speed)),
-		currentChannel: channelIds.has(source.currentChannel) ? source.currentChannel : channels[0].id,
+		currentChannel: requested?.active !== false || !activeFallback ? requestedChannel : activeFallback.id,
 		allowOutOfBounds: Boolean(source.allowOutOfBounds),
 	};
 }
@@ -407,10 +415,16 @@ export class ChartModel {
 		this.channels = normalizeChannels(state.channels);
 		this.editor = normalizeEditor(state.editor, this.channels);
 		this.snappees = assignStableIds(state.snappees, (snappee, id) => createSnappee(snappee.type, { ...snappee, id }));
+		for (const snappee of this.snappees) {
+			if (snappee.active === false) snappee.selected = false;
+		}
 		const validChannels = new Set(this.channels.map(({ id }) => id));
+		const activeChannels = new Set(this.channels
+			.filter(channel => channel.active !== false).map(channel => channel.id));
 		this.events = assignStableIds(state.events, (event, id) => {
 			const normalized = createEvent(event.type, { ...event, id });
 			if (!validChannels.has(normalized.channel)) normalized.channel = this.channels[0].id;
+			if (!activeChannels.has(normalized.channel)) normalized.selected = false;
 			return normalized;
 		});
 		const nextIds = state.nextIds ?? {};
@@ -577,6 +591,7 @@ export class ChartModel {
 			? this.createEvent(typeOrEvent, overrides)
 			: createEvent(typeOrEvent.type, { ...typeOrEvent, id: this._allocate("event") });
 		if (!this.channels.some(({ id }) => id === event.channel)) event.channel = this.editor.currentChannel;
+		if (this.channels.find(channel => channel.id === event.channel)?.active === false) event.selected = false;
 		this.events.push(event);
 		return event;
 	}
@@ -587,7 +602,15 @@ export class ChartModel {
 	}
 
 	addChannel(index = this.channels.length, data = {}) {
-		const channel = { ...clone(data), id: this._allocate("channel") };
+		const names = new Set(this.channels.map(channel => channel.name));
+		let ordinal = this.channels.length + 1;
+		while (names.has(`Channel ${ordinal}`)) ordinal += 1;
+		const channel = {
+			...clone(data),
+			id: this._allocate("channel"),
+			name: String(data.name ?? `Channel ${ordinal}`),
+			active: data.active !== false,
+		};
 		const insertion = Math.max(0, Math.min(this.channels.length, Number(index) || 0));
 		this.channels.splice(insertion, 0, channel);
 		this.editor.currentChannel = channel.id;
@@ -601,7 +624,9 @@ export class ChartModel {
 		const [removed] = this.channels.splice(index, 1);
 		this.events = this.events.filter((event) => event.channel !== id);
 		if (this.editor.currentChannel === id) {
-			this.editor.currentChannel = this.channels[Math.max(0, index - 1)].id;
+			const above = this.channels.slice(0, index).reverse().find(channel => channel.active !== false);
+			const below = this.channels.slice(index).find(channel => channel.active !== false);
+			this.editor.currentChannel = (above || below || this.channels[Math.max(0, index - 1)]).id;
 		}
 		return removed;
 	}
@@ -721,7 +746,12 @@ export class ChartModel {
 	}
 
 	generateSunniesnowEvents() {
-		const records = this.events.map((event, sequence) => ({
+		const activeChannels = new Set(this.channels
+			.filter(channel => channel.active !== false)
+			.map(channel => channel.id));
+		const records = this.events
+			.filter(event => event.type !== "comment" && activeChannels.has(event.channel))
+			.map((event, sequence) => ({
 			event,
 			exported: this._exportEvent(event),
 			sequence,

@@ -45,20 +45,30 @@ export const withEventEditing = Base => class extends Base {
 				if (clearSelection) this.exitCreationModes();
 				this.seekBeat(beat, channel, clearSelection);
 			},
+			onPreviewSeekBeat: beat => this.seekBeat(beat, null, false, { lightweight: true }),
 			onPreviewMoveEvents: (delta, channelDelta, copy) => this.previewMoveEvents(delta, channelDelta, copy),
 			onMoveEvents: (delta, channelDelta, copy) => this.moveEvents(delta, channelDelta, copy),
-			onPreviewDuration: (id, duration) => this.preview("Resize event", model => { const event = model.events.find(item => item.id === id); if (event) event.duration = duration; }),
-			onResizeEvent: (id, duration) => {
+			onPreviewDurations: changes => this.preview("Resize events", model => {
+				const durations = new Map(changes.map(change => [change.id, change.duration]));
+				for (const event of model.events) {
+					if (durations.has(event.id)) event.duration = deepClone(durations.get(event.id));
+				}
+			}, { scheduleDirty: true }),
+			onResizeEvents: changes => {
+				const ids = new Set(changes.map(change => change.id));
+				const durations = new Map(changes.map(change => [change.id, change.duration]));
 				this.commit(i18n.t("history.editEvent", { type: "" }), model => {
-					const event = model.events.find(item => item.id === id);
-					if (event) event.duration = duration;
+					for (const event of model.events) {
+						if (durations.has(event.id)) event.duration = deepClone(durations.get(event.id));
+					}
 				});
-				this.rememberCreationDefaults(this.model.events.filter(event => event.id === id));
+				this.rememberCreationDefaults(this.model.events.filter(event => ids.has(event.id)));
 			},
 			onPreviewBoxSelect: (ids, mode) => { this.exitCreationModes(); this.previewSelection(ids, mode); },
-			onBoxSelect: (ids, mode) => { this.exitCreationModes(); this.selectEvents(ids, mode); },
-			onEndPreview: () => this.cancelPreview(),
+			onBoxSelect: (ids, mode) => { this.exitCreationModes(); this.finishSelectionPreview(ids, mode); },
+			onEndPreview: () => this.endInteractionPreview(),
 			onVisibleRange: (beginning, end) => this.setVisibleRange(beginning, end),
+			onPageVisibleRange: direction => this.pageVisibleRange(direction),
 			onEditBpm: index => void this.showBpmDialog(index),
 			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey),
 		};
@@ -100,22 +110,35 @@ export const withEventEditing = Base => class extends Base {
 			onPreviewSnappeeHandle: (id, index, point) => this.previewSnappeeHandle(id, index, point),
 			onSnappeeHandle: (id, index, point) => this.setSnappeeHandle(id, index, point),
 			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode),
-			onBoxSelect: (ids, mode) => this.selectEvents(ids, mode),
-			onEndPreview: () => this.cancelPreview(),
-			onSelectAttachedEvents: (id, mode) => this.selectEvents(this.model.events.filter(event => event.attached && event.snappee === id).map(event => event.id), mode),
+			onBoxSelect: (ids, mode) => this.finishSelectionPreview(ids, mode),
+			onEndPreview: () => this.endInteractionPreview(),
+			onSelectAttachedEvents: (id, mode) => {
+				const activeChannels = this.renderIndex?.activeChannelIds
+					|| new Set(this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+				this.selectEvents(this.model.events.filter(event => event.attached && event.snappee === id
+					&& activeChannels.has(event.channel)).map(event => event.id), mode);
+			},
 			onPreviewFreeTransform: matrix => this.previewFreeTransform(matrix),
 		};
 	}
 
 	selectEvents(ids, mode = "replace") {
-		const targets = new Set(ids);
+		this.cancelSelectionPreview();
+		const indexIsCurrent = this.renderIndex?.eventSource === this.model.events
+			&& this.renderIndex.eventById.size === this.model.events.length;
+		const activeChannels = indexIsCurrent ? this.renderIndex.activeChannelIds
+			: new Set(this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+		const eventById = indexIsCurrent ? this.renderIndex.eventById
+			: new Map(this.model.events.map(event => [event.id, event]));
+		const targets = new Set([...ids].filter(id => mode === "remove"
+			|| activeChannels.has(eventById.get(id)?.channel)));
 		this.commit(i18n.t("history.selection"), model => {
 			for (const event of model.events) {
 				if (mode === "replace") event.selected = targets.has(event.id);
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false, allowPlaying: true });
+		}, { dirty: false, allowPlaying: true, scheduleDirty: false });
 	}
 
 	_reconcileStageMoveAttachmentException(selectionBefore) {
@@ -158,15 +181,81 @@ export const withEventEditing = Base => class extends Base {
 			: null;
 	}
 
-	previewSelection(ids, mode) {
+	_setPreviewSelection(event, selected) {
+		if (!event) return;
+		const value = Boolean(selected);
+		if (event.selected === value) return;
+		event.selected = value;
+		this.renderIndex?.setEventSelected(event, value);
+	}
+
+	_startSelectionPreview(mode) {
+		if (this.selectionPreview?.mode === mode) return this.selectionPreview;
+		this.cancelSelectionPreview();
+		const indexIsCurrent = this.renderIndex?.eventSource === this.model.events
+			&& this.renderIndex.eventById.size === this.model.events.length;
+		const eventById = indexIsCurrent ? this.renderIndex.eventById
+			: new Map(this.model.events.map(event => [event.id, event]));
+		const baseSelected = indexIsCurrent && this.renderIndex.selectedEventIds
+			? new Set(this.renderIndex.selectedEventIds)
+			: new Set(this.model.events.filter(event => event.selected).map(event => event.id));
+		this.selectionPreview = { mode, eventById, baseSelected, targets: new Set() };
+		if (mode === "replace") {
+			for (const id of baseSelected) this._setPreviewSelection(eventById.get(id), false);
+		}
+		return this.selectionPreview;
+	}
+
+	previewSelection(ids, mode = "replace") {
+		const preview = this._startSelectionPreview(mode);
 		const targets = new Set(ids);
-		this.preview(i18n.t("history.selection"), model => {
-			for (const event of model.events) {
-				if (mode === "replace") event.selected = targets.has(event.id);
-				else if (mode === "add" && targets.has(event.id)) event.selected = true;
-				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
-			}
-		});
+		for (const id of preview.targets) {
+			if (targets.has(id)) continue;
+			const event = preview.eventById.get(id);
+			if (event) this._setPreviewSelection(event, mode === "replace" ? false : preview.baseSelected.has(id));
+		}
+		for (const id of targets) {
+			if (preview.targets.has(id)) continue;
+			const event = preview.eventById.get(id);
+			if (event) this._setPreviewSelection(event, mode !== "remove");
+		}
+		preview.targets = targets;
+		this.timeline.requestRender();
+		this.stage.requestRender();
+	}
+
+	finishSelectionPreview(ids, mode = "replace") {
+		this.previewSelection(ids, mode);
+		const preview = this.selectionPreview;
+		if (!preview) return;
+		const changed = mode === "replace"
+			? preview.targets.size !== preview.baseSelected.size
+				|| [...preview.targets].some(id => !preview.baseSelected.has(id))
+			: mode === "add"
+				? [...preview.targets].some(id => !preview.baseSelected.has(id))
+				: [...preview.targets].some(id => preview.baseSelected.has(id));
+		this.selectionPreview = null;
+		if (changed) this.history.record(this.model.snapshot(), i18n.t("history.selection"));
+		this.refresh();
+	}
+
+	cancelSelectionPreview() {
+		const preview = this.selectionPreview;
+		if (!preview) return false;
+		const affected = new Set([...preview.baseSelected, ...preview.targets]);
+		for (const id of affected) {
+			const event = preview.eventById.get(id);
+			if (event) this._setPreviewSelection(event, preview.baseSelected.has(id));
+		}
+		this.selectionPreview = null;
+		this.timeline.requestRender();
+		this.stage.requestRender();
+		return true;
+	}
+
+	endInteractionPreview() {
+		this.cancelSelectionPreview();
+		this.cancelPreview();
 	}
 
 	rangeSelect(targetBeat, targetChannel, mode) {
@@ -178,6 +267,7 @@ export const withEventEditing = Base => class extends Base {
 		const maximumBeat = beginningBeat.compare(endingBeat) <= 0 ? endingBeat : beginningBeat;
 		const channelIds = new Set(this.model.channels
 			.slice(Math.min(beginningChannel, endingChannel), Math.max(beginningChannel, endingChannel) + 1)
+			.filter(channel => channel.active !== false)
 			.map(channel => channel.id));
 		const ids = this.model.events.filter(event => channelIds.has(event.channel)
 			&& Rational.from(event.time).compare(minimumBeat) >= 0
@@ -191,20 +281,28 @@ export const withEventEditing = Base => class extends Base {
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false });
+		}, { dirty: false, scheduleDirty: false });
 	}
 
-	seekBeat(beat, channel = null, clearSelection = false) {
+	seekBeat(beat, channel = null, clearSelection = false, options = {}) {
 		if (this.audio.playing) this.audio.pause();
 		this.model.editor.timeSnapped = true;
 		this.model.editor.currentTime = Rational.from(beat).toJSON();
-		if (channel != null) this.model.editor.currentChannel = channel;
+		if (channel != null && this.model.channels.some(candidate => candidate.id === channel && candidate.active !== false)) {
+			this.model.editor.currentChannel = channel;
+		}
 		if (clearSelection) {
 			for (const event of this.model.events) event.selected = false;
 			this.stageMoveAttachmentException = null;
 		}
 		this.audio.seek(this.currentSeconds());
-		this.refresh();
+		if (options.lightweight && !clearSelection && channel == null) {
+			this.timeline.requestRender();
+			this.stage.requestRender();
+			this.requestStatusUpdate();
+		} else {
+			this.refresh();
+		}
 	}
 
 	setVisibleRange(beginning, end, includeCurrent = false) {
@@ -214,7 +312,49 @@ export const withEventEditing = Base => class extends Base {
 		if (bounds[1] - bounds[0] < span) start = bounds[0];
 		this.model.editor.visibleRangeBeginning = start;
 		this.model.editor.visibleRangeEnd = Math.min(bounds[1], start + span);
-		this.refresh();
+		this.timeline.requestRender();
+	}
+
+	pageVisibleRange(direction) {
+		const sign = Math.sign(Number(direction));
+		if (!sign) return;
+		const editor = this.model.editor;
+		const span = editor.visibleRangeEnd - editor.visibleRangeBeginning;
+		const current = this.currentSeconds();
+		const currentWasVisible = current >= editor.visibleRangeBeginning && current <= editor.visibleRangeEnd;
+		const previousBeginning = editor.visibleRangeBeginning;
+		this.setVisibleRange(editor.visibleRangeBeginning + sign * span, editor.visibleRangeEnd + sign * span);
+		const actualDelta = editor.visibleRangeBeginning - previousBeginning;
+		if (currentWasVisible && Math.abs(actualDelta) > 1e-10) {
+			const target = current + actualDelta;
+			if (this.audio.playing) {
+				editor.timeSnapped = false;
+				editor.currentTime = target;
+				this.audio.seek(target);
+			}
+			else {
+				editor.timeSnapped = true;
+				editor.currentTime = this.timing().secondsToSnappedBeat(target, editor.subdivision).toJSON();
+				this.audio.seek(this.currentSeconds());
+			}
+			this.stage.requestRender();
+			this.requestStatusUpdate();
+		}
+	}
+
+	changeCurrentChannel(direction) {
+		const step = Math.sign(Number(direction));
+		if (!step) return false;
+		const channels = this.model.channels;
+		const current = channels.findIndex(channel => channel.id === this.model.editor.currentChannel);
+		for (let index = current + step; index >= 0 && index < channels.length; index += step) {
+			if (channels[index].active === false) continue;
+			this.model.editor.currentChannel = channels[index].id;
+			this.timeline.revealChannel(channels[index].id);
+			this.refresh();
+			return true;
+		}
+		return false;
 	}
 
 	navigateWheel(deltaY, zoom = false) {
@@ -231,8 +371,8 @@ export const withEventEditing = Base => class extends Base {
 		const editor = this.model.editor;
 		const oldSeconds = this.currentSeconds();
 		const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
-		const moveVisibleRange = oldSeconds >= center
-			&& oldSeconds >= editor.visibleRangeBeginning && oldSeconds <= editor.visibleRangeEnd;
+		const inside = oldSeconds >= editor.visibleRangeBeginning && oldSeconds <= editor.visibleRangeEnd;
+		const moveVisibleRange = inside && (direction > 0 ? oldSeconds >= center : oldSeconds <= center);
 		const nextBeat = this.currentBeat().add(new Rational(direction, this.model.editor.subdivision));
 		const nextSeconds = this.timing().beatToSeconds(nextBeat);
 		const bounds = this.timeBounds();
@@ -241,7 +381,9 @@ export const withEventEditing = Base => class extends Base {
 		this.model.editor.currentTime = nextBeat.toJSON();
 		this.model.editor.timeSnapped = true;
 		if (!moveVisibleRange) {
-			this.refresh();
+			this.timeline.requestRender();
+			this.stage.requestRender();
+			this.requestStatusUpdate();
 			this.audio.seek(nextSeconds);
 			return;
 		}
@@ -250,12 +392,16 @@ export const withEventEditing = Base => class extends Base {
 		const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
 		if (this.model.editor.visibleRangeBeginning < bounds[0]) this.setVisibleRange(bounds[0], bounds[0] + span);
 		else if (this.model.editor.visibleRangeEnd > bounds[1]) this.setVisibleRange(bounds[1] - span, bounds[1]);
-		else this.refresh();
+		else this.timeline.requestRender();
+		this.stage.requestRender();
+		this.requestStatusUpdate();
 		this.audio.seek(nextSeconds);
 	}
 
 	previewMoveEvents(deltaBeat, channelDelta, copy) {
-		this.preview(i18n.t("history.moveEvents"), model => this._applyEventMove(model, deltaBeat, channelDelta, copy));
+		this.preview(i18n.t("history.moveEvents"),
+			model => this._applyEventMove(model, deltaBeat, channelDelta, copy),
+			{ scheduleDirty: true });
 	}
 
 	moveEvents(deltaBeat, channelDelta, copy) {
@@ -270,10 +416,12 @@ export const withEventEditing = Base => class extends Base {
 			.filter(index => index >= 0);
 		if (!channelIndices.length) return;
 		const requestedChannelDelta = Math.round(Number(channelDelta) || 0);
-		const boundedChannelDelta = Math.max(
+		let boundedChannelDelta = Math.max(
 			-Math.min(...channelIndices),
 			Math.min(model.channels.length - 1 - Math.max(...channelIndices), requestedChannelDelta),
 		);
+		if (boundedChannelDelta && channelIndices.some(index =>
+			model.channels[index + boundedChannelDelta]?.active === false)) boundedChannelDelta = 0;
 		if (copy) {
 			for (const event of events) event.selected = false;
 			events = events.map(event => model.addEvent({ ...deepClone(event), id: null, selected: true }));
@@ -693,6 +841,19 @@ export const withEventEditing = Base => class extends Base {
 		}
 		const result = this.commit(historyLabel, model => {
 			const chosen = model.events.filter(event => event.selected);
+			if (property === "channel"
+				&& !model.channels.some(channel => channel.id === Number(value) && channel.active !== false)) return;
+			if (property === "endTime") {
+				const end = Rational.from(value);
+				const zeroAllowed = new Set(["bgNote", "comment"]);
+				if (!chosen.every(event => {
+					const comparison = end.compare(event.time);
+					return DURATION_TYPES.has(event.type)
+						&& (comparison > 0 || comparison === 0 && zeroAllowed.has(event.type));
+				})) return;
+				for (const event of chosen) event.duration = end.sub(event.time).toJSON();
+				return;
+			}
 			if (property === "type") {
 				for (const event of chosen) {
 					const overrides = { ...event, id: event.id, selected: true };
@@ -719,7 +880,7 @@ export const withEventEditing = Base => class extends Base {
 				}
 			}
 		});
-		if (property === "duration" || property === "angle" || property === "type") {
+		if (property === "duration" || property === "endTime" || property === "angle" || property === "type") {
 			this.rememberCreationDefaults(selected(this.model));
 		}
 		return result;

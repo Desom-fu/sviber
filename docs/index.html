@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>sviber Documentation</title>
+	<link rel="icon" href="../svg/icon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="docs.css">
+</head>
+<body>
+	<header class="doc-header">
+		<a class="brand" href="../index.html">sviber</a>
+		<select id="language" aria-label="Language">
+			<option value="en">English</option>
+			<option value="zh-CN">简体中文</option>
+		</select>
+	</header>
+	<div class="doc-layout">
+		<nav id="contents" class="contents" aria-label="Contents"></nav>
+		<main class="manual">
+			<article data-language="en">
+				<h1>sviber User Manual</h1>
+				<p>sviber is a visual editor for Sunniesnow charts. It edits Sviber chart data while keeping a generated Sunniesnow-compatible event list for export.</p>
+
+				<h2 id="en-getting-started">Getting started</h2>
+				<h3 id="en-projects">Projects and charts</h3>
+				<p>In the NW.js app, open or create a project folder to manage shared music, background art, and multiple difficulty charts. In a browser, open and save individual chart files. Project-only commands are hidden when the browser cannot access folders.</p>
+				<h3 id="en-audio">Music and timing</h3>
+				<p>Set the music file, then edit the timing offset, initial BPM, and BPM changes. The current beat is derived from this timing map. Use the waveform for precise seeking and the colored beat lines for subdivisions.</p>
+				<h3 id="en-saving">Saving and recovery</h3>
+				<p>Save writes the editable Sviber data and regenerates Sunniesnow events. Autosaves are kept locally and can be recovered at startup. A save or autosave marker appears beside its history entry.</p>
+
+				<h2 id="en-workspace">Workspace</h2>
+				<h3 id="en-timeline">Timeline</h3>
+				<p>The top canvas contains the waveform, up to three visible channel lanes, beat lines, events, and the overview scrollbar. Drag the yellow current-time line or click the waveform to seek. Drag green scrollbar handles to resize the visible range and its center bar to move it.</p>
+				<p>Scroll to move by one beat subdivision. Hold Ctrl while scrolling to zoom, or hold Shift over the timeline to scroll channel lanes. PageUp moves the visible range forward and PageDown moves it backward.</p>
+				<h3 id="en-stage">Main field</h3>
+				<p>The main field previews the chart at the current time using Sunniesnow geometry and animation. Click a visible event to select it. Drag movable notes to reposition them, or Shift-drag empty space to move the current movable selection using its last event as the anchor.</p>
+				<h3 id="en-status">Status and side panels</h3>
+				<p>The status panel shows time, beat, speed, active comments, and current operation details. Inspector edits common properties of selected events. Channels manages visibility and sound. Snappees manages meshes and curves. History returns to any recorded edit.</p>
+
+				<h2 id="en-events">Events</h2>
+				<h3 id="en-creating-events">Creating notes and patterns</h3>
+				<p>Choose Tap, Hold, Drag, Flick, or Bg note, then click the main field. The tool stays active for repeated placement. Background patterns are created at the current beat from a dialog. Event creation is disabled while music plays.</p>
+				<h3 id="en-selection">Selection and editing</h3>
+				<p>Drag a rectangle in either canvas to select events. Ctrl adds and Alt removes. Shift-click across timeline lanes selects a time/channel range. Duration diamonds change end times; when several ends align they remain aligned, otherwise all ends move by the same subdivision offset.</p>
+				<h3 id="en-comments">Comments</h3>
+				<p>Comments store charting notes with text, start time, and duration. Active comments appear in the status panel. They never appear in gameplay and are omitted from Sunniesnow export.</p>
+				<h3 id="en-tip-points">Tip points</h3>
+				<p>Tip-point spawn modes control incoming markers for notes. Chain links consecutive compatible notes; Drop creates an independent marker; None stops inheritance. Edit spawn position, direction, distance, and time in Inspector.</p>
+
+				<h2 id="en-channels">Channels</h2>
+				<h3 id="en-channel-management">Manage channels</h3>
+				<p>Create, reorder, duplicate, rename, or delete channels from the menu and Channels panel. Duplicating a channel duplicates all of its events. Alt+Up and Alt+Down choose the active channel above or below and reveal it in the timeline.</p>
+				<h3 id="en-inactive-channels">Inactive channels</h3>
+				<p>Deactivating a channel makes its timeline events translucent, removes its events and tip points from the main field, disables timeline interaction, and silences its hit effects. Inactive-channel events are excluded from Sunniesnow export. Comments remain available in the status panel.</p>
+
+				<h2 id="en-snappees">Snappees</h2>
+				<h3 id="en-meshes">Meshes and curves</h3>
+				<p>Meshes provide two-dimensional snap points. Curves provide ordered points for paths and transformations. Create them from the Snappee menu, edit parameters by double-clicking a panel item, and use the panel buttons to activate, duplicate, or delete them.</p>
+				<h3 id="en-attachment">Attaching events</h3>
+				<p>Attach moves selected movable events to their nearest active snap points. Attached events follow later snappee transformations. Detach preserves their resolved positions. Select attached events chooses every active-channel event attached to the selected snappee.</p>
+
+				<h2 id="en-playback">Playback</h2>
+				<h3 id="en-controls">Controls</h3>
+				<p>Space toggles playback. Holding Space for at least 300 ms pauses when it is released. Comma and period seek by a subdivision; Ctrl modifies them to ten seconds. Brackets change speed, and the Music menu provides exact rates.</p>
+				<h3 id="en-editing-during-playback">Editing during playback</h3>
+				<p>Commands that do not require a quantized placement time, popup form, or dedicated drawing mode remain available. This includes saving, undo and redo, ordinary selection and transformation, channel management, and activating snappees.</p>
+
+				<h2 id="en-export">Import and export</h2>
+				<h3 id="en-formats">Formats</h3>
+				<p>Sviber JSON preserves editor state, channels, comments, and snappees. Sunniesnow JSON and level packages contain rendered gameplay data and omit editor-only comments and inactive channels. Import warnings identify unsupported visual-only data.</p>
+				<h3 id="en-troubleshooting">Troubleshooting</h3>
+				<p>If audio cannot be decoded, inspect the full AudioDecodeError causes in the developer console and verify the packaged decoder bundle is present. For rendering problems, test with the same chart in both browser and NW.js and include runtime information from Help > About when reporting an issue.</p>
+			</article>
+
+			<article data-language="zh-CN" hidden>
+				<h1>sviber 用户手册</h1>
+				<p>sviber 是 Sunniesnow 的可视化制谱器。它保存可继续编辑的 Sviber 数据，并在导出时生成与 Sunniesnow 兼容的事件列表。</p>
+
+				<h2 id="zh-getting-started">开始使用</h2>
+				<h3 id="zh-projects">工程与谱面</h3>
+				<p>在 NW.js 版中，可打开或新建工程文件夹，统一管理音乐、背景图和多个难度谱面。在浏览器中则打开、保存单个谱面文件；浏览器无法访问文件夹时，工程专用命令会隐藏。</p>
+				<h3 id="zh-audio">音乐与定时</h3>
+				<p>设置音乐后，可编辑第零拍偏移、初始 BPM 和 BPM 变化。当前拍由这份定时表换算。波形用于精确定位，彩色拍线表示当前拍细分。</p>
+				<h3 id="zh-saving">保存与恢复</h3>
+				<p>保存时会写入 Sviber 编辑数据并重新生成 Sunniesnow 事件。自动保存保存在本机，启动时可以恢复；历史记录会显示手动保存和自动保存图标。</p>
+
+				<h2 id="zh-workspace">工作区</h2>
+				<h3 id="zh-timeline">时间轴</h3>
+				<p>顶部画布包含波形、最多三条可见通道、拍线、事件和总览滚动条。拖动黄色当前时间线或点击波形可定位。拖动绿色端点可缩放可见范围，拖动中段可平移。</p>
+				<p>滚轮每次移动一个拍细分；按住 Ctrl 滚动可缩放，按住 Shift 在时间轴滚动可切换可见通道。PageUp 向正时间翻页，PageDown 向负时间翻页。</p>
+				<h3 id="zh-stage">主编辑区域</h3>
+				<p>主编辑区域按照当前时间预览 Sunniesnow 的几何和动画。点击可见事件进行选择，拖动可移动音符改变位置；按住 Shift 从空白处拖动时，以最后一个已选可移动事件为基准移动整组。</p>
+				<h3 id="zh-status">状态与侧栏</h3>
+				<p>状态栏显示时间、拍数、速度、当前生效的注释和操作信息。检查器编辑所选事件的公共属性；通道面板管理显示与音效；吸附器面板管理网格和曲线；历史面板可返回任意记录。</p>
+
+				<h2 id="zh-events">事件</h2>
+				<h3 id="zh-creating-events">创建音符与背景图案</h3>
+				<p>选择 Tap、Hold、Drag、Flick 或背景音符后点击主编辑区域。工具会保持启用以便连续放置。背景图案通过弹窗创建在当前拍；音乐播放时不能创建事件。</p>
+				<h3 id="zh-selection">选择与编辑</h3>
+				<p>在任一画布拖出矩形即可框选。Ctrl 为加入，Alt 为移除；在时间轴按 Shift 跨通道点击可选择时间/通道范围。拖动时长菱形可修改结束时间：原本对齐的结束时间继续绝对对齐，否则全部按相同拍细分偏移。</p>
+				<h3 id="zh-comments">注释</h3>
+				<p>注释保存制谱说明，包含文本、开始时间和时长。当前生效的注释显示在状态栏，不会出现在主编辑区域或实际游玩画面，也不会导出到 Sunniesnow。</p>
+				<h3 id="zh-tip-points">Tip point</h3>
+				<p>Tip point 出现方式控制飞入音符的标记。Chain 连接连续的兼容音符，Drop 创建独立标记，None 停止继承。出现位置、方向、距离与时间均可在检查器编辑。</p>
+
+				<h2 id="zh-channels">通道</h2>
+				<h3 id="zh-channel-management">管理通道</h3>
+				<p>可从菜单和通道面板创建、排序、复制、重命名或删除通道。复制通道时会复制其中全部事件。Alt+上/下选择相邻的启用通道，并确保它在时间轴可见。</p>
+				<h3 id="zh-inactive-channels">停用通道</h3>
+				<p>停用后，时间轴事件变为半透明且无法交互，主编辑区域不显示其中事件和 tip point，也不播放其打击音效。停用通道不会导出到 Sunniesnow；其中注释仍可在状态栏显示。</p>
+
+				<h2 id="zh-snappees">吸附器</h2>
+				<h3 id="zh-meshes">网格与曲线</h3>
+				<p>网格提供二维吸附点，曲线提供有序路径点。可从“吸附器”菜单创建，双击面板项目编辑参数，并通过项目按钮启用、复制或删除。</p>
+				<h3 id="zh-attachment">附着事件</h3>
+				<p>“附着”会把所选可移动事件移至最近的启用吸附点，之后事件会跟随吸附器变换。“分离”会保留解析后的位置。“选择附着事件”会选择附着到面板当前吸附器且位于启用通道的全部事件。</p>
+
+				<h2 id="zh-playback">播放</h2>
+				<h3 id="zh-controls">播放控制</h3>
+				<p>空格切换播放/暂停；按住空格至少 300 毫秒后松开会暂停。逗号和句号按一个拍细分跳转，配合 Ctrl 则跳转十秒；方括号调节速度，“音乐”菜单可选择精确倍速。</p>
+				<h3 id="zh-editing-during-playback">播放期间编辑</h3>
+				<p>不依赖量化放置时间、不打开弹窗且不进入专用绘制模式的命令仍然可用，包括保存、撤销/重做、普通选择与变换、通道管理和启停吸附器。</p>
+
+				<h2 id="zh-export">导入与导出</h2>
+				<h3 id="zh-formats">格式</h3>
+				<p>Sviber JSON 会保留编辑器状态、通道、注释和吸附器。Sunniesnow JSON 与关卡包只包含游玩数据，会忽略注释和停用通道；导入警告会列出无法编辑的纯视觉数据。</p>
+				<h3 id="zh-troubleshooting">故障排查</h3>
+				<p>若音频无法解码，请在开发者控制台查看 AudioDecodeError 的完整原因，并确认打包版含有解码器 bundle。渲染问题应使用同一谱面分别测试浏览器和 NW.js，并在报告问题时附上“帮助 > 关于”里的运行时信息。</p>
+			</article>
+		</main>
+	</div>
+	<script type="module" src="docs.js"></script>
+</body>
+</html>

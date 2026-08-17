@@ -11,7 +11,11 @@ import {
 	resolveAudioDecode,
 } from "../js/audio/decoder.js";
 import { AudioPlayer, createSunniesnowHitSamples } from "../js/audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../js/audio/scheduler.js";
+import {
+	collectHitSchedule,
+	collectHoldReleaseSchedule,
+	collectIndexedHitSchedule,
+} from "../js/audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
@@ -135,23 +139,23 @@ test("audio-decode falls back to native decodeAudioData", async () => {
 	assert.equal(nativeCalls, 1);
 });
 
-test("audio-decode honors an explicit M4A format hint", async () => {
+test("M4A files use audio-decode's whole-file auto-detection API", async () => {
 	let genericCalls = 0;
 	let m4aCalls = 0;
 	const decoder = async () => {
 		genericCalls += 1;
-		throw new Error("generic decoder should not run");
+		return { channelData: [new Float32Array([0.25, -0.25])], sampleRate: 44100 };
 	};
 	decoder.m4a = async () => {
 		m4aCalls += 1;
-		return { channelData: [new Float32Array([0.25, -0.25])], sampleRate: 44100 };
+		throw new Error("deprecated format-specific decoder should not run");
 	};
 	const buffer = await decodeAudioBytes(new Uint8Array([1, 2, 3]), fakeAudioContext(), {
 		decoder,
 		format: "m4a",
 	});
-	assert.equal(genericCalls, 0);
-	assert.equal(m4aCalls, 1);
+	assert.equal(genericCalls, 1);
+	assert.equal(m4aCalls, 0);
 	assert.equal(buffer.sampleRate, 44100);
 });
 
@@ -197,6 +201,24 @@ test("hit scheduling looks ahead in wall-clock time and excludes bgNote", () => 
 	assert.deepEqual(schedule.map(({ event }) => event.id), [1, 2, 3, 4]);
 	assert.deepEqual(schedule.map(({ delay }) => Number(delay.toFixed(3))), [0, 0.05, 0.075, 0.1]);
 	assert.deepEqual(collectHitSchedule(events, timing, 0.1, 2, new Set([2])).map(({ event }) => event.id), [1, 3, 4]);
+});
+
+test("playback rescheduling excludes events that are already in the past", () => {
+	const events = [
+		{ id: 1, type: "tap", time: 0.09 },
+		{ id: 2, type: "tap", time: 0.1 },
+		{ id: 3, type: "tap", time: 0.11 },
+	];
+	const timing = { beatToSeconds: value => Number(value) };
+	assert.deepEqual(
+		collectHitSchedule(events, timing, 0.1, 1, new Set(), 0.1, 0).map(({ event }) => event.id),
+		[2, 3],
+	);
+	const records = events.map(event => ({ event, start: Number(event.time) }));
+	assert.deepEqual(
+		collectIndexedHitSchedule(records, 0.1, 1, new Set(), 0.1, 0).map(({ event }) => event.id),
+		[2, 3],
+	);
 });
 
 test("hold release FX scheduling uses the duration without scheduling another sound", () => {
@@ -248,6 +270,48 @@ test("AudioPlayer preserves negative pre-roll and schedules the music source at 
 		globalThis.requestAnimationFrame = previousRequest;
 		globalThis.cancelAnimationFrame = previousCancel;
 	}
+});
+
+test("AudioPlayer cancels only future hit sources while retaining active sources", async () => {
+	const sources = [];
+	const context = {
+		currentTime: 10,
+		sampleRate: 1000,
+		destination: {},
+		createBuffer(_channels, length) {
+			return { length, copyToChannel() {} };
+		},
+		createBufferSource() {
+			const source = {
+				starts: [], stops: 0, disconnected: false,
+				connect() {},
+				disconnect() { source.disconnected = true; },
+				start(time) { source.starts.push(time); },
+				stop() { source.stops += 1; },
+			};
+			sources.push(source);
+			return source;
+		},
+		createGain() {
+			return {
+				gain: { setValueAtTime() {} },
+				connect() {}, disconnect() {},
+			};
+		},
+	};
+	const player = new AudioPlayer();
+	player.context = context;
+	await player.playHit("tap", 0);
+	await player.playHit("drag", 0.1);
+	assert.deepEqual(sources.map(source => source.starts), [[10], [10.1]]);
+
+	player.cancelScheduledHitSounds();
+	assert.deepEqual(sources.map(source => source.stops), [0, 1]);
+	assert.equal(player.hitSources.size, 1);
+
+	player.cancelHitSounds();
+	assert.deepEqual(sources.map(source => source.stops), [1, 1]);
+	assert.equal(player.hitSources.size, 0);
 });
 
 test("Sunniesnow hit sample buffers are finite and type-specific", () => {

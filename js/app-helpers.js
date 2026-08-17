@@ -14,11 +14,12 @@ import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 
 export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
-export const DURATION_TYPES = new Set(["hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"]);
+export const DURATION_TYPES = new Set(["hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment"]);
 export const PATTERN_TYPES = new Set(["bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"]);
 export const SNAPPEE_COLORS = ["#00e0ad", "#3086ff", "#ff9d3d", "#d567ff", "#ff2e59", "#50a226"];
 export const PREFERENCES_KEY = "sviber.preferences";
 export const LAST_CHARTER_KEY = "sviber.lastCharter";
+export const LAST_OPEN_KEY = "sviber.lastOpen";
 export const DEFAULT_PREFERENCES = Object.freeze({ noteSpeed: 2, allowOutOfBounds: false });
 
 export function loadPreferences(storage = globalThis.localStorage) {

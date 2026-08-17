@@ -97,6 +97,30 @@ const FONT_ASSETS = [
 	},
 ];
 
+function gitOutput(args) {
+	return new Promise((resolve, reject) => {
+		const child = spawn("git", args, { cwd: sviberDirectory, windowsHide: true });
+		let output = "";
+		let errors = "";
+		child.stdout.on("data", chunk => { output += chunk; });
+		child.stderr.on("data", chunk => { errors += chunk; });
+		child.once("error", reject);
+		child.once("exit", code => code === 0 ? resolve(output.trim())
+			: reject(new Error(errors.trim() || `git exited with code ${code}`)));
+	});
+}
+
+async function writeBuildInformation(applicationDirectory) {
+	const information = {};
+	try {
+		information.commit = await gitOutput(["rev-parse", "HEAD"]);
+		information.commitDate = await gitOutput(["show", "-s", "--format=%cI", "HEAD"]);
+	} catch (error) {
+		console.warn(`Build metadata unavailable: ${error.message}`);
+	}
+	await writeFile(path.join(applicationDirectory, "build-info.json"), `${JSON.stringify(information, null, "\t")}\n`);
+}
+
 async function fileSha256(filename) {
 	return createHash("sha256").update(await readFile(filename)).digest("hex").toUpperCase();
 }
@@ -266,17 +290,18 @@ async function copyApplication() {
 	await rm(buildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
 	await mkdir(applicationDirectory, { recursive: true });
-	const excludedEntries = new Set(["build", "tests", "test-results", "node_modules", "package-lock.json"]);
+	const excludedEntries = new Set([".git", "build", "tests", "test-results", "node_modules", "package-lock.json"]);
 	for (const entry of await readdir(sviberDirectory, { withFileTypes: true })) {
 		if (excludedEntries.has(entry.name)) continue;
 		await cp(path.join(sviberDirectory, entry.name), path.join(applicationDirectory, entry.name), {
 			recursive: entry.isDirectory(),
 		});
 	}
-	const repositoryLicense = path.join(repositoryDirectory, "LICENSE");
-	if (!existsSync(repositoryLicense)) throw new Error(`Missing repository license: ${repositoryLicense}`);
-	await cp(repositoryLicense, path.join(stageDirectory, "LICENSE"));
-	await cp(repositoryLicense, path.join(applicationDirectory, "LICENSE"));
+	const applicationLicense = path.join(sviberDirectory, "LICENSE");
+	if (!existsSync(applicationLicense)) throw new Error(`Missing application license: ${applicationLicense}`);
+	await cp(applicationLicense, path.join(stageDirectory, "LICENSE"));
+	await cp(applicationLicense, path.join(applicationDirectory, "LICENSE"));
+	await writeBuildInformation(applicationDirectory);
 	await copyProductionDependencies(applicationDirectory);
 	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), { minify: true });
 	await generatePackagedIcons(applicationDirectory);
@@ -286,6 +311,9 @@ async function copyApplication() {
 	const packageJson = {
 		name: sourcePackage.name,
 		version: sourcePackage.version,
+		license: sourcePackage.license,
+		repository: sourcePackage.repository,
+		bugs: sourcePackage.bugs,
 		main: "sviber/index.html",
 		window: {
 			...sourcePackage.window,

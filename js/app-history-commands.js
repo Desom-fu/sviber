@@ -25,7 +25,6 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	goToHistory(index) {
-		if (this.audio.playing) return;
 		if (this.freeTransform) this.cancelFreeTransform();
 		this.cancelPreview();
 		this.creationMode = null;
@@ -66,14 +65,23 @@ export const withHistoryCommands = Base => class extends Base {
 		command("edit.selectAll", () => this.selectEvents(this.model.events.map(event => event.id), "replace"), () => this.model.events.length > 0);
 		command("edit.selectChannel", () => this.selectEvents(this.model.events.filter(event => event.channel === this.model.editor.currentChannel).map(event => event.id), "replace"));
 		command("edit.selectNone", () => this.selectEvents([], "replace"), () => selected(this.model).length > 0);
+		command("edit.selectAttached", () => {
+			const snappee = this.model.snappees.find(candidate => candidate.selected);
+			if (!snappee) return;
+			const activeChannels = new Set(this.model.channels
+				.filter(channel => channel.active !== false).map(channel => channel.id));
+			this.selectEvents(this.model.events.filter(event => event.attached && event.snappee === snappee.id
+				&& activeChannels.has(event.channel)).map(event => event.id), "replace");
+		}, () => this.model.snappees.some(snappee => snappee.selected));
 		command("edit.selectFilter", () => void this.showSelectionFilter(), () => this.model.events.length > 0);
 		command("edit.delete", () => this.deleteSelected(), () => selected(this.model).length > 0);
 
 		for (const type of ["tap", "hold", "drag", "flick", "bgNote"]) {
-			command(`events.${type}`, () => this.chooseEventTool(type));
+			command(`events.${type}`, () => this.chooseEventTool(type), () => this.currentChannelActive());
 		}
-		command("events.bgPattern", () => void this.showBackgroundPatternDialog());
+		command("events.bgPattern", () => void this.showBackgroundPatternDialog(), () => this.currentChannelActive());
 		command("events.bpmChange", () => void this.showBpmDialog());
+		command("events.comment", () => void this.showCommentDialog());
 		command("events.moveChannelAbove", () => this.moveSelectedChannel(-1), () => this.canMoveSelectedChannel(-1));
 		command("events.moveChannelBelow", () => this.moveSelectedChannel(1), () => this.canMoveSelectedChannel(1));
 		command("events.reverseTime", () => this.reverseSelectedTime(), () => selected(this.model).length > 0);
@@ -84,6 +92,8 @@ export const withHistoryCommands = Base => class extends Base {
 		command("channel.delete", () => void this.deleteCurrentChannel(), () => this.model.channels.length > 1);
 		command("channel.moveUp", () => this.moveCurrentChannel(-1), () => this.currentChannelIndex() > 0);
 		command("channel.moveDown", () => this.moveCurrentChannel(1), () => this.currentChannelIndex() < this.model.channels.length - 1);
+		command("channel.selectAbove", () => this.changeCurrentChannel(-1), () => this.canChangeCurrentChannel(-1));
+		command("channel.selectBelow", () => this.changeCurrentChannel(1), () => this.canChangeCurrentChannel(1));
 
 		command("snappee.rectangularMesh", () => void this.showSnappeeDialog("rectangularMesh"));
 		command("snappee.radialMesh", () => void this.showSnappeeDialog("radialMesh"));
@@ -109,7 +119,10 @@ export const withHistoryCommands = Base => class extends Base {
 		command("transform.moveForward", () => this.moveSelectedInTime(1), () => selected(this.model).length > 0);
 		command("transform.moveBackward", () => this.moveSelectedInTime(-1), () => selected(this.model).length > 0);
 
-		command("music.playPause", () => void this.togglePlayback());
+		command("music.playPause", (_context, event) => {
+			if (event?.type === "keydown" && !this.audio.playing) this.spacePlaybackStartedAt = performance.now();
+			return void this.togglePlayback();
+		});
 		command("music.seekStart", () => this.seekStart());
 		command("music.seekForward", () => this.navigateWheel(1, false));
 		command("music.seekBackward", () => this.navigateWheel(-1, false));
@@ -124,6 +137,11 @@ export const withHistoryCommands = Base => class extends Base {
 		command("music.speed1", () => this.setSpeed(1));
 		command("music.zoomIn", () => this.navigateWheel(-1, true));
 		command("music.zoomOut", () => this.navigateWheel(1, true));
+		command("timeline.pageForward", () => this.pageVisibleRange(1));
+		command("timeline.pageBackward", () => this.pageVisibleRange(-1));
+		command("help.documentation", () => this.help.openDocumentation());
+		command("help.reportIssues", () => void this.help.reportIssues());
+		command("help.about", () => void this.help.showAbout());
 	}
 
 	undo() {
@@ -216,7 +234,8 @@ export const withHistoryCommands = Base => class extends Base {
 		if (!chosen.length) return false;
 		return chosen.every(event => {
 			const index = this.model.channels.findIndex(channel => channel.id === event.channel);
-			return index + direction >= 0 && index + direction < this.model.channels.length;
+			const target = this.model.channels[index + direction];
+			return Boolean(target && target.active !== false);
 		});
 	}
 
@@ -224,7 +243,8 @@ export const withHistoryCommands = Base => class extends Base {
 		this.commit(i18n.t("history.moveEvents"), model => {
 			for (const event of model.events.filter(item => item.selected)) {
 				const index = model.channels.findIndex(channel => channel.id === event.channel);
-				event.channel = model.channels[index + direction].id;
+				const target = model.channels[index + direction];
+				if (target?.active !== false) event.channel = target.id;
 			}
 		});
 	}
@@ -244,11 +264,105 @@ export const withHistoryCommands = Base => class extends Base {
 		return this.model.channels.findIndex(channel => channel.id === this.model.editor.currentChannel);
 	}
 
+	currentChannelActive() {
+		return this.model.channels.some(channel => channel.id === this.model.editor.currentChannel && channel.active !== false);
+	}
+
+	canChangeCurrentChannel(direction) {
+		const step = Math.sign(Number(direction));
+		const current = this.currentChannelIndex();
+		for (let index = current + step; index >= 0 && index < this.model.channels.length; index += step) {
+			if (this.model.channels[index].active !== false) return true;
+		}
+		return false;
+	}
+
 	createChannel(relative) {
 		this.exitModes();
 		this.commit(i18n.t("history.createChannel"), model => {
 			const index = model.channels.findIndex(channel => channel.id === model.editor.currentChannel);
 			model.addChannel(index + relative);
+		});
+	}
+
+	selectChannel(id) {
+		const channel = this.model.channels.find(candidate => candidate.id === id);
+		if (!channel || channel.active === false) return false;
+		this.model.editor.currentChannel = id;
+		this.timeline.revealChannel(id);
+		this.refresh();
+		return true;
+	}
+
+	uniqueChannelName(base) {
+		const name = String(base || "Channel");
+		const names = new Set(this.model.channels.map(channel => channel.name));
+		if (!names.has(name)) return name;
+		let suffix = 2;
+		while (names.has(`${name} ${suffix}`)) suffix += 1;
+		return `${name} ${suffix}`;
+	}
+
+	toggleChannel(id) {
+		this.commit(i18n.t("history.editChannel"), model => {
+			const index = model.channels.findIndex(channel => channel.id === id);
+			const channel = model.channels[index];
+			if (!channel) return;
+			const activating = channel.active === false;
+			channel.active = activating;
+			if (activating) {
+				if (!model.channels.some(candidate => candidate.id !== id && candidate.active !== false)) {
+					model.editor.currentChannel = id;
+				}
+				return;
+			}
+			for (const event of model.events) {
+				if (event.channel === id) event.selected = false;
+			}
+			if (model.channels.length <= 1) return;
+			const above = model.channels.slice(0, index).reverse().find(candidate => candidate.active !== false);
+			const below = model.channels.slice(index + 1).find(candidate => candidate.active !== false);
+			model.editor.currentChannel = (above || below || channel).id;
+		});
+	}
+
+	duplicateChannel(id) {
+		this.commit(i18n.t("history.createChannel"), model => {
+			const index = model.channels.findIndex(channel => channel.id === id);
+			const source = model.channels[index];
+			if (!source) return;
+			const previousCurrent = model.editor.currentChannel;
+			const duplicate = model.addChannel(index + 1, {
+				name: this.uniqueChannelName(source.name),
+				active: source.active !== false,
+			});
+			const sourceEvents = model.events.filter(event => event.channel === id);
+			for (const event of sourceEvents) {
+				model.addEvent({ ...deepClone(event), id: null, channel: duplicate.id, selected: false });
+			}
+			if (duplicate.active === false) model.editor.currentChannel = previousCurrent;
+		});
+	}
+
+	async deleteChannel(id) {
+		if (this.model.channels.length <= 1) return;
+		if (!await this.dialogs.confirm({ titleKey: "dialog.deleteChannel", messageKey: "dialog.deleteChannelMessage" })) return;
+		this.commit(i18n.t("history.deleteChannel"), model => model.removeChannel(id));
+	}
+
+	async editChannel(id) {
+		if (this.audio.playing) return;
+		const channel = this.model.channels.find(candidate => candidate.id === id);
+		if (!channel) return;
+		const values = await this.dialogs.form({
+			titleKey: "dialog.editChannel",
+			values: { name: channel.name },
+			fields: [{ id: "name", type: "text", labelKey: "field.name", required: true }],
+		});
+		if (!values) return;
+		this.commit(i18n.t("history.editChannel"), model => {
+			const target = model.channels.find(candidate => candidate.id === id);
+			if (target) target.name = String(values.name);
 		});
 	}
 

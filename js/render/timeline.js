@@ -1,141 +1,23 @@
 import { Rational } from "../core/rational.js";
-import { TimingMap } from "../core/timing.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
 import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointVisualState } from "./stage.js";
+import {
+	BEAT_LINE_COLORS,
+	TIMELINE_DURATION_TYPES as DURATION_TYPES,
+	TIMELINE_EVENT_COLORS as NOTE_COLORS,
+	beatColor,
+	beatDenominator,
+	currentSeconds,
+	drawPatternIcon,
+	projectState,
+	timelineTipConnector,
+	timingFor,
+} from "./timeline-helpers.js";
 
-const COLORS = {
-	1: "#ff2e59",
-	2: "#3086ff",
-	3: "#50a226",
-	4: "#ff9d3d",
-	8: "#d567ff",
-	other: "#00e0ad",
-};
-const NOTE_COLORS = {
-	tap: "#55d7bf",
-	hold: "#ad7cf4",
-	drag: "#f3ca4f",
-	flick: "#ff9f1c",
-	bgNote: "#8b949d",
-	bigText: "#edf0f2",
-	grid: "#69b7ff",
-	hexagon: "#85cf68",
-	checkerboard: "#e7e9ea",
-	diamondGrid: "#4bd5c1",
-	pentagon: "#f3b355",
-	turntable: "#e77aa7",
-	hexagram: "#c88bf5",
-};
-const DURATION_TYPES = new Set([
-	"hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard",
-	"diamondGrid", "pentagon", "turntable", "hexagram",
-]);
-function projectState(state) {
-	return state?.sviber ? { ...state.sviber, metadata: state } : state;
-}
+export { timelineTipConnector } from "./timeline-helpers.js";
 
-function timingFor(state) {
-	return new TimingMap(projectState(state)?.timing || {});
-}
-
-function currentSeconds(state, timing) {
-	const editor = projectState(state).editor;
-	return editor.timeSnapped === false
-		? Number(editor.currentTime) || 0
-		: timing.beatToSeconds(editor.currentTime || [0, 0, 1]);
-}
-
-function greatestCommonDivisor(left, right) {
-	left = Math.abs(left);
-	right = Math.abs(right);
-	while (right) [left, right] = [right, left % right];
-	return left || 1;
-}
-
-function beatDenominator(step, subdivision) {
-	return subdivision / greatestCommonDivisor(step, subdivision);
-}
-
-function beatColor(step, subdivision) {
-	const denominator = beatDenominator(step, subdivision);
-	return COLORS[denominator] || COLORS.other;
-}
-
-function roundedRectangle(context, x, y, width, height, radius) {
-	const r = Math.min(radius, width / 2, height / 2);
-	context.beginPath();
-	context.moveTo(x + r, y);
-	context.arcTo(x + width, y, x + width, y + height, r);
-	context.arcTo(x + width, y + height, x, y + height, r);
-	context.arcTo(x, y + height, x, y, r);
-	context.arcTo(x, y, x + width, y, r);
-	context.closePath();
-}
-
-function drawPatternIcon(context, type, x, y, radius, color) {
-	context.save();
-	context.translate(x, y);
-	context.strokeStyle = color;
-	context.fillStyle = color;
-	context.lineWidth = 1.4;
-	if (type === "turntable") {
-		context.beginPath();
-		context.arc(0, 0, radius, 0, Math.PI * 2);
-		context.arc(0, 0, radius * 0.46, 0, Math.PI * 2);
-		context.stroke();
-	} else if (type === "checkerboard") {
-		for (let row = -1; row <= 1; row += 1) {
-			for (let column = -1; column <= 1; column += 1) {
-				if ((row + column) % 2 === 0) context.fillRect(column * radius * 0.58, row * radius * 0.58, radius * 0.52, radius * 0.52);
-			}
-		}
-	} else if (type === "grid" || type === "diamondGrid") {
-		context.rotate(type === "diamondGrid" ? Math.PI / 4 : 0);
-		for (let index = -1; index <= 1; index += 1) {
-			context.beginPath();
-			context.moveTo(index * radius * 0.55, -radius);
-			context.lineTo(index * radius * 0.55, radius);
-			context.moveTo(-radius, index * radius * 0.55);
-			context.lineTo(radius, index * radius * 0.55);
-			context.stroke();
-		}
-	} else {
-		const sides = type === "pentagon" ? 5 : type === "hexagram" ? 3 : 6;
-		for (let layer = 0; layer < (type === "hexagram" ? 2 : 1); layer += 1) {
-			context.beginPath();
-			for (let index = 0; index < sides; index += 1) {
-				const angle = -Math.PI / 2 + index * Math.PI * 2 / sides + layer * Math.PI;
-				const px = Math.cos(angle) * radius;
-				const py = Math.sin(angle) * radius;
-				if (!index) context.moveTo(px, py);
-				else context.lineTo(px, py);
-			}
-			context.closePath();
-			context.stroke();
-		}
-	}
-	context.restore();
-}
-
-export function timelineTipConnector(checkpoints, tailLength = 18) {
-	if (!Array.isArray(checkpoints) || checkpoints.length < 2) return [];
-	const spawn = checkpoints[0];
-	const firstEvent = checkpoints[1];
-	let dx = Number(spawn.x) - Number(firstEvent.x);
-	let dy = Number(spawn.y) - Number(firstEvent.y);
-	let length = Math.hypot(dx, dy);
-	if (!(length > 1e-8)) {
-		dx = -1;
-		dy = 0;
-		length = 1;
-	}
-	const fixedLength = Math.max(1, Number(tailLength) || 18);
-	return [
-		{ ...spawn, x: firstEvent.x + dx / length * fixedLength, y: firstEvent.y + dy / length * fixedLength },
-		...checkpoints.slice(1),
-	];
-}
+const ZERO_DURATION_TYPES = new Set(["bgNote", "comment"]);
 
 export class TimelineView {
 	constructor(host, callbacks = {}) {
@@ -197,6 +79,15 @@ export class TimelineView {
 			this.renderAnimationFrame = 0;
 			this.render();
 		});
+	}
+
+	revealChannel(channelId) {
+		const project = projectState(this.state);
+		const index = project.channels.findIndex(channel => channel.id === channelId);
+		if (index < 0) return;
+		if (index < this.channelOffset) this.channelOffset = index;
+		else if (index >= this.channelOffset + 3) this.channelOffset = index - 2;
+		this.requestRender();
 	}
 
 	#queuePointerMove(event) {
@@ -352,9 +243,10 @@ export class TimelineView {
 				context.lineTo(layout.channels.width, Math.round(y) + 0.5);
 				context.stroke();
 			}
-			context.fillStyle = channel.id === project.editor.currentChannel ? "#ffe331" : "#8a9097";
-			context.globalAlpha = 0.78;
-			context.fillText(`${index + this.channelOffset + 1}`, 4, y + 4);
+			context.fillStyle = channel.id === project.editor.currentChannel ? "#ffe331" : "#c4c9ce";
+			context.globalAlpha = channel.active === false ? 0.34 : 0.9;
+			const name = String(channel.name || `Channel ${index + this.channelOffset + 1}`);
+			context.fillText(name, 4, y + 4, Math.max(20, layout.channels.width - 18));
 			context.globalAlpha = 1;
 		});
 	}
@@ -389,14 +281,15 @@ export class TimelineView {
 
 	#drawEvents(context, layout, project) {
 		const offsets = this.#eventLaneOffsets(project.events);
+		const activeChannelIds = this.renderIndex?.activeChannelIds
+			|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 		const beginning = project.editor.visibleRangeBeginning;
 		const ending = project.editor.visibleRangeEnd;
 		const records = this.renderIndex?.timelineRecords(beginning, ending)
 			|| project.events.map(event => ({ event }));
-		const selectedCount = this.renderIndex?.selectedEvents.length
-			?? project.events.filter(event => event.selected).length;
 		for (const record of records) {
 			const { event } = record;
+			const interactive = activeChannelIds.has(event.channel);
 			const position = this.#eventPosition(event, layout, project, offsets, record);
 			if (!position) continue;
 			const endTime = record.end ?? (DURATION_TYPES.has(event.type)
@@ -406,24 +299,28 @@ export class TimelineView {
 			if (Math.max(position.x, endX) < -20 || Math.min(position.x, endX) > layout.channels.width + 20) continue;
 			const selected = Boolean(event.selected);
 			const color = selected ? "#ff3158" : NOTE_COLORS[event.type] || "#d5dade";
+			context.save();
+			if (!interactive) context.globalAlpha = 0.28;
 			if (DURATION_TYPES.has(event.type)) {
 				context.strokeStyle = color;
-				context.globalAlpha = selected ? 0.92 : 0.58;
+				context.globalAlpha *= selected ? 0.92 : 0.58;
 				context.lineWidth = event.type === "hold" ? 8 : 6;
 				context.beginPath();
 				context.moveTo(position.x, position.y);
 				context.lineTo(endX, position.y);
 				context.stroke();
-				context.globalAlpha = 1;
-				this.hitRegions.push({
+				context.globalAlpha = interactive ? 1 : 0.28;
+				if (interactive) this.hitRegions.push({
 					type: "event", event, x: Math.min(position.x, endX) - 5,
 					y: position.y - 8, width: Math.abs(endX - position.x) + 10, height: 16,
 				});
 			}
 			this.#drawEventIcon(context, event, position.x, position.y, color);
-			this.eventCenters.push({ event, x: position.x, y: position.y });
-			this.hitRegions.push({ type: "event", event, x: position.x - 12, y: position.y - 12, width: 24, height: 24 });
-			if (event.type === "bigText" && event.text) {
+			if (interactive) {
+				this.eventCenters.push({ event, x: position.x, y: position.y });
+				this.hitRegions.push({ type: "event", event, x: position.x - 12, y: position.y - 12, width: 24, height: 24 });
+			}
+			if ((event.type === "bigText" || event.type === "comment") && event.text) {
 				context.save();
 				context.fillStyle = color;
 				context.font = "11px sans-serif";
@@ -432,10 +329,11 @@ export class TimelineView {
 					Math.max(30, Math.abs(endX - position.x) - 6));
 				context.restore();
 			}
-			if (selected && DURATION_TYPES.has(event.type) && selectedCount === 1) {
-				this.#drawDiamond(context, endX, position.y);
-				this.hitRegions.push({ type: "duration", event, x: endX - 9, y: position.y - 9, width: 18, height: 18 });
+			if (interactive && selected && DURATION_TYPES.has(event.type)) {
+				this.#drawDiamond(context, endX, position.y, 7);
+				this.hitRegions.push({ type: "duration", event, x: endX - 7, y: position.y - 7, width: 14, height: 14 });
 			}
+			context.restore();
 		}
 	}
 
@@ -451,6 +349,17 @@ export class TimelineView {
 			context.textAlign = "center";
 			context.textBaseline = "middle";
 			context.fillText("T", x, y);
+		} else if (event.type === "comment") {
+			context.beginPath();
+			context.moveTo(x - 8, y - 6);
+			context.lineTo(x + 8, y - 6);
+			context.lineTo(x + 8, y + 4);
+			context.lineTo(x + 2, y + 4);
+			context.lineTo(x - 2, y + 8);
+			context.lineTo(x - 2, y + 4);
+			context.lineTo(x - 8, y + 4);
+			context.closePath();
+			context.stroke();
 		} else if (event.type === "bgNote") {
 			context.beginPath();
 			for (let index = 0; index < 6; index += 1) {
@@ -483,15 +392,15 @@ export class TimelineView {
 		context.restore();
 	}
 
-	#drawDiamond(context, x, y) {
+	#drawDiamond(context, x, y, size = 10) {
 		context.save();
 		context.translate(x, y);
 		context.rotate(Math.PI / 4);
 		context.fillStyle = "#f6f7f8";
 		context.strokeStyle = "#111417";
 		context.lineWidth = 1;
-		context.fillRect(-5, -5, 10, 10);
-		context.strokeRect(-5, -5, 10, 10);
+		context.fillRect(-size / 2, -size / 2, size, size);
+		context.strokeRect(-size / 2, -size / 2, size, size);
 		context.restore();
 	}
 
@@ -524,11 +433,14 @@ export class TimelineView {
 		const ending = project.editor.visibleRangeEnd;
 		const guides = this.renderIndex?.timelineTipGuides(beginning, ending)
 			|| buildTipPointGuides(project, this.timing);
+		const activeChannelIds = this.renderIndex?.activeChannelIds
+			|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 		for (const guide of guides) {
 			const checkpoints = this.#tipPointCheckpoints(guide, layout, project, offsets);
 			if (!checkpoints) continue;
 			const line = tipPointPathBetween(timelineTipConnector(checkpoints), beginning, ending);
 			context.save();
+			if (!activeChannelIds.has(guide.events[0]?.channel)) context.globalAlpha = 0.28;
 			context.strokeStyle = "rgba(255,255,255,0.24)";
 			context.lineWidth = 5;
 			context.lineCap = "round";
@@ -668,6 +580,8 @@ export class TimelineView {
 		this.hitRegions.push({ type: "scroll-end", x: endingX - 5, y: rectangle.y, width: 10, height: rectangle.height, bounds, rectangle });
 		this.hitRegions.push({ type: "scroll-range", x: Math.min(beginningX, endingX), y: rectangle.y + 5,
 			width: Math.abs(endingX - beginningX), height: rectangle.height - 10, bounds, rectangle });
+		this.hitRegions.push({ type: "scroll-track", x: rectangle.x, y: rectangle.y,
+			width: rectangle.width, height: rectangle.height, bounds, rectangle, beginningX, endingX });
 	}
 
 	#drawChannelScrollbar(context, layout, project) {
@@ -698,7 +612,8 @@ export class TimelineView {
 	}
 
 	#hitTest(point) {
-		const priorities = ["scroll-current", "scroll-begin", "scroll-end", "duration", "event", "bpm", "channel-scroll", "scroll-range"];
+		const priorities = ["scroll-current", "scroll-begin", "scroll-end", "scroll-range", "scroll-track",
+			"channel-scroll", "duration", "event", "bpm"];
 		for (const type of priorities) {
 			for (let index = this.hitRegions.length - 1; index >= 0; index -= 1) {
 				const region = this.hitRegions[index];
@@ -718,14 +633,12 @@ export class TimelineView {
 		const layout = this.#layout(this.surface.width, this.surface.height);
 		this.pointerMoved = false;
 		const playing = Boolean(this.callbacks.isPlaying?.());
-		if (playing && hit?.type !== "scroll-current" && hit?.type !== "scroll-begin"
-			&& hit?.type !== "scroll-end" && hit?.type !== "scroll-range"
-			&& hit?.type !== "channel-scroll" && point.y >= layout.waveform.height) return;
-		if (playing && ["bpm", "event", "duration"].includes(hit?.type)) return;
+		if (playing && hit?.type === "bpm") return;
 		if (hit?.type === "bpm") {
 			this.drag = { type: "bpm-click", hit, start: point };
 		} else if (hit?.type === "event") {
 			if (event.shiftKey) {
+				if (playing) return;
 				this.callbacks.onRangeSelect?.(hit.event.time, hit.event.channel,
 					event.altKey ? "remove" : event.ctrlKey ? "add" : "replace");
 				return;
@@ -746,8 +659,31 @@ export class TimelineView {
 				collapseSelectionOnClick: !event.ctrlKey && Boolean(hit.event.selected),
 			};
 		} else if (hit?.type === "duration") {
-			this.drag = { type: "duration", event: hit.event, start: point, startBeat: Rational.from(hit.event.time) };
+			const activeChannelIds = this.renderIndex?.activeChannelIds
+				|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+			const events = project.events.filter(candidate => candidate.selected
+				&& DURATION_TYPES.has(candidate.type) && activeChannelIds.has(candidate.channel));
+			const records = events.map(candidate => ({
+				event: candidate,
+				start: Rational.from(candidate.time),
+				end: Rational.from(candidate.time).add(candidate.duration || 0),
+			}));
+			const aligned = records.length > 0 && records.every(record => record.end.equals(records[0].end));
+			this.drag = {
+				type: "duration",
+				event: hit.event,
+				start: point,
+				records,
+				aligned,
+				pointerStartBeat: this.timing.secondsToSnappedBeat(
+					this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision),
+			};
 		} else if (hit?.type?.startsWith("scroll-")) {
+			if (hit.type === "scroll-track") {
+				const direction = point.x < Math.min(hit.beginningX, hit.endingX) ? -1 : 1;
+				this.callbacks.onPageVisibleRange?.(direction);
+				return;
+			}
 			this.drag = { type: hit.type, hit, start: point,
 				beginning: project.editor.visibleRangeBeginning, ending: project.editor.visibleRangeEnd };
 			if (hit.type === "scroll-current") this.callbacks.onSeekStart?.();
@@ -761,13 +697,15 @@ export class TimelineView {
 			const channelIndex = Math.min(layout.visibleCount - 1,
 				Math.floor((point.y - layout.channels.y) / layout.channelHeight));
 			const channel = this.#visibleChannels(project)[channelIndex];
+			if (!channel || channel.active === false) return;
 			if (event.shiftKey) {
+				if (playing) return;
 				const beat = this.timing.secondsToSnappedBeat(this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision);
 				this.callbacks.onRangeSelect?.(beat.toJSON(), channel?.id, event.altKey ? "remove" : event.ctrlKey ? "add" : "replace");
 				return;
 			} else {
 				this.drag = { type: "box", start: point, channelId: channel?.id,
-					mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace" };
+					mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace", playing };
 			}
 		}
 		if (!this.drag) return;
@@ -795,10 +733,8 @@ export class TimelineView {
 				break;
 			}
 			case "duration": {
-				const endBeat = this.timing.secondsToSnappedBeat(this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision);
-				if (endBeat.compare(this.drag.startBeat) > 0) {
-					this.callbacks.onPreviewDuration?.(this.drag.event.id, endBeat.sub(this.drag.startBeat).toJSON());
-				}
+				const changes = this.#durationChanges(this.drag, point.x, layout, project);
+				if (changes) this.callbacks.onPreviewDurations?.(changes);
 				break;
 			}
 			case "box": {
@@ -849,8 +785,8 @@ export class TimelineView {
 		} else if (drag.type === "event" && drag.collapseSelectionOnClick) {
 			this.callbacks.onSelectEvents?.([drag.event.id], "replace");
 		} else if (drag.type === "duration" && this.pointerMoved) {
-			const endBeat = this.timing.secondsToSnappedBeat(this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision);
-			if (endBeat.compare(drag.startBeat) > 0) this.callbacks.onResizeEvent?.(drag.event.id, endBeat.sub(drag.startBeat).toJSON());
+			const changes = this.#durationChanges(drag, point.x, layout, project);
+			if (changes) this.callbacks.onResizeEvents?.(changes);
 		} else if (drag.type === "box") {
 			if (this.pointerMoved) {
 				const x1 = Math.min(drag.start.x, point.x);
@@ -859,7 +795,7 @@ export class TimelineView {
 				const y2 = Math.max(drag.start.y, point.y);
 				this.callbacks.onBoxSelect?.(this.eventCenters.filter(center => center.x >= x1 && center.x <= x2 && center.y >= y1 && center.y <= y2)
 					.map(center => center.event.id), drag.mode);
-			} else {
+			} else if (!drag.playing) {
 				const beat = this.timing.secondsToSnappedBeat(this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision);
 				this.callbacks.onSeekBeat?.(beat.toJSON(), drag.channelId, true);
 			}
@@ -883,7 +819,7 @@ export class TimelineView {
 	#seekAt(x) {
 		const project = projectState(this.state);
 		const beat = this.timing.secondsToSnappedBeat(this.#xToSeconds(x, this.surface.width), project.editor.subdivision);
-		this.callbacks.onSeekBeat?.(beat.toJSON(), null, false);
+		(this.callbacks.onPreviewSeekBeat || this.callbacks.onSeekBeat)?.(beat.toJSON(), null, false);
 	}
 
 	#scrollSeek(x, hit) {
@@ -891,7 +827,22 @@ export class TimelineView {
 		const seconds = hit.bounds[0] + progress * (hit.bounds[1] - hit.bounds[0]);
 		const project = projectState(this.state);
 		const beat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
-		this.callbacks.onSeekBeat?.(beat.toJSON(), null, false);
+		(this.callbacks.onPreviewSeekBeat || this.callbacks.onSeekBeat)?.(beat.toJSON(), null, false);
+	}
+
+	#durationChanges(drag, x, layout, project) {
+		const pointerBeat = this.timing.secondsToSnappedBeat(
+			this.#xToSeconds(x, layout.channels.width), project.editor.subdivision);
+		const delta = pointerBeat.sub(drag.pointerStartBeat);
+		const changes = [];
+		for (const record of drag.records) {
+			const end = drag.aligned ? pointerBeat : record.end.add(delta);
+			const duration = end.sub(record.start);
+			const comparison = duration.compare(0);
+			if (comparison < 0 || (comparison === 0 && !ZERO_DURATION_TYPES.has(record.event.type))) return null;
+			changes.push({ id: record.event.id, duration: duration.toJSON() });
+		}
+		return changes;
 	}
 
 	#moveVisibleRange(x) {
@@ -935,4 +886,4 @@ export class TimelineView {
 	}
 }
 
-export { COLORS as BEAT_LINE_COLORS };
+export { BEAT_LINE_COLORS };

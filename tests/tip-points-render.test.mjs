@@ -170,7 +170,7 @@ test("timeline tip connectors keep spawn time and clip safely outside the viewpo
 		{ time: 5.574774774774775, x: 200, y: 20 },
 	]);
 	assert.equal(connector[0].time, 4.574774774774775);
-	assert.equal(Math.hypot(connector[0].x - connector[1].x, connector[0].y - connector[1].y), 18);
+	assert.equal(Math.hypot(connector[0].x - connector[1].x, connector[0].y - connector[1].y), 12);
 	assert.deepEqual(tipPointPathBetween(connector, 5.844540540540349, 18.900119328556773), []);
 	assert.deepEqual(tipPointPathBetween(connector, -10, -1), []);
 	assert.deepEqual(tipPointPathBetween([{ time: 1, x: 2, y: 3 }], 0, 2), [

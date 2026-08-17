@@ -8,6 +8,7 @@ import { PNG } from "pngjs";
 import { chromium } from "playwright-core";
 import { runInteractionChecks } from "./verify-browser-interactions.mjs";
 import { runProjectChecks } from "./verify-browser-project.mjs";
+import { runV8BrowserChecks } from "./verify-browser-v8.mjs";
 import { measureLargeChartEditing, measureLargeChartPlayback } from "./browser-performance.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -307,7 +308,7 @@ try {
 	assert.ok(await page.evaluate(timestamp => Number(localStorage.getItem("sviber.manualSaveTime")) > timestamp,
 		startupAutosaveTimestamp), "discarding startup recovery did not suppress the same autosave on reload");
 	assert.equal(await page.locator("#inspector-tab").textContent(), "检查器");
-	assert.equal(await page.locator(".menu-root-button").count(), 7);
+	assert.equal(await page.locator(".menu-root-button").count(), 8);
 	await page.locator('.menu-root[data-menu-id="file"] .menu-root-button').click();
 	const importFileCommand = page.locator('.menu-command[data-command="file.importFile"]');
 	assert.equal((await importFileCommand.textContent()).trim(), "导入谱面/关卡文件...");
@@ -395,11 +396,13 @@ try {
 			const preview = document.querySelector("#snappees-panel .snappee-preview canvas");
 			const previewPixels = preview?.getContext("2d")
 				?.getImageData(0, 0, preview.width, preview.height).data || [];
+			const previewOpacity = preview
+				? Number.parseFloat(getComputedStyle(preview.parentElement).opacity || "0") : 0;
 			let previewOpaque = 0;
 			for (let index = 3; index < previewPixels.length; index += 4) {
 				if (previewPixels[index] > 0) previewOpaque += 1;
 			}
-			return { stagePixels, previewOpaque };
+			return { stagePixels, previewOpaque, previewOpacity };
 		};
 		const absent = pixels(null).stagePixels;
 		const deactivated = pixels(false);
@@ -417,14 +420,18 @@ try {
 			activatedDifference,
 			deactivatedPreviewOpaque: deactivated.previewOpaque,
 			activatedPreviewOpaque: activated.previewOpaque,
+			deactivatedPreviewOpacity: deactivated.previewOpacity,
+			activatedPreviewOpacity: activated.previewOpacity,
 		};
 	});
 	assert.equal(snappeeVisibility.deactivatedDifference, 0,
 		"a deactivated snappee remains visible on the stage");
 	assert.ok(snappeeVisibility.activatedDifference > 0,
 		"the activated snappee visibility fixture did not draw anything");
-	assert.equal(snappeeVisibility.deactivatedPreviewOpaque, 0,
-		"a deactivated snappee preview remains visible in the sidebar");
+	assert.ok(snappeeVisibility.deactivatedPreviewOpaque > 0,
+		"the deactivated snappee preview is missing from the sidebar");
+	assert.ok(snappeeVisibility.deactivatedPreviewOpacity < snappeeVisibility.activatedPreviewOpacity,
+		"the deactivated snappee preview is not translucent in the sidebar");
 	assert.ok(snappeeVisibility.activatedPreviewOpaque > 0,
 		"the activated snappee preview is not visible in the sidebar");
 	const selectedInvisibleTextDifference = await page.evaluate(() => {
@@ -767,6 +774,7 @@ try {
 	assert.equal(batchChainBehavior.historyDelta, 1, "batch Chain edit must create one history entry");
 	await runInteractionChecks(page, outputDirectory);
 	await runProjectChecks(page, outputDirectory);
+	await runV8BrowserChecks(page);
 	await page.setViewportSize({ width: 960, height: 620 });
 	await page.waitForTimeout(150);
 	const narrowTapMetric = await measureTapRadius(page);

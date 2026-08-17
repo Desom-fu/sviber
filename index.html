@@ -36,6 +36,7 @@
 						<div class="status-item" data-tooltip-key="tooltip.beat"><dt data-i18n="status.beat">Beat</dt><dd id="status-beat">0+0/2</dd></div>
 						<div class="status-item" data-tooltip-key="tooltip.speed"><dt data-i18n="status.speed">Speed</dt><dd id="status-speed">1.0</dd></div>
 					</dl>
+					<div id="status-comments" class="status-comments" aria-live="polite"></div>
 					<div id="operation-status" class="operation-status" aria-live="polite"></div>
 				</aside>
 			</section>
@@ -45,9 +46,11 @@
 				<aside class="side-panel">
 					<div class="side-tabs" role="tablist">
 						<button id="inspector-tab" class="side-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="inspector-panel" data-i18n="panel.inspector">Inspector</button>
+						<button id="channels-tab" class="side-tab" type="button" role="tab" aria-selected="false" aria-controls="channels-panel" data-i18n="panel.channels">Channels</button>
 						<button id="snappees-tab" class="side-tab" type="button" role="tab" aria-selected="false" aria-controls="snappees-panel" data-i18n="panel.snappees">Snappees</button>
 					</div>
 					<section id="inspector-panel" class="property-panel" role="tabpanel" aria-labelledby="inspector-tab"></section>
+					<section id="channels-panel" class="property-panel" role="tabpanel" aria-labelledby="channels-tab" hidden></section>
 					<section id="snappees-panel" class="property-panel" role="tabpanel" aria-labelledby="snappees-tab" hidden></section>
 					<section class="history-panel" aria-label="History" data-i18n-aria-label="aria.history">
 						<div class="panel-heading" data-i18n="panel.history">History</div>
@@ -60,6 +63,7 @@
 		<footer id="tooltip-bar" class="tooltip-bar" aria-live="polite">
 			<span class="tooltip-label" data-i18n="tooltip.label">Hint</span>
 			<span id="tooltip-text" data-i18n="tooltip.ready">Ready</span>
+			<a class="javascript-license-link" href="javascript.html" data-jslicense="1">JavaScript license information</a>
 		</footer>
 	</div>
 
@@ -78,6 +82,6 @@
 
 	<script src="js/nw-source-bootstrap.js"></script>
 	<script src="js/vendor-loader.js"></script>
-	<script type="module" src="js/app.js?v=19"></script>
+	<script type="module" src="js/app.js?v=20"></script>
 </body>
 </html>

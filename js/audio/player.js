@@ -2,16 +2,6 @@ import { decodeAudioBytes } from "./decoder.js";
 import { HIT_SOUND_TYPES } from "./scheduler.js";
 import { WaveformPeaks } from "./waveform.js";
 
-function audioFormatHint(file) {
-	const extension = String(file?.name || "").split(".").pop()?.toLowerCase();
-	if (extension === "m4a" || extension === "mp4") return "m4a";
-	if (extension === "aac") return "aac";
-	const mimeType = String(file?.type || "").toLowerCase();
-	if (mimeType.includes("mp4") || mimeType.includes("m4a")) return "m4a";
-	if (mimeType.includes("aac")) return "aac";
-	return "";
-}
-
 export function sunniesnowHitSample(type, time) {
 	const value = Math.max(0, Number(time) || 0);
 	if (type === "drag") {
@@ -84,7 +74,6 @@ export class AudioPlayer extends EventTarget {
 		if (!context) throw new Error("Web Audio is not supported by this browser.");
 		const bytes = await file.arrayBuffer();
 		this.buffer = await decodeAudioBytes(bytes, context, {
-			format: audioFormatHint(file),
 			mimeType: file.type,
 			sourceName: file.name,
 		});
@@ -197,14 +186,16 @@ export class AudioPlayer extends EventTarget {
 		this.source = null;
 	}
 
-	#stopHitSources() {
+	#stopHitSources(futureOnly = false) {
+		const currentTime = this.context?.currentTime ?? Infinity;
 		for (const record of this.hitSources) {
+			if (futureOnly && record.startTime <= currentTime) continue;
 			record.source.onended = null;
 			try { record.source.stop(); } catch { /* Already stopped. */ }
 			record.source.disconnect();
 			record.gain.disconnect();
+			this.hitSources.delete(record);
 		}
-		this.hitSources.clear();
 	}
 
 	#tick = () => {
@@ -241,7 +232,7 @@ export class AudioPlayer extends EventTarget {
 		gain.gain.setValueAtTime(1, context.currentTime);
 		source.connect(gain);
 		gain.connect(context.destination);
-		const record = { source, gain };
+		const record = { source, gain, startTime: time };
 		this.hitSources.add(record);
 		source.onended = () => {
 			this.hitSources.delete(record);
@@ -250,6 +241,14 @@ export class AudioPlayer extends EventTarget {
 		};
 		source.start(time);
 		return record;
+	}
+
+	cancelHitSounds() {
+		this.#stopHitSources();
+	}
+
+	cancelScheduledHitSounds() {
+		this.#stopHitSources(true);
 	}
 
 	destroy() {

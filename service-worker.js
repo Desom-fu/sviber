@@ -1,11 +1,13 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v21";
+const CACHE_VERSION = "sviber-v22";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
 	"./",
 	"./index.html",
+	"./javascript.html",
+	"./package.json",
 	"./css/app.css",
 	"./css/overlays.css",
 	"./css/fonts-local.css",
@@ -23,13 +25,16 @@ const APP_SHELL = [
 	"./js/ui-panels.js",
 	"./js/nw-source-bootstrap.js",
 	"./js/font-loader.js",
+	"./js/help.js",
 	"./js/render/stage-helpers.js",
 	"./js/render/stage-core.js",
 	"./js/render/stage-notes.js",
 	"./js/render/stage-interactions.js",
+	"./js/render/chart-index.js",
+	"./js/render/timeline-helpers.js",
 	"./svg/icon.svg",
 	"./js/vendor-loader.js",
-	"./js/app.js?v=19",
+	"./js/app.js?v=20",
 	"./js/commands.js",
 	"./js/i18n.js",
 	"./js/panels.js",
@@ -48,8 +53,12 @@ const APP_SHELL = [
 	"./js/render/pixi-surface.js",
 	"./js/render/stage.js",
 	"./js/render/timeline.js",
+	"./docs/index.html",
+	"./docs/docs.css",
+	"./docs/docs.js",
 	"./manifest.webmanifest",
 	...[
+		"activate.svg", "auto-save.svg", "deactivate.svg", "delete.svg", "duplicate.svg", "save.svg",
 		"activate-snappee.svg", "attach.svg", "bpm-change.svg", "create-bezier-curve.svg",
 		"create-bg-note.svg", "create-bg-pattern.svg", "create-channel-above.svg",
 		"create-channel-below.svg", "create-circular-curve.svg", "create-drag.svg",

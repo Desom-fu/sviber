@@ -14,61 +14,65 @@ function define(id, shortcut = null, iconName = null, options = {}) {
 }
 
 const DEFINITIONS = [
-	define('file.newProject', 'Ctrl+Shift+N', null, {desktopOnly: true}),
-	define('file.newChart'),
-	define('file.openProject', 'Ctrl+Shift+O', null, {desktopOnly: true}),
-	define('file.openChart', 'Ctrl+O'),
-	define('file.importFile'),
-	define('file.setMusic'),
-	define('file.setBackground'),
+	define('file.newProject', 'Ctrl+Shift+N', null, {desktopOnly: true, blockDuringPlayback: true}),
+	define('file.newChart', null, null, {blockDuringPlayback: true}),
+	define('file.openProject', 'Ctrl+Shift+O', null, {desktopOnly: true, blockDuringPlayback: true}),
+	define('file.openChart', 'Ctrl+O', null, {blockDuringPlayback: true}),
+	define('file.importFile', null, null, {blockDuringPlayback: true}),
+	define('file.setMusic', null, null, {blockDuringPlayback: true}),
+	define('file.setBackground', null, null, {blockDuringPlayback: true}),
 	define('file.save', 'Ctrl+S', null, {allowInInput: true}),
-	define('file.saveAs', null, null, {allowInInput: true}),
+	define('file.saveAs', null, null, {allowInInput: true, blockDuringPlayback: true}),
 	define('file.saveProject', null, null, {allowInInput: true, desktopOnly: true}),
 	define('file.saveLevel', 'Ctrl+Shift+S', null, {allowInInput: true}),
-	define('file.importClipboard'),
+	define('file.importClipboard', null, null, {blockDuringPlayback: true}),
 	define('file.exportClipboard'),
 	define('file.openProjectFolder', null, null, {desktopOnly: true}),
-	define('file.chartProperties'),
-	define('file.preferences'),
+	define('file.chartProperties', null, null, {blockDuringPlayback: true}),
+	define('file.preferences', null, null, {blockDuringPlayback: true}),
 
 	define('edit.undo', 'Ctrl+Z'),
 	define('edit.redo', 'Ctrl+Y'),
 	define('edit.cut', 'Ctrl+X'),
 	define('edit.copy', 'Ctrl+C'),
-	define('edit.paste', 'Ctrl+V'),
-	define('edit.pasteDuplicateSnappees', 'Ctrl+Shift+V'),
+	define('edit.paste', 'Ctrl+V', null, {blockDuringPlayback: true}),
+	define('edit.pasteDuplicateSnappees', 'Ctrl+Shift+V', null, {blockDuringPlayback: true}),
 	define('edit.selectAll', 'Ctrl+A'),
 	define('edit.selectChannel', 'Ctrl+Shift+A'),
 	define('edit.selectNone', 'Ctrl+D', null, {allowWhenBlocked: true}),
-	define('edit.selectFilter', 'Ctrl+F'),
+	define('edit.selectAttached'),
+	define('edit.selectFilter', 'Ctrl+F', null, {blockDuringPlayback: true}),
 	define('edit.delete', 'Delete'),
 
-	define('events.tap', 'T', 'create-tap', {checkable: true}),
-	define('events.hold', 'H', 'create-hold', {checkable: true}),
-	define('events.drag', 'D', 'create-drag', {checkable: true}),
-	define('events.flick', 'F', 'create-flick', {checkable: true}),
-	define('events.bgNote', 'B', 'create-bg-note', {checkable: true}),
-	define('events.bgPattern', 'P', 'create-bg-pattern'),
-	define('events.bpmChange', 'M', 'bpm-change'),
+	define('events.tap', 'T', 'create-tap', {checkable: true, blockDuringPlayback: true}),
+	define('events.hold', 'H', 'create-hold', {checkable: true, blockDuringPlayback: true}),
+	define('events.drag', 'D', 'create-drag', {checkable: true, blockDuringPlayback: true}),
+	define('events.flick', 'F', 'create-flick', {checkable: true, blockDuringPlayback: true}),
+	define('events.bgNote', 'B', 'create-bg-note', {checkable: true, blockDuringPlayback: true}),
+	define('events.bgPattern', 'P', 'create-bg-pattern', {blockDuringPlayback: true}),
+	define('events.bpmChange', 'M', 'bpm-change', {blockDuringPlayback: true}),
+	define('events.comment', 'Ctrl+M', null, {blockDuringPlayback: true}),
 	define('events.moveChannelAbove', 'Ctrl+Shift+ArrowUp', 'move-to-channel-above'),
 	define('events.moveChannelBelow', 'Ctrl+Shift+ArrowDown', 'move-to-channel-below'),
 	define('events.reverseTime'),
-	define('events.fillCurveDrag'),
+	define('events.fillCurveDrag', null, null, {blockDuringPlayback: true}),
 
 	define('channel.createAbove', 'Insert', 'create-channel-above'),
 	define('channel.createBelow', 'Shift+Insert', 'create-channel-below'),
 	define('channel.delete', null, 'delete-channel'),
 	define('channel.moveUp', 'Ctrl+ArrowUp', 'move-channel-up'),
 	define('channel.moveDown', 'Ctrl+ArrowDown', 'move-channel-down'),
+	define('channel.selectAbove', 'Alt+ArrowUp'),
+	define('channel.selectBelow', 'Alt+ArrowDown'),
 
-	define('snappee.rectangularMesh', 'Ctrl+R', 'create-rectangular-mesh'),
-	define('snappee.radialMesh', null, 'create-radial-mesh'),
-	define('snappee.parametricMesh'),
-	define('snappee.regularPolygon', null, 'create-regular-polygon-mesh'),
-	define('snappee.bezierCurve', 'Ctrl+B', 'create-bezier-curve', {checkable: true}),
-	define('snappee.circularArc', null, 'create-circular-curve', {checkable: true}),
-	define('snappee.pen', 'Ctrl+P', 'pen', {checkable: true}),
-	define('snappee.parametricCurve'),
+	define('snappee.rectangularMesh', 'Ctrl+R', 'create-rectangular-mesh', {blockDuringPlayback: true}),
+	define('snappee.radialMesh', null, 'create-radial-mesh', {blockDuringPlayback: true}),
+	define('snappee.parametricMesh', null, null, {blockDuringPlayback: true}),
+	define('snappee.regularPolygon', null, 'create-regular-polygon-mesh', {blockDuringPlayback: true}),
+	define('snappee.bezierCurve', 'Ctrl+B', 'create-bezier-curve', {checkable: true, blockDuringPlayback: true}),
+	define('snappee.circularArc', null, 'create-circular-curve', {checkable: true, blockDuringPlayback: true}),
+	define('snappee.pen', 'Ctrl+P', 'pen', {checkable: true, blockDuringPlayback: true}),
+	define('snappee.parametricCurve', null, null, {blockDuringPlayback: true}),
 	define('snappee.activate', 'A', 'activate-snappee'),
 	define('snappee.deactivate', 'Shift+A', 'deactivate-snappee'),
 	define('snappee.attach', 'S', 'attach'),
@@ -84,8 +88,8 @@ const DEFINITIONS = [
 	define('transform.moveRightLarge', 'Shift+ArrowRight'),
 	define('transform.flipHorizontal'),
 	define('transform.flipVertical'),
-	define('transform.free', 'Ctrl+T', 'free-transform', {checkable: true}),
-	define('transform.matrix'),
+	define('transform.free', 'Ctrl+T', 'free-transform', {checkable: true, blockDuringPlayback: true}),
+	define('transform.matrix', null, null, {blockDuringPlayback: true}),
 	define('transform.moveForward', '>'),
 	define('transform.moveBackward', '<'),
 
@@ -108,7 +112,13 @@ const DEFINITIONS = [
 	define('music.speed05', null, 'speed-0-5', {checkable: true, group: 'speed', allowWhenBlocked: true}),
 	define('music.speed1', '\\', 'speed-1', {checkable: true, group: 'speed', allowWhenBlocked: true}),
 	define('music.zoomIn', 'Ctrl+=', 'zoom-in', {allowWhenBlocked: true}),
-	define('music.zoomOut', 'Ctrl+-', 'zoom-out', {allowWhenBlocked: true})
+	define('music.zoomOut', 'Ctrl+-', 'zoom-out', {allowWhenBlocked: true}),
+	define('timeline.pageForward', 'PageUp', null, {allowWhenBlocked: true}),
+	define('timeline.pageBackward', 'PageDown', null, {allowWhenBlocked: true}),
+
+	define('help.documentation'),
+	define('help.reportIssues'),
+	define('help.about', null, null, {blockDuringPlayback: true})
 ];
 
 export const COMMAND_DEFINITIONS = Object.freeze(Object.fromEntries(
@@ -135,7 +145,7 @@ export const MENU_DEFINITION = Object.freeze([
 		id: 'edit', labelKey: 'menu.edit', mnemonic: 'e', items: Object.freeze([
 			item('edit.undo'), item('edit.redo'), item('edit.cut'), item('edit.copy'),
 			item('edit.paste'), item('edit.pasteDuplicateSnappees'), separator,
-			item('edit.selectAll'), item('edit.selectChannel'), item('edit.selectNone'),
+			item('edit.selectAll'), item('edit.selectChannel'), item('edit.selectNone'), item('edit.selectAttached'),
 			item('edit.selectFilter'), separator, item('edit.delete')
 		])
 	}),
@@ -143,7 +153,7 @@ export const MENU_DEFINITION = Object.freeze([
 		id: 'events', labelKey: 'menu.events', mnemonic: 'v', items: Object.freeze([
 			item('events.tap'), item('events.hold'), item('events.drag'), item('events.flick'),
 			separator, item('events.bgNote'), item('events.bgPattern'), separator,
-			item('events.bpmChange'), separator, item('events.moveChannelAbove'),
+			item('events.bpmChange'), separator, item('events.comment'), separator, item('events.moveChannelAbove'),
 			item('events.moveChannelBelow'), separator, item('events.reverseTime'),
 			item('events.fillCurveDrag')
 		])
@@ -183,6 +193,11 @@ export const MENU_DEFINITION = Object.freeze([
 			item('music.speedDecrease'), item('music.speedIncrease'), item('music.speed025'),
 			item('music.speed05'), item('music.speed1'), separator, item('music.zoomIn'),
 			item('music.zoomOut')
+		])
+	}),
+	Object.freeze({
+		id: 'help', labelKey: 'menu.help', mnemonic: 'h', items: Object.freeze([
+			item('help.documentation'), item('help.reportIssues'), separator, item('help.about')
 		])
 	})
 ]);
@@ -285,6 +300,7 @@ export class CommandRegistry {
 		this.records = new Map();
 		this.listeners = new Set();
 		this.blocked = options.blocked || (() => false);
+		this.playbackBlocked = options.playbackBlocked || (() => false);
 		this.hardBlocked = options.hardBlocked || (() => false);
 		this.metaAsCtrl = options.metaAsCtrl ?? /Mac|iPhone|iPad/.test(globalThis.navigator?.platform || '');
 		for (const definition of Object.values(definitions)) {
@@ -351,6 +367,7 @@ export class CommandRegistry {
 		const record = this.get(id);
 		if (record.definition.desktopOnly && !globalThis.nw) return false;
 		if (this.hardBlocked(context)) return false;
+		if (this.playbackBlocked(context) && record.definition.blockDuringPlayback) return false;
 		if (this.blocked(context) && !record.definition.allowWhenBlocked) {
 			return false;
 		}
@@ -392,6 +409,10 @@ export class CommandRegistry {
 			}
 			if (!matchesShortcut(event, definition.shortcut, {metaAsCtrl: this.metaAsCtrl})) {
 				continue;
+			}
+			if (event.repeat && definition.id === 'music.playPause') {
+				event.preventDefault();
+				return true;
 			}
 			if (!this.isEnabled(definition.id, context)) {
 				return false;
