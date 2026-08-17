@@ -138,11 +138,22 @@ export class TimingMap {
 
 	beatToSeconds(beat) {
 		const target = Rational.from(beat);
-		const zeroComparison = target.compare(0);
-		if (zeroComparison === 0) return this.offset;
-		return zeroComparison > 0
-			? this.offset + this._integralBetween(0, target)
-			: this.offset - this._integralBetween(target, 0);
+		if (target.compare(0) === 0 || this.bpmChanges.length === 0) {
+			return this.offset + target.toNumber() * 60 / this.initialBpm;
+		}
+		let low = 0;
+		let high = this.bpmChanges.length;
+		while (low < high) {
+			const middle = (low + high) >> 1;
+			if (this.bpmChanges[middle].time.compare(target) <= 0) low = middle + 1;
+			else high = middle;
+		}
+		if (low > 0) {
+			const change = this._changeTimes[low - 1];
+			return change.seconds + target.sub(change.time).toNumber() * 60 / change.bpm;
+		}
+		const first = this._changeTimes[0];
+		return first.seconds + target.sub(first.time).toNumber() * 60 / this.initialBpm;
 	}
 
 	secondsToBeat(seconds, maxDenominator = DEFAULT_MAX_DENOMINATOR) {
@@ -191,15 +202,31 @@ export class TimingMap {
 	}
 
 	_rebuildChangeTimes() {
-		if (!this.bpmChanges) {
+		if (!this.bpmChanges?.length) {
 			this._changeTimes = [];
 			return;
 		}
-		this._changeTimes = this.bpmChanges.map((change) => ({
-			time: change.time,
-			bpm: change.bpm,
-			seconds: this.beatToSeconds(change.time),
-		}));
+		this._changeTimes = new Array(this.bpmChanges.length);
+		let split = 0;
+		while (split < this.bpmChanges.length && this.bpmChanges[split].time.compare(0) <= 0) split += 1;
+		let cursor = Rational.from(0);
+		let seconds = this.offset;
+		let bpm = split > 0 ? this.bpmChanges[split - 1].bpm : this.initialBpm;
+		for (let index = split; index < this.bpmChanges.length; index += 1) {
+			const change = this.bpmChanges[index];
+			seconds += change.time.sub(cursor).toNumber() * 60 / bpm;
+			this._changeTimes[index] = { time: change.time, bpm: change.bpm, seconds };
+			cursor = change.time;
+			bpm = change.bpm;
+		}
+		cursor = Rational.from(0);
+		seconds = this.offset;
+		for (let index = split - 1; index >= 0; index -= 1) {
+			const change = this.bpmChanges[index];
+			seconds -= cursor.sub(change.time).toNumber() * 60 / change.bpm;
+			this._changeTimes[index] = { time: change.time, bpm: change.bpm, seconds };
+			cursor = change.time;
+		}
 	}
 
 	toJSON() {

@@ -200,12 +200,15 @@ export const withStageNotes = Base => class extends Base {
 	}
 
 	_drawSelectedInvisible(context, project, mapping, now) {
-		const displayedPattern = sunniesnowDisplayedPattern(project.events, this.timing, now)?.event;
-		for (const event of project.events) {
-			if (!event.selected) continue;
+		const displayedPattern = (this.renderIndex
+			? this.renderIndex.displayedPattern(now)
+			: sunniesnowDisplayedPattern(project.events, this.timing, now))?.event;
+		const selected = this.renderIndex?.selectedEvents || project.events.filter(event => event.selected);
+		for (const event of selected) {
 			if (MOVABLE_TYPES.has(event.type)) {
 				if (this._noteVisibility(event, now)) continue;
-				const position = resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
+				const position = this.renderIndex?.positionFor(event)
+					|| resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
 				const screen = mapping.toScreen(position);
 				const radius = sunniesnowNoteRadius(event.type) * mapping.scale;
 				context.save();
@@ -258,10 +261,12 @@ export const withStageNotes = Base => class extends Base {
 
 	_drawSelectionHandles(context, project, mapping) {
 		if (this.callbacks.getFreeTransform?.()) return;
-		const selected = selectedEvents(project).filter(event => MOVABLE_TYPES.has(event.type));
+		const selected = (this.renderIndex?.selectedEvents || selectedEvents(project))
+			.filter(event => MOVABLE_TYPES.has(event.type));
 		if (selected.length !== 1) return;
 		const event = selected[0];
-		const position = resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
+		const position = this.renderIndex?.positionFor(event)
+			|| resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
 		const screen = mapping.toScreen(position);
 		if (event.type === "flick") {
 			const angle = Number(event.angle) || 0;
@@ -275,7 +280,7 @@ export const withStageNotes = Base => class extends Base {
 			this.hitRegions.push({ type: "flick-handle", event, x: handle.x - 10, y: handle.y - 10, width: 20, height: 20 });
 		}
 		const tipGuide = NOTE_TYPES.has(event.type)
-			? buildTipPointGuides(project, this.timing).find(guide => guide.events[0] === event
+			? (this.renderIndex?.tipGuides || buildTipPointGuides(project, this.timing)).find(guide => guide.events[0] === event
 				&& (guide.mode === "drop" || guide.spawnSettings === event))
 			: null;
 		if (tipGuide) {
@@ -371,7 +376,8 @@ export const withStageNotes = Base => class extends Base {
 
 	_tipSpawnPosition(event, eventPosition, project) {
 		if (event.tipPointSpawnAbsolutePosition) {
-			const attached = resolveAttachedPosition(event, project.snappees, { prefix: "tipPointSpawn" });
+			const attached = this.renderIndex?.tipSpawnPositionFor(event)
+				|| resolveAttachedPosition(event, project.snappees, { prefix: "tipPointSpawn" });
 			if (attached) return attached;
 			const x = Number(event.tipPointSpawnX);
 			const y = Number(event.tipPointSpawnY);
@@ -390,8 +396,10 @@ export const withStageNotes = Base => class extends Base {
 	_tipHandleEditPoint(hit, point, project) {
 		const settingsEvent = hit.settingsEvent || hit.event;
 		if (settingsEvent === hit.event || settingsEvent.tipPointSpawnAbsolutePosition) return point;
-		const target = resolveAttachedPosition(hit.event, project.snappees) || hit.event;
-		const source = resolveAttachedPosition(settingsEvent, project.snappees) || settingsEvent;
+		const target = this.renderIndex?.positionFor(hit.event)
+			|| resolveAttachedPosition(hit.event, project.snappees) || hit.event;
+		const source = this.renderIndex?.positionFor(settingsEvent)
+			|| resolveAttachedPosition(settingsEvent, project.snappees) || settingsEvent;
 		return {
 			x: (Number(source.x) || 0) + point.x - (Number(target.x) || 0),
 			y: (Number(source.y) || 0) + point.y - (Number(target.y) || 0),
@@ -424,16 +432,9 @@ export const withStageNotes = Base => class extends Base {
 	}
 
 	_drawTipPoints(context, project, mapping, now) {
-		for (const guide of buildTipPointGuides(project, this.timing)) {
-			const firstPosition = resolveAttachedPosition(guide.events[0], project.snappees) || guide.events[0];
-			const spawn = this._tipSpawnPosition(guide.spawnSettings, firstPosition, project);
-			const checkpoints = [
-				{ ...mapping.toScreen(spawn), time: guide.spawnTime },
-				...guide.events.map((event, index) => ({
-					...mapping.toScreen(resolveAttachedPosition(event, project.snappees) || event),
-					time: guide.eventTimes[index],
-				})),
-			];
+		const guides = this.renderIndex?.activeTipGuides(now) || buildTipPointGuides(project, this.timing);
+		for (const guide of guides) {
+			const checkpoints = this._tipPointCheckpoints(guide, project, mapping);
 			const visual = tipPointVisualState(checkpoints, now);
 			if (!visual) continue;
 			context.save();
@@ -443,6 +444,28 @@ export const withStageNotes = Base => class extends Base {
 			this._drawTipPointMarker(context, visual.head, markerRadius, visual.scale);
 			context.restore();
 		}
+	}
+
+	_tipPointCheckpoints(guide, project, mapping) {
+		const signature = `${mapping.originX}:${mapping.originY}:${mapping.scale}`;
+		if (this.tipPointScreenCache?.index !== this.renderIndex
+			|| this.tipPointScreenCache.signature !== signature) {
+			this.tipPointScreenCache = { index: this.renderIndex, signature, guides: new WeakMap() };
+		}
+		const cached = this.tipPointScreenCache.guides.get(guide);
+		if (cached) return cached;
+		const firstPosition = this.renderIndex?.positionFor(guide.events[0])
+			|| resolveAttachedPosition(guide.events[0], project.snappees) || guide.events[0];
+		const spawn = this._tipSpawnPosition(guide.spawnSettings, firstPosition, project);
+		const checkpoints = [{ ...mapping.toScreen(spawn), time: guide.spawnTime }];
+		for (let index = 0; index < guide.events.length; index += 1) {
+			const event = guide.events[index];
+			const position = this.renderIndex?.positionFor(event)
+				|| resolveAttachedPosition(event, project.snappees) || event;
+			checkpoints.push({ ...mapping.toScreen(position), time: guide.eventTimes[index] });
+		}
+		this.tipPointScreenCache.guides.set(guide, checkpoints);
+		return checkpoints;
 	}
 
 	_drawCreationPreview(context, project, mapping) {
@@ -607,4 +630,3 @@ export const withStageNotes = Base => class extends Base {
 	}
 
 };
-

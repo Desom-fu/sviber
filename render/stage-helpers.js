@@ -223,12 +223,17 @@ export function tipPointSpawnTime(target, settings, timing) {
 }
 
 export function buildTipPointGuides(project, timing) {
-	const indexedEvents = (project.events || []).map((event, sequence) => ({ event, sequence }));
+	const eventsByChannel = new Map((project.channels || []).map(channel => [channel.id, []]));
+	for (let sequence = 0; sequence < (project.events || []).length; sequence += 1) {
+		const event = project.events[sequence];
+		if (NOTE_TYPES.has(event.type) && eventsByChannel.has(event.channel)) {
+			eventsByChannel.get(event.channel).push({ event, sequence, time: Rational.from(event.time) });
+		}
+	}
 	const guides = [];
 	for (const channel of project.channels || []) {
-		const events = indexedEvents
-			.filter(({ event }) => event.channel === channel.id && NOTE_TYPES.has(event.type))
-			.sort((left, right) => Rational.compare(left.event.time, right.event.time) || left.sequence - right.sequence);
+		const events = eventsByChannel.get(channel.id)
+			.sort((left, right) => left.time.compare(right.time) || left.sequence - right.sequence);
 		let previousMode = "none";
 		let previousSettings = null;
 		let activeChain = null;
@@ -288,14 +293,27 @@ export function tipPointDirection(checkpoints, index) {
 
 export function sampleTipPointPath(checkpoints, time) {
 	if (!checkpoints.length) return null;
+	const angleBetween = (from, to) => {
+		const dx = to.x - from.x;
+		const dy = to.y - from.y;
+		return dx === 0 && dy === 0 ? -Math.PI / 2 : Math.atan2(dy, dx);
+	};
+	if (checkpoints.length === 1) return { ...checkpoints[0], angle: -Math.PI / 2 };
 	if (time <= checkpoints[0].time) {
-		return { ...checkpoints[0], angle: tipPointDirection(checkpoints, 0) };
+		return { ...checkpoints[0], angle: angleBetween(checkpoints[0], checkpoints[1]) };
 	}
 	const lastIndex = checkpoints.length - 1;
 	if (time > checkpoints[lastIndex].time) {
-		return { ...checkpoints[lastIndex], angle: tipPointDirection(checkpoints, lastIndex) };
+		return { ...checkpoints[lastIndex], angle: angleBetween(checkpoints[lastIndex - 1], checkpoints[lastIndex]) };
 	}
-	const nextIndex = checkpoints.findIndex(checkpoint => checkpoint.time >= time);
+	let low = 0;
+	let high = checkpoints.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if (checkpoints[middle].time < time) low = middle + 1;
+		else high = middle;
+	}
+	const nextIndex = low;
 	const previous = checkpoints[nextIndex - 1];
 	const next = checkpoints[nextIndex];
 	const duration = next.time - previous.time;
@@ -304,21 +322,58 @@ export function sampleTipPointPath(checkpoints, time) {
 		time,
 		x: previous.x + (next.x - previous.x) * progress,
 		y: previous.y + (next.y - previous.y) * progress,
-		angle: tipPointDirection(checkpoints, nextIndex - 1),
+		angle: angleBetween(previous, next),
 	};
 }
 
 export function tipPointPathBetween(checkpoints, beginning, ending) {
-	const points = [sampleTipPointPath(checkpoints, beginning)];
-	const tailConnectTime = beginning + TIP_POINT_TRAIL_TAIL_DURATION;
-	if (tailConnectTime < ending) points.push(sampleTipPointPath(checkpoints, tailConnectTime));
-	for (const checkpoint of checkpoints) {
-		if (checkpoint.time > beginning && checkpoint.time < ending) points.push(checkpoint);
+	const source = checkpoints;
+	const points = [];
+	let low = 0;
+	let high = source.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if (source[middle].time < beginning) low = middle + 1;
+		else high = middle;
 	}
-	const last = sampleTipPointPath(checkpoints, ending);
-	if (last && (last.time !== points.at(-1)?.time || last.x !== points.at(-1)?.x || last.y !== points.at(-1)?.y)) points.push(last);
-	return points.filter(Boolean).filter((point, index, all) => index === 0
-		|| point.time !== all[index - 1].time || point.x !== all[index - 1].x || point.y !== all[index - 1].y);
+	let previousCheckpointIndex = low > 0 ? low - 1 : null;
+	let nextCheckpointIndex = null;
+	const tailConnectTime = beginning + TIP_POINT_TRAIL_TAIL_DURATION;
+	let tailConnected = false;
+	const interpolate = (index, time) => {
+		const previous = source[index];
+		const next = source[index + 1];
+		const duration = next.time - previous.time;
+		const progress = duration > 0 ? (time - previous.time) / duration : 1;
+		return {
+			time,
+			x: previous.x + (next.x - previous.x) * progress,
+			y: previous.y + (next.y - previous.y) * progress,
+			index: index + 0.5,
+		};
+	};
+	for (let index = low; index < source.length; index += 1) {
+		const checkpoint = source[index];
+		if (checkpoint.time >= beginning) {
+			if (!tailConnected && index > 0 && checkpoint.time >= tailConnectTime && tailConnectTime < ending) {
+				points.push(interpolate(index - 1, tailConnectTime));
+				tailConnected = true;
+			}
+			if (checkpoint.time > ending) {
+				nextCheckpointIndex = index;
+				break;
+			}
+			points.push({ ...checkpoint, index });
+		}
+	}
+	if (points[0]?.time !== beginning && previousCheckpointIndex !== null) {
+		points.unshift(interpolate(previousCheckpointIndex, beginning));
+	}
+	if (points.at(-1)?.time !== ending && nextCheckpointIndex !== null) {
+		points.push(interpolate(nextCheckpointIndex - 1, ending));
+	}
+	Object.defineProperty(points, "checkpoints", { value: source });
+	return points;
 }
 
 export function tipPointVisualState(checkpoints, now) {
@@ -363,41 +418,84 @@ export function adjacentDirection(points, index, step) {
 	return null;
 }
 
-// This is the Canvas equivalent of game-unstable's TipPoint.jointEdge().
-// Adjacent quads share mitered edge vertices, so corners stay continuous.
+function angleDistance(left, right) {
+	const fullTurn = Math.PI * 2;
+	let difference = (left - right + Math.PI) % fullTurn;
+	if (difference < 0) difference += fullTurn;
+	return Math.abs(difference - Math.PI);
+}
+
+function clockwiseness(x1, y1, x2, y2, x3, y3) {
+	return Math.sign((y2 - y1) * (x3 - x2) - (y3 - y2) * (x2 - x1));
+}
+
+function tipPointJointEdge(checkpoint, checkpoints, startTime, halfWidth, scale) {
+	const radius = halfWidth * Math.min((checkpoint.time - startTime) / TIP_POINT_TRAIL_TAIL_DURATION, scale);
+	const { x, y, index } = checkpoint;
+	let previous = null;
+	for (let cursor = Math.floor(index); cursor >= 0; cursor -= 1) {
+		const candidate = checkpoints[cursor];
+		if (candidate.x !== x || candidate.y !== y) {
+			previous = candidate;
+			break;
+		}
+	}
+	let next = null;
+	for (let cursor = Math.ceil(index); cursor < checkpoints.length; cursor += 1) {
+		const candidate = checkpoints[cursor];
+		if (candidate.x !== x || candidate.y !== y) {
+			next = candidate;
+			break;
+		}
+	}
+	let previousAngle = previous ? Math.atan2(previous.y - y, previous.x - x) : undefined;
+	let nextAngle = next ? Math.atan2(next.y - y, next.x - x) : undefined;
+	if (previousAngle === undefined && nextAngle === undefined) {
+		return { x: 0, y: -radius };
+	}
+	previousAngle ??= nextAngle + Math.PI;
+	nextAngle ??= previousAngle + Math.PI;
+	let angle = (previousAngle + nextAngle) / 2;
+	if (angleDistance(previousAngle, nextAngle) < Math.PI / 2 - 1e-4) angle += Math.PI / 2;
+	const length = radius / Math.sin(angle - nextAngle);
+	return { x: length * Math.cos(angle), y: length * Math.sin(angle) };
+}
+
+// Literal Canvas port of game-unstable TipPoint.drawTrailThrough().
 export function tipPointTrailEdges(points, width, scale = 1) {
 	if (points.length < 2 || !(width > 0)) return [];
 	const startTime = points[0].time;
 	const size = Math.max(0, Math.min(1, scale));
-	return points.map((point, index) => {
-		const halfWidth = width / 2 * Math.min(size,
-			Math.max(0, (point.time - startTime) / TIP_POINT_TRAIL_TAIL_DURATION));
-		const previous = adjacentDirection(points, index, -1);
-		const next = adjacentDirection(points, index, 1);
-		const incoming = previous || next || { x: 0, y: -1 };
-		const outgoing = next || previous || incoming;
-		const incomingNormal = { x: -incoming.y, y: incoming.x };
-		const outgoingNormal = { x: -outgoing.y, y: outgoing.x };
-		let miterX = incomingNormal.x + outgoingNormal.x;
-		let miterY = incomingNormal.y + outgoingNormal.y;
-		const miterLength = Math.hypot(miterX, miterY);
-		if (miterLength <= 1e-8) {
-			miterX = outgoingNormal.x;
-			miterY = outgoingNormal.y;
-		} else {
-			miterX /= miterLength;
-			miterY /= miterLength;
+	const checkpoints = points.checkpoints
+		|| points.map((checkpoint, index) => ({ ...checkpoint, index }));
+	const active = points.map((checkpoint, index) => ({ ...checkpoint, index: checkpoint.index ?? index }));
+	const first = active[0];
+	const edges = [{ ...first, left: { x: first.x, y: first.y }, right: { x: first.x, y: first.y } }];
+	let lastLeft = edges[0].left;
+	let lastRight = edges[0].right;
+	for (let index = 1; index < active.length; index += 1) {
+		const point = active[index];
+		const previous = active[index - 1];
+		const offset = tipPointJointEdge(point, checkpoints, startTime, width / 2, size);
+		let left = { x: point.x + offset.x, y: point.y + offset.y };
+		let right = { x: point.x - offset.x, y: point.y - offset.y };
+		if (clockwiseness(previous.x, previous.y, point.x, point.y, left.x, left.y)
+			!== clockwiseness(previous.x, previous.y, point.x, point.y, lastLeft.x, lastLeft.y)) {
+			[left, right] = [right, left];
 		}
-		const projection = miterX * outgoingNormal.x + miterY * outgoingNormal.y;
-		const edgeLength = Math.abs(projection) > 1e-4 ? halfWidth / projection : halfWidth;
-		const dx = miterX * edgeLength;
-		const dy = miterY * edgeLength;
-		return {
-			...point,
-			left: { x: point.x + dx, y: point.y + dy },
-			right: { x: point.x - dx, y: point.y - dy },
-		};
-	});
+		if (clockwiseness(previous.x, previous.y, point.x, point.y, left.x, left.y)
+			!== clockwiseness(lastLeft.x, lastLeft.y, point.x, point.y, left.x, left.y)) {
+			left = { ...lastLeft };
+		}
+		if (clockwiseness(previous.x, previous.y, point.x, point.y, right.x, right.y)
+			!== clockwiseness(lastRight.x, lastRight.y, point.x, point.y, right.x, right.y)) {
+			right = { ...lastRight };
+		}
+		edges.push({ ...point, left, right });
+		lastLeft = left;
+		lastRight = right;
+	}
+	return edges;
 }
 
 export function drawTipPointTrail(context, points, width, scale = 1, alpha = 1, maximumOpacity = 0.5) {

@@ -52,12 +52,14 @@ export const withStageInteractions = Base => class extends Base {
 		context.textAlign = "left";
 		context.fillText(title, 4 * unit, 2 * unit);
 
-		const playable = project.events.filter(event => NOTE_TYPES.has(event.type));
-		const hitCount = playable.filter(event => {
+		const playableCount = this.renderIndex?.hitRecords.length
+			?? project.events.filter(event => NOTE_TYPES.has(event.type)).length;
+		const hitCount = this.renderIndex?.hudHitCount(now) ?? project.events.filter(event => {
+			if (!NOTE_TYPES.has(event.type)) return false;
 			const { start, end } = this._eventTimes(event);
 			return now >= (event.type === "hold" ? end : start);
 		}).length;
-		const score = playable.length ? Math.floor(1_000_000 * hitCount / playable.length) : 0;
+		const score = playableCount ? Math.floor(1_000_000 * hitCount / playableCount) : 0;
 		context.textAlign = "right";
 		context.font = `${hudFont}px 'Noto Sans Math', 'Noto Sans CJK TC', sans-serif`;
 		context.fillStyle = "#ffffff";
@@ -443,4 +445,3 @@ export const withStageInteractions = Base => class extends Base {
 		this.surface.destroy();
 	}
 };
-

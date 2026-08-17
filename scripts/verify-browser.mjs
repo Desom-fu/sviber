@@ -205,6 +205,77 @@ async function measureTapRadius(page) {
 	});
 }
 
+async function measureLargeChartPlayback(page) {
+	return page.evaluate(async () => {
+		const app = globalThis.sviber;
+		const snapshot = app.model.snapshot();
+		const channelCount = 4;
+		const eventCount = 100_000;
+		try {
+			app.model.channels = Array.from({ length: channelCount }, (_, id) => ({ id }));
+			app.model.snappees = [];
+			app.model.events = Array.from({ length: eventCount }, (_, id) => ({
+				id,
+				type: id % 11 === 0 ? "hold" : "tap",
+				channel: id % channelCount,
+				time: [Math.floor(id / 16), id % 16, 16],
+				duration: [1, 0, 1],
+				x: id % 200 - 100,
+				y: id % 100 - 50,
+				text: "",
+				tipPointSpawnType: id < channelCount ? "chain" : "inherit",
+				tipPointSpawnTime: 1,
+			}));
+			app.model.editor.currentChannel = 0;
+			app.model.editor.timeSnapped = false;
+			app.model.editor.currentTime = 100;
+			app.model.editor.visibleRangeBeginning = 95;
+			app.model.editor.visibleRangeEnd = 105;
+			app.refreshNow();
+			const warmupFrames = 30;
+			const measuredFrames = 180;
+			const measurements = await new Promise(resolve => {
+				const samples = [];
+				const cpuTasks = [];
+				let frame = 0;
+				let previous = null;
+				const draw = timestamp => {
+					if (previous !== null && frame > warmupFrames) samples.push(timestamp - previous);
+					previous = timestamp;
+					const current = 100 + frame / 60;
+					app.model.editor.currentTime = current;
+					app.model.editor.visibleRangeBeginning = current - 5;
+					app.model.editor.visibleRangeEnd = current + 5;
+					const cpuStarted = performance.now();
+					app.refreshPlaybackFrame();
+					if (frame >= warmupFrames) cpuTasks.push(performance.now() - cpuStarted);
+					frame += 1;
+					if (frame <= warmupFrames + measuredFrames) requestAnimationFrame(draw);
+					else resolve({ samples, cpuTasks });
+				};
+				requestAnimationFrame(draw);
+			});
+			const { samples: deltas, cpuTasks } = measurements;
+			deltas.sort((left, right) => left - right);
+			cpuTasks.sort((left, right) => left - right);
+			return {
+				events: eventCount,
+				frames: deltas.length,
+				medianMilliseconds: deltas[Math.floor(deltas.length * 0.5)],
+				percentile95Milliseconds: deltas[Math.floor(deltas.length * 0.95)],
+				maximumMilliseconds: deltas.at(-1),
+				droppedFrames: deltas.filter(delta => delta > 25).length,
+				cpuTaskAverageMilliseconds: cpuTasks.reduce((sum, value) => sum + value, 0) / cpuTasks.length,
+				cpuTaskPercentile95Milliseconds: cpuTasks[Math.floor(cpuTasks.length * 0.95)],
+				cpuTaskMaximumMilliseconds: cpuTasks.at(-1),
+			};
+		} finally {
+			app.model.restore(snapshot);
+			app.refreshNow();
+		}
+	});
+}
+
 async function stageChartPoint(page, x, y) {
 	return page.evaluate(({ chartX, chartY }) => {
 		const surface = globalThis.sviber.stage.surface;
@@ -252,6 +323,7 @@ await context.addInitScript(() => {
 	Object.defineProperty(globalThis, "showSaveFilePicker", { value: undefined, configurable: true });
 });
 const page = await context.newPage();
+let playbackBenchmark;
 const pageErrors = [];
 const resourceErrors = [];
 page.on("pageerror", error => pageErrors.push(error.message));
@@ -284,6 +356,13 @@ try {
 	});
 	await page.locator('.dialog-button[data-dialog-action="discard"]').click();
 	await waitForEditor(page);
+	playbackBenchmark = await measureLargeChartPlayback(page);
+	assert.ok(playbackBenchmark.cpuTaskPercentile95Milliseconds < 10,
+		`100k-event playback CPU p95 exceeded 10 ms: ${playbackBenchmark.cpuTaskPercentile95Milliseconds} ms`);
+	assert.ok(playbackBenchmark.percentile95Milliseconds < 20,
+		`100k-event playback p95 exceeded 60 Hz frame pacing: ${playbackBenchmark.percentile95Milliseconds} ms`);
+	assert.ok(playbackBenchmark.droppedFrames <= 2,
+		`100k-event playback dropped ${playbackBenchmark.droppedFrames} of ${playbackBenchmark.frames} frames`);
 	assert.ok(await page.evaluate(timestamp => Number(localStorage.getItem("sviber.manualSaveTime")) > timestamp,
 		startupAutosaveTimestamp), "discarding startup recovery did not suppress the same autosave on reload");
 	assert.equal(await page.locator("#inspector-tab").textContent(), "检查器");
@@ -850,7 +929,7 @@ try {
 	const unexpectedResources = resourceErrors.filter(message => !message.includes("/sviber/assets/fonts/"));
 	assert.deepEqual(unexpectedErrors, [], `browser errors: ${unexpectedErrors.join(" | ")}`);
 	assert.deepEqual(unexpectedResources, [], `resource errors: ${unexpectedResources.join(" | ")}`);
-	console.log(JSON.stringify({ baseUrl: activeBaseUrl, canvasSummaries, screenshots: outputDirectory }, null, 2));
+	console.log(JSON.stringify({ baseUrl: activeBaseUrl, playbackBenchmark, canvasSummaries, screenshots: outputDirectory }, null, 2));
 } finally {
 	await context.setOffline(false).catch(() => {});
 	await context.close();

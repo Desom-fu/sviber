@@ -5,6 +5,7 @@ import { TimingMap } from "../js/core/timing.js";
 import {
 	buildTipPointGuides,
 	sampleTipPointPath,
+	tipPointPathBetween,
 	tipPointTrailEdges,
 	tipPointVisualState,
 } from "../render/stage.js";
@@ -104,6 +105,12 @@ test("a stationary tip point keeps Sunniesnow's upward default direction", () =>
 		{ time: 1, x: 12, y: 34 },
 	], 0.5);
 	assert.equal(point.angle, -Math.PI / 2);
+	const coincidentSegment = sampleTipPointPath([
+		{ time: 0, x: 0, y: 0 },
+		{ time: 1, x: 0, y: 0 },
+		{ time: 2, x: 10, y: 0 },
+	], 0.5);
+	assert.equal(coincidentSegment.angle, -Math.PI / 2);
 });
 
 test("tip point visual state follows spawn, trail, and fade boundaries", () => {
@@ -129,7 +136,7 @@ test("tip point visual state follows spawn, trail, and fade boundaries", () => {
 	assert.equal(tipPointVisualState(shortGuide, 0.25).alpha, 1);
 });
 
-test("tip point trail uses shared miter vertices at corners", () => {
+test("tip point trail preserves game-unstable corner winding", () => {
 	const edges = tipPointTrailEdges([
 		{ time: 0, x: 0, y: 0 },
 		{ time: 0.1, x: 10, y: 0 },
@@ -137,7 +144,34 @@ test("tip point trail uses shared miter vertices at corners", () => {
 	], 6);
 	assert.equal(edges.length, 3);
 	assert.deepEqual(edges[0].left, { x: 0, y: 0 });
-	assert.ok(Math.abs(edges[1].left.x - 7) < 1e-12);
-	assert.ok(Math.abs(edges[1].left.y - 3) < 1e-12);
-	assert.ok(Number.isFinite(edges[2].right.x));
+	assert.ok(Math.abs(edges[1].left.x - 13) < 1e-12);
+	assert.ok(Math.abs(edges[1].left.y + 3) < 1e-12);
+	assert.ok(Math.abs(edges[1].right.x - 7) < 1e-12);
+	assert.ok(Math.abs(edges[1].right.y - 3) < 1e-12);
+	assert.deepEqual(edges[2].left, { x: 13, y: 10 });
+	assert.deepEqual(edges[2].right, { x: 7, y: 10 });
+});
+
+test("tip point trail inserts the unstable tail connector only when crossing its time", () => {
+	const trail = tipPointPathBetween([
+		{ time: 0, x: 0, y: 0 },
+		{ time: 0.05, x: 5, y: 0 },
+		{ time: 1, x: 5, y: 10 },
+	], 0.02, 0.4);
+	assert.deepEqual(trail.map(point => point.index), [0.5, 1, 1.5, 1.5]);
+	assert.ok(Math.abs(trail[2].time - 0.12) < 1e-12);
+	assert.ok(Math.abs(trail[2].y - 0.736842105263158) < 1e-12);
+});
+
+test("tip point corner geometry stays finite across coincident checkpoints", () => {
+	const edges = tipPointTrailEdges([
+		{ time: 0, x: 0, y: 0 },
+		{ time: 0.1, x: 10, y: 0 },
+		{ time: 0.2, x: 10, y: 0 },
+		{ time: 0.3, x: 10, y: 10 },
+	], 6);
+	assert.equal(edges.length, 4);
+	for (const edge of edges) {
+		assert.ok([edge.left.x, edge.left.y, edge.right.x, edge.right.y].every(Number.isFinite));
+	}
 });

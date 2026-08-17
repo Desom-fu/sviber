@@ -2,6 +2,7 @@ import { Rational } from "../js/core/rational.js";
 import { TimingMap } from "../js/core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../js/core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
+import { ChartRenderIndex } from "./chart-index.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
 
 export class StageViewCore {
@@ -14,6 +15,7 @@ export class StageViewCore {
 		});
 		this.state = null;
 		this.timing = null;
+		this.renderIndex = null;
 		this.hitRegions = [];
 		this.visibleEvents = [];
 		this.selectionBox = null;
@@ -43,7 +45,11 @@ export class StageViewCore {
 
 	setState(state) {
 		this.state = state;
-		this.timing = timingFor(state);
+		const project = projectState(state);
+		this.renderIndex = state?.renderIndex || new ChartRenderIndex(project, timingFor(state), {
+			noteSpeed: state?.preferences?.noteSpeed,
+		});
+		this.timing = this.renderIndex.timing;
 		this.render();
 	}
 
@@ -55,7 +61,8 @@ export class StageViewCore {
 
 	triggerHit(event, delaySeconds = 0) {
 		const project = projectState(this.state);
-		const position = resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
+		const position = this.renderIndex?.positionFor(event)
+			|| resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
 		const flick = event.type === "flick";
 		const sparkColors = [0xbfaa00, 0xffff00];
 		const contourColors = [0xbfaa00, 0xff7f00];
@@ -198,6 +205,8 @@ export class StageViewCore {
 	}
 
 	_eventTimes(event) {
+		const indexed = this.renderIndex?.recordFor(event);
+		if (indexed) return { start: indexed.start, end: indexed.end };
 		const start = this.timing.beatToSeconds(event.time);
 		const end = DURATION_TYPES.has(event.type)
 			? this.timing.beatToSeconds(Rational.from(event.time).add(event.duration || [0, 1, 1]))
@@ -206,7 +215,9 @@ export class StageViewCore {
 	}
 
 	_drawBackgroundPatterns(context, project, mapping, now) {
-		const record = sunniesnowDisplayedPattern(project.events, this.timing, now);
+		const record = this.renderIndex
+			? this.renderIndex.displayedPattern(now)
+			: sunniesnowDisplayedPattern(project.events, this.timing, now);
 		if (!record) return;
 		const { visual } = record;
 		context.save();
@@ -361,7 +372,7 @@ export class StageViewCore {
 		for (const snappee of project.snappees) {
 			if (!isSnappeeVisible(snappee)) continue;
 			let points;
-			try { points = sampleSnappee(snappee); } catch { continue; }
+			try { points = this.renderIndex?.snappeeSamples.get(snappee) || sampleSnappee(snappee); } catch { continue; }
 			if (!points.length) continue;
 			context.save();
 			context.strokeStyle = snappee.color || "#58b6ef";
@@ -480,25 +491,34 @@ export class StageViewCore {
 	_drawNotes(context, project, mapping, now) {
 		const doubleTapIds = this._doubleTapIds(project);
 		const records = [];
-		for (const event of project.events) {
-			if (!MOVABLE_TYPES.has(event.type)) continue;
-			const visibility = this._noteVisibility(event, now);
+		const backgroundRecords = [];
+		const noteRecords = [];
+		const candidates = this.renderIndex?.visibleMovableRecords(now)
+			|| project.events.filter(event => MOVABLE_TYPES.has(event.type)).map(event => ({ event }));
+		for (const indexed of candidates) {
+			const { event } = indexed;
+			const visibility = indexed.start == null
+				? this._noteVisibility(event, now)
+				: sunniesnowEventVisualState(event, indexed.start, indexed.end, now, this.state?.preferences?.noteSpeed);
 			if (!visibility) continue;
-			const position = resolveAttachedPosition(event, project.snappees) || { x: Number(event.x) || 0, y: Number(event.y) || 0 };
+			const position = indexed.position || resolveAttachedPosition(event, project.snappees)
+				|| { x: Number(event.x) || 0, y: Number(event.y) || 0 };
 			const screen = mapping.toScreen(position);
 			const record = { event, position, screen, visibility, doubleTap: doubleTapIds.has(event.id) };
 			records.push(record);
+			if (event.type === "bgNote") backgroundRecords.push(record);
+			else if (NOTE_TYPES.has(event.type)) noteRecords.push(record);
 			this.visibleEvents.push(record);
 		}
-		for (const record of records.filter(({ event }) => event.type === "bgNote")) {
+		for (const record of backgroundRecords) {
 			this._drawNoteBody(context, record.event, record.screen, mapping.scale, record.visibility, record.doubleTap);
 		}
 		this._drawDoubleLines(context, project, mapping, now);
-		for (const record of records.filter(({ event }) => NOTE_TYPES.has(event.type))) {
+		for (const record of noteRecords) {
 			this._drawNoteBody(context, record.event, record.screen, mapping.scale, record.visibility, record.doubleTap);
 		}
 		// Sunniesnow keeps all shrinking circles in a separate layer above note bodies.
-		for (const record of records.filter(({ event }) => NOTE_TYPES.has(event.type))) {
+		for (const record of noteRecords) {
 			this._drawApproachCircle(context, record.event, record.screen, mapping.scale, record.visibility);
 		}
 		for (const { event, position, screen } of records) {
@@ -520,15 +540,19 @@ export class StageViewCore {
 	}
 
 	_doubleTapIds(project) {
-		return new Set(sunniesnowTapDoubleLinePairs(project.events).flat().map(event => event.id));
+		return this.renderIndex?.doubleTapIds
+			|| new Set(sunniesnowTapDoubleLinePairs(project.events).flat().map(event => event.id));
 	}
 
 	_drawDoubleLines(context, project, mapping, now) {
 		const approachSpeed = Number(this.state?.preferences?.noteSpeed) > 0
 			? Number(this.state.preferences.noteSpeed)
 			: SUNNIESNOW_SKIN.approachSpeed;
-		for (const [event1, event2] of sunniesnowTapDoubleLinePairs(project.events)) {
-				const start = this.timing.beatToSeconds(event1.time);
+		const pairs = this.renderIndex?.activeDoubleTapPairs(now)
+			|| sunniesnowTapDoubleLinePairs(project.events).map(([event1, event2]) => ({ event1, event2 }));
+		for (const pair of pairs) {
+				const { event1, event2 } = pair;
+				const start = pair.start ?? this.timing.beatToSeconds(event1.time);
 				const relativeTime = now - start;
 				let progress = 1;
 				let alpha = 1;
@@ -537,8 +561,8 @@ export class StageViewCore {
 				if (relativeTime < -1 / approachSpeed) {
 					progress = (relativeTime - fadeStart) / 0.25;
 				} else if (relativeTime > 0) alpha = (1 - relativeTime / (1 / 3)) ** 2;
-				const position1 = resolveAttachedPosition(event1, project.snappees) || event1;
-				const position2 = resolveAttachedPosition(event2, project.snappees) || event2;
+				const position1 = pair.position1 || resolveAttachedPosition(event1, project.snappees) || event1;
+				const position2 = pair.position2 || resolveAttachedPosition(event2, project.snappees) || event2;
 				const point1 = mapping.toScreen(position1);
 				const point2 = mapping.toScreen(position2);
 				const beginning = {

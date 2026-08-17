@@ -8,9 +8,15 @@ import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
 import { AudioPlayer } from "../audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
+import {
+	collectHitSchedule,
+	collectHoldReleaseSchedule,
+	collectIndexedHitSchedule,
+	collectIndexedHoldReleaseSchedule,
+} from "../audio/scheduler.js";
 import { TimelineView } from "../render/timeline.js";
 import { StageView } from "../render/stage.js";
+import { ChartRenderIndex } from "../render/chart-index.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
@@ -37,6 +43,7 @@ export class SviberAppCore {
 		this.resumePlaybackAfterSeek = false;
 		this.stageMoveAttachmentException = null;
 		this.renderQueued = false;
+		this.renderIndex = null;
 		this.mediaSync = Promise.resolve();
 		this.audio = new AudioPlayer();
 		this.autosave = new AutosaveManager();
@@ -139,6 +146,7 @@ export class SviberAppCore {
 			events: this.model.events,
 			snappees: this.model.snappees,
 			preferences: this.preferences,
+			renderIndex: this.renderIndex,
 		};
 	}
 
@@ -163,6 +171,7 @@ export class SviberAppCore {
 		const current = includeCurrent && !this.audio.playing ? this.currentSeconds() : baseMinimum;
 		const minimum = Math.min(baseMinimum, Number.isFinite(current) ? current : baseMinimum);
 		if (this.audio.buffer) return [minimum, this.audio.buffer.duration];
+		if (this.renderIndex) return [minimum, Math.max(this.renderIndex.maximumTime, minimum + 10)];
 		let maximum = Math.max(10, minimum + 10);
 		for (const event of this.model.events) {
 			let beat = Rational.from(event.time);
@@ -365,6 +374,13 @@ export class SviberAppCore {
 		this.playbackFrameCount = (this.playbackFrameCount || 0) + 1;
 	}
 
+	_rebuildRenderIndex() {
+		this.renderIndex = new ChartRenderIndex(this.model, this.timing(), {
+			noteSpeed: this.preferences.noteSpeed,
+		});
+		return this.renderIndex;
+	}
+
 	_refreshDifficultyUi() {
 		const select = document.getElementById("difficulty-select");
 		const swatch = document.getElementById("difficulty-color");
@@ -410,6 +426,7 @@ export class SviberAppCore {
 	}
 
 	refreshNow() {
+		this._rebuildRenderIndex();
 		const view = this.viewState();
 		const timelineHeight = 88 + Math.min(3, Math.max(1, this.model.channels.length)) * 48;
 		document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${timelineHeight}px`);
@@ -514,6 +531,7 @@ export class SviberAppCore {
 			this.refreshPlaybackFrame();
 		});
 		this.audio.addEventListener("play", () => {
+			this._rebuildRenderIndex();
 			const time = this.currentSeconds();
 			const editor = this.model.editor;
 			this.playFollowOffset = time >= editor.visibleRangeBeginning && time <= editor.visibleRangeEnd
@@ -548,25 +566,19 @@ export class SviberAppCore {
 	}
 
 	_scheduleHits(current) {
-		const schedule = collectHitSchedule(
-			this.model.events,
-			this.timing(),
-			current,
-			this.audio.rate,
-			this.scheduledHitIds,
-		);
+		const schedule = this.renderIndex
+			? collectIndexedHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate, this.scheduledHitIds)
+			: collectHitSchedule(this.model.events, this.timing(), current, this.audio.rate, this.scheduledHitIds);
 		for (const { event, delay } of schedule) {
 			this.scheduledHitIds.add(event.id);
 			void this.audio.playHit(event.type, delay);
 			this.stage.triggerHit(event, delay);
 		}
-		const releases = collectHoldReleaseSchedule(
-			this.model.events,
-			this.timing(),
-			current,
-			this.audio.rate,
-			this.scheduledHoldReleaseIds,
-		);
+		const releases = this.renderIndex
+			? collectIndexedHoldReleaseSchedule(this.renderIndex.holdReleaseRecords,
+				current, this.audio.rate, this.scheduledHoldReleaseIds)
+			: collectHoldReleaseSchedule(this.model.events, this.timing(), current,
+				this.audio.rate, this.scheduledHoldReleaseIds);
 		for (const { event, delay } of releases) {
 			this.scheduledHoldReleaseIds.add(event.id);
 			this.stage.triggerHit(event, delay);

@@ -1,7 +1,8 @@
 import { Rational } from "../js/core/rational.js";
 import { TimingMap } from "../js/core/timing.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
-import { buildTipPointGuides, drawTipPointTrail, tipPointVisualState } from "./stage.js";
+import { ChartRenderIndex } from "./chart-index.js";
+import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointVisualState } from "./stage.js";
 
 const COLORS = {
 	1: "#ff2e59",
@@ -127,6 +128,8 @@ export class TimelineView {
 		});
 		this.state = null;
 		this.timing = null;
+		this.renderIndex = null;
+		this.tipPointCheckpointCache = null;
 		this.hitRegions = [];
 		this.eventCenters = [];
 		this.channelOffset = 0;
@@ -145,7 +148,11 @@ export class TimelineView {
 
 	setState(state) {
 		this.state = state;
-		this.timing = timingFor(state);
+		const project = projectState(state);
+		this.renderIndex = state?.renderIndex || new ChartRenderIndex(project, timingFor(state), {
+			noteSpeed: state?.preferences?.noteSpeed,
+		});
+		this.timing = this.renderIndex.timing;
 		this.render();
 	}
 
@@ -296,6 +303,7 @@ export class TimelineView {
 	}
 
 	#eventLaneOffsets(events) {
+		if (this.renderIndex) return this.renderIndex.eventLaneOffsets;
 		const groups = new Map();
 		for (const event of events) {
 			const key = `${event.channel}:${Rational.from(event.time).toString()}`;
@@ -310,11 +318,12 @@ export class TimelineView {
 		return offsets;
 	}
 
-	#eventPosition(event, layout, project, offsets) {
+	#eventPosition(event, layout, project, offsets, record = null) {
 		const visibleChannels = this.#visibleChannels(project);
 		const channelIndex = visibleChannels.findIndex(channel => channel.id === event.channel);
 		if (channelIndex < 0) return null;
-		const time = this.timing.beatToSeconds(event.time);
+		const time = record?.start ?? this.renderIndex?.recordFor(event)?.start
+			?? this.timing.beatToSeconds(event.time);
 		const x = this.#timeToX(time, layout.channels.width);
 		const y = layout.channels.y + (channelIndex + 0.5) * layout.channelHeight
 			+ (offsets.get(event.id) || 0);
@@ -323,12 +332,19 @@ export class TimelineView {
 
 	#drawEvents(context, layout, project) {
 		const offsets = this.#eventLaneOffsets(project.events);
-		for (const event of project.events) {
-			const position = this.#eventPosition(event, layout, project, offsets);
+		const beginning = project.editor.visibleRangeBeginning;
+		const ending = project.editor.visibleRangeEnd;
+		const records = this.renderIndex?.timelineRecords(beginning, ending)
+			|| project.events.map(event => ({ event }));
+		const selectedCount = this.renderIndex?.selectedEvents.length
+			?? project.events.filter(event => event.selected).length;
+		for (const record of records) {
+			const { event } = record;
+			const position = this.#eventPosition(event, layout, project, offsets, record);
 			if (!position) continue;
-			const endTime = DURATION_TYPES.has(event.type)
+			const endTime = record.end ?? (DURATION_TYPES.has(event.type)
 				? this.timing.beatToSeconds(Rational.from(event.time).add(event.duration || [0, 1, 1]))
-				: position.time;
+				: position.time);
 			const endX = this.#timeToX(endTime, layout.channels.width);
 			if (Math.max(position.x, endX) < -20 || Math.min(position.x, endX) > layout.channels.width + 20) continue;
 			const selected = Boolean(event.selected);
@@ -359,8 +375,7 @@ export class TimelineView {
 					Math.max(30, Math.abs(endX - position.x) - 6));
 				context.restore();
 			}
-			if (selected && DURATION_TYPES.has(event.type)
-				&& project.events.filter(candidate => candidate.selected).length === 1) {
+			if (selected && DURATION_TYPES.has(event.type) && selectedCount === 1) {
 				this.#drawDiamond(context, endX, position.y);
 				this.hitRegions.push({ type: "duration", event, x: endX - 9, y: position.y - 9, width: 18, height: 18 });
 			}
@@ -448,27 +463,27 @@ export class TimelineView {
 
 	#drawTipPointLines(context, layout, project, now) {
 		const offsets = this.#eventLaneOffsets(project.events);
-		for (const guide of buildTipPointGuides(project, this.timing)) {
-			const first = this.#eventPosition(guide.events[0], layout, project, offsets);
-			if (!first) continue;
-			const checkpoints = [
-				{ x: this.#timeToX(guide.spawnTime, layout.channels.width), y: first.y, time: guide.spawnTime },
-			];
-			for (let index = 0; index < guide.events.length; index += 1) {
-				const position = this.#eventPosition(guide.events[index], layout, project, offsets);
-				if (!position) continue;
-				checkpoints.push({ x: position.x, y: position.y, time: guide.eventTimes[index] });
-			}
+		const beginning = project.editor.visibleRangeBeginning;
+		const ending = project.editor.visibleRangeEnd;
+		const guides = this.renderIndex?.timelineTipGuides(beginning, ending)
+			|| buildTipPointGuides(project, this.timing);
+		for (const guide of guides) {
+			const checkpoints = this.#tipPointCheckpoints(guide, layout, project, offsets);
+			if (!checkpoints) continue;
+			const lineBeginning = Math.max(beginning, checkpoints[0].time);
+			const lineEnding = Math.min(ending, checkpoints.at(-1).time);
+			const line = lineBeginning <= lineEnding
+				? tipPointPathBetween(checkpoints, lineBeginning, lineEnding) : [];
 			context.save();
 			context.strokeStyle = "rgba(255,255,255,0.24)";
 			context.lineWidth = 5;
 			context.lineCap = "round";
 			context.lineJoin = "round";
 			context.beginPath();
-			checkpoints.forEach((point, index) => {
+			line.forEach((point, index) => {
 				if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
 			});
-			context.stroke();
+			if (line.length > 1) context.stroke();
 			const visual = tipPointVisualState(checkpoints, now);
 			if (!visual) {
 				context.restore();
@@ -478,6 +493,39 @@ export class TimelineView {
 			this.#drawTipPointMarker(context, visual.head, visual.scale);
 			context.restore();
 		}
+	}
+
+	#tipPointCheckpoints(guide, layout, project, offsets) {
+		const signature = `${layout.channels.width}:${layout.channels.y}:${layout.channelHeight}:${this.channelOffset}`;
+		if (this.tipPointCheckpointCache?.index !== this.renderIndex
+			|| this.tipPointCheckpointCache.signature !== signature) {
+			this.tipPointCheckpointCache = { index: this.renderIndex, signature, guides: new WeakMap() };
+		}
+		const cached = this.tipPointCheckpointCache.guides.get(guide);
+		if (cached !== undefined) return cached;
+		const channels = this.#visibleChannels(project);
+		const channelIndex = channels.findIndex(channel => channel.id === guide.events[0].channel);
+		if (channelIndex < 0) {
+			this.tipPointCheckpointCache.guides.set(guide, null);
+			return null;
+		}
+		const makePoint = (time, y) => {
+			const point = { time, y };
+			Object.defineProperty(point, "x", {
+				enumerable: true,
+				get: () => this.#timeToX(time, layout.channels.width),
+			});
+			return point;
+		};
+		const baseY = layout.channels.y + (channelIndex + 0.5) * layout.channelHeight;
+		const firstY = baseY + (offsets.get(guide.events[0].id) || 0);
+		const checkpoints = [makePoint(guide.spawnTime, firstY)];
+		for (let index = 0; index < guide.events.length; index += 1) {
+			const event = guide.events[index];
+			checkpoints.push(makePoint(guide.eventTimes[index], baseY + (offsets.get(event.id) || 0)));
+		}
+		this.tipPointCheckpointCache.guides.set(guide, checkpoints);
+		return checkpoints;
 	}
 
 	#drawBpmChanges(context, rectangle, project) {
@@ -519,6 +567,9 @@ export class TimelineView {
 	#timeBounds(project) {
 		const provided = this.callbacks.getTimeBounds?.();
 		if (provided) return provided;
+		if (this.renderIndex) {
+			return [Math.min(0, this.timing.beatToSeconds([0, 0, 1])), this.renderIndex.maximumTime];
+		}
 		let maximum = 10;
 		for (const event of project.events) {
 			let endBeat = Rational.from(event.time);
