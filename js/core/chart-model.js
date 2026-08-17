@@ -320,24 +320,24 @@ export function createDefaultSnappees() {
 		}),
 		createSnappee("radialMesh", {
 			name: "Radial grid", centerX: 0, centerY: 0, radius: 50,
-			azimuthalTiles: 16, radialTiles: 4,
+			azimuthalTiles: 16, radialTiles: 4, active: false,
 		}),
 		createSnappee("regularPolygonCurve", {
 			name: "Outer hexagon", centerX: 0, centerY: 0, radius: 100 / Math.sqrt(3),
-			angle: 0, sides: 6, segmentsPerSide: 4,
+			angle: 0, sides: 6, segmentsPerSide: 4, active: false,
 		}),
 		createSnappee("regularPolygonCurve", {
 			name: "Middle hexagon", centerX: 0, centerY: 0, radius: 50,
-			angle: Math.PI / 2, sides: 6, segmentsPerSide: 4,
+			angle: Math.PI / 2, sides: 6, segmentsPerSide: 4, active: false,
 		}),
 		createSnappee("regularPolygonCurve", {
 			name: "Inner hexagon", centerX: 0, centerY: 0, radius: 50 / Math.sqrt(3),
-			angle: 0, sides: 6, segmentsPerSide: 2,
+			angle: 0, sides: 6, segmentsPerSide: 2, active: false,
 		}),
 		createSnappee("regularPolygonCurve", {
 			name: "Pentagon", centerX: 0, centerY: 20 * Math.sqrt(5) - 50,
 			radius: 100 - 20 * Math.sqrt(5), angle: Math.PI / 2,
-			sides: 5, segmentsPerSide: 4,
+			sides: 5, segmentsPerSide: 4, active: false,
 		}),
 	];
 }

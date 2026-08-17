@@ -321,13 +321,14 @@ test("History records manual and automatic save markers on the current entry", (
 	assert.deepEqual(history.currentEntry.metadata.historyMarkers, { autosave: 100, save: 200 });
 });
 
-test("new charts contain the six v6 default snappees", () => {
+test("new charts activate only the rectangular default snappee", () => {
 	const snappees = createDefaultSnappees();
 	assert.equal(snappees.length, 6);
 	assert.deepEqual(snappees.map(item => item.type), [
 		"rectangularMesh", "radialMesh", "regularPolygonCurve",
 		"regularPolygonCurve", "regularPolygonCurve", "regularPolygonCurve",
 	]);
+	assert.deepEqual(snappees.map(item => item.active), [true, false, false, false, false, false]);
 	assert.deepEqual([snappees[0].horizontalTiles, snappees[0].verticalTiles], [8, 4]);
 	assert.deepEqual([snappees[1].azimuthalTiles, snappees[1].radialTiles], [16, 4]);
 	assert.deepEqual(snappees.slice(2).map(item => [item.sides, item.segmentsPerSide]), [[6, 4], [6, 4], [6, 2], [5, 4]]);
