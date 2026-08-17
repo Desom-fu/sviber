@@ -176,7 +176,7 @@ export function sunniesnowDisplayedPattern(events, timing, now) {
 }
 
 export function colorIntegerToCss(value) {
-	return `_${Math.max(0, Math.min(0xffffff, value | 0)).toString(16).padStart(6, "0")}`;
+	return `#${Math.max(0, Math.min(0xffffff, value | 0)).toString(16).padStart(6, "0")}`;
 }
 
 export function randomColor(minimum, maximum) {
@@ -475,4 +475,3 @@ export function pointInPolygon(point, polygon) {
 	}
 	return inside;
 }
-

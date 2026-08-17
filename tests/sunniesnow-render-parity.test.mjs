@@ -7,7 +7,9 @@ import {
 	SUNNIESNOW_AUTOPLAY_GRADIENT,
 	SUNNIESNOW_SKIN,
 	circularArcDraftSpan,
+	colorIntegerToCss,
 	isSnappeeVisible,
+	randomColor,
 	sunniesnowDisplayedPattern,
 	sunniesnowEventVisualState,
 	sunniesnowNoteRadius,
@@ -34,6 +36,13 @@ test("Autoplay uses Sunniesnow Lyrica 5 colors and note speed changes approach t
 	const event = { type: "tap" };
 	assert.equal(sunniesnowEventVisualState(event, 1, 1, 0.6, 2).phase, "active");
 	assert.equal(sunniesnowEventVisualState(event, 1, 1, 0.6, 4).phase, "fadingIn");
+});
+
+test("perfect hit effects use valid Sunniesnow gold and orange CSS colors", () => {
+	assert.equal(colorIntegerToCss(0xbfaa00), "#bfaa00");
+	assert.equal(colorIntegerToCss(0xffff00), "#ffff00");
+	assert.equal(colorIntegerToCss(0xff7f00), "#ff7f00");
+	assert.equal(randomColor(0xbfaa00, 0xbfaa00), "#bfaa00");
 });
 
 test("selected notes keep a contrasting text color", () => {
