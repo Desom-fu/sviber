@@ -16,9 +16,11 @@
 	},
 	"scripts": {
 		"start": "http-server .. -p 4173 -c-1",
-		"build": "node scripts/build-nw.mjs",
-		"test": "node --test tests/*.test.mjs",
-		"verify:browser": "node scripts/verify-browser.mjs"
+		"check:size": "node scripts/check-source-size.mjs",
+		"check:parity": "node scripts/check-editor-parity.mjs",
+		"build": "node scripts/check-source-size.mjs && node scripts/build-nw.mjs",
+		"test": "node scripts/check-source-size.mjs && node scripts/check-editor-parity.mjs && node --test tests/*.test.mjs",
+		"verify:browser": "node scripts/check-source-size.mjs && node scripts/verify-browser.mjs"
 	},
 	"dependencies": {
 		"audio-decode": "^3.12.0",

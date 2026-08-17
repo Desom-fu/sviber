@@ -16,7 +16,7 @@
 			<nav id="menu-bar" class="menu-bar" aria-label="Application menu" data-i18n-aria-label="aria.applicationMenu"></nav>
 			<div class="tool-row">
 				<div id="tool-bar" class="tool-bar" role="toolbar" aria-label="Chart tools" data-i18n-aria-label="aria.chartTools"></div>
-				<div class="difficulty-switcher" role="group" aria-label="Difficulties" data-i18n-aria-label="aria.difficulties">
+				<div class="difficulty-switcher" role="group" aria-label="Difficulties" data-i18n-aria-label="aria.difficulties" hidden>
 					<span id="difficulty-color" class="difficulty-color" aria-hidden="true"></span>
 					<select id="difficulty-select" aria-label="Difficulty" data-tooltip-key="difficulty.select"></select>
 					<button id="difficulty-add" class="difficulty-action" type="button" data-tooltip-key="difficulty.add">+</button>
@@ -71,10 +71,11 @@
 	</div>
 
 	<input id="open-file-input" class="visually-hidden" type="file" accept=".json,.ssc,application/json,application/zip">
+	<input id="chart-file-input" class="visually-hidden" type="file" accept=".json,application/json">
 	<input id="music-file-input" class="visually-hidden" type="file" accept="audio/*">
 	<input id="background-file-input" class="visually-hidden" type="file" accept="image/*">
 
 	<script src="js/vendor-loader.js"></script>
-	<script type="module" src="js/app.js?v=17"></script>
+	<script type="module" src="js/app.js?v=19"></script>
 </body>
 </html>

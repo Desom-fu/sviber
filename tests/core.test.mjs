@@ -31,13 +31,14 @@ import { History } from "../js/core/history.js";
 import {
 	ChartModel,
 	connectSelectedTipPointChain,
+	createDefaultSnappees,
 	createEvent,
 	createSnappee,
 } from "../js/core/chart-model.js";
 import {
 	PROJECT_FILENAME,
-	assertSunniesnowChart,
 	createProjectManifest,
+	exportSunniesnowChartDocument,
 	normalizeProjectManifest,
 	projectManagedFiles,
 } from "../js/core/project.js";
@@ -312,8 +313,31 @@ test("History retains only the latest 1000 snapshots", () => {
 	assert.equal(history.entries.at(-1).label, "Commit 1100");
 });
 
+test("History records manual and automatic save markers on the current entry", () => {
+	const history = new History({ value: 0 });
+	history.record({ value: 1 }, "Edit");
+	history.markCurrent("autosave", 100);
+	history.markCurrent("save", 200);
+	assert.deepEqual(history.currentEntry.metadata.historyMarkers, { autosave: 100, save: 200 });
+});
+
+test("new charts contain the six v6 default snappees", () => {
+	const snappees = createDefaultSnappees();
+	assert.equal(snappees.length, 6);
+	assert.deepEqual(snappees.map(item => item.type), [
+		"rectangularMesh", "radialMesh", "regularPolygonCurve",
+		"regularPolygonCurve", "regularPolygonCurve", "regularPolygonCurve",
+	]);
+	assert.deepEqual([snappees[0].horizontalTiles, snappees[0].verticalTiles], [8, 4]);
+	assert.deepEqual([snappees[1].azimuthalTiles, snappees[1].radialTiles], [16, 4]);
+	assert.deepEqual(snappees.slice(2).map(item => [item.sides, item.segmentsPerSide]), [[6, 4], [6, 4], [6, 2], [5, 4]]);
+	assert.ok(Math.abs(snappees[2].radius - 100 / Math.sqrt(3)) < 1e-12);
+	assert.ok(Math.abs(snappees[5].centerY - (20 * Math.sqrt(5) - 50)) < 1e-12);
+});
+
 test("ChartModel deletions do not renumber surviving IDs and saved IDs round-trip", () => {
 	const model = ChartModel.createDefault();
+	const defaultSnappeeIds = model.snappees.map(({ id }) => id);
 	const removedChannel = model.addChannel(model.channels.length, { name: "Removed" });
 	const survivingChannel = model.addChannel(model.channels.length, { name: "Surviving" });
 	const removedEvent = model.addEvent("tap", { channel: 0, x: 1, y: 2 });
@@ -327,12 +351,12 @@ test("ChartModel deletions do not renumber surviving IDs and saved IDs round-tri
 
 	assert.deepEqual(model.channels.map(({ id }) => id), [0, survivingChannel.id]);
 	assert.deepEqual(model.events.map(({ id }) => id), [survivingEvent.id]);
-	assert.deepEqual(model.snappees.map(({ id }) => id), [survivingSnappee.id]);
+	assert.deepEqual(model.snappees.map(({ id }) => id), [...defaultSnappeeIds, survivingSnappee.id]);
 
 	const reopened = ChartModel.import(JSON.stringify(model.toJSON()));
 	assert.deepEqual(reopened.channels.map(({ id }) => id), [0, survivingChannel.id]);
 	assert.deepEqual(reopened.events.map(({ id }) => id), [survivingEvent.id]);
-	assert.deepEqual(reopened.snappees.map(({ id }) => id), [survivingSnappee.id]);
+	assert.deepEqual(reopened.snappees.map(({ id }) => id), [...defaultSnappeeIds, survivingSnappee.id]);
 });
 
 test("ChartModel persists nextIds so reopened charts never reuse deleted IDs", () => {
@@ -554,6 +578,24 @@ test("NW.js saves an opened chart back to its known path and resolves relative a
 	}
 });
 
+test("chart export does not enforce external JSON Schema required fields", () => {
+	const model = ChartModel.createDefault({
+		metadata: {
+			title: "",
+			artist: "",
+			charter: "",
+			difficultyName: "",
+			difficulty: "",
+		},
+		events: [],
+	});
+	const chart = exportSunniesnowChartDocument(model);
+	assert.equal(chart.artist, "");
+	assert.equal(chart.charter, "");
+	assert.deepEqual(chart.events, []);
+	assert.match(chart.$schema, /chart-1\.0\.json$/);
+});
+
 test("project manifests preserve ordered difficulties and reject unsafe paths", () => {
 	const manifest = createProjectManifest({
 		name: "Song",
@@ -645,7 +687,6 @@ test("project folders round-trip all difficulties and level export contains only
 				"$schema", "artist", "charter", "difficulty", "difficultyColor",
 				"difficultyName", "difficultySup", "events", "title",
 			].sort());
-			assert.doesNotThrow(() => assertSunniesnowChart(chart));
 		}
 		const conflictingMusic = Object.assign(new Blob([new Uint8Array([1])], { type: "audio/ogg" }), { name: "hard.json" });
 		reopenedManager.rememberAsset("hard.json", conflictingMusic, "music");

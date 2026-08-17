@@ -129,6 +129,15 @@ export class History {
 		return this.current;
 	}
 
+	markCurrent(kind, timestamp = Date.now()) {
+		if (!kind) throw new TypeError("history marker kind is required");
+		const entry = this._entries[this._cursor];
+		const metadata = entry.metadata == null ? {} : this.clone(entry.metadata);
+		metadata.historyMarkers = { ...(metadata.historyMarkers || {}), [String(kind)]: Number(timestamp) || Date.now() };
+		entry.metadata = metadata;
+		return this.currentEntry;
+	}
+
 	transformStates(transform) {
 		if (typeof transform !== "function") throw new TypeError("history state transform must be a function");
 		this._entries = this._entries.map((entry, index) => {

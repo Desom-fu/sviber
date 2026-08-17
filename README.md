@@ -84,7 +84,7 @@ My Project/
 - Every difficulty JSON in the project root is an editable sviber document. It extends Sunniesnow Chart 1.0 with a top-level `sviber` object containing authoring data such as beat timing, channels, snappees, and editor settings. The top-level `events` array is regenerated for compatibility, but reopening the project uses the editable data inside `sviber`.
 - The out-of-bounds setting is stored per difficulty as `sviber.editor.allowOutOfBounds`. Toggling it is undoable and marks that difficulty as changed.
 - An exported `.ssc` is a ZIP archive for Sunniesnow, not a copy of the editable project. Its root contains the shared music, optional cover/background, and one pure Sunniesnow Chart 1.0 JSON file per difficulty. It contains neither `sviber-project.json` nor the top-level `sviber` extension. All exported entries are at archive root because the target Sunniesnow build discovers level music, images, and difficulty JSON there.
-- Export validates each difficulty as the supported Sunniesnow Chart 1.0 subset. Required metadata and at least one event must be present; unsupported editor-only data is not written to the formal chart JSON.
+- Export writes the supported Sunniesnow Chart 1.0 fields without enforcing the external JSON Schema. Empty optional metadata such as artist or charter is preserved; unsupported editor-only data is not written to the formal chart JSON.
 
 The editor automatically records the active dirty difficulty in `localStorage` once per minute. If an autosave is newer than the last manual save, recovery is offered on the next launch. The interface follows the browser language: Chinese locales use `zh-CN`; all others use `en-US`. DOM controls also follow `prefers-color-scheme`.
 

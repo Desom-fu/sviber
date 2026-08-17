@@ -520,7 +520,7 @@ export class SnappeesPanel {
 		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
 		if (icon === "activate" || icon === "deactivate") {
 			const image = document.createElement("img");
-			image.src = `../maker/svg/icons/${icon}-snappee.svg`;
+			image.src = `maker/svg/icons/${icon}-snappee.svg`;
 			image.alt = "";
 			image.draggable = false;
 			button.append(image);
@@ -599,11 +599,46 @@ export class HistoryPanel {
 			index.textContent = entry.active ? "›" : "";
 			const label = document.createElement("span");
 			label.textContent = entry.label;
+			const markers = document.createElement("span");
+			markers.className = "history-markers";
+			for (const kind of ["save", "autosave"]) {
+				if (!entry.metadata?.historyMarkers?.[kind]) continue;
+				const canvas = document.createElement("canvas");
+				canvas.width = 14;
+				canvas.height = 14;
+				canvas.className = `history-marker is-${kind}`;
+				canvas.setAttribute("aria-label", this.i18n.t(`history.marker.${kind}`));
+				const context = canvas.getContext("2d");
+				context.strokeStyle = kind === "save" ? "#d6efff" : "#bceec8";
+				context.fillStyle = kind === "save" ? "#397eaa" : "#3a8957";
+				context.lineWidth = 1.4;
+				if (kind === "save") {
+					context.fillRect(2, 1.5, 10, 11);
+					context.fillStyle = "#eef8ff";
+					context.fillRect(4, 2.5, 5.5, 3);
+					context.strokeRect(4, 8, 6, 3.5);
+				} else {
+					context.beginPath();
+					context.arc(7, 7, 4.4, -Math.PI * 0.25, Math.PI * 1.35);
+					context.stroke();
+					context.beginPath();
+					context.moveTo(2.1, 4.5);
+					context.lineTo(2.5, 8);
+					context.lineTo(5.4, 6.2);
+					context.fill();
+					context.beginPath();
+					context.moveTo(7, 4.5);
+					context.lineTo(7, 7.3);
+					context.lineTo(9, 8.3);
+					context.stroke();
+				}
+				markers.append(canvas);
+			}
 			const time = document.createElement("time");
 			time.className = "history-time";
 			time.dateTime = new Date(entry.timestamp).toISOString();
 			time.textContent = new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-			button.append(index, label, time);
+			button.append(index, label, markers, time);
 			button.addEventListener("click", () => this.onGoTo(entry.index));
 			this.cleanup.push(this.tooltip?.register(button, "panel.history.seek"));
 			this.element.append(button);

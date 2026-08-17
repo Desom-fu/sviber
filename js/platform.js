@@ -2,7 +2,7 @@ import { ChartModel } from "./core/chart-model.js";
 import {
 	PROJECT_FILENAME,
 	createProjectManifest,
-	exportStrictSunniesnowChart,
+	exportSunniesnowChartDocument,
 	normalizeProjectManifest,
 	projectManagedFiles,
 	sanitizeFileStem,
@@ -257,6 +257,14 @@ export class FileManager {
 		if (this.projectPath) return { type: "nw", path: this.projectPath };
 		if (this.projectDirectoryHandle) return { type: "browser", handle: this.projectDirectoryHandle };
 		return null;
+	}
+
+	async copyAssetIntoProject(file, fallback) {
+		const directory = this.#currentProjectDirectory();
+		if (!directory || !file) return "";
+		const filename = sanitizeFilename(file.name, fallback);
+		await this.#writeDirectoryFile(directory, filename, file);
+		return filename;
 	}
 
 	#directoryFromOptions(options = {}) {
@@ -521,7 +529,7 @@ export class FileManager {
 				throw new Error(`Invalid Sunniesnow chart filename: ${filename || "(empty)"}.`);
 			}
 			reserveName(filename, "difficulty chart");
-			const chart = exportStrictSunniesnowChart(entry.model);
+			const chart = exportSunniesnowChartDocument(entry.model);
 			zip.file(filename, `${JSON.stringify(chart, null, 2)}\n`);
 		}
 		const musicName = sanitizeFilename(this.musicFile.name, "music");
@@ -667,15 +675,21 @@ export class AutosaveManager {
 	}
 
 	latestRecoverable() {
-		const timestamp = this.index.at(-1);
+		return this.recoverable().at(0) || null;
+	}
+
+	recoverable() {
 		const manualSave = Number(this.storage.getItem(MANUAL_SAVE_KEY) || 0);
-		if (!timestamp || timestamp <= manualSave) return null;
-		try {
-			const value = this.storage.getItem(`${AUTOSAVE_PREFIX}${timestamp}`);
-			return value ? { timestamp, model: ChartModel.import(value) } : null;
-		} catch {
-			return null;
+		const result = [];
+		for (const timestamp of this.index.filter(value => value > manualSave).toSorted((left, right) => right - left)) {
+			try {
+				const value = this.storage.getItem(`${AUTOSAVE_PREFIX}${timestamp}`);
+				if (value) result.push({ timestamp, model: ChartModel.import(value) });
+			} catch {
+				// Keep other valid recovery entries available.
+			}
 		}
+		return result;
 	}
 }
 

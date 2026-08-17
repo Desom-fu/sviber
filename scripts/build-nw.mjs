@@ -237,6 +237,20 @@ async function bundleAudioDecoder(applicationDirectory) {
 	});
 }
 
+async function localizePackagedFontCss(applicationDirectory) {
+	const filename = path.join(applicationDirectory, "css", "app.css");
+	const source = await readFile(filename, "utf8");
+	const localized = source.replace(
+		/,\s*url\((["'])https?:\/\/.*?\1\)\s*format\((["']).*?\2\)/g,
+		"",
+	);
+	for (const block of localized.matchAll(/@font-face\s*\{[\s\S]*?\}/g)) {
+		if (/https?:\/\//i.test(block[0])) throw new Error("Packaged @font-face rules must not contain remote URLs.");
+	}
+	if (localized === source) throw new Error("No remote font fallbacks were removed from packaged app.css.");
+	await writeFile(filename, localized);
+}
+
 async function copyApplication() {
 	await rm(buildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
@@ -248,18 +262,13 @@ async function copyApplication() {
 			recursive: entry.isDirectory(),
 		});
 	}
-	await mkdir(path.join(stageDirectory, "maker", "svg"), { recursive: true });
-	await cp(
-		path.join(repositoryDirectory, "maker", "svg", "icons"),
-		path.join(stageDirectory, "maker", "svg", "icons"),
-		{ recursive: true },
-	);
 	const repositoryLicense = path.join(repositoryDirectory, "LICENSE");
 	if (!existsSync(repositoryLicense)) throw new Error(`Missing repository license: ${repositoryLicense}`);
 	await cp(repositoryLicense, path.join(stageDirectory, "LICENSE"));
 	await cp(repositoryLicense, path.join(applicationDirectory, "LICENSE"));
 	await copyProductionDependencies(applicationDirectory);
 	await bundleAudioDecoder(applicationDirectory);
+	await localizePackagedFontCss(applicationDirectory);
 
 	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
 	const packageJson = {

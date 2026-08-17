@@ -4,12 +4,14 @@ import test from "node:test";
 import { createSunniesnowHitSamples, sunniesnowHitSample } from "../audio/player.js";
 import {
 	StageView,
+	SUNNIESNOW_AUTOPLAY_GRADIENT,
 	SUNNIESNOW_SKIN,
 	circularArcDraftSpan,
 	isSnappeeVisible,
 	sunniesnowDisplayedPattern,
 	sunniesnowEventVisualState,
 	sunniesnowNoteRadius,
+	sunniesnowNoteTextColor,
 	sunniesnowPlayfieldScale,
 	sunniesnowPatternVisualState,
 	sunniesnowTapDoubleLinePairs,
@@ -19,6 +21,19 @@ test("deactivated snappees are hidden from the stage", () => {
 	assert.equal(isSnappeeVisible({ active: true }), true);
 	assert.equal(isSnappeeVisible({}), true);
 	assert.equal(isSnappeeVisible({ active: false }), false);
+});
+
+test("Autoplay uses Sunniesnow Lyrica 5 colors and note speed changes approach timing", () => {
+	assert.deepEqual(SUNNIESNOW_AUTOPLAY_GRADIENT, { top: "#f3eba2", bottom: "#d2fbfa" });
+	const event = { type: "tap" };
+	assert.equal(sunniesnowEventVisualState(event, 1, 1, 0.6, 2).phase, "active");
+	assert.equal(sunniesnowEventVisualState(event, 1, 1, 0.6, 4).phase, "fadingIn");
+});
+
+test("selected notes keep a contrasting text color", () => {
+	assert.equal(sunniesnowNoteTextColor({ type: "tap", selected: true }, { phase: "active" }), "#ffffff");
+	assert.equal(sunniesnowNoteTextColor({ type: "tap", selected: true }, { phase: "fadingOut" }), "#ffff55");
+	assert.notEqual(sunniesnowNoteTextColor({ type: "tap", selected: true }, { phase: "active" }), SUNNIESNOW_SKIN.selectionTint);
 });
 
 test("pausing cancels only future hit effects while active effects finish", () => {

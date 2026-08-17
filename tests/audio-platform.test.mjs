@@ -11,6 +11,7 @@ import {
 import { AudioPlayer, createSunniesnowHitSamples } from "../audio/player.js";
 import { collectHitSchedule, collectHoldReleaseSchedule } from "../audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
+import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
 
 function wavBytes(sampleRate = 8000, sampleCount = 800) {
@@ -205,6 +206,19 @@ test("AutosaveManager evicts the oldest payload when writing its index exceeds q
 	assert.notEqual(storage.getItem(`sviber.autosave.${second}`), null);
 });
 
+test("AutosaveManager lists every recovery newer than the last manual save", () => {
+	const storage = new MemoryStorage();
+	const manager = new AutosaveManager({ storage });
+	const firstModel = ChartModel.createDefault({ metadata: { title: "First" } });
+	const secondModel = ChartModel.createDefault({ metadata: { title: "Second" } });
+	const first = manager.save(firstModel);
+	const second = manager.save(secondModel);
+	const recoveries = manager.recoverable();
+	assert.deepEqual(recoveries.map(entry => entry.timestamp), [second, first]);
+	assert.deepEqual(recoveries.map(entry => entry.model.metadata.title), ["Second", "First"]);
+	assert.equal(manager.latestRecoverable().timestamp, second);
+});
+
 test("service worker returns Response.error on an uncached offline CDN request", async () => {
 	const source = await readFile(new URL("../service-worker.js", import.meta.url), "utf8");
 	const listeners = new Map();
@@ -236,7 +250,7 @@ test("service worker returns Response.error on an uncached offline CDN request",
 });
 
 test("new charts are explicitly left dirty", async () => {
-	const source = await readFile(new URL("../js/app.js", import.meta.url), "utf8");
+	const source = await readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8");
 	const newChart = source.match(/async newChart\(\) \{([\s\S]*?)\n\tasync showChartProperties/)?.[1] || "";
 	assert.match(newChart, /this\.installProject\([\s\S]*?saved: false/);
 	assert.doesNotMatch(newChart, /this\.markSaved\(\)/);

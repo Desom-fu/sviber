@@ -1,3 +1,4 @@
+@import url("./overlays.css");
 @font-face {
 	font-family: "Sviber Note";
 	src: url("../assets/fonts/LXGWWenKai-Regular.ttf") format("truetype"),
@@ -292,6 +293,10 @@ textarea:focus-visible,
 	padding: 4px 6px;
 	border-left: 1px solid var(--border);
 	background: var(--chrome);
+}
+
+.difficulty-switcher[hidden] {
+	display: none;
 }
 
 .difficulty-color {
@@ -649,7 +654,7 @@ textarea:focus-visible,
 
 .history-item {
 	display: grid;
-	grid-template-columns: 18px minmax(0, 1fr) auto;
+	grid-template-columns: 18px minmax(0, 1fr) auto auto;
 	align-items: center;
 	width: 100%;
 	min-height: 27px;
@@ -659,6 +664,19 @@ textarea:focus-visible,
 	background: transparent;
 	color: inherit;
 	text-align: left;
+}
+
+.history-markers {
+	display: inline-flex;
+	align-items: center;
+	gap: 2px;
+	min-width: 0;
+}
+
+.history-marker {
+	display: block;
+	width: 14px;
+	height: 14px;
 }
 
 .history-item:hover {
@@ -870,7 +888,6 @@ textarea:focus-visible,
 	background: var(--surface);
 	color: inherit;
 }
-
 .dialog-button:hover,
 .panel-button:hover {
 	background: var(--hover);
@@ -926,191 +943,4 @@ textarea:focus-visible,
 	border: 1px solid var(--border);
 	background: var(--surface);
 	color: inherit;
-}
-
-.toast-region {
-	position: fixed;
-	right: 12px;
-	bottom: calc(var(--footer-height) + 10px);
-	z-index: 1200;
-	display: grid;
-	gap: 6px;
-	pointer-events: none;
-}
-
-.toast {
-	min-width: 220px;
-	max-width: min(420px, calc(100vw - 24px));
-	padding: 9px 12px;
-	border: 1px solid var(--border-strong);
-	border-left: 4px solid var(--focus);
-	border-radius: 2px;
-	background: var(--surface);
-	box-shadow: 0 4px 16px rgb(0 0 0 / 26%);
-	animation: toast-in 150ms ease-out;
-}
-
-.toast.is-error {
-	border-left-color: var(--accent);
-}
-
-@keyframes toast-in {
-	from { opacity: 0; transform: translateY(5px); }
-	to { opacity: 1; transform: translateY(0); }
-}
-
-.loading-screen {
-	position: fixed;
-	inset: 0;
-	z-index: 2000;
-	display: grid;
-	grid-template-rows: auto auto auto;
-	align-content: center;
-	justify-items: center;
-	gap: 9px;
-	background: #181a1d;
-	color: #eef1f3;
-}
-
-.loading-screen[hidden] {
-	display: none;
-}
-
-.loading-screen strong {
-	font-size: 24px;
-	font-weight: 700;
-}
-
-.loading-mark {
-	display: flex;
-	gap: 4px;
-	height: 27px;
-	align-items: flex-end;
-}
-
-.loading-mark span {
-	display: block;
-	width: 5px;
-	height: 10px;
-	background: #ff3158;
-	animation: loading-bar 850ms ease-in-out infinite alternate;
-}
-
-.loading-mark span:nth-child(2) { height: 21px; animation-delay: 120ms; background: #ffe331; }
-.loading-mark span:nth-child(3) { height: 15px; animation-delay: 240ms; background: #56db79; }
-
-@keyframes loading-bar {
-	to { height: 27px; }
-}
-
-.visually-hidden {
-	position: fixed !important;
-	width: 1px !important;
-	height: 1px !important;
-	padding: 0 !important;
-	margin: -1px !important;
-	overflow: hidden !important;
-	clip: rect(0, 0, 0, 0) !important;
-	white-space: nowrap !important;
-	border: 0 !important;
-}
-
-@media (max-width: 820px) {
-	:root {
-		--toolbar-height: 38px;
-	}
-
-	.app-shell {
-		min-width: 480px;
-	}
-
-	.workspace {
-		grid-template-rows: minmax(120px, min(var(--timeline-height), 38%)) minmax(0, 1fr);
-	}
-
-	.timeline-row {
-		grid-template-columns: minmax(0, 1fr) 130px;
-	}
-
-	.editor-row {
-		grid-template-columns: minmax(0, 1fr) minmax(190px, 34vw);
-	}
-
-	.menu-root-button {
-		min-width: 44px;
-		padding: 0 6px;
-	}
-
-	.tool-button {
-		flex-basis: 31px;
-		width: 31px;
-		height: 31px;
-	}
-
-	.difficulty-switcher {
-		gap: 2px;
-		padding-inline: 3px;
-	}
-
-	.difficulty-switcher select {
-		width: 100px;
-	}
-
-	.difficulty-color {
-		display: none;
-	}
-
-	.difficulty-action {
-		width: 27px;
-		height: 27px;
-	}
-
-	.status-panel {
-		padding: 5px 6px;
-	}
-
-	.status-item {
-		grid-template-columns: 1fr;
-		min-height: 32px;
-	}
-
-	.status-item dt {
-		font-size: 10px;
-	}
-}
-
-@media (max-width: 1200px) {
-	.tool-bar .tool-button {
-		flex-basis: 22px;
-		width: 22px;
-		height: 32px;
-		padding: 2px;
-	}
-
-	.tool-bar .tool-button img {
-		width: 18px;
-		height: 18px;
-	}
-
-	.tool-bar .tool-separator {
-		margin-inline: 1px;
-	}
-
-	.difficulty-switcher {
-		gap: 2px;
-		padding-inline: 3px;
-	}
-
-	.difficulty-switcher select {
-		width: 92px;
-	}
-
-	.difficulty-color {
-		display: none;
-	}
-
-	.difficulty-action {
-		width: 27px;
-		height: 27px;
-	}
 }

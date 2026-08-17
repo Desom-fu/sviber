@@ -5,6 +5,7 @@ import { TimingMap } from "../js/core/timing.js";
 import {
 	buildTipPointGuides,
 	sampleTipPointPath,
+	tipPointTrailEdges,
 	tipPointVisualState,
 } from "../render/stage.js";
 
@@ -126,4 +127,17 @@ test("tip point visual state follows spawn, trail, and fade boundaries", () => {
 	const shortGuide = [{ time: 0, x: 0, y: 0 }, { time: 0.1, x: 1, y: 0 }];
 	assert.ok(Math.abs(tipPointVisualState(shortGuide, 0.25).scale - 5 / 6) < 1e-9);
 	assert.equal(tipPointVisualState(shortGuide, 0.25).alpha, 1);
+});
+
+test("tip point trail uses shared miter vertices at corners", () => {
+	const edges = tipPointTrailEdges([
+		{ time: 0, x: 0, y: 0 },
+		{ time: 0.1, x: 10, y: 0 },
+		{ time: 0.2, x: 10, y: 10 },
+	], 6);
+	assert.equal(edges.length, 3);
+	assert.deepEqual(edges[0].left, { x: 0, y: 0 });
+	assert.ok(Math.abs(edges[1].left.x - 7) < 1e-12);
+	assert.ok(Math.abs(edges[1].left.y - 3) < 1e-12);
+	assert.ok(Number.isFinite(edges[2].right.x));
 });

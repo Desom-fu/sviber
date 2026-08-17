@@ -1,26 +1,6 @@
-import { SUNNIESNOW_SCHEMA } from "./chart-model.js";
-
 export const PROJECT_FILENAME = "sviber-project.json";
 export const PROJECT_FORMAT = "sviber-project";
 export const PROJECT_VERSION = 1;
-
-const CHART_KEYS = new Set([
-	"$schema", "title", "artist", "charter", "difficultyName", "difficultyColor",
-	"difficulty", "difficultySup", "offset", "sscharter", "filters", "events",
-]);
-const EVENT_KEYS = new Set(["type", "time", "properties", "timeDependent", "filters"]);
-const PATTERN_TYPES = new Set([
-	"grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram",
-]);
-const EVENT_PROPERTY_KEYS = Object.freeze({
-	tap: new Set(["x", "y", "tipPoint", "text", "size", "fake", "doubleLine"]),
-	hold: new Set(["x", "y", "duration", "tipPoint", "text", "size", "fake", "doubleLine"]),
-	drag: new Set(["x", "y", "tipPoint", "size", "fake", "doubleLine"]),
-	flick: new Set(["x", "y", "angle", "tipPoint", "text", "size", "fake", "doubleLine"]),
-	placeholder: new Set(["x", "y", "tipPoint"]),
-	bgNote: new Set(["x", "y", "duration", "tipPoint", "text", "size"]),
-	bigText: new Set(["text", "duration"]),
-});
 
 function plainObject(value) {
 	return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -28,16 +8,6 @@ function plainObject(value) {
 
 function assert(condition, message) {
 	if (!condition) throw new TypeError(message);
-}
-
-function assertOnlyKeys(value, allowed, label) {
-	for (const key of Object.keys(value)) {
-		assert(allowed.has(key), `${label} contains unsupported field \`${key}\`.`);
-	}
-}
-
-function assertFinite(value, label) {
-	assert(typeof value === "number" && Number.isFinite(value), `${label} must be a finite number.`);
 }
 
 function isRootFilename(value, extension = "") {
@@ -129,62 +99,6 @@ export function projectManagedFiles(manifest) {
 	].filter(Boolean));
 }
 
-function assertEventProperties(event, index) {
-	const properties = event.properties;
-	assert(plainObject(properties), `Event ${index + 1} properties must be an object.`);
-	const allowed = PATTERN_TYPES.has(event.type)
-		? new Set(["duration"])
-		: EVENT_PROPERTY_KEYS[event.type];
-	assert(allowed, `Event ${index + 1} has unsupported type \`${event.type}\`.`);
-	assertOnlyKeys(properties, allowed, `Event ${index + 1} properties`);
-
-	if (["tap", "hold", "drag", "flick", "placeholder", "bgNote"].includes(event.type)) {
-		assertFinite(properties.x, `Event ${index + 1} x`);
-		assertFinite(properties.y, `Event ${index + 1} y`);
-	}
-	if (event.type === "hold") {
-		assertFinite(properties.duration, `Event ${index + 1} duration`);
-		assert(properties.duration > 0, `Event ${index + 1} hold duration must be greater than zero.`);
-	}
-	if (event.type === "bgNote" || event.type === "bigText" || PATTERN_TYPES.has(event.type)) {
-		assertFinite(properties.duration, `Event ${index + 1} duration`);
-		assert(properties.duration >= 0, `Event ${index + 1} duration must not be negative.`);
-	}
-	if (event.type === "flick") assertFinite(properties.angle, `Event ${index + 1} flick angle`);
-	if (event.type === "bigText") {
-		assert(typeof properties.text === "string" && properties.text.length > 0,
-			`Event ${index + 1} big text must not be empty.`);
-	}
-	if (Object.hasOwn(properties, "text")) assert(typeof properties.text === "string", `Event ${index + 1} text must be a string.`);
-	if (Object.hasOwn(properties, "tipPoint")) {
-		assert(properties.tipPoint === null || typeof properties.tipPoint === "string",
-			`Event ${index + 1} tipPoint must be a string or null.`);
-	}
-}
-
-export function assertSunniesnowChart(chart) {
-	assert(plainObject(chart), "The exported Sunniesnow chart must be a JSON object.");
-	assertOnlyKeys(chart, CHART_KEYS, "Sunniesnow chart");
-	assert(chart.$schema === SUNNIESNOW_SCHEMA, "The exported chart must identify Sunniesnow Chart 1.0.");
-	for (const key of ["title", "artist", "charter", "difficultyName", "difficulty"]) {
-		assert(typeof chart[key] === "string" && chart[key].length > 0, `Sunniesnow field \`${key}\` must not be empty.`);
-	}
-	assert(typeof chart.difficultyColor === "string"
-		|| Number.isSafeInteger(chart.difficultyColor) && chart.difficultyColor >= 0 && chart.difficultyColor <= 0xffffff,
-	"Sunniesnow field `difficultyColor` must be a CSS color string or RGB integer.");
-	if (Object.hasOwn(chart, "difficultySup")) assert(typeof chart.difficultySup === "string", "Sunniesnow field `difficultySup` must be a string.");
-	assert(Array.isArray(chart.events) && chart.events.length > 0, "A Sunniesnow chart must contain at least one event.");
-	chart.events.forEach((event, index) => {
-		assert(plainObject(event), `Event ${index + 1} must be an object.`);
-		assertOnlyKeys(event, EVENT_KEYS, `Event ${index + 1}`);
-		assert(typeof event.type === "string", `Event ${index + 1} type must be a string.`);
-		assertFinite(event.time, `Event ${index + 1} time`);
-		assertEventProperties(event, index);
-	});
-	return chart;
-}
-
-export function exportStrictSunniesnowChart(model) {
-	const chart = model.exportSunniesnow({ includeSchema: true });
-	return assertSunniesnowChart(chart);
+export function exportSunniesnowChartDocument(model) {
+	return model.exportSunniesnow({ includeSchema: true });
 }

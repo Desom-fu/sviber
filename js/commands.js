@@ -1,4 +1,4 @@
-export const ICON_BASE = '../maker/svg/icons';
+export const ICON_BASE = 'maker/svg/icons';
 
 const icon = name => `${ICON_BASE}/${name}.svg`;
 
@@ -14,16 +14,20 @@ function define(id, shortcut = null, iconName = null, options = {}) {
 }
 
 const DEFINITIONS = [
-	define('file.new', 'Ctrl+Shift+N'),
-	define('file.open', 'Ctrl+O'),
+	define('file.newProject', 'Ctrl+Shift+N', null, {desktopOnly: true}),
+	define('file.newChart'),
+	define('file.openProject', 'Ctrl+Shift+O', null, {desktopOnly: true}),
+	define('file.openChart', 'Ctrl+O'),
 	define('file.importFile'),
 	define('file.setMusic'),
 	define('file.setBackground'),
 	define('file.save', 'Ctrl+S', null, {allowInInput: true}),
+	define('file.saveAs', null, null, {allowInInput: true}),
 	define('file.saveLevel', 'Ctrl+Shift+S', null, {allowInInput: true}),
 	define('file.importClipboard'),
 	define('file.exportClipboard'),
 	define('file.chartProperties'),
+	define('file.preferences'),
 
 	define('edit.undo', 'Ctrl+Z'),
 	define('edit.redo', 'Ctrl+Y'),
@@ -80,7 +84,6 @@ const DEFINITIONS = [
 	define('transform.flipVertical'),
 	define('transform.free', 'Ctrl+T', 'free-transform', {checkable: true}),
 	define('transform.matrix'),
-	define('transform.allowOutOfBounds', null, null, {checkable: true}),
 	define('transform.moveForward', '>'),
 	define('transform.moveBackward', '<'),
 
@@ -116,9 +119,13 @@ const item = command => Object.freeze({type: 'command', command});
 export const MENU_DEFINITION = Object.freeze([
 	Object.freeze({
 		id: 'file', labelKey: 'menu.file', mnemonic: 'f', items: Object.freeze([
-			item('file.new'), item('file.open'), item('file.importFile'), item('file.setMusic'), item('file.setBackground'),
-			item('file.save'), item('file.saveLevel'), item('file.importClipboard'),
-			item('file.exportClipboard'), item('file.chartProperties')
+			item('file.newProject'), item('file.newChart'), separator,
+			item('file.openProject'), item('file.openChart'), separator,
+			item('file.save'), item('file.saveAs'), separator,
+			item('file.importFile'), item('file.importClipboard'), separator,
+			item('file.saveLevel'), item('file.exportClipboard'), separator,
+			item('file.setMusic'), item('file.setBackground'), separator,
+			item('file.chartProperties'), separator, item('file.preferences')
 		])
 	}),
 	Object.freeze({
@@ -159,8 +166,7 @@ export const MENU_DEFINITION = Object.freeze([
 			item('transform.moveRight'), item('transform.moveLeftLarge'),
 			item('transform.moveDownLarge'), item('transform.moveUpLarge'),
 			item('transform.moveRightLarge'), separator, item('transform.flipHorizontal'),
-			item('transform.flipVertical'), item('transform.free'), item('transform.matrix'),
-			separator, item('transform.allowOutOfBounds'), separator,
+			item('transform.flipVertical'), item('transform.free'), item('transform.matrix'), separator,
 			item('transform.moveForward'), item('transform.moveBackward')
 		])
 	}),
@@ -340,6 +346,7 @@ export class CommandRegistry {
 
 	isEnabled(id, context) {
 		const record = this.get(id);
+		if (record.definition.desktopOnly && !globalThis.nw) return false;
 		if (this.hardBlocked(context)) return false;
 		if (this.blocked(context) && !record.definition.allowWhenBlocked) {
 			return false;
