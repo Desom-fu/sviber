@@ -14,8 +14,14 @@ import {
 	sunniesnowNoteTextColor,
 	sunniesnowPlayfieldScale,
 	sunniesnowPatternVisualState,
+	sunniesnowRegularPolygonPoints,
 	sunniesnowTapDoubleLinePairs,
 } from "../render/stage.js";
+
+function assertPoint(actual, expectedX, expectedY) {
+	assert.ok(Math.abs(actual.x - expectedX) < 1e-12, `expected x=${expectedX}, got ${actual.x}`);
+	assert.ok(Math.abs(actual.y - expectedY) < 1e-12, `expected y=${expectedY}, got ${actual.y}`);
+}
 
 test("deactivated snappees are hidden from the stage", () => {
 	assert.equal(isSnappeeVisible({ active: true }), true);
@@ -72,6 +78,27 @@ test("playfield scaling matches Sunniesnow and responds to both stage dimensions
 	assert.equal(sunniesnowPlayfieldScale(500, 150), 1);
 	assert.equal(sunniesnowPlayfieldScale(500, 300), 2);
 	assert.equal(sunniesnowNoteRadius("tap") * sunniesnowPlayfieldScale(500, 300), 23.75);
+});
+
+test("background polygon vertices match PIXI regularPoly used by Sunniesnow", () => {
+	const outerHexagon = sunniesnowRegularPolygonPoints(0, 0, 4 / Math.sqrt(3), 6, Math.PI / 2);
+	assertPoint(outerHexagon[0], 4 / Math.sqrt(3), 0);
+	assertPoint(outerHexagon[1], 2 / Math.sqrt(3), -2);
+
+	const middleHexagon = sunniesnowRegularPolygonPoints(0, 0, 2, 6);
+	assertPoint(middleHexagon[0], 0, -2);
+	assertPoint(middleHexagon[1], -Math.sqrt(3), -1);
+
+	const pentagonRadius = 4 / (1 + Math.cos(Math.PI / 5));
+	const pentagonCenterY = -2 + pentagonRadius;
+	const pentagon = sunniesnowRegularPolygonPoints(0, pentagonCenterY, pentagonRadius, 5);
+	assertPoint(pentagon[0], 0, -2);
+	assert.ok(pentagon[1].x < 0);
+
+	const upwardTriangle = sunniesnowRegularPolygonPoints(0, 0, 2, 3);
+	const downwardTriangle = sunniesnowRegularPolygonPoints(0, 0, 2, 3, Math.PI);
+	assertPoint(upwardTriangle[0], 0, -2);
+	assertPoint(downwardTriangle[0], 0, 2);
 });
 
 test("simultaneous taps form one adjacent double-line chain in data order", () => {

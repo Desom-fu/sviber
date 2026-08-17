@@ -275,10 +275,10 @@ export class StageViewCore {
 		} else if (event.type === "bigText") {
 			const baseSize = SUNNIESNOW_SKIN.noteRadius * 10 * mapping.scale;
 			const text = String(event.text || "");
-			context.font = `${baseSize}px 'Sviber Big Text', 'YujiBoku', 'Noto Sans Math', sans-serif`;
+			context.font = `${baseSize}px 'Sviber Big Text', 'YujiBoku', 'Noto Sans Math', 'Noto Sans CJK TC', sans-serif`;
 			const measured = context.measureText(text).width;
 			const fontSize = baseSize * Math.min(1, 250 * mapping.scale / Math.max(measured, 1));
-			context.font = `${fontSize}px 'Sviber Big Text', 'YujiBoku', 'Noto Sans Math', sans-serif`;
+			context.font = `${fontSize}px 'Sviber Big Text', 'YujiBoku', 'Noto Sans Math', 'Noto Sans CJK TC', sans-serif`;
 			context.textAlign = "center";
 			context.textBaseline = "middle";
 			context.fillStyle = selected ? SUNNIESNOW_SKIN.selectionTint : "rgba(255,255,255,0.8)";
@@ -563,4 +563,3 @@ export class StageViewCore {
 	}
 
 }
-

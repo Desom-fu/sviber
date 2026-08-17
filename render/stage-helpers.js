@@ -436,12 +436,22 @@ export function drawTipPointTrail(context, points, width, scale = 1, alpha = 1, 
 	context.restore();
 }
 
+export function sunniesnowRegularPolygonPoints(centerX, centerY, radius, sides, rotation = 0) {
+	sides = Math.max(sides | 0, 3);
+	const startAngle = -Math.PI / 2 + rotation;
+	const delta = Math.PI * 2 / sides;
+	return Array.from({ length: sides }, (_, index) => {
+		const angle = startAngle - index * delta;
+		return {
+			x: centerX + Math.cos(angle) * radius,
+			y: centerY + Math.sin(angle) * radius,
+		};
+	});
+}
+
 export function appendPolygonPath(context, centerX, centerY, radius, sides, rotation = 0) {
-	for (let index = 0; index < sides; index += 1) {
-		const angle = rotation + index * Math.PI * 2 / sides;
-		const x = centerX + Math.cos(angle) * radius;
-		const y = centerY + Math.sin(angle) * radius;
-		if (!index) context.moveTo(x, y); else context.lineTo(x, y);
+	for (const [index, point] of sunniesnowRegularPolygonPoints(centerX, centerY, radius, sides, rotation).entries()) {
+		if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
 	}
 	context.closePath();
 }
@@ -465,5 +475,4 @@ export function pointInPolygon(point, polygon) {
 	}
 	return inside;
 }
-
 
