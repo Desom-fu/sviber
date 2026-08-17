@@ -51,6 +51,10 @@ export function sunniesnowPlayfieldScale(width, height) {
 	return Math.min(safeWidth / 250, safeHeight / 150);
 }
 
+export function isSnappeeVisible(snappee) {
+	return snappee?.active !== false;
+}
+
 export function sunniesnowTapDoubleLinePairs(events) {
 	const groups = new Map();
 	for (const event of events || []) {
@@ -765,13 +769,14 @@ export class StageView {
 
 	#drawSnappees(context, project, mapping) {
 		for (const snappee of project.snappees) {
+			if (!isSnappeeVisible(snappee)) continue;
 			let points;
 			try { points = sampleSnappee(snappee); } catch { continue; }
 			if (!points.length) continue;
 			context.save();
 			context.strokeStyle = snappee.color || "#58b6ef";
 			context.fillStyle = snappee.color || "#58b6ef";
-			context.globalAlpha = snappee.active ? 0.82 : 0.35;
+			context.globalAlpha = 0.82;
 			context.lineWidth = snappee.selected ? 1.8 : 1;
 			if (snappee.type === "rectangularMesh" || snappee.type === "parametricMesh") {
 				const byIndex = new Map(points.map(value => [String(value.snapPoint), value]));
@@ -1947,6 +1952,7 @@ export class StageView {
 		const project = projectState(this.state);
 		let nearest = null;
 		for (const snappee of project.snappees) {
+			if (!isSnappeeVisible(snappee)) continue;
 			let points;
 			try { points = sampleSnappee(snappee); } catch { continue; }
 			const distance = Math.min(...points.map(candidate => Math.hypot(candidate.x - chartPoint.x, candidate.y - chartPoint.y)));

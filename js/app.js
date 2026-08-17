@@ -993,7 +993,7 @@ export class SviberApp {
 		if (zoom) {
 			const editor = this.model.editor;
 			const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
-			const factor = deltaY < 0 ? 1.22 : 0.82;
+			const factor = deltaY < 0 ? 0.82 : 1.22;
 			const span = Math.max(0.02, (editor.visibleRangeEnd - editor.visibleRangeBeginning) * factor);
 			this.setVisibleRange(center - span / 2, center + span / 2);
 			return;
@@ -1589,8 +1589,8 @@ export class SviberApp {
 		command("music.speed025", () => this.setSpeed(0.25));
 		command("music.speed05", () => this.setSpeed(0.5));
 		command("music.speed1", () => this.setSpeed(1));
-		command("music.zoomIn", () => this.navigateWheel(1, true));
-		command("music.zoomOut", () => this.navigateWheel(-1, true));
+		command("music.zoomIn", () => this.navigateWheel(-1, true));
+		command("music.zoomOut", () => this.navigateWheel(1, true));
 	}
 
 	undo() {

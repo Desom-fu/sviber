@@ -6,6 +6,7 @@ import {
 	StageView,
 	SUNNIESNOW_SKIN,
 	circularArcDraftSpan,
+	isSnappeeVisible,
 	sunniesnowDisplayedPattern,
 	sunniesnowEventVisualState,
 	sunniesnowNoteRadius,
@@ -13,6 +14,12 @@ import {
 	sunniesnowPatternVisualState,
 	sunniesnowTapDoubleLinePairs,
 } from "../render/stage.js";
+
+test("deactivated snappees are hidden from the stage", () => {
+	assert.equal(isSnappeeVisible({ active: true }), true);
+	assert.equal(isSnappeeVisible({}), true);
+	assert.equal(isSnappeeVisible({ active: false }), false);
+});
 
 test("pausing cancels only future hit effects while active effects finish", () => {
 	const now = performance.now();

@@ -325,6 +325,67 @@ try {
 	await page.waitForFunction(() => JSON.stringify(globalThis.sviber.model.editor.currentTime) === JSON.stringify([0, 1, 2]));
 	await page.mouse.wheel(0, -100);
 	await page.waitForFunction(() => JSON.stringify(globalThis.sviber.model.editor.currentTime) === JSON.stringify([0, 0, 1]));
+	const spanBeforeZoom = await page.evaluate(() => {
+		const editor = globalThis.sviber.model.editor;
+		return editor.visibleRangeEnd - editor.visibleRangeBeginning;
+	});
+	await page.keyboard.down("Control");
+	await page.mouse.wheel(0, -100);
+	await page.keyboard.up("Control");
+	await page.waitForFunction(previous => {
+		const editor = globalThis.sviber.model.editor;
+		return editor.visibleRangeEnd - editor.visibleRangeBeginning < previous;
+	}, spanBeforeZoom);
+	const spanAfterWheelUp = await page.evaluate(() => {
+		const editor = globalThis.sviber.model.editor;
+		return editor.visibleRangeEnd - editor.visibleRangeBeginning;
+	});
+	await page.keyboard.down("Control");
+	await page.mouse.wheel(0, 100);
+	await page.keyboard.up("Control");
+	await page.waitForFunction(previous => {
+		const editor = globalThis.sviber.model.editor;
+		return editor.visibleRangeEnd - editor.visibleRangeBeginning > previous;
+	}, spanAfterWheelUp);
+	const snappeeVisibility = await page.evaluate(() => {
+		const app = globalThis.sviber;
+		const snapshot = app.model.snapshot();
+		const pixels = active => {
+			app.model.snappees = [];
+			if (active !== null) {
+				app.model.addSnappee("rectangularMesh", {
+					active,
+					color: "#ff00ff",
+					topLeftX: -75,
+					topLeftY: -35,
+					bottomRightX: 75,
+					bottomRightY: 35,
+					horizontalTiles: 3,
+					verticalTiles: 2,
+				});
+			}
+			app.refreshNow();
+			app.stage.render();
+			const { buffer, context } = app.stage.surface;
+			return context.getImageData(0, 0, buffer.width, buffer.height).data.slice();
+		};
+		const absent = pixels(null);
+		const deactivated = pixels(false);
+		const activated = pixels(true);
+		let deactivatedDifference = 0;
+		let activatedDifference = 0;
+		for (let index = 0; index < absent.length; index += 1) {
+			if (absent[index] !== deactivated[index]) deactivatedDifference += 1;
+			if (absent[index] !== activated[index]) activatedDifference += 1;
+		}
+		app.model.restore(snapshot);
+		app.refreshNow();
+		return { deactivatedDifference, activatedDifference };
+	});
+	assert.equal(snappeeVisibility.deactivatedDifference, 0,
+		"a deactivated snappee remains visible on the stage");
+	assert.ok(snappeeVisibility.activatedDifference > 0,
+		"the activated snappee visibility fixture did not draw anything");
 
 	const canvasSummaries = {
 		timeline: await assertCanvas(page.locator("#timeline-surface canvas"), "timeline-desktop"),
