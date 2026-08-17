@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+	<meta name="theme-color" content="#25282c">
+	<meta name="description" content="A desktop-style chart editor for Sunniesnow">
+	<title>Untitled Normal - sviber</title>
+	<link rel="manifest" href="manifest.webmanifest">
+	<link rel="icon" href="icon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+	<div id="app" class="app-shell" aria-busy="true">
+		<header class="app-chrome">
+			<nav id="menu-bar" class="menu-bar" aria-label="Application menu" data-i18n-aria-label="aria.applicationMenu"></nav>
+			<div class="tool-row">
+				<div id="tool-bar" class="tool-bar" role="toolbar" aria-label="Chart tools" data-i18n-aria-label="aria.chartTools"></div>
+				<div class="difficulty-switcher" role="group" aria-label="Difficulties" data-i18n-aria-label="aria.difficulties">
+					<span id="difficulty-color" class="difficulty-color" aria-hidden="true"></span>
+					<select id="difficulty-select" aria-label="Difficulty" data-tooltip-key="difficulty.select"></select>
+					<button id="difficulty-add" class="difficulty-action" type="button" data-tooltip-key="difficulty.add">+</button>
+					<button id="difficulty-delete" class="difficulty-action" type="button" data-tooltip-key="difficulty.delete">&#8722;</button>
+				</div>
+			</div>
+		</header>
+
+		<main class="workspace">
+			<section class="timeline-row" aria-label="Timeline" data-i18n-aria-label="aria.timeline">
+				<div id="timeline-surface" class="render-surface timeline-surface" tabindex="0"></div>
+				<aside id="status-panel" class="status-panel" aria-label="Playback status" data-i18n-aria-label="aria.playbackStatus">
+					<div class="status-heading" data-i18n="status.heading">Status</div>
+					<dl>
+						<div class="status-item" data-tooltip-key="tooltip.time"><dt data-i18n="status.time">Time</dt><dd id="status-time">0:00.000</dd></div>
+						<div class="status-item" data-tooltip-key="tooltip.beat"><dt data-i18n="status.beat">Beat</dt><dd id="status-beat">0+0/2</dd></div>
+						<div class="status-item" data-tooltip-key="tooltip.speed"><dt data-i18n="status.speed">Speed</dt><dd id="status-speed">1.0</dd></div>
+					</dl>
+					<div id="operation-status" class="operation-status" aria-live="polite"></div>
+				</aside>
+			</section>
+
+			<section class="editor-row" aria-label="Chart editor" data-i18n-aria-label="aria.chartEditor">
+				<div id="stage-surface" class="render-surface stage-surface" tabindex="0"></div>
+				<aside class="side-panel">
+					<div class="side-tabs" role="tablist">
+						<button id="inspector-tab" class="side-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="inspector-panel" data-i18n="panel.inspector">Inspector</button>
+						<button id="snappees-tab" class="side-tab" type="button" role="tab" aria-selected="false" aria-controls="snappees-panel" data-i18n="panel.snappees">Snappees</button>
+					</div>
+					<section id="inspector-panel" class="property-panel" role="tabpanel" aria-labelledby="inspector-tab"></section>
+					<section id="snappees-panel" class="property-panel" role="tabpanel" aria-labelledby="snappees-tab" hidden></section>
+					<section class="history-panel" aria-label="History" data-i18n-aria-label="aria.history">
+						<div class="panel-heading" data-i18n="panel.history">History</div>
+						<div id="history-list" class="history-list"></div>
+					</section>
+				</aside>
+			</section>
+		</main>
+
+		<footer id="tooltip-bar" class="tooltip-bar" aria-live="polite">
+			<span class="tooltip-label" data-i18n="tooltip.label">Hint</span>
+			<span id="tooltip-text" data-i18n="tooltip.ready">Ready</span>
+		</footer>
+	</div>
+
+	<div id="modal-layer" class="modal-layer" hidden></div>
+	<div id="toast-region" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+	<div id="loading-screen" class="loading-screen">
+		<div class="loading-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+		<strong>sviber</strong>
+		<span data-i18n="loading">Loading editor...</span>
+	</div>
+
+	<input id="open-file-input" class="visually-hidden" type="file" accept=".json,.ssc,application/json,application/zip">
+	<input id="music-file-input" class="visually-hidden" type="file" accept="audio/*">
+	<input id="background-file-input" class="visually-hidden" type="file" accept="image/*">
+
+	<script src="js/vendor-loader.js"></script>
+	<script type="module" src="js/app.js?v=16"></script>
+</body>
+</html>
