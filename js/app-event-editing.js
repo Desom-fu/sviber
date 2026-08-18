@@ -14,6 +14,8 @@ import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
+const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
+
 export const withEventEditing = Base => class extends Base {
 	exitCreationModes() {
 		if (!this.creationMode && !this.curveDraft) return false;
@@ -663,6 +665,32 @@ export const withEventEditing = Base => class extends Base {
 		return bounds;
 	}
 
+	_transformTipPointSpawn(event, model, matrix, transformedSnappeeIds) {
+		if (!TIP_POINTABLE_TYPES.has(event.type) || !["chain", "drop"].includes(event.tipPointSpawnType)) return;
+		if (!event.tipPointSpawnAbsolutePosition) {
+			const distance = Math.max(0, Number(event.tipPointSpawnDistance) || 0);
+			const angle = Number.isFinite(Number(event.tipPointSpawnAngle))
+				? Number(event.tipPointSpawnAngle) : Math.PI / 2;
+			const origin = applyTransform({ x: 0, y: 0 }, matrix);
+			const endpoint = applyTransform({ x: Math.cos(angle) * distance, y: Math.sin(angle) * distance }, matrix);
+			const dx = endpoint.x - origin.x;
+			const dy = endpoint.y - origin.y;
+			event.tipPointSpawnDistance = Math.hypot(dx, dy);
+			if (event.tipPointSpawnDistance > 1e-12) event.tipPointSpawnAngle = Math.atan2(dy, dx);
+			return;
+		}
+		if (event.tipPointSpawnAttached && transformedSnappeeIds.has(event.tipPointSpawnSnappee)) return;
+		const position = event.tipPointSpawnAttached
+			? resolveAttachedPosition(event, model.snappees, { prefix: "tipPointSpawn" })
+			: { x: Number(event.tipPointSpawnX) || 0, y: Number(event.tipPointSpawnY) || 0 };
+		const transformed = applyTransform(position || { x: 0, y: 100 }, matrix);
+		event.tipPointSpawnAttached = false;
+		event.tipPointSpawnX = transformed.x;
+		event.tipPointSpawnY = transformed.y;
+		delete event.tipPointSpawnSnappee;
+		delete event.tipPointSpawnSnapPoint;
+	}
+
 	_applyTransformMutation(model, matrix) {
 		const { attachedIds, directEvents, affectedEvents } = this.transformationTargets(model);
 		if (!directEvents.length && !attachedIds.size) return false;
@@ -672,6 +700,7 @@ export const withEventEditing = Base => class extends Base {
 			const transformed = applyTransform(position, matrix);
 			if (!pointAllowed(model, transformed)) return false;
 		}
+		for (const event of affectedEvents) this._transformTipPointSpawn(event, model, matrix, attachedIds);
 		for (const snappee of model.snappees) {
 			if (attachedIds.has(snappee.id)) snappee.transformation = multiplyTransforms(matrix, snappee.transformation);
 		}

@@ -30,7 +30,8 @@ export async function runV8BrowserChecks(page) {
 		];
 		state.events = [
 			{ id: 101, type: "hold", time: [0, 0, 1], duration: [2, 0, 1], channel: 10,
-				selected: true, attached: false, x: -24, y: 0 },
+				selected: true, attached: false, x: -24, y: 0, tipPointSpawnType: "chain",
+				tipPointSpawnAbsolutePosition: false, tipPointSpawnDistance: 40, tipPointSpawnAngle: Math.PI / 3 },
 			{ id: 102, type: "hold", time: [1, 0, 1], duration: [2, 0, 1], channel: 10,
 				selected: true, attached: false, x: 24, y: 0 },
 			{ id: 103, type: "tap", time: [1, 0, 1], channel: 20,
@@ -97,6 +98,20 @@ export async function runV8BrowserChecks(page) {
 	assert.equal(initial.inactiveStageEvent, false);
 	assert.deepEqual(initial.comments, ["active comment", "inactive comment"]);
 	assert.equal(initial.commentsVisible, true, "active comments are clipped by the status panel");
+
+	const mirroredCursor = await page.evaluate(async () => {
+		const app = globalThis.sviber;
+		const placeholder = () => app.model.generateSunniesnowEvents().find(event => event.type === "placeholder").properties;
+		const before = placeholder();
+		await app.registry.execute("transform.flipHorizontal", app);
+		const after = placeholder();
+		const angle = app.model.events.find(event => event.id === 101).tipPointSpawnAngle;
+		await app.registry.execute("transform.flipHorizontal", app);
+		return { before, after, angle };
+	});
+	assert.ok(Math.abs(mirroredCursor.before.x + mirroredCursor.after.x) < 1e-8);
+	assert.ok(Math.abs(mirroredCursor.before.y - mirroredCursor.after.y) < 1e-8);
+	assert.ok(Math.abs(mirroredCursor.angle - Math.PI * 2 / 3) < 1e-8);
 
 	const durationHandle = await page.evaluate(() => {
 		const app = globalThis.sviber;
