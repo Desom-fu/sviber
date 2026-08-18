@@ -638,8 +638,8 @@ export class ChannelsPanel {
 					channel.active === false ? "panel.channel.activate" : "panel.channel.deactivate",
 					() => this.onToggle(channel.id)),
 				this.#action("duplicate", "panel.channel.duplicate", () => this.onDuplicate(channel.id)),
-				this.#action("delete", "panel.channel.delete", () => this.onDelete(channel.id), model.channels.length <= 1),
 				this.#action("edit", "panel.channel.rename", () => this.onEdit(channel.id)),
+				this.#action("delete", "panel.channel.delete", () => this.onDelete(channel.id), model.channels.length <= 1),
 			);
 			item.addEventListener("click", () => {
 				if (channel.active !== false) this.onSelect(channel.id);

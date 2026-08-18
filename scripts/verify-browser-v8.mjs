@@ -153,13 +153,13 @@ export async function runV8BrowserChecks(page) {
 
 	const fxItem = page.locator("#channels-panel .channel-item").filter({ hasText: "FX" });
 	assert.equal(await fxItem.locator(".snappee-action").count(), 4);
-	await fxItem.locator(".snappee-action").nth(3).click();
+	await fxItem.locator(".snappee-action").nth(2).click();
 	await page.locator(".dialog input[type=text]").fill("Effects");
 	await page.locator('.dialog-button[data-dialog-action="ok"]').click();
 	await page.waitForFunction(() => globalThis.sviber.model.channels.some(channel => channel.name === "Effects"));
 
 	const duplicateItem = page.locator("#channels-panel .channel-item").filter({ hasText: "Lead 2" });
-	await duplicateItem.locator(".snappee-action").nth(2).click();
+	await duplicateItem.locator(".snappee-action").nth(3).click();
 	await page.locator('.dialog-button[data-dialog-action="confirm"]').click();
 	await page.waitForFunction(() => !globalThis.sviber.model.channels.some(channel => channel.name === "Lead 2"));
 
