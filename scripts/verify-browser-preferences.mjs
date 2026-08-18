@@ -34,6 +34,14 @@ export async function runPreferenceAndLicenseChecks(browser, baseUrl, outputDire
 			const value = JSON.parse(localStorage.getItem("sviber.preferences"));
 			return { theme: value.theme, language: value.language };
 		}), { theme: "dark", language: "en-US" });
+		await page.locator("#channels-tab").click();
+		const darkIconFilters = await page.evaluate(() => [
+			document.querySelector(".tool-button img"),
+			document.querySelector(".menu-command-icon img"),
+			document.querySelector(".snappee-action img"),
+		].map(icon => getComputedStyle(icon).filter));
+		assert.ok(darkIconFilters.every(filter => filter !== "none"),
+			`manual dark theme left unreadable icons: ${darkIconFilters.join(", ")}`);
 		await page.screenshot({ path: path.join(outputDirectory, "preferences-dark-en-US.png"), fullPage: true });
 
 		await page.reload({ waitUntil: "networkidle" });
@@ -50,6 +58,7 @@ export async function runPreferenceAndLicenseChecks(browser, baseUrl, outputDire
 		await page.locator('.dialog-button[data-dialog-action="ok"]').click();
 		await page.waitForFunction(() => !document.documentElement.hasAttribute("data-theme")
 			&& document.documentElement.lang === "zh-CN");
+		assert.equal(await page.locator(".tool-button img").first().evaluate(icon => getComputedStyle(icon).filter), "none");
 
 		const licenseWindowPromise = context.waitForEvent("page");
 		await page.locator(".javascript-license-link").click();

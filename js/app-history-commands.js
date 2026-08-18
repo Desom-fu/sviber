@@ -373,10 +373,14 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	moveCurrentChannel(direction) {
+		this.moveChannel(this.model.editor.currentChannel, direction);
+	}
+
+	moveChannel(id, direction) {
 		this.commit(i18n.t("history.moveChannel"), model => {
-			const index = model.channels.findIndex(channel => channel.id === model.editor.currentChannel);
+			const index = model.channels.findIndex(channel => channel.id === id);
 			const target = index + direction;
-			if (target < 0 || target >= model.channels.length) return;
+			if (index < 0 || target < 0 || target >= model.channels.length) return;
 			[model.channels[index], model.channels[target]] = [model.channels[target], model.channels[index]];
 		});
 	}

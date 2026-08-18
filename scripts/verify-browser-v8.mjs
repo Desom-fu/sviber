@@ -150,16 +150,23 @@ export async function runV8BrowserChecks(page) {
 		};
 	});
 	assert.deepEqual(duplicate, { active: false, eventCount: 3, currentChannel: 30 });
+	const duplicateItem = page.locator("#channels-panel .channel-item").filter({ hasText: "Lead 2" });
+	await duplicateItem.waitFor({ state: "visible" });
+	assert.equal(await duplicateItem.locator(".snappee-action").count(), 6);
+	assert.equal(await leadItem.locator(".snappee-action").nth(2).isDisabled(), true);
+	await duplicateItem.locator(".snappee-action").nth(3).click();
+	await page.waitForFunction(() => globalThis.sviber.model.channels[2]?.name === "Lead 2");
+	await duplicateItem.locator(".snappee-action").nth(2).click();
+	await page.waitForFunction(() => globalThis.sviber.model.channels[1]?.name === "Lead 2");
 
 	const fxItem = page.locator("#channels-panel .channel-item").filter({ hasText: "FX" });
-	assert.equal(await fxItem.locator(".snappee-action").count(), 4);
-	await fxItem.locator(".snappee-action").nth(2).click();
+	assert.equal(await fxItem.locator(".snappee-action").count(), 6);
+	await fxItem.locator(".snappee-action").nth(4).click();
 	await page.locator(".dialog input[type=text]").fill("Effects");
 	await page.locator('.dialog-button[data-dialog-action="ok"]').click();
 	await page.waitForFunction(() => globalThis.sviber.model.channels.some(channel => channel.name === "Effects"));
 
-	const duplicateItem = page.locator("#channels-panel .channel-item").filter({ hasText: "Lead 2" });
-	await duplicateItem.locator(".snappee-action").nth(3).click();
+	await duplicateItem.locator(".snappee-action").nth(5).click();
 	await page.locator('.dialog-button[data-dialog-action="confirm"]').click();
 	await page.waitForFunction(() => !globalThis.sviber.model.channels.some(channel => channel.name === "Lead 2"));
 

@@ -62,8 +62,9 @@ test("explicit themes update the document root and title color", () => {
 });
 
 test("theme CSS and license pages expose explicit navigation states", async () => {
-	const [themes, index, labels, viewer, navigation] = await Promise.all([
+	const [themes, appStyles, index, labels, viewer, navigation] = await Promise.all([
 		readFile(new URL("../css/themes.css", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 		readFile(new URL("../index.html", import.meta.url), "utf8"),
 		readFile(new URL("../javascript.html", import.meta.url), "utf8"),
 		readFile(new URL("../source-viewer.html", import.meta.url), "utf8"),
@@ -71,6 +72,8 @@ test("theme CSS and license pages expose explicit navigation states", async () =
 	]);
 	assert.match(themes, /:root\[data-theme="dark"\]/);
 	assert.match(themes, /:root:not\(\[data-theme\]\)/);
+	assert.match(appStyles, /:root\[data-theme="dark"\] \.tool-button img/);
+	assert.match(appStyles, /:root:not\(\[data-theme\]\) \.tool-button img/);
 	assert.match(index, /href="javascript\.html" target="sviber-license"/);
 	assert.match(labels, /data-return-editor/);
 	assert.match(labels, /data-view-source="js\/app\.js"/);

@@ -163,11 +163,17 @@ textarea:focus-visible,
 	height: 18px;
 }
 
+:root[data-theme="dark"] .menu-command-icon img,
+:root[data-theme="dark"] .tool-button img,
+:root[data-theme="dark"] .snappee-action img {
+	filter: brightness(1.2) drop-shadow(0 0 1px rgb(255 255 255 / 75%));
+}
+
 @media (prefers-color-scheme: dark) {
-	.menu-command-icon img,
-	.tool-button img,
-	.snappee-action img {
-		filter: invert(1) brightness(1.15);
+	:root:not([data-theme]) .menu-command-icon img,
+	:root:not([data-theme]) .tool-button img,
+	:root:not([data-theme]) .snappee-action img {
+		filter: brightness(1.2) drop-shadow(0 0 1px rgb(255 255 255 / 75%));
 	}
 }
 
@@ -632,7 +638,7 @@ textarea:focus-visible,
 
 .snappee-item {
 	display: grid;
-	grid-template-columns: 30px minmax(0, 1fr) repeat(4, 25px);
+	grid-template-columns: 30px minmax(0, 1fr) repeat(6, 25px);
 	align-items: center;
 	min-height: 34px;
 	margin-bottom: 2px;

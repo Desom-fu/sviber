@@ -595,6 +595,7 @@ export class ChannelsPanel {
 		this.onDuplicate = options.onDuplicate || (() => {});
 		this.onDelete = options.onDelete || (() => {});
 		this.onEdit = options.onEdit || (() => {});
+		this.onMove = options.onMove || (() => {});
 		this.cleanup = [];
 	}
 
@@ -638,6 +639,8 @@ export class ChannelsPanel {
 					channel.active === false ? "panel.channel.activate" : "panel.channel.deactivate",
 					() => this.onToggle(channel.id)),
 				this.#action("duplicate", "panel.channel.duplicate", () => this.onDuplicate(channel.id)),
+				this.#action("move-channel-up", "panel.channel.moveUp", () => this.onMove(channel.id, -1), index === 0),
+				this.#action("move-channel-down", "panel.channel.moveDown", () => this.onMove(channel.id, 1), index === model.channels.length - 1),
 				this.#action("edit", "panel.channel.rename", () => this.onEdit(channel.id)),
 				this.#action("delete", "panel.channel.delete", () => this.onDelete(channel.id), model.channels.length <= 1),
 			);

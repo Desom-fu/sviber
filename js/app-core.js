@@ -103,6 +103,7 @@ export class SviberAppCore {
 			onDuplicate: id => this.duplicateChannel(id),
 			onDelete: id => void this.deleteChannel(id),
 			onEdit: id => void this.editChannel(id),
+			onMove: (id, direction) => this.moveChannel(id, direction),
 		});
 		this.historyPanel = new HistoryPanel({ i18n, tooltip: this.tooltip, onGoTo: index => this.goToHistory(index) });
 		this.savedSignature = this.modelSignature();
