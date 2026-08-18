@@ -9,6 +9,7 @@ import { chromium } from "playwright-core";
 import { runInteractionChecks } from "./verify-browser-interactions.mjs";
 import { runProjectChecks } from "./verify-browser-project.mjs";
 import { runV8BrowserChecks } from "./verify-browser-v8.mjs";
+import { runPreferenceAndLicenseChecks } from "./verify-browser-preferences.mjs";
 import { measureLargeChartEditing, measureLargeChartPlayback } from "./browser-performance.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -516,7 +517,7 @@ try {
 	});
 	assert.deepEqual(persistedOutOfBoundsSetting, {
 		model: true,
-		preferences: { noteSpeed: 3, allowOutOfBounds: true },
+		preferences: { theme: "system", language: "system", noteSpeed: 3, allowOutOfBounds: true },
 	});
 
 	await page.locator('.tool-button[data-command="events.tap"]').click();
@@ -775,6 +776,7 @@ try {
 	await runInteractionChecks(page, outputDirectory);
 	await runProjectChecks(page, outputDirectory);
 	await runV8BrowserChecks(page);
+	await runPreferenceAndLicenseChecks(browser, activeBaseUrl, outputDirectory);
 	await page.setViewportSize({ width: 960, height: 620 });
 	await page.waitForTimeout(150);
 	const narrowTapMetric = await measureTapRadius(page);

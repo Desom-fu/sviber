@@ -1,0 +1,118 @@
+:root {
+	color-scheme: light;
+	--page: #ffffff;
+	--chrome: #eceeef;
+	--text: #202327;
+	--muted: #62686f;
+	--border: #aeb4ba;
+	--link: #1769aa;
+	--code: #f6f7f8;
+}
+
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--page: #181a1d;
+	--chrome: #292c30;
+	--text: #edf0f2;
+	--muted: #adb3ba;
+	--border: #51575e;
+	--link: #86c7f5;
+	--code: #202327;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root:not([data-theme]) {
+		color-scheme: dark;
+		--page: #181a1d;
+		--chrome: #292c30;
+		--text: #edf0f2;
+		--muted: #adb3ba;
+		--border: #51575e;
+		--link: #86c7f5;
+		--code: #202327;
+	}
+}
+
+* { box-sizing: border-box; }
+
+html,
+body { min-height: 100%; }
+
+body {
+	margin: 0;
+	background: var(--page);
+	color: var(--text);
+	font: 14px/1.5 system-ui, "Microsoft YaHei UI", sans-serif;
+}
+
+a { color: var(--link); }
+
+.license-toolbar {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	display: flex;
+	gap: 8px;
+	padding: 9px max(16px, calc((100vw - 980px) / 2));
+	border-bottom: 1px solid var(--border);
+	background: var(--chrome);
+}
+
+.license-back {
+	display: inline-flex;
+	align-items: center;
+	min-height: 30px;
+	padding: 4px 10px;
+	border: 1px solid var(--border);
+	border-radius: 4px;
+	background: var(--page);
+	color: var(--text);
+	text-decoration: none;
+}
+
+.license-back:focus-visible,
+.license-back:hover { border-color: var(--link); }
+
+.license-content,
+.source-content {
+	width: min(980px, calc(100% - 32px));
+	margin: 28px auto;
+}
+
+h1 { margin: 0 0 18px; font-size: 28px; letter-spacing: 0; }
+
+.license-note { color: var(--muted); }
+
+table { width: 100%; border-collapse: collapse; }
+
+th,
+td {
+	padding: 9px;
+	border: 1px solid var(--border);
+	text-align: left;
+	overflow-wrap: anywhere;
+}
+
+.source-content { width: min(1200px, calc(100% - 32px)); }
+
+#source-code {
+	min-height: calc(100vh - 155px);
+	margin: 0;
+	padding: 16px;
+	overflow: auto;
+	border: 1px solid var(--border);
+	background: var(--code);
+	color: var(--text);
+	font: 13px/1.55 "Cascadia Mono", Consolas, monospace;
+	white-space: pre;
+	tab-size: 4;
+}
+
+@media (max-width: 640px) {
+	.license-content,
+	.source-content { width: calc(100% - 20px); margin-block: 18px; }
+	.license-toolbar { padding-inline: 10px; }
+	h1 { font-size: 22px; }
+	th,
+	td { padding: 6px; }
+}

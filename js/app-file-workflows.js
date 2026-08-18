@@ -13,7 +13,7 @@ import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_CHARTER_KEY, LAST_OPEN_KEY, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_CHARTER_KEY, LAST_OPEN_KEY, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
 export const withFileWorkflows = Base => class extends Base {
 	rememberLastOpen(kind, pathname) {
@@ -258,12 +258,24 @@ export const withFileWorkflows = Base => class extends Base {
 			titleKey: "dialog.preferences",
 			values: this.preferences,
 			fields: [
+				{ id: "theme", type: "select", labelKey: "field.theme", options: [
+					{ value: "system", labelKey: "option.theme.system" },
+					{ value: "light", labelKey: "option.theme.light" },
+					{ value: "dark", labelKey: "option.theme.dark" },
+				] },
+				{ id: "language", type: "select", labelKey: "field.language", options: [
+					{ value: "system", labelKey: "option.language.system" },
+					{ value: "en-US", labelKey: "option.language.english" },
+					{ value: "zh-CN", labelKey: "option.language.chinese" },
+				] },
 				{ id: "noteSpeed", type: "number", labelKey: "field.noteSpeed", positive: true, min: 0.01, step: "any" },
 				{ id: "allowOutOfBounds", type: "checkbox", labelKey: "field.allowOutOfBounds" },
 			],
 		});
 		if (!values) return null;
 		this.preferences = storePreferences(values);
+		applyThemePreference(this.preferences.theme);
+		i18n.setLanguage(resolvePreferenceLanguage(this.preferences.language));
 		for (const entry of this.difficulties) {
 			entry.model.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
 			entry.history.transformStates(state => {

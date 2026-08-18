@@ -85,6 +85,19 @@ export class HelpController {
 		}
 	}
 
+	openLicenseInformation() {
+		const url = new URL("javascript.html", location.href).href;
+		if (globalThis.nw?.Window?.open) {
+			globalThis.nw.Window.open(url, {
+				title: "sviber JavaScript license information",
+				width: 1080, height: 760, min_width: 720, min_height: 500,
+			});
+			return;
+		}
+		const opened = window.open(url, "sviber-license", "popup,width=1080,height=760");
+		if (!opened) location.href = url;
+	}
+
 	async reportIssues() {
 		const information = await this.packageInfo();
 		const url = bugsUrl(information.bugs);

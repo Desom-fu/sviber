@@ -1,15 +1,18 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v22";
+const CACHE_VERSION = "sviber-v23";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
 	"./",
 	"./index.html",
 	"./javascript.html",
+	"./source-viewer.html",
 	"./package.json",
 	"./css/app.css",
 	"./css/overlays.css",
+	"./css/themes.css",
+	"./css/license.css",
 	"./css/fonts-local.css",
 	"./css/fonts-web.css",
 	"./js/app-helpers.js",
@@ -25,6 +28,7 @@ const APP_SHELL = [
 	"./js/ui-panels.js",
 	"./js/nw-source-bootstrap.js",
 	"./js/font-loader.js",
+	"./js/license-page.js",
 	"./js/help.js",
 	"./js/render/stage-helpers.js",
 	"./js/render/stage-core.js",
@@ -153,9 +157,14 @@ self.addEventListener("fetch", event => {
 	if (event.request.method !== "GET") return;
 	const url = new URL(event.request.url);
 	if (event.request.mode === "navigate") {
-		event.respondWith(fetch(event.request).catch(async () =>
-			(await caches.match(event.request))
-			|| (await caches.match(new URL("./index.html", self.location.href).href))));
+		event.respondWith(fetch(event.request).catch(async () => {
+			const pageUrl = new URL(event.request.url);
+			pageUrl.search = "";
+			pageUrl.hash = "";
+			return (await caches.match(event.request))
+				|| (await caches.match(pageUrl.href))
+				|| (await caches.match(new URL("./index.html", self.location.href).href));
+		}));
 		return;
 	}
 	if (url.hostname.endsWith("jsdelivr.net")) {

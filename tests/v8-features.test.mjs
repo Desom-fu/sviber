@@ -89,13 +89,17 @@ test("comments and channel state round-trip without leaking into Sunniesnow even
 });
 
 test("comment text remains readable on the timeline and status panel", async () => {
-	const css = await readFile(new URL("../css/app.css", import.meta.url), "utf8");
+	const css = (await Promise.all([
+		readFile(new URL("../css/themes.css", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+	])).join("\n");
 	const commentColors = [...css.matchAll(/--comment-text:\s*(#[0-9a-f]{6})/gi)].map(match => match[1]);
 	const panelColors = [...css.matchAll(/--panel:\s*(#[0-9a-f]{6})/gi)].map(match => match[1]);
-	assert.deepEqual(commentColors.length, 2);
-	assert.deepEqual(panelColors.length, 2);
-	assert.ok(contrastRatio(commentColors[0], panelColors[0]) >= 7);
-	assert.ok(contrastRatio(commentColors[1], panelColors[1]) >= 7);
+	assert.ok(commentColors.length >= 2);
+	assert.equal(commentColors.length, panelColors.length);
+	for (const [index, color] of commentColors.entries()) {
+		assert.ok(contrastRatio(color, panelColors[index]) >= 7);
+	}
 	assert.ok(contrastRatio(TIMELINE_COMMENT_TEXT_COLOR, "#090a0c") >= 7);
 	assert.match(css, /\.status-comment\s*\{[\s\S]*?color:\s*var\(--comment-text\)/);
 });
@@ -195,8 +199,9 @@ test("timeline tip connector is fixed just beyond the largest event icon radius"
 test("JavaScript license labels cover independent scripts with valid source links", async () => {
 	const labels = await readFile(new URL("../javascript.html", import.meta.url), "utf8");
 	assert.match(labels, /id="jslicense-labels1"/);
-	for (const script of ["js/app.js", "service-worker.js", "docs/docs.js"]) {
+	for (const script of ["js/app.js", "js/license-page.js", "service-worker.js", "docs/docs.js"]) {
 		assert.match(labels, new RegExp(`href="${script.replace(".", "\\.")}"`));
 	}
+	assert.match(labels, /data-return-editor/);
 	assert.doesNotMatch(labels, /\/blob\/master\//);
 });

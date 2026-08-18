@@ -20,27 +20,54 @@ export const SNAPPEE_COLORS = ["#00e0ad", "#3086ff", "#ff9d3d", "#d567ff", "#ff2
 export const PREFERENCES_KEY = "sviber.preferences";
 export const LAST_CHARTER_KEY = "sviber.lastCharter";
 export const LAST_OPEN_KEY = "sviber.lastOpen";
-export const DEFAULT_PREFERENCES = Object.freeze({ noteSpeed: 2, allowOutOfBounds: false });
+export const DEFAULT_PREFERENCES = Object.freeze({
+	theme: "system", language: "system", noteSpeed: 2, allowOutOfBounds: false,
+});
+
+function preferenceChoice(value, choices, fallback) {
+	return choices.includes(value) ? value : fallback;
+}
+
+function normalizePreferences(source = {}) {
+	const noteSpeed = Number(source.noteSpeed);
+	return {
+		theme: preferenceChoice(source.theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme),
+		language: preferenceChoice(source.language, ["system", "en-US", "zh-CN"], DEFAULT_PREFERENCES.language),
+		noteSpeed: noteSpeed > 0 ? noteSpeed : DEFAULT_PREFERENCES.noteSpeed,
+		allowOutOfBounds: Boolean(source.allowOutOfBounds),
+	};
+}
 
 export function loadPreferences(storage = globalThis.localStorage) {
 	try {
-		const source = JSON.parse(storage?.getItem(PREFERENCES_KEY) || "{}");
-		const noteSpeed = Number(source.noteSpeed);
-		return {
-			noteSpeed: noteSpeed > 0 ? noteSpeed : DEFAULT_PREFERENCES.noteSpeed,
-			allowOutOfBounds: Boolean(source.allowOutOfBounds),
-		};
+		return normalizePreferences(JSON.parse(storage?.getItem(PREFERENCES_KEY) || "{}"));
 	} catch {
 		return { ...DEFAULT_PREFERENCES };
 	}
 }
 
 export function storePreferences(preferences, storage = globalThis.localStorage) {
-	const normalized = {
-		noteSpeed: Number(preferences?.noteSpeed) > 0 ? Number(preferences.noteSpeed) : DEFAULT_PREFERENCES.noteSpeed,
-		allowOutOfBounds: Boolean(preferences?.allowOutOfBounds),
-	};
+	const normalized = normalizePreferences(preferences);
 	try { storage?.setItem(PREFERENCES_KEY, JSON.stringify(normalized)); } catch { /* Storage may be unavailable. */ }
+	return normalized;
+}
+
+export function resolvePreferenceLanguage(language, systemLanguage = globalThis.navigator?.language) {
+	if (language === "en-US" || language === "zh-CN") return language;
+	return String(systemLanguage || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
+}
+
+export function applyThemePreference(theme, root = globalThis.document?.documentElement) {
+	const normalized = preferenceChoice(theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme);
+	if (root) {
+		if (normalized === "system") root.removeAttribute("data-theme");
+		else root.setAttribute("data-theme", normalized);
+		const documentRef = root.ownerDocument || globalThis.document;
+		const systemDark = globalThis.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+		const dark = normalized === "dark" || normalized === "system" && systemDark;
+		documentRef?.querySelector?.('meta[name="theme-color"]')
+			?.setAttribute("content", dark ? "#292c30" : "#eceeef");
+	}
 	return normalized;
 }
 

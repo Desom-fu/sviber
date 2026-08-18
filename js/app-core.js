@@ -20,11 +20,13 @@ import { ChartRenderIndex } from "./render/chart-index.js";
 import { HelpController } from "./help.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { ChannelsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
 export class SviberAppCore {
 	constructor() {
 		this.preferences = loadPreferences();
+		applyThemePreference(this.preferences.theme);
+		i18n.setLanguage(resolvePreferenceLanguage(this.preferences.language));
 		this.model = ChartModel.createDefault({ editor: { allowOutOfBounds: this.preferences.allowOutOfBounds } });
 		this.history = new History(this.model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
 		this.dirty = false;
@@ -660,6 +662,11 @@ export class SviberAppCore {
 	}
 
 	_bindGlobalInteraction() {
+		const licenseLink = document.querySelector(".javascript-license-link");
+		licenseLink?.addEventListener("click", event => {
+			event.preventDefault();
+			this.help.openLicenseInformation();
+		});
 		document.addEventListener("keydown", event => {
 			if (event.key === "Escape" && !this.dialogs.active) {
 				if (this.freeTransform) event.preventDefault();
