@@ -1,9 +1,7 @@
-name: Test and release
+name: Test, build, and release
 
 on:
   push:
-    branches: [master]
-    tags: ['v*.*.*']
   pull_request:
   workflow_dispatch:
 
@@ -24,7 +22,7 @@ jobs:
       - run: npm run benchmark:render
 
   package:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: test
     strategy:
       matrix:
