@@ -83,6 +83,11 @@ export async function runV8BrowserChecks(page) {
 		inactiveTimelineHit: globalThis.sviber.timeline.hitRegions.some(region => region.event?.id === 103),
 		inactiveStageEvent: globalThis.sviber.stage.visibleEvents.some(record => record.event.id === 103),
 		comments: [...document.querySelectorAll("#status-comments .status-comment")].map(item => item.textContent),
+		commentsVisible: [...document.querySelectorAll("#status-comments .status-comment")].every(item => {
+			const itemBounds = item.getBoundingClientRect();
+			const panelBounds = document.querySelector("#status-panel").getBoundingClientRect();
+			return itemBounds.top >= panelBounds.top && itemBounds.bottom <= panelBounds.bottom;
+		}),
 	}));
 	assert.deepEqual(initial.channelNames, ["Lead", "Muted", "FX", "Spare"]);
 	assert.equal(initial.inactiveItems, 1);
@@ -91,6 +96,7 @@ export async function runV8BrowserChecks(page) {
 	assert.equal(initial.inactiveTimelineHit, false);
 	assert.equal(initial.inactiveStageEvent, false);
 	assert.deepEqual(initial.comments, ["active comment", "inactive comment"]);
+	assert.equal(initial.commentsVisible, true, "active comments are clipped by the status panel");
 
 	const durationHandle = await page.evaluate(() => {
 		const app = globalThis.sviber;

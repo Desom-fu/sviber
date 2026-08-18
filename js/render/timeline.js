@@ -4,6 +4,7 @@ import { ChartRenderIndex } from "./chart-index.js";
 import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointVisualState } from "./stage.js";
 import {
 	BEAT_LINE_COLORS,
+	TIMELINE_COMMENT_TEXT_COLOR,
 	TIMELINE_DURATION_TYPES as DURATION_TYPES,
 	TIMELINE_EVENT_COLORS as NOTE_COLORS,
 	beatColor,
@@ -322,7 +323,7 @@ export class TimelineView {
 			}
 			if ((event.type === "bigText" || event.type === "comment") && event.text) {
 				context.save();
-				context.fillStyle = color;
+				context.fillStyle = event.type === "comment" ? TIMELINE_COMMENT_TEXT_COLOR : color;
 				context.font = "11px sans-serif";
 				context.textBaseline = "bottom";
 				context.fillText(String(event.text).slice(0, 40), Math.min(position.x, endX) + 3, position.y - 8,

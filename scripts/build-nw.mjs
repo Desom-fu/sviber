@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import nwbuild from "nw-builder";
 import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
+import { builderApplicationOptions, PACKAGED_WINDOW_ICON } from "./nw-build-config.mjs";
 
 const { bundleAudioDecoder: bundleAudioDecoderFile } = decoderBundler;
 
@@ -277,13 +278,45 @@ async function generateWindowsIcon(source, destination) {
 	await writeFile(destination, Buffer.concat([header, ...images]));
 }
 
+async function generateMacosIcon(source, destination) {
+	const iconsetDirectory = path.join(path.dirname(destination), "icon.iconset");
+	const images = [
+		["icon_16x16.png", 16], ["icon_16x16@2x.png", 32],
+		["icon_32x32.png", 32], ["icon_32x32@2x.png", 64],
+		["icon_128x128.png", 128], ["icon_128x128@2x.png", 256],
+		["icon_256x256.png", 256], ["icon_256x256@2x.png", 512],
+		["icon_512x512.png", 512], ["icon_512x512@2x.png", 1024],
+	];
+	await rm(iconsetDirectory, { recursive: true, force: true });
+	await mkdir(iconsetDirectory, { recursive: true });
+	try {
+		await Promise.all(images.map(([filename, size]) => sharp(source)
+			.resize(size, size, { fit: "contain" }).png()
+			.toFile(path.join(iconsetDirectory, filename))));
+		await new Promise((resolve, reject) => {
+			const child = spawn("iconutil", ["--convert", "icns", "--output", destination, iconsetDirectory], {
+				stdio: "inherit", windowsHide: true,
+			});
+			child.once("error", reject);
+			child.once("exit", code => code === 0 ? resolve()
+				: reject(new Error(`iconutil exited with code ${code}`)));
+		});
+	} finally {
+		await rm(iconsetDirectory, { recursive: true, force: true });
+	}
+}
+
 async function generatePackagedIcons(applicationDirectory) {
 	const source = path.join(applicationDirectory, "svg", "icon.svg");
-	await Promise.all([
+	const tasks = [
 		generateWindowsIcon(source, path.join(applicationDirectory, "icon.ico")),
 		sharp(source).resize(512, 512, { fit: "contain" }).png()
 			.toFile(path.join(applicationDirectory, "icon.png")),
-	]);
+	];
+	if (process.platform === "darwin") {
+		tasks.push(generateMacosIcon(source, path.join(applicationDirectory, "icon.icns")));
+	}
+	await Promise.all(tasks);
 }
 
 async function copyApplication() {
@@ -317,7 +350,7 @@ async function copyApplication() {
 		main: "sviber/index.html",
 		window: {
 			...sourcePackage.window,
-			icon: process.platform === "win32" ? "sviber/icon.ico" : "sviber/icon.png",
+			icon: PACKAGED_WINDOW_ICON,
 		},
 	};
 	await writeFile(path.join(stageDirectory, "package.json"), `${JSON.stringify(packageJson, null, "\t")}\n`);
@@ -325,6 +358,7 @@ async function copyApplication() {
 
 async function runBuilder() {
 	const nwPackage = JSON.parse(await readFile(path.join(sviberDirectory, "node_modules", "nw", "package.json"), "utf8"));
+	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
 	const previousDirectory = process.cwd();
 	process.chdir(stageDirectory);
 	try {
@@ -337,6 +371,7 @@ async function runBuilder() {
 			outDir: outputDirectory,
 			cacheDir: path.join(sviberDirectory, "node_modules", "nw"),
 			logLevel: "info",
+			app: builderApplicationOptions(process.platform, sourcePackage),
 		});
 	} finally {
 		process.chdir(previousDirectory);

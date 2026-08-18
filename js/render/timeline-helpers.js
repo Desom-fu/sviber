@@ -26,6 +26,8 @@ export const TIMELINE_EVENT_COLORS = Object.freeze({
 	comment: "#b7f34a",
 });
 
+export const TIMELINE_COMMENT_TEXT_COLOR = "#f2f5ed";
+
 export const TIMELINE_DURATION_TYPES = new Set([
 	"hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard",
 	"diamondGrid", "pentagon", "turntable", "hexagram", "comment",

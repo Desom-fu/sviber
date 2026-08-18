@@ -9,7 +9,17 @@ import { ChartModel, createEvent } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
 import { MESSAGES } from "../js/i18n.js";
 import { ChartRenderIndex } from "../js/render/chart-index.js";
-import { timelineTipConnector } from "../js/render/timeline-helpers.js";
+import { TIMELINE_COMMENT_TEXT_COLOR, timelineTipConnector } from "../js/render/timeline-helpers.js";
+
+function contrastRatio(foreground, background) {
+	const luminance = color => {
+		const channels = color.match(/[0-9a-f]{2}/gi).map(channel => parseInt(channel, 16) / 255)
+			.map(channel => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+		return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+	};
+	const values = [luminance(foreground), luminance(background)].sort((left, right) => right - left);
+	return (values[0] + 0.05) / (values[1] + 0.05);
+}
 
 test("v8 commands have shortcuts and complete English and Chinese text", () => {
 	const expectedShortcuts = {
@@ -76,6 +86,18 @@ test("comments and channel state round-trip without leaking into Sunniesnow even
 	const reopened = ChartModel.import(document);
 	assert.deepEqual(reopened.channels, model.channels);
 	assert.deepEqual(reopened.events, model.events);
+});
+
+test("comment text remains readable on the timeline and status panel", async () => {
+	const css = await readFile(new URL("../css/app.css", import.meta.url), "utf8");
+	const commentColors = [...css.matchAll(/--comment-text:\s*(#[0-9a-f]{6})/gi)].map(match => match[1]);
+	const panelColors = [...css.matchAll(/--panel:\s*(#[0-9a-f]{6})/gi)].map(match => match[1]);
+	assert.deepEqual(commentColors.length, 2);
+	assert.deepEqual(panelColors.length, 2);
+	assert.ok(contrastRatio(commentColors[0], panelColors[0]) >= 7);
+	assert.ok(contrastRatio(commentColors[1], panelColors[1]) >= 7);
+	assert.ok(contrastRatio(TIMELINE_COMMENT_TEXT_COLOR, "#090a0c") >= 7);
+	assert.match(css, /\.status-comment\s*\{[\s\S]*?color:\s*var\(--comment-text\)/);
 });
 
 test("deleting the current channel chooses a remaining active channel", () => {
