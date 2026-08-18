@@ -41,7 +41,7 @@ test("v8 commands have shortcuts and complete English and Chinese text", () => {
 			"menu.help", "panel.channels", "dialog.comment", "dialog.editChannel", "dialog.about",
 			"dialog.copy", "field.endTime", "event.comment", "panel.channel.activate",
 			"panel.channel.deactivate", "panel.channel.duplicate", "panel.channel.delete",
-			"panel.channel.edit", "history.editChannel", "about.repository", "about.license",
+			"panel.channel.rename", "panel.channel.edit", "history.editChannel", "about.repository", "about.license",
 			"about.version", "about.commit", "about.commitDate", "about.nwVersion",
 			"about.browserVersion", "about.engineVersion", "about.nodeVersion", "about.v8Version",
 			"about.operatingSystem",

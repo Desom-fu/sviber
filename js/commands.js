@@ -59,6 +59,7 @@ const DEFINITIONS = [
 
 	define('channel.createAbove', 'Insert', 'create-channel-above'),
 	define('channel.createBelow', 'Shift+Insert', 'create-channel-below'),
+	define('channel.rename', null, 'edit', {blockDuringPlayback: true}),
 	define('channel.delete', null, 'delete-channel'),
 	define('channel.moveUp', 'Ctrl+ArrowUp', 'move-channel-up'),
 	define('channel.moveDown', 'Ctrl+ArrowDown', 'move-channel-down'),
@@ -160,7 +161,7 @@ export const MENU_DEFINITION = Object.freeze([
 	}),
 	Object.freeze({
 		id: 'channel', labelKey: 'menu.channel', mnemonic: 'c', items: Object.freeze([
-			item('channel.createAbove'), item('channel.createBelow'), item('channel.delete'),
+			item('channel.createAbove'), item('channel.createBelow'), item('channel.rename'), item('channel.delete'),
 			item('channel.moveUp'), item('channel.moveDown')
 		])
 	}),

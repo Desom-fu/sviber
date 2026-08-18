@@ -124,6 +124,7 @@ export async function runV8BrowserChecks(page) {
 
 	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 	await page.locator("#channels-tab").click();
+	assert.equal(await page.locator('.menu-command[data-command="channel.rename"]').count(), 1);
 	const leadItem = page.locator("#channels-panel .channel-item").filter({ hasText: "Lead" }).first();
 	await leadItem.locator(".snappee-action").nth(0).click();
 	await page.waitForFunction(() => globalThis.sviber.model.channels.find(channel => channel.id === 10)?.active === false);
@@ -150,8 +151,9 @@ export async function runV8BrowserChecks(page) {
 	});
 	assert.deepEqual(duplicate, { active: false, eventCount: 3, currentChannel: 30 });
 
-	const fxName = page.locator("#channels-panel .channel-item").filter({ hasText: "FX" }).locator(".snappee-name");
-	await fxName.dblclick();
+	const fxItem = page.locator("#channels-panel .channel-item").filter({ hasText: "FX" });
+	assert.equal(await fxItem.locator(".snappee-action").count(), 4);
+	await fxItem.locator(".snappee-action").nth(3).click();
 	await page.locator(".dialog input[type=text]").fill("Effects");
 	await page.locator('.dialog-button[data-dialog-action="ok"]').click();
 	await page.waitForFunction(() => globalThis.sviber.model.channels.some(channel => channel.name === "Effects"));

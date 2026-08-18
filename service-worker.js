@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v23";
+const CACHE_VERSION = "sviber-v24";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -68,7 +68,7 @@ const APP_SHELL = [
 		"create-channel-below.svg", "create-circular-curve.svg", "create-drag.svg",
 		"create-flick.svg", "create-hold.svg", "create-radial-mesh.svg",
 		"create-rectangular-mesh.svg", "create-regular-polygon-mesh.svg", "create-tap.svg",
-		"deactivate-snappee.svg", "delete-channel.svg", "detach.svg", "free-transform.svg",
+		"deactivate-snappee.svg", "delete-channel.svg", "detach.svg", "edit.svg", "free-transform.svg",
 		"move-channel-down.svg", "move-channel-up.svg", "move-to-channel-above.svg",
 		"move-to-channel-below.svg", "pen.svg", "play-pause.svg", "seek-to-start.svg",
 		"speed-0-25.svg", "speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",

@@ -89,6 +89,7 @@ export const withHistoryCommands = Base => class extends Base {
 
 		command("channel.createAbove", () => this.createChannel(0));
 		command("channel.createBelow", () => this.createChannel(1));
+		command("channel.rename", () => void this.editChannel(this.model.editor.currentChannel));
 		command("channel.delete", () => void this.deleteCurrentChannel(), () => this.model.channels.length > 1);
 		command("channel.moveUp", () => this.moveCurrentChannel(-1), () => this.currentChannelIndex() > 0);
 		command("channel.moveDown", () => this.moveCurrentChannel(1), () => this.currentChannelIndex() < this.model.channels.length - 1);

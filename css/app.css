@@ -632,7 +632,7 @@ textarea:focus-visible,
 
 .snappee-item {
 	display: grid;
-	grid-template-columns: 30px minmax(0, 1fr) repeat(3, 25px);
+	grid-template-columns: 30px minmax(0, 1fr) repeat(4, 25px);
 	align-items: center;
 	min-height: 34px;
 	margin-bottom: 2px;
