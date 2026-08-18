@@ -95,6 +95,12 @@ export const withHistoryCommands = Base => class extends Base {
 		command("channel.moveDown", () => this.moveCurrentChannel(1), () => this.currentChannelIndex() < this.model.channels.length - 1);
 		command("channel.selectAbove", () => this.changeCurrentChannel(-1), () => this.canChangeCurrentChannel(-1));
 		command("channel.selectBelow", () => this.changeCurrentChannel(1), () => this.canChangeCurrentChannel(1));
+		for (let index = 1; index <= 9; index += 1) {
+			command(`channel.select${index}`, () => this.selectChannelByOrdinal(index),
+				() => this.canSelectChannelByOrdinal(index));
+		}
+		command("channel.selectLast", () => this.selectChannelByOrdinal(-1),
+			() => this.canSelectChannelByOrdinal(-1));
 
 		command("snappee.rectangularMesh", () => void this.showSnappeeDialog("rectangularMesh"));
 		command("snappee.radialMesh", () => void this.showSnappeeDialog("radialMesh"));
@@ -115,7 +121,8 @@ export const withHistoryCommands = Base => class extends Base {
 		]) command(id, () => this.translateSelected(dx, dy), () => selected(this.model).length > 0);
 		command("transform.flipHorizontal", () => this.applyTransformToSelection([-1, 0, 0, 1, 0, 0]), () => selected(this.model).length > 0);
 		command("transform.flipVertical", () => this.applyTransformToSelection([1, 0, 0, -1, 0, 0]), () => selected(this.model).length > 0);
-		command("transform.free", () => this.startFreeTransform(), () => selected(this.model).some(event => MOVABLE_TYPES.has(event.type)));
+		command("transform.free", () => this.startFreeTransform(), () => selected(this.model).some(event => MOVABLE_TYPES.has(event.type))
+			|| this.model.snappees.some(snappee => snappee.selected && snappee.active !== false));
 		command("transform.matrix", () => void this.showTransformDialog(), () => selected(this.model).length > 0);
 		command("transform.moveForward", () => this.moveSelectedInTime(1), () => selected(this.model).length > 0);
 		command("transform.moveBackward", () => this.moveSelectedInTime(-1), () => selected(this.model).length > 0);
@@ -124,11 +131,13 @@ export const withHistoryCommands = Base => class extends Base {
 			if (event?.type === "keydown" && !this.audio.playing) this.spacePlaybackStartedAt = performance.now();
 			return void this.togglePlayback();
 		});
+		command("music.playReverse", () => void this.toggleReversePlayback());
 		command("music.seekStart", () => this.seekStart());
 		command("music.seekForward", () => this.navigateWheel(1, false));
 		command("music.seekBackward", () => this.navigateWheel(-1, false));
-		command("music.seekForward10", () => this.seekSeconds(10));
-		command("music.seekBackward10", () => this.seekSeconds(-10));
+		command("music.seekForward3", () => this.seekSeconds(3));
+		command("music.seekBackward3", () => this.seekSeconds(-3));
+		command("music.abLoop", () => this.toggleAbLoop(), () => !this.audio.playing);
 		for (const value of [1, 2, 3, 4, 6, 8]) command(`music.subdivision${value}`, () => this.setSubdivision(value));
 		command("music.subdivisionOther", () => void this.showSubdivisionDialog());
 		command("music.speedDecrease", () => this.setSpeed(this.model.editor.speed - 0.1));
@@ -136,10 +145,11 @@ export const withHistoryCommands = Base => class extends Base {
 		command("music.speed025", () => this.setSpeed(0.25));
 		command("music.speed05", () => this.setSpeed(0.5));
 		command("music.speed1", () => this.setSpeed(1));
-		command("music.zoomIn", () => this.navigateWheel(-1, true));
-		command("music.zoomOut", () => this.navigateWheel(1, true));
-		command("timeline.pageForward", () => this.pageVisibleRange(1));
-		command("timeline.pageBackward", () => this.pageVisibleRange(-1));
+		command("music.zoomIn", () => this.navigateWheel(-1, true, true));
+		command("music.zoomOut", () => this.navigateWheel(1, true, true));
+		command("timeline.pageForward", () => this.pageVisibleRange(-1));
+		command("timeline.pageBackward", () => this.pageVisibleRange(1));
+		command("macros.open", () => this.openMacros());
 		command("help.documentation", () => this.help.openDocumentation());
 		command("help.reportIssues", () => void this.help.reportIssues());
 		command("help.about", () => void this.help.showAbout());
@@ -295,6 +305,20 @@ export const withHistoryCommands = Base => class extends Base {
 		return true;
 	}
 
+	canSelectChannelByOrdinal(ordinal) {
+		const channels = this.model.channels;
+		const index = ordinal === -1 ? channels.length - 1 : ordinal - 1;
+		if (index < 0 || index >= channels.length || ordinal !== -1 && (ordinal < 1 || ordinal > 9)) return false;
+		return channels[index].active !== false;
+	}
+
+	selectChannelByOrdinal(ordinal) {
+		const channels = this.model.channels;
+		const index = ordinal === -1 ? channels.length - 1 : ordinal - 1;
+		const channel = channels[index];
+		return channel && channel.active !== false ? this.selectChannel(channel.id) : false;
+	}
+
 	uniqueChannelName(base) {
 		const name = String(base || "Channel");
 		const names = new Set(this.model.channels.map(channel => channel.name));
@@ -390,9 +414,36 @@ export const withHistoryCommands = Base => class extends Base {
 			this.audio.pause();
 			return;
 		}
+		this._syncAudioLoop();
 		this.audio.seek(this.currentSeconds());
 		this.audio.setRate(this.model.editor.speed);
 		await this.audio.play();
+	}
+
+	async toggleReversePlayback() {
+		if (this.audio.playing && this.audio.direction < 0) {
+			this.audio.pause();
+			return;
+		}
+		this._syncAudioLoop();
+		this.audio.setRate(this.model.editor.speed);
+		if (!this.audio.playing) this.audio.seek(this.currentSeconds());
+		await this.audio.playReverse();
+	}
+
+	toggleAbLoop() {
+		if (this.audio.playing) return false;
+		const current = Rational.from(this.model.editor.currentTime);
+		const marks = (this.model.editor.abLoopMarks || []).map(mark => Rational.from(mark));
+		if (!marks.length) marks.push(current);
+		else if (marks.length === 1) {
+			if (!marks[0].equals(current)) marks.push(current);
+		} else marks.length = 0;
+		marks.sort((left, right) => left.compare(right));
+		this.model.editor.abLoopMarks = marks.map(mark => mark.toJSON());
+		this._syncAudioLoop();
+		this.refresh();
+		return true;
 	}
 
 	seekStart() {
@@ -400,7 +451,8 @@ export const withHistoryCommands = Base => class extends Base {
 		const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
 		if (this.audio.playing) {
 			this.audio.seek(start);
-			if (start < this.model.editor.visibleRangeBeginning || start > this.model.editor.visibleRangeEnd) {
+			if (!this.model.editor.lockVisibleRange
+				&& (start < this.model.editor.visibleRangeBeginning || start > this.model.editor.visibleRangeEnd)) {
 				this.setVisibleRange(start, start + span);
 			}
 			return;
@@ -408,7 +460,8 @@ export const withHistoryCommands = Base => class extends Base {
 		const beat = this.timing().secondsToSnappedBeat(start, this.model.editor.subdivision);
 		this.seekBeat(beat.toJSON());
 		const snappedStart = this.currentSeconds();
-		if (snappedStart < this.model.editor.visibleRangeBeginning || snappedStart > this.model.editor.visibleRangeEnd) {
+		if (!this.model.editor.lockVisibleRange
+			&& (snappedStart < this.model.editor.visibleRangeBeginning || snappedStart > this.model.editor.visibleRangeEnd)) {
 			this.setVisibleRange(snappedStart, snappedStart + span, true);
 		}
 	}
@@ -417,9 +470,20 @@ export const withHistoryCommands = Base => class extends Base {
 		const seconds = Math.max(this.timeBounds()[0], Math.min(this.timeBounds()[1], this.currentSeconds() + delta));
 		if (this.audio.playing) {
 			this.audio.seek(seconds);
+			if (!this.model.editor.lockVisibleRange) {
+				const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
+				if (seconds < this.model.editor.visibleRangeBeginning || seconds > this.model.editor.visibleRangeEnd) {
+					this.setVisibleRange(seconds - span / 2, seconds + span / 2, true);
+				}
+			}
 			return;
 		}
 		this.seekBeat(this.timing().secondsToSnappedBeat(seconds, this.model.editor.subdivision).toJSON());
+		if (!this.model.editor.lockVisibleRange
+			&& (seconds < this.model.editor.visibleRangeBeginning || seconds > this.model.editor.visibleRangeEnd)) {
+			const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
+			this.setVisibleRange(seconds - span / 2, seconds + span / 2, true);
+		}
 	}
 
 	setSubdivision(value) {
@@ -430,7 +494,7 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	setSpeed(value) {
-		const speed = Math.max(0.1, Math.min(4, Math.round(value * 10) / 10));
+		const speed = Math.max(0.1, Math.min(4, Math.round(Number(value) * 100) / 100));
 		this.model.editor.speed = speed;
 		this.audio.setRate(speed);
 		this.refresh();

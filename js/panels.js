@@ -40,7 +40,9 @@ function makeRationalControl(documentRef, value, onChange) {
 		const values = controls.map(input => Number(input.value));
 		if (values.every(Number.isSafeInteger) && values[2] > 0) onChange(Rational.from(values).toJSON());
 	};
-	controls.forEach(input => input.addEventListener("change", emit));
+	wrapper.addEventListener("focusout", event => {
+		if (!wrapper.contains(event.relatedTarget)) emit();
+	});
 	return wrapper;
 }
 
@@ -326,9 +328,6 @@ export class InspectorPanel {
 		this.cleanup = [];
 		clear(this.element);
 		const selected = model.events.filter(event => event.selected);
-		if (!selected.length) {
-			return;
-		}
 		if (Array.isArray(context.transform)) {
 			const transformGroup = this.#group("field.transform");
 			const wrapper = document.createElement("div");
@@ -343,6 +342,7 @@ export class InspectorPanel {
 			transformGroup.append(this.#row("field.transform", wrapper));
 			this.element.append(transformGroup);
 		}
+		if (!selected.length) return;
 
 		const group = this.#group(selected.every(event => event.type === selected[0].type)
 			? `event.${selected[0].type}` : "panel.commonProperties");
@@ -417,21 +417,25 @@ export class InspectorPanel {
 			const modes = ["inherit", "chain", "drop", "none"].map(value => ({
 				value, label: this.i18n.t(`tipPoint.${value}`),
 			}));
+			const spawnType = commonValue(selected, event => event.tipPointSpawnType);
+			const spawnFieldsEnabled = spawnType === "chain" || spawnType === "drop";
 			group.append(this.#row("field.spawnType", makeSelect(document, modes,
-				commonValue(selected, event => event.tipPointSpawnType),
+				spawnType,
 				value => this.onChange("tipPointSpawnType", value))));
 			const absolute = commonValue(selected, event => event.tipPointSpawnAbsolutePosition);
-			group.append(this.#row("field.spawnPosition", makeRadioControl(document, [
+			const spawnPositionControl = makeRadioControl(document, [
 				{ value: "absolute", label: this.i18n.t("field.absolute") },
 				{ value: "relative", label: this.i18n.t("field.relative") },
 			], absolute === MIXED ? MIXED : absolute ? "absolute" : "relative",
-			value => this.onChange("tipPointSpawnAbsolutePosition", value === "absolute"))));
+			value => this.onChange("tipPointSpawnAbsolutePosition", value === "absolute"));
+			setControlDisabled(spawnPositionControl, !spawnFieldsEnabled);
+			group.append(this.#row("field.spawnPosition", spawnPositionControl));
 
 			const attached = commonValue(selected, event => event.tipPointSpawnAttached);
 			const attachedControl = makeInput(document, "checkbox", attached,
 				value => this.onChange("tipPointSpawnAttached", value));
 			attachedControl.indeterminate = attached === MIXED;
-			setControlDisabled(attachedControl, absolute !== true || !model.snappees.length);
+			setControlDisabled(attachedControl, !spawnFieldsEnabled || absolute !== true || !model.snappees.length);
 			group.append(this.#row("field.attached", attachedControl));
 
 			const absolutePosition = commonValue(selected, event => [event.tipPointSpawnX, event.tipPointSpawnY]);
@@ -449,14 +453,14 @@ export class InspectorPanel {
 				makeExpressionControl(document, absolutePosition === MIXED ? MIXED : absolutePosition[1], value => this.onChange("tipPointSpawnY", value)),
 			);
 			absoluteWrapper.append(absolutePair);
-			setControlDisabled(absoluteWrapper, absolute !== true || attached === true);
+			setControlDisabled(absoluteWrapper, !spawnFieldsEnabled || absolute !== true || attached === true);
 			group.append(this.#row("field.absolute", absoluteWrapper));
 
 			if (attached === true) {
 				const snappeeControl = makeSelect(document,
 					model.snappees.map(snappee => ({ value: snappee.id, label: snappee.name })), spawnSnappeeId,
 					value => this.onChange("tipPointSpawnSnappee", Number(value)));
-				setControlDisabled(snappeeControl, absolute !== true);
+				setControlDisabled(snappeeControl, !spawnFieldsEnabled || absolute !== true);
 				group.append(this.#row("field.snappee", snappeeControl));
 				const targetSnappee = spawnSnappeeId === MIXED ? null : model.snappees.find(snappee => snappee.id === spawnSnappeeId);
 				const snapPoint = commonValue(selected, event => event.tipPointSpawnSnapPoint);
@@ -471,12 +475,12 @@ export class InspectorPanel {
 					};
 					wrapper.append(makeInput(document, "number", snapPoint === MIXED ? MIXED : pair[0], value => update(0, value), { step: "1" }),
 						makeInput(document, "number", snapPoint === MIXED ? MIXED : pair[1], value => update(1, value), { step: "1" }));
-					setControlDisabled(wrapper, absolute !== true);
+					setControlDisabled(wrapper, !spawnFieldsEnabled || absolute !== true);
 					group.append(this.#row("field.snapPoint", wrapper));
 				} else {
 					const control = makeInput(document, "number", snapPoint,
 						value => this.onChange("tipPointSpawnSnapPoint", Math.round(value)), { step: "1" });
-					setControlDisabled(control, absolute !== true);
+					setControlDisabled(control, !spawnFieldsEnabled || absolute !== true);
 					group.append(this.#row("field.snapPoint", control));
 				}
 			}
@@ -484,30 +488,32 @@ export class InspectorPanel {
 			const distanceControl = makeExpressionControl(document,
 				commonValue(selected, event => event.tipPointSpawnDistance),
 				value => this.onChange("tipPointSpawnDistance", Math.max(0, value)));
-			setControlDisabled(distanceControl, absolute !== false);
+			setControlDisabled(distanceControl, !spawnFieldsEnabled || absolute !== false);
 			group.append(this.#row("field.spawnDistance", distanceControl));
 			const directionControl = makeAngleControl(document,
 				commonValue(selected, event => event.tipPointSpawnAngle),
 				value => this.onChange("tipPointSpawnAngle", value), this.i18n);
-			setControlDisabled(directionControl, absolute !== false);
+			setControlDisabled(directionControl, !spawnFieldsEnabled || absolute !== false);
 			group.append(this.#row("field.spawnDirection", directionControl));
 
 			const timeInBeats = commonValue(selected, event => event.tipPointSpawnTimeBeats);
-			group.append(this.#row("field.spawnUnit", makeRadioControl(document, [
+			const spawnUnitControl = makeRadioControl(document, [
 				{ value: "seconds", label: this.i18n.t("field.seconds") },
 				{ value: "beats", label: this.i18n.t("field.beats") },
 			], timeInBeats === MIXED ? MIXED : timeInBeats ? "beats" : "seconds",
-			value => this.onChange("tipPointSpawnTimeBeats", value === "beats"))));
+			value => this.onChange("tipPointSpawnTimeBeats", value === "beats"));
+			setControlDisabled(spawnUnitControl, !spawnFieldsEnabled);
+			group.append(this.#row("field.spawnUnit", spawnUnitControl));
 			const spawnTime = commonValue(selected, event => event.tipPointSpawnTime);
 			const secondsControl = makeExpressionControl(document,
 				timeInBeats === false ? spawnTime : timeInBeats === MIXED ? MIXED : "",
 				value => this.onChange("tipPointSpawnTime", Math.max(0, value)));
-			setControlDisabled(secondsControl, timeInBeats !== false);
+			setControlDisabled(secondsControl, !spawnFieldsEnabled || timeInBeats !== false);
 			group.append(this.#row("field.spawnTimeSeconds", secondsControl));
 			const beatsControl = makeRationalControl(document,
 				timeInBeats === true ? spawnTime : timeInBeats === MIXED ? MIXED : [0, 0, 1],
 				value => this.onChange("tipPointSpawnTime", value));
-			setControlDisabled(beatsControl, timeInBeats !== true);
+			setControlDisabled(beatsControl, !spawnFieldsEnabled || timeInBeats !== true);
 			group.append(this.#row("field.spawnTimeBeats", beatsControl));
 		}
 		this.element.append(group);
@@ -524,13 +530,15 @@ export class SnappeesPanel {
 		this.onDuplicate = options.onDuplicate || (() => {});
 		this.onDelete = options.onDelete || (() => {});
 		this.onEdit = options.onEdit || (() => {});
+		this.onMove = options.onMove || (() => {});
 		this.cleanup = [];
 	}
 
-	#action(icon, tooltipKey, callback) {
+	#action(icon, tooltipKey, callback, disabled = false) {
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "snappee-action";
+		button.disabled = disabled;
 		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
 		const image = document.createElement("img");
 		image.src = `svg/icons/${icon}.svg`;
@@ -539,7 +547,7 @@ export class SnappeesPanel {
 		button.append(image);
 		button.addEventListener("click", event => {
 			event.stopPropagation();
-			callback();
+			if (!button.disabled) callback();
 		});
 		this.cleanup.push(this.tooltip?.register(button, tooltipKey));
 		return button;
@@ -556,7 +564,7 @@ export class SnappeesPanel {
 			this.element.append(empty);
 			return;
 		}
-		for (const snappee of model.snappees) {
+		model.snappees.forEach((snappee, index) => {
 			const item = document.createElement("div");
 			item.className = `snappee-item${snappee.selected ? " is-selected" : ""}${snappee.active === false ? " is-inactive" : ""}`;
 			item.tabIndex = 0;
@@ -570,6 +578,9 @@ export class SnappeesPanel {
 				this.#action(snappee.active === false ? "activate" : "deactivate", snappee.active === false ? "panel.snappee.activate" : "panel.snappee.deactivate",
 					() => this.onToggle(snappee.id)),
 				this.#action("duplicate", "panel.snappee.duplicate", () => this.onDuplicate(snappee.id)),
+				this.#action("up", "panel.snappee.moveUp", () => this.onMove(snappee.id, -1), index === 0),
+				this.#action("down", "panel.snappee.moveDown", () => this.onMove(snappee.id, 1), index === model.snappees.length - 1),
+				this.#action("edit", "panel.snappee.edit", () => this.onEdit(snappee.id)),
 				this.#action("delete", "panel.snappee.delete", () => this.onDelete(snappee.id)),
 			);
 			item.addEventListener("click", () => {
@@ -581,7 +592,7 @@ export class SnappeesPanel {
 			});
 			this.cleanup.push(this.tooltip?.register(item, "panel.snappee.edit"));
 			this.element.append(item);
-		}
+		});
 	}
 }
 
@@ -639,8 +650,8 @@ export class ChannelsPanel {
 					channel.active === false ? "panel.channel.activate" : "panel.channel.deactivate",
 					() => this.onToggle(channel.id)),
 				this.#action("duplicate", "panel.channel.duplicate", () => this.onDuplicate(channel.id)),
-				this.#action("move-channel-up", "panel.channel.moveUp", () => this.onMove(channel.id, -1), index === 0),
-				this.#action("move-channel-down", "panel.channel.moveDown", () => this.onMove(channel.id, 1), index === model.channels.length - 1),
+				this.#action("up", "panel.channel.moveUp", () => this.onMove(channel.id, -1), index === 0),
+				this.#action("down", "panel.channel.moveDown", () => this.onMove(channel.id, 1), index === model.channels.length - 1),
 				this.#action("edit", "panel.channel.rename", () => this.onEdit(channel.id)),
 				this.#action("delete", "panel.channel.delete", () => this.onDelete(channel.id), model.channels.length <= 1),
 			);

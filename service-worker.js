@@ -1,11 +1,12 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v26";
+const CACHE_VERSION = "sviber-v27";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
 	"./",
 	"./index.html",
+	"./macros.html",
 	"./javascript.html",
 	"./source-viewer.html",
 	"./package.json",
@@ -15,6 +16,7 @@ const APP_SHELL = [
 	"./css/license.css",
 	"./css/fonts-local.css",
 	"./css/fonts-web.css",
+	"./css/macros.css",
 	"./js/app-helpers.js",
 	"./js/app-core.js",
 	"./js/app-event-editing.js",
@@ -39,6 +41,7 @@ const APP_SHELL = [
 	"./svg/icon.svg",
 	"./js/vendor-loader.js",
 	"./js/app.js?v=20",
+	"./js/macros.js",
 	"./js/commands.js",
 	"./js/i18n.js",
 	"./js/panels.js",
@@ -69,7 +72,7 @@ const APP_SHELL = [
 		"create-flick.svg", "create-hold.svg", "create-radial-mesh.svg",
 		"create-rectangular-mesh.svg", "create-regular-polygon-mesh.svg", "create-tap.svg",
 		"deactivate-snappee.svg", "delete-channel.svg", "detach.svg", "edit.svg", "free-transform.svg",
-		"move-channel-down.svg", "move-channel-up.svg", "move-to-channel-above.svg",
+		"move-channel-down.svg", "move-channel-up.svg", "up.svg", "down.svg", "move-to-channel-above.svg",
 		"move-to-channel-below.svg", "pen.svg", "play-pause.svg", "seek-to-start.svg",
 		"speed-0-25.svg", "speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",
 		"time-lattice-2.svg", "time-lattice-3.svg", "time-lattice-4.svg",
@@ -80,6 +83,7 @@ const CDN_ASSETS = [
 	"https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js",
 	"https://cdn.jsdelivr.net/npm/mathjs@15.2.0/lib/browser/math.js",
 	"https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
+	"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js",
 	"https://cdn.jsdelivr.net/npm/audio-decode@3.12.0/+esm",
 	"https://cdn.jsdelivr.net/npm/@audio/decode@3.12.0/+esm",
 	"https://cdn.jsdelivr.net/npm/audio-type@2.4.2/+esm",

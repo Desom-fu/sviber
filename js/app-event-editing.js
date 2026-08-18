@@ -33,18 +33,18 @@ export const withEventEditing = Base => class extends Base {
 			getTimeBounds: () => this.timeBounds(true),
 			isPlaying: () => this.audio.playing,
 			onSeekStart: () => {
-				this.resumePlaybackAfterSeek = this.audio.playing;
+				this.resumePlaybackAfterSeek = this.audio.playing ? this.audio.direction : false;
 				if (this.audio.playing) this.audio.pause();
 			},
 			onSeekEnd: () => {
 				const resume = this.resumePlaybackAfterSeek;
 				this.resumePlaybackAfterSeek = false;
-				if (resume) void this.audio.play();
+				if (resume === -1) void this.audio.playReverse();
+				else if (resume === 1) void this.audio.play();
 			},
-			onSelectEvents: (ids, mode) => { this.exitCreationModes(); this.selectEvents(ids, mode); },
-			onRangeSelect: (beat, channel, mode) => { this.exitCreationModes(); this.rangeSelect(beat, channel, mode); },
+			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
+			onRangeSelect: (beat, channel, mode) => this.rangeSelect(beat, channel, mode),
 			onSeekBeat: (beat, channel, clearSelection) => {
-				if (clearSelection) this.exitCreationModes();
 				this.seekBeat(beat, channel, clearSelection);
 			},
 			onPreviewSeekBeat: beat => this.seekBeat(beat, null, false, { lightweight: true }),
@@ -66,8 +66,8 @@ export const withEventEditing = Base => class extends Base {
 				});
 				this.rememberCreationDefaults(this.model.events.filter(event => ids.has(event.id)));
 			},
-			onPreviewBoxSelect: (ids, mode) => { this.exitCreationModes(); this.previewSelection(ids, mode); },
-			onBoxSelect: (ids, mode) => { this.exitCreationModes(); this.finishSelectionPreview(ids, mode); },
+			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode),
+			onBoxSelect: (ids, mode) => this.finishSelectionPreview(ids, mode),
 			onEndPreview: () => this.endInteractionPreview(),
 			onVisibleRange: (beginning, end) => this.setVisibleRange(beginning, end),
 			onPageVisibleRange: direction => this.pageVisibleRange(direction),
@@ -359,8 +359,9 @@ export const withEventEditing = Base => class extends Base {
 		return false;
 	}
 
-	navigateWheel(deltaY, zoom = false) {
+	navigateWheel(deltaY, zoom = false, allowLockedRangeChange = false) {
 		if (zoom) {
+			if (this.model.editor.lockVisibleRange && !allowLockedRangeChange) return;
 			const editor = this.model.editor;
 			const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
 			const factor = deltaY < 0 ? 0.82 : 1.22;
@@ -374,7 +375,9 @@ export const withEventEditing = Base => class extends Base {
 		const oldSeconds = this.currentSeconds();
 		const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
 		const inside = oldSeconds >= editor.visibleRangeBeginning && oldSeconds <= editor.visibleRangeEnd;
-		const moveVisibleRange = inside && (direction > 0 ? oldSeconds >= center : oldSeconds <= center);
+		const moveVisibleRange = !this.model.editor.lockVisibleRange || allowLockedRangeChange
+			? inside && (direction > 0 ? oldSeconds >= center : oldSeconds <= center)
+			: false;
 		const nextBeat = this.currentBeat().add(new Rational(direction, this.model.editor.subdivision));
 		const nextSeconds = this.timing().beatToSeconds(nextBeat);
 		const bounds = this.timeBounds();
@@ -460,7 +463,7 @@ export const withEventEditing = Base => class extends Base {
 		const sharedSnappeeId = attached.length === movable.length && new Set(attached.map(event => event.snappee)).size === 1
 			? attached[0]?.snappee : null;
 		const sharedSnappee = model.snappees.find(snappee => snappee.id === sharedSnappeeId);
-		if (sharedSnappee && primary.attached && primary.snappee === sharedSnappee.id) {
+		if (movable.length > 1 && sharedSnappee && primary.attached && primary.snappee === sharedSnappee.id) {
 			let points;
 			try { points = sampleSnappee(sharedSnappee); } catch { return; }
 			if (!allowsOutOfBounds(model)) points = points.filter(isPointWithinChartBounds);
@@ -527,8 +530,8 @@ export const withEventEditing = Base => class extends Base {
 			}
 			return;
 		}
-		if (attached.length && attached.length === movable.length) return;
-		if (attached.length && !this._canUseStageMoveAttachmentException(model)) return;
+		if (movable.length > 1 && attached.length === movable.length) return;
+		if (movable.length > 1 && attached.length && !this._canUseStageMoveAttachmentException(model)) return;
 		const original = resolveAttachedPosition(primary, model.snappees) || primary;
 		const target = { x: Number(point.x), y: Number(point.y) };
 		const positions = movable.map(event => resolveAttachedPosition(event, model.snappees) || event);
@@ -644,6 +647,10 @@ export const withEventEditing = Base => class extends Base {
 
 	transformationTargets(model = this.model) {
 		const attachedIds = this.attachedSnappeeIds(model);
+		if (!model.events.some(event => event.selected)) {
+			const selectedSnappee = model.snappees.find(snappee => snappee.selected && snappee.active !== false);
+			if (selectedSnappee) attachedIds.add(selectedSnappee.id);
+		}
 		const directEvents = model.events.filter(event => event.selected && MOVABLE_TYPES.has(event.type) && !event.attached);
 		const affectedEvents = model.events.filter(event => directEvents.includes(event)
 			|| (event.attached && attachedIds.has(event.snappee) && MOVABLE_TYPES.has(event.type)));

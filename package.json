@@ -35,6 +35,7 @@
 		"audio-decode": "^3.12.0",
 		"jszip": "^3.10.1",
 		"mathjs": "^15.2.0",
+		"monaco-editor": "^0.52.2",
 		"pixi.js": "^8.19.0"
 	},
 	"devDependencies": {

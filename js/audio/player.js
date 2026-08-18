@@ -35,12 +35,16 @@ export class AudioPlayer extends EventTarget {
 		this.objectUrl = null;
 		this.filename = "";
 		this.playing = false;
+		this.direction = 1;
 		this.rate = 1;
 		this.position = 0;
 		this.startedAt = 0;
 		this.startedPosition = 0;
+		this.syntheticStart = 0;
 		this.syntheticEnd = 10;
 		this.animationFrame = 0;
+		this.loopRange = null;
+		this.lastLoopCycle = 0;
 		this.hitSources = new Set();
 		this.hitBuffers = new Map();
 		this.lastEffectBeat = -Infinity;
@@ -52,7 +56,25 @@ export class AudioPlayer extends EventTarget {
 
 	get currentTime() {
 		if (!this.playing || !this.context) return this.position;
-		return this.startedPosition + (this.context.currentTime - this.startedAt) * this.rate;
+		return this.#playbackPosition().time;
+	}
+
+	#playbackPosition() {
+		const elapsed = Math.max(0, this.context.currentTime - this.startedAt) * this.rate;
+		const raw = this.startedPosition + elapsed * this.direction;
+		if (!this.loopRange) return { time: raw, cycle: 0 };
+		const [beginning, end] = this.loopRange;
+		const span = end - beginning;
+		if (this.direction > 0 && raw >= end) {
+			const cycle = Math.floor((raw - beginning) / span);
+			return { time: beginning + ((raw - beginning) % span + span) % span, cycle };
+		}
+		if (this.direction < 0 && raw < beginning) {
+			const cycle = Math.ceil((beginning - raw) / span);
+			const distance = ((beginning - raw) % span + span) % span;
+			return { time: distance === 0 ? end : end - distance, cycle };
+		}
+		return { time: raw, cycle: 0 };
 	}
 
 	async ensureContext() {
@@ -110,6 +132,20 @@ export class AudioPlayer extends EventTarget {
 		this.dispatchEvent(new CustomEvent("ratechange", { detail: nextRate }));
 	}
 
+	setLoopRange(range) {
+		const values = Array.isArray(range) ? range.map(Number) : [];
+		const next = values.length === 2 && values.every(Number.isFinite) && values[1] > values[0]
+			? [values[0], values[1]] : null;
+		if (JSON.stringify(next) === JSON.stringify(this.loopRange)) return;
+		const wasPlaying = this.playing;
+		const time = this.currentTime;
+		if (wasPlaying) this.#stopSource();
+		this.loopRange = next;
+		this.position = time;
+		this.lastLoopCycle = 0;
+		if (wasPlaying) this.#startSource();
+	}
+
 	seek(seconds) {
 		const provided = Number(seconds);
 		const nextTime = Math.min(this.duration, Number.isFinite(provided) ? provided : 0);
@@ -122,14 +158,36 @@ export class AudioPlayer extends EventTarget {
 		this.#emitTime();
 	}
 
-	async play() {
-		if (this.playing) return;
+	async #playDirection(direction) {
+		const nextDirection = direction < 0 ? -1 : 1;
+		if (this.playing && this.direction === nextDirection) return;
 		await this.ensureContext();
+		const wasPlaying = this.playing;
+		if (wasPlaying) {
+			this.position = this.currentTime;
+			this.#stopSource();
+			this.#stopHitSources();
+		}
+		this.direction = nextDirection;
 		this.playing = true;
-		if (this.position >= this.duration) this.position = 0;
+		if (this.direction > 0 && this.position >= this.duration) this.position = 0;
+		if (this.direction < 0 && this.position <= Math.min(0, this.loopRange?.[0] ?? 0)) {
+			this.position = this.loopRange?.[1] ?? this.duration;
+		}
 		this.#startSource();
-		this.dispatchEvent(new Event("play"));
-		this.#tick();
+		if (wasPlaying) this.dispatchEvent(new CustomEvent("directionchange", { detail: this.direction }));
+		else {
+			this.dispatchEvent(new CustomEvent("play", { detail: { direction: this.direction } }));
+			this.#tick();
+		}
+	}
+
+	async play() {
+		return this.#playDirection(1);
+	}
+
+	async playReverse() {
+		return this.#playDirection(-1);
 	}
 
 	pause() {
@@ -156,14 +214,25 @@ export class AudioPlayer extends EventTarget {
 		if (!this.context) return;
 		this.startedAt = this.context.currentTime;
 		this.startedPosition = this.position;
-		if (!this.buffer) return;
+		this.lastLoopCycle = 0;
+		if (!this.buffer || this.direction < 0) return;
 		const source = this.context.createBufferSource();
 		source.buffer = this.buffer;
 		source.playbackRate.value = this.rate;
+		if (this.loopRange) {
+			const maximum = Math.max(0, this.buffer.duration - 0.001);
+			const beginning = Math.max(0, Math.min(maximum, this.loopRange[0]));
+			const end = Math.max(beginning + 0.001, Math.min(this.buffer.duration, this.loopRange[1]));
+			if (end > beginning) {
+				source.loop = true;
+				source.loopStart = beginning;
+				source.loopEnd = end;
+			}
+		}
 		source.connect(this.gain);
 		source.onended = () => {
 			if (this.source !== source || !this.playing) return;
-			if (this.currentTime >= this.duration - 0.01) {
+			if (!source.loop && this.currentTime >= this.duration - 0.01) {
 				this.position = this.duration;
 				this.playing = false;
 				this.source = null;
@@ -200,8 +269,19 @@ export class AudioPlayer extends EventTarget {
 
 	#tick = () => {
 		if (!this.playing) return;
-		if (!this.buffer && this.currentTime >= this.syntheticEnd) {
-			this.position = this.syntheticEnd;
+		const playback = this.#playbackPosition();
+		if (playback.cycle !== this.lastLoopCycle) {
+			this.lastLoopCycle = playback.cycle;
+			this.dispatchEvent(new CustomEvent("loop", { detail: {
+				direction: this.direction,
+				time: playback.time,
+			} }));
+		}
+		const endedForward = !this.loopRange && this.direction > 0
+			&& (!this.buffer && playback.time >= this.syntheticEnd);
+		const endedReverse = !this.loopRange && this.direction < 0 && playback.time <= this.syntheticStart;
+		if (endedForward || endedReverse) {
+			this.position = endedForward ? this.syntheticEnd : this.syntheticStart;
 			this.playing = false;
 			this.dispatchEvent(new Event("ended"));
 			this.#emitTime();
@@ -240,6 +320,30 @@ export class AudioPlayer extends EventTarget {
 			gain.disconnect();
 		};
 		source.start(time);
+		return record;
+	}
+
+	async playMetronome(delay = 0, accent = false) {
+		const context = await this.ensureContext();
+		if (!context?.createOscillator || !context?.createGain) return null;
+		const time = context.currentTime + Math.max(0, Number(delay) || 0);
+		const source = context.createOscillator();
+		const gain = context.createGain();
+		source.type = "square";
+		source.frequency.setValueAtTime(accent ? 1760 : 1320, time);
+		gain.gain.setValueAtTime(accent ? 0.24 : 0.16, time);
+		gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
+		source.connect(gain);
+		gain.connect(context.destination);
+		const record = { source, gain, startTime: time };
+		this.hitSources.add(record);
+		source.onended = () => {
+			this.hitSources.delete(record);
+			source.disconnect();
+			gain.disconnect();
+		};
+		source.start(time);
+		source.stop(time + 0.05);
 		return record;
 	}
 

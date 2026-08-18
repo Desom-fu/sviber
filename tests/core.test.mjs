@@ -445,9 +445,9 @@ test("Sunniesnow import rebuilds guide modes, BPM-spanning holds, and warnings",
 	const [tap, hold, flick] = model.events;
 	assert.equal(tap.tipPointSpawnType, "chain");
 	assert.equal(hold.tipPointSpawnType, "inherit");
-	assert.equal(tap.tipPointSpawnAbsolutePosition, true);
-	assert.equal(tap.tipPointSpawnX, -20);
-	assert.equal(tap.tipPointSpawnY, 30);
+	assert.equal(tap.tipPointSpawnAbsolutePosition, false);
+	assert.equal(tap.tipPointSpawnDistance, 35);
+	assert.ok(Math.abs(tap.tipPointSpawnAngle - Math.atan2(28, -21)) < 1e-12);
 	assert.equal(tap.tipPointSpawnTime, 0.5);
 	assert.deepEqual(hold.duration, [2, 0, 1]);
 	assert.equal(flick.angle, 0.25);

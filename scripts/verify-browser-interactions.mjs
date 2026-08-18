@@ -480,30 +480,46 @@ export async function runInteractionChecks(page, outputDirectory) {
 	assert.equal(await page.locator('#inspector-panel input[type="radio"][value="relative"]').isChecked(), true);
 	assert.equal(await page.locator('#inspector-panel input[type="radio"][value="seconds"]').isChecked(), true);
 	assert.equal(await page.locator('#inspector-panel label[title="绝对"] + .attached-input input').first().isDisabled(), true);
-	assert.equal(await page.locator('#inspector-panel label[title="生成距离"] + input').isDisabled(), false);
+	assert.equal(await page.locator('#inspector-panel label[title="生成距离"] + input').isDisabled(), true,
+		"tip-point spawn fields must be disabled for inherit mode");
+	await page.locator('#inspector-panel label[title="生成类型"] + select').selectOption("chain");
+	assert.equal(await page.locator('#inspector-panel label[title="生成距离"] + input').isDisabled(), true,
+		"mixed chain/inherit selection must keep spawn fields disabled");
+	await page.evaluate(() => {
+		const firstSelected = globalThis.sviber.model.events.find(event => event.selected);
+		if (firstSelected) globalThis.sviber.selectEvents([firstSelected.id], "replace");
+	});
+	await page.waitForFunction(() => globalThis.sviber.model.events.filter(event => event.selected).length === 1);
+	await page.waitForFunction(() => !document.querySelector('#inspector-panel label[title="生成距离"] + input')?.disabled);
 
 	const positionX = page.locator('#inspector-panel label[title="位置"] + .attached-input input').first();
 	await positionX.fill("100 / 4");
 	await positionX.press("Tab");
-	await page.waitForFunction(() => globalThis.sviber.model.events.every(event => event.x === 25));
+	await page.waitForFunction(() => globalThis.sviber.model.events.filter(event => event.selected).every(event => event.x === 25));
 	await page.evaluate(() => document.activeElement?.blur());
 	await page.keyboard.press("Control+z");
-	await page.waitForFunction(() => globalThis.sviber.model.events.some(event => event.x !== 25));
+	await page.waitForFunction(() => globalThis.sviber.model.events.filter(event => event.selected).some(event => event.x !== 25));
 	const radiansToggle = page.locator('#inspector-panel label[title="生成方向"] + .angle-input input[type="checkbox"]');
 	await radiansToggle.check();
 	const directionInput = page.locator('#inspector-panel label[title="生成方向"] + .angle-input > input');
 	await directionInput.fill("pi / 3");
 	await directionInput.press("Tab");
-	await page.waitForFunction(() => globalThis.sviber.model.events.every(event => Math.abs(event.tipPointSpawnAngle - Math.PI / 3) < 1e-9));
+	await page.waitForFunction(() => globalThis.sviber.model.events.filter(event => event.selected)
+		.every(event => Math.abs(event.tipPointSpawnAngle - Math.PI / 3) < 1e-9));
 
+	await page.evaluate(() => globalThis.sviber.selectEvents(globalThis.sviber.model.events.map(event => event.id), "replace"));
+	await page.waitForFunction(() => globalThis.sviber.model.events.every(event => event.selected));
 	const eventType = page.locator('#inspector-panel label[title="类型"] + select');
 	await eventType.selectOption("bgNote");
 	await page.waitForFunction(() => globalThis.sviber.model.events.every(event => event.type === "bgNote"));
-	const durationInputs = page.locator('#inspector-panel label[title="持续拍数"] + .rational-input input');
-	await durationInputs.nth(0).fill("0");
-	await durationInputs.nth(1).fill("0");
-	await durationInputs.nth(2).fill("1");
-	await durationInputs.nth(2).press("Tab");
+	await page.waitForSelector('#inspector-panel label[title="持续拍数"] + .rational-input');
+	await page.evaluate(() => {
+		const inputs = [...document.querySelector('#inspector-panel label[title="持续拍数"] + .rational-input').querySelectorAll('input')];
+		inputs[0].value = "0";
+		inputs[1].value = "0";
+		inputs[2].value = "1";
+		inputs[2].dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: null }));
+	});
 	await page.waitForFunction(() => globalThis.sviber.model.events.every(event => JSON.stringify(event.duration) === JSON.stringify([0, 0, 1])));
 	await page.evaluate(() => document.activeElement?.blur());
 	await page.keyboard.press("Control+d");
@@ -513,7 +529,7 @@ export async function runInteractionChecks(page, outputDirectory) {
 		defaultDurationStageBox.y + defaultDurationStageBox.height * 0.64);
 	await page.waitForFunction(() => globalThis.sviber.model.events.length === 3);
 	assert.deepEqual(await page.evaluate(() => globalThis.sviber.model.events.find(event => event.selected).duration), [0, 0, 1],
-		"bgNote creation did not remember the most recently edited duration");
+		"bgNote creation did not remember the edited duration");
 	await page.keyboard.press("Escape");
 	await page.keyboard.press("Control+a");
 	const positionsBeforeTransform = await page.evaluate(() => globalThis.sviber.model.events.map(event => ({ x: event.x, y: event.y })));

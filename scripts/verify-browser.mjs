@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { PNG } from "pngjs";
 import { chromium } from "playwright-core";
 import { runInteractionChecks } from "./verify-browser-interactions.mjs";
+import { runMacroChecks } from "./verify-browser-macros.mjs";
 import { runProjectChecks } from "./verify-browser-project.mjs";
 import { runV8BrowserChecks } from "./verify-browser-v8.mjs";
 import { runPreferenceAndLicenseChecks } from "./verify-browser-preferences.mjs";
@@ -260,6 +261,7 @@ await context.addInitScript(() => {
 const page = await context.newPage();
 let playbackBenchmark;
 let editingBenchmark;
+let macroChecks;
 const pageErrors = [];
 const resourceErrors = [];
 page.on("pageerror", error => pageErrors.push(error.message));
@@ -309,7 +311,9 @@ try {
 	assert.ok(await page.evaluate(timestamp => Number(localStorage.getItem("sviber.manualSaveTime")) > timestamp,
 		startupAutosaveTimestamp), "discarding startup recovery did not suppress the same autosave on reload");
 	assert.equal(await page.locator("#inspector-tab").textContent(), "检查器");
-	assert.equal(await page.locator(".menu-root-button").count(), 8);
+	assert.equal(await page.locator(".menu-root-button").count(), 9);
+	assert.equal(await page.locator('.menu-root[data-menu-id="macros"] .menu-root-button').count(), 1);
+	macroChecks = await runMacroChecks(browser, activeBaseUrl);
 	await page.locator('.menu-root[data-menu-id="file"] .menu-root-button').click();
 	const importFileCommand = page.locator('.menu-command[data-command="file.importFile"]');
 	assert.equal((await importFileCommand.textContent()).trim(), "导入谱面/关卡文件...");
@@ -597,10 +601,14 @@ try {
 		app.attachSelected();
 		const unboundedAttach = app.model.events[0].attached;
 
-		install({ allow: false, events: [{ ...tap(0, 0, 0), attached: true, snappee: 0, snapPoint: [0, 0], x: undefined, y: undefined }], snappees: [mesh(false)] });
+		const attachedPair = () => [
+			{ ...tap(0, 0, 0), attached: true, snappee: 0, snapPoint: [0, 0], x: undefined, y: undefined },
+			{ ...tap(1, 0, 0), attached: true, snappee: 0, snapPoint: [0, 0], x: undefined, y: undefined },
+		];
+		install({ allow: false, events: attachedPair(), snappees: [mesh(false)] });
 		app.movePosition(0, { x: 130, y: 0, snappeeId: 0, snapPoint: [1, 0] });
 		const boundedAttachedMove = structuredClone(app.model.events[0].snapPoint);
-		install({ allow: true, events: [{ ...tap(0, 0, 0), attached: true, snappee: 0, snapPoint: [0, 0], x: undefined, y: undefined }], snappees: [mesh(false)] });
+		install({ allow: true, events: attachedPair(), snappees: [mesh(false)] });
 		app.movePosition(0, { x: 130, y: 0, snappeeId: 0, snapPoint: [1, 0] });
 		const unboundedAttachedMove = structuredClone(app.model.events[0].snapPoint);
 
@@ -828,7 +836,7 @@ try {
 	});
 	assert.equal(toolbarGeometry.switcher.right - toolbarGeometry.switcher.left, 0,
 		`the web chart selector occupies layout space: ${JSON.stringify(toolbarGeometry)}`);
-	assert.equal(toolbarGeometry.buttons.length, 34);
+	assert.equal(toolbarGeometry.buttons.length, 32);
 	assert.ok(toolbarGeometry.buttons.every(button => button.width > 0
 		&& button.left >= toolbarGeometry.toolbar.left - 1 && button.right <= toolbarGeometry.toolbar.right + 1),
 		`not every toolbar command is visible at 960px: ${JSON.stringify(toolbarGeometry)}`);
@@ -880,7 +888,8 @@ try {
 	const unexpectedResources = resourceErrors.filter(message => !message.includes("/sviber/assets/fonts/"));
 	assert.deepEqual(unexpectedErrors, [], `browser errors: ${unexpectedErrors.join(" | ")}`);
 	assert.deepEqual(unexpectedResources, [], `resource errors: ${unexpectedResources.join(" | ")}`);
-	console.log(JSON.stringify({ baseUrl: activeBaseUrl, playbackBenchmark, editingBenchmark, canvasSummaries, screenshots: outputDirectory }, null, 2));
+	console.log(JSON.stringify({ baseUrl: activeBaseUrl, playbackBenchmark, editingBenchmark, macroChecks,
+		canvasSummaries, screenshots: outputDirectory }, null, 2));
 } finally {
 	await context.setOffline(false).catch(() => {});
 	await context.close();

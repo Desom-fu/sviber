@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#25282c">
+	<title data-i18n="page.title">sviber Macros</title>
+	<link rel="icon" href="svg/icon.svg" type="image/svg+xml">
+	<link rel="stylesheet" href="css/macros.css">
+</head>
+<body>
+	<div class="macro-shell">
+		<header class="macro-chrome">
+			<nav class="macro-menu" aria-label="Macros menu" data-i18n-aria="menu.aria">
+				<div class="menu-root"><button type="button" data-menu="file" data-i18n="menu.file" data-mnemonic="F">File</button><div class="menu-popup" data-popup="file">
+					<button data-action="new"><span data-i18n="menu.new">New...</span> <kbd>Ctrl+N</kbd></button><button data-action="save"><span data-i18n="menu.save">Save</span> <kbd>Ctrl+S</kbd></button><button data-action="rename" data-i18n="menu.rename">Rename...</button><button data-action="import" data-i18n="menu.import">Import...</button><button data-action="export" data-i18n="menu.export">Export...</button>
+				</div></div>
+				<div class="menu-root"><button type="button" data-menu="edit" data-i18n="menu.edit" data-mnemonic="E">Edit</button><div class="menu-popup" data-popup="edit">
+					<button data-action="undo"><span data-i18n="menu.undo">Undo</span> <kbd>Ctrl+Z</kbd></button><button data-action="redo"><span data-i18n="menu.redo">Redo</span> <kbd>Ctrl+Y</kbd></button><hr><button data-action="cut"><span data-i18n="menu.cut">Cut</span> <kbd>Ctrl+X</kbd></button><button data-action="copy"><span data-i18n="menu.copy">Copy</span> <kbd>Ctrl+C</kbd></button><button data-action="paste"><span data-i18n="menu.paste">Paste</span> <kbd>Ctrl+V</kbd></button>
+				</div></div>
+				<div class="menu-root"><button type="button" data-menu="run" data-i18n="menu.run" data-mnemonic="R">Run</button><div class="menu-popup" data-popup="run"><button data-action="run"><span data-i18n="menu.run">Run</span> <kbd>F8</kbd></button></div></div>
+			</nav>
+		</header>
+		<main class="macro-workspace">
+			<aside class="macro-sidebar">
+				<div class="macro-tabs" role="tablist"><button class="is-active" data-list="global" role="tab" data-i18n="list.global">Global</button><button data-list="project" role="tab" disabled data-i18n="list.project">Project</button></div>
+				<div id="macro-list" class="macro-list"></div>
+			</aside>
+			<section class="macro-editor-area">
+				<div id="macro-editor-tabs" class="editor-tabs"></div>
+				<div id="macro-editor" class="macro-editor" aria-label="JavaScript macro editor"></div>
+				<textarea id="macro-fallback" class="macro-fallback" spellcheck="false" hidden></textarea>
+					<section class="macro-console"><div class="console-heading" data-i18n="console.heading">Console</div><pre id="macro-console-output"></pre></section>
+			</section>
+		</main>
+		</div>
+		<dialog id="macro-form-dialog" aria-labelledby="macro-form-title">
+			<form id="macro-form">
+				<h2 id="macro-form-title" data-i18n="form.newTitle">New macro</h2>
+				<label class="macro-form-field"><span data-i18n="form.name">Name</span><input id="macro-form-name" type="text" required autocomplete="off"></label>
+				<fieldset id="macro-form-scope-field" class="macro-form-scope">
+					<legend data-i18n="form.scope">Macro scope</legend>
+					<label><input type="radio" name="macro-scope" value="global" checked><span data-i18n="list.global">Global</span></label>
+					<label><input type="radio" name="macro-scope" value="project"><span data-i18n="list.project">Project</span></label>
+				</fieldset>
+				<p id="macro-form-error" class="macro-form-error" role="alert" hidden></p>
+				<div class="macro-form-actions"><button type="button" value="cancel" data-macro-cancel data-i18n="form.cancel">Cancel</button><button type="submit" data-i18n="form.ok">OK</button></div>
+			</form>
+		</dialog>
+		<input id="macro-import" type="file" accept=".js,text/javascript" hidden>
+	<script type="module" src="js/macros.js"></script>
+</body>
+</html>

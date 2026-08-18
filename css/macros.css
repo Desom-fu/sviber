@@ -1,0 +1,63 @@
+:root {
+	color-scheme: light dark;
+	--surface: #f4f5f6;
+	--panel: #ffffff;
+	--chrome: #e6e8eb;
+	--border: #c8ccd1;
+	--text: #202428;
+	--muted: #697078;
+	--accent: #2468c7;
+}
+@media (prefers-color-scheme: dark) {
+	:root { --surface: #17191c; --panel: #202328; --chrome: #292d32; --border: #444a52; --text: #e7eaed; --muted: #a7afb8; --accent: #69a7ff; }
+}
+* { box-sizing: border-box; }
+.visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--surface); color: var(--text); font: 13px system-ui, sans-serif; }
+button, textarea { font: inherit; letter-spacing: 0; }
+button { color: inherit; cursor: pointer; }
+.macro-shell { display: grid; grid-template-rows: 34px minmax(0, 1fr); width: 100%; height: 100dvh; }
+.macro-chrome { background: var(--chrome); border-bottom: 1px solid var(--border); }
+.macro-menu { display: flex; height: 100%; padding-left: 4px; }
+.menu-root { position: relative; }
+.menu-root > button { height: 100%; padding: 0 14px; border: 0; background: transparent; color: inherit; }
+.menu-root > button:hover, .menu-root.is-open > button { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.menu-popup { position: absolute; top: 33px; left: 0; z-index: 20; display: none; min-width: 160px; padding: 4px 0; border: 1px solid var(--border); background: var(--panel); box-shadow: 2px 4px 10px #0004; }
+.menu-root.is-open .menu-popup { display: block; }
+.menu-popup button { display: flex; justify-content: space-between; gap: 20px; width: 100%; padding: 6px 14px; border: 0; background: transparent; text-align: left; white-space: nowrap; }
+.menu-popup kbd { color: var(--muted); font: inherit; }
+.menu-popup button:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.menu-popup hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
+.macro-workspace { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; }
+.macro-sidebar { display: grid; grid-template-rows: 34px minmax(0, 1fr); min-height: 0; border-right: 1px solid var(--border); background: var(--panel); }
+.macro-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); }
+.macro-tabs button { border: 0; border-right: 1px solid var(--border); background: transparent; color: var(--muted); }
+.macro-tabs button.is-active { color: var(--text); background: color-mix(in srgb, var(--accent) 15%, transparent); box-shadow: inset 0 -2px var(--accent); }
+.macro-list { min-height: 0; overflow: auto; padding: 4px; }
+.macro-list button { display: block; width: 100%; padding: 7px 8px; border: 0; background: transparent; color: inherit; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.macro-list button:hover, .macro-list button.is-active { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.macro-editor-area { display: grid; grid-template-rows: 32px minmax(160px, 1fr) 150px; min-width: 0; min-height: 0; background: var(--surface); }
+.editor-tabs { display: flex; min-width: 0; overflow-x: auto; border-bottom: 1px solid var(--border); background: var(--chrome); }
+.editor-tab { display: flex; align-items: center; gap: 8px; min-width: 100px; max-width: 220px; padding: 0 8px 0 12px; border: 0; border-right: 1px solid var(--border); background: transparent; color: inherit; cursor: pointer; }
+.editor-tab.is-active { background: var(--panel); }
+.editor-tab .tab-close { width: 20px; height: 20px; padding: 0; border: 0; background: transparent; color: var(--muted); }
+.editor-tab .tab-close:hover { color: var(--text); background: color-mix(in srgb, var(--accent) 20%, transparent); }
+.macro-editor, .macro-fallback { min-width: 0; min-height: 0; width: 100%; height: 100%; border: 0; }
+.macro-fallback { resize: none; padding: 12px; background: var(--panel); color: var(--text); font: 13px/1.5 "Cascadia Code", Consolas, monospace; user-select: text; }
+.macro-console { min-height: 0; overflow: auto; border-top: 1px solid var(--border); background: #111318; color: #cbd4df; }
+.console-heading { padding: 5px 9px; border-bottom: 1px solid #333943; color: #94a2b2; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+#macro-console-output { margin: 0; padding: 7px 9px; min-height: 90px; white-space: pre-wrap; overflow-wrap: anywhere; font: 12px/1.4 "Cascadia Mono", Consolas, monospace; }
+dialog#macro-form-dialog { width: min(420px, calc(100vw - 32px)); padding: 0; border: 1px solid var(--border); background: var(--panel); color: var(--text); box-shadow: 0 12px 36px #0007; }
+dialog#macro-form-dialog::backdrop { background: #0008; }
+#macro-form { display: grid; gap: 14px; padding: 20px; }
+#macro-form h2 { margin: 0; font-size: 17px; font-weight: 650; }
+.macro-form-field { display: grid; gap: 6px; }
+.macro-form-field input { width: 100%; min-height: 32px; padding: 5px 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); }
+.macro-form-scope { display: grid; gap: 8px; margin: 0; padding: 10px; border: 1px solid var(--border); }
+.macro-form-scope legend { padding: 0 4px; color: var(--muted); }
+.macro-form-scope label { display: flex; align-items: center; gap: 8px; }
+.macro-form-error { margin: 0; color: #d84b59; }
+.macro-form-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.macro-form-actions button { min-width: 76px; padding: 6px 12px; border: 1px solid var(--border); background: var(--chrome); }
+.macro-form-actions button[type="submit"] { border-color: var(--accent); background: var(--accent); color: #fff; }
+@media (max-width: 700px) { .macro-workspace { grid-template-columns: 160px minmax(0, 1fr); } .macro-editor-area { grid-template-rows: 32px minmax(120px, 1fr) 120px; } }

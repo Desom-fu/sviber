@@ -149,8 +149,10 @@ export class TimelineView {
 		context.fillStyle = "#090a0c";
 		context.fillRect(0, 0, width, height);
 		this.#drawWaveform(context, layout.waveform, editor);
+		this.#drawLoopWaveformRange(context, layout.waveform, editor);
 		this.#drawChannels(context, layout, project);
 		this.#drawBeatLines(context, layout, editor);
+		this.#drawLoopBeatLines(context, layout, editor);
 		this.#drawTipPointLines(context, layout, project, current);
 		this.#drawEvents(context, layout, project);
 		this.#drawBpmChanges(context, layout.waveform, project);
@@ -191,6 +193,36 @@ export class TimelineView {
 		}
 		context.stroke();
 		context.globalAlpha = 1;
+	}
+
+	#loopSeconds(editor) {
+		return (Array.isArray(editor.abLoopMarks) ? editor.abLoopMarks : [])
+			.slice(0, 2).map(mark => this.timing.beatToSeconds(mark)).sort((left, right) => left - right);
+	}
+
+	#drawLoopWaveformRange(context, rectangle, editor) {
+		const marks = this.#loopSeconds(editor);
+		if (marks.length !== 2) return;
+		const left = this.#timeToX(marks[0], rectangle.width);
+		const right = this.#timeToX(marks[1], rectangle.width);
+		context.fillStyle = "rgba(47,143,255,0.24)";
+		context.fillRect(left, rectangle.y, right - left, rectangle.height);
+	}
+
+	#drawLoopBeatLines(context, layout, editor) {
+		const marks = this.#loopSeconds(editor);
+		if (!marks.length) return;
+		context.save();
+		context.strokeStyle = "#2f8fff";
+		context.lineWidth = 2;
+		for (const mark of marks) {
+			const x = Math.round(this.#timeToX(mark, layout.waveform.width)) + 0.5;
+			context.beginPath();
+			context.moveTo(x, 0);
+			context.lineTo(x, layout.scroll.y);
+			context.stroke();
+		}
+		context.restore();
 	}
 
 	#drawBeatLines(context, layout, editor) {
@@ -557,6 +589,22 @@ export class TimelineView {
 		const currentX = this.#scrollX(current, rectangle, bounds);
 		context.fillStyle = "#15181b";
 		context.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+		const loopMarks = this.#loopSeconds(project.editor);
+		if (loopMarks.length === 2) {
+			const loopBeginningX = this.#scrollX(loopMarks[0], rectangle, bounds);
+			const loopEndX = this.#scrollX(loopMarks[1], rectangle, bounds);
+			context.fillStyle = "rgba(47,143,255,0.24)";
+			context.fillRect(loopBeginningX, rectangle.y, loopEndX - loopBeginningX, rectangle.height);
+		}
+		context.strokeStyle = "#2f8fff";
+		context.lineWidth = 2;
+		for (const mark of loopMarks) {
+			const x = this.#scrollX(mark, rectangle, bounds);
+			context.beginPath();
+			context.moveTo(x, rectangle.y + 1);
+			context.lineTo(x, rectangle.y + rectangle.height - 1);
+			context.stroke();
+		}
 		context.strokeStyle = "#56db79";
 		context.lineWidth = 3;
 		context.beginPath();
@@ -726,6 +774,7 @@ export class TimelineView {
 				this.#seekAt(point.x);
 				break;
 			case "event": {
+				if (!this.pointerMoved) break;
 				const beginning = this.timing.secondsToSnappedBeat(this.#xToSeconds(this.drag.start.x, layout.channels.width), project.editor.subdivision);
 				const ending = this.timing.secondsToSnappedBeat(this.#xToSeconds(point.x, layout.channels.width), project.editor.subdivision);
 				const channelDelta = Math.round((point.y - this.drag.start.y) / layout.channelHeight);

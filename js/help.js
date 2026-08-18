@@ -94,8 +94,7 @@ export class HelpController {
 			});
 			return;
 		}
-		const opened = window.open(url, "sviber-license", "popup,width=1080,height=760");
-		if (!opened) location.href = url;
+		window.open(url, "_blank", "noopener");
 	}
 
 	async reportIssues() {

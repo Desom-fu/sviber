@@ -423,6 +423,49 @@ export class FileManager {
 		return true;
 	}
 
+	async readProjectText(filename) {
+		const directory = this.#currentProjectDirectory();
+		if (!directory) return null;
+		const file = await this.#readDirectoryFile(directory, String(filename), "text/javascript");
+		return file ? await file.text() : null;
+	}
+
+	async writeProjectText(filename, text) {
+		const directory = this.#currentProjectDirectory();
+		if (!directory || !globalThis.nw) throw new Error("Project macro files are available only in an NW.js project.");
+		return this.#writeDirectoryFile(directory, String(filename), String(text));
+	}
+
+	async renameProjectText(oldFilename, newFilename) {
+		const directory = this.#currentProjectDirectory();
+		const modules = nwModules();
+		if (!directory || directory.type !== "nw" || !modules) {
+			throw new Error("Project macro files are available only in an NW.js project.");
+		}
+		const root = modules.path.resolve(directory.path);
+		const oldPath = modules.path.resolve(root, String(oldFilename));
+		const newPath = modules.path.resolve(root, String(newFilename));
+		if (modules.path.dirname(oldPath) !== root || modules.path.dirname(newPath) !== root) {
+			throw new Error("Invalid project filename.");
+		}
+		try {
+			await modules.fs.promises.access(newPath);
+			throw new Error("A project macro with that filename already exists.");
+		} catch (error) {
+			if (error?.code !== "ENOENT") throw error;
+		}
+		await modules.fs.promises.rename(oldPath, newPath);
+		return newPath;
+	}
+
+	async listProjectFiles(extension = ".js") {
+		if (!this.projectPath || !globalThis.nw) return [];
+		const modules = nwModules();
+		const names = await modules.fs.promises.readdir(this.projectPath, { withFileTypes: true });
+		return names.filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith(extension.toLowerCase()))
+			.map(entry => entry.name).sort((left, right) => left.localeCompare(right));
+	}
+
 	async parseFile(file, importOptions = null) {
 		if (!file) return null;
 		const fileExtension = extension(file.name);

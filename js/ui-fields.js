@@ -1,5 +1,6 @@
 import {i18n as defaultI18n} from './i18n.js';
 import {nextControlId} from './ui-shared.js';
+import {Rational} from './core/rational.js';
 
 export const MIXED_VALUE = Symbol('mixed-value');
 
@@ -411,7 +412,15 @@ export function createFieldControl(field, value, environment = {}) {
 			throw new Error(`Unknown field type: ${type}`);
 	}
 
-	cleanups.push(attachControlEvents(element, notify));
+	if (type === 'rational') {
+		const listener = event => {
+			if (!element.contains(event.relatedTarget)) notify(event);
+		};
+		element.addEventListener('focusout', listener);
+		cleanups.push(() => element.removeEventListener('focusout', listener));
+	} else {
+		cleanups.push(attachControlEvents(element, notify));
+	}
 	return {
 		element,
 		read,
@@ -440,6 +449,16 @@ function isFiniteExpression(value) {
 	}
 }
 
+function rationalTupleIsCanonical(value) {
+	if (!Array.isArray(value) || value.length !== 3 || !value.every(Number.isSafeInteger)) return false;
+	try {
+		const canonical = Rational.from(value).toJSON();
+		return canonical.every((item, index) => item === value[index]);
+	} catch {
+		return false;
+	}
+}
+
 export function validateField(field, value, values, i18n = defaultI18n) {
 	if (field.required) {
 		const empty = value == null || value === '' || Array.isArray(value) && value.length === 0;
@@ -461,6 +480,7 @@ export function validateField(field, value, values, i18n = defaultI18n) {
 		case 'rational':
 			if (!value.every(Number.isInteger)) return i18n.t('validation.integer');
 			if (value[2] <= 0) return i18n.t('validation.denominator');
+			if (!rationalTupleIsCanonical(value)) return i18n.t('validation.rational');
 			if (field.positive && value[0] + value[1] / value[2] <= 0) return i18n.t('validation.positive');
 			if (field.nonnegative && value[0] + value[1] / value[2] < 0) return i18n.t('validation.nonnegative');
 			break;

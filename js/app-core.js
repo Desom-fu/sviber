@@ -13,6 +13,9 @@ import {
 	collectHoldReleaseSchedule,
 	collectIndexedHitSchedule,
 	collectIndexedHoldReleaseSchedule,
+	collectReverseHitSchedule,
+	collectIndexedReverseHitSchedule,
+	collectMetronomeSchedule,
 } from "./audio/scheduler.js";
 import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
@@ -44,8 +47,11 @@ export class SviberAppCore {
 		this.backgroundUrl = null;
 		this.scheduledHitIds = new Set();
 		this.scheduledHoldReleaseIds = new Set();
+		this.scheduledMetronomeBeats = new Set();
 		this.playbackScheduleInvalidated = false;
 		this.playFollowOffset = null;
+		this.playbackOrigin = null;
+		this.lastPlaybackTime = null;
 		this.resumePlaybackAfterSeek = false;
 		this.stageMoveAttachmentException = null;
 		this.renderQueued = false;
@@ -54,6 +60,8 @@ export class SviberAppCore {
 		this.mediaSync = Promise.resolve();
 		this.audio = new AudioPlayer();
 		this.autosave = new AutosaveManager();
+		this.macroWindow = null;
+		this.macroMessageHandler = event => void this._handleMacroMessage(event);
 
 		this.tooltip = new TooltipManager({ i18n });
 		this.toast = new ToastManager({ i18n });
@@ -95,6 +103,7 @@ export class SviberAppCore {
 			onDuplicate: id => this.duplicateSnappee(id),
 			onDelete: id => void this.deleteSnappee(id),
 			onEdit: id => void this.editSnappee(id),
+			onMove: (id, direction) => this.moveSnappee(id, direction),
 		});
 		this.channelsPanel = new ChannelsPanel({
 			i18n, tooltip: this.tooltip,
@@ -136,6 +145,7 @@ export class SviberAppCore {
 		this._bindInputs();
 		this._bindAudio();
 		this._bindGlobalInteraction();
+		window.addEventListener("message", this.macroMessageHandler);
 		await Promise.all([this.timeline.surface.ready, this.stage.surface.ready]);
 		this.refreshNow();
 		document.getElementById("app").setAttribute("aria-busy", "false");
@@ -194,8 +204,15 @@ export class SviberAppCore {
 		const baseMinimum = Math.min(0, this.timing().beatToSeconds(0));
 		const current = includeCurrent && !this.audio.playing ? this.currentSeconds() : baseMinimum;
 		const minimum = Math.min(baseMinimum, Number.isFinite(current) ? current : baseMinimum);
-		if (this.audio.buffer) return [minimum, this.audio.buffer.duration];
-		if (this.renderIndex) return [minimum, Math.max(this.renderIndex.maximumTime, minimum + 10)];
+		this.audio.syntheticStart = minimum;
+		if (this.audio.buffer) {
+			this.audio.syntheticEnd = this.audio.buffer.duration;
+			return [minimum, this.audio.buffer.duration];
+		}
+		if (this.renderIndex) {
+			this.audio.syntheticEnd = Math.max(this.renderIndex.maximumTime, minimum + 10);
+			return [minimum, this.audio.syntheticEnd];
+		}
 		let maximum = Math.max(10, minimum + 10);
 		for (const event of this.model.events) {
 			let beat = Rational.from(event.time);
@@ -425,6 +442,14 @@ export class SviberAppCore {
 		return this.renderIndex;
 	}
 
+	_syncAudioLoop() {
+		const marks = Array.isArray(this.model.editor.abLoopMarks) ? this.model.editor.abLoopMarks : [];
+		const seconds = marks.length === 2
+			? marks.map(mark => this.timing().beatToSeconds(mark)).sort((left, right) => left - right)
+			: null;
+		this.audio.setLoopRange(seconds);
+	}
+
 	_refreshDifficultyUi() {
 		const select = document.getElementById("difficulty-select");
 		const swatch = document.getElementById("difficulty-color");
@@ -473,6 +498,7 @@ export class SviberAppCore {
 		const reschedulePlayback = this.playbackScheduleInvalidated;
 		this.playbackScheduleInvalidated = false;
 		this._rebuildRenderIndex();
+		this._syncAudioLoop();
 		const view = this.viewState();
 		const timelineHeight = 88 + Math.min(3, Math.max(1, this.model.channels.length)) * 48;
 		document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${timelineHeight}px`);
@@ -499,6 +525,11 @@ export class SviberAppCore {
 		document.getElementById("status-time").textContent = formatTime(seconds);
 		document.getElementById("status-beat").textContent = formatBeat(beat, subdivision);
 		document.getElementById("status-speed").textContent = Number(this.model.editor.speed).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+		for (const [id, property] of [["lock-visible-range", "lockVisibleRange"], ["play-se", "playSe"],
+			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"]]) {
+			const control = document.getElementById(id);
+			if (control) control.checked = Boolean(this.model.editor[property]);
+		}
 		const comments = this.renderIndex?.activeComments(seconds) || this.model.events.filter(event => {
 			if (event.type !== "comment") return false;
 			const start = this.timing().beatToSeconds(event.time);
@@ -543,7 +574,8 @@ export class SviberAppCore {
 			this.registry.setChecked(id, this.curveDraft?.type === mode);
 		}
 		this.registry.setChecked("transform.free", Boolean(this.freeTransform));
-		this.registry.setChecked("music.playPause", this.audio.playing);
+		this.registry.setChecked("music.playPause", this.audio.playing && this.audio.direction > 0);
+		this.registry.setChecked("music.playReverse", this.audio.playing && this.audio.direction < 0);
 		for (const value of [1, 2, 3, 4, 6, 8]) this.registry.setChecked(`music.subdivision${value}`, this.model.editor.subdivision === value);
 		for (const [id, value] of [["music.speed025", 0.25], ["music.speed05", 0.5], ["music.speed1", 1]]) {
 			this.registry.setChecked(id, Math.abs(this.model.editor.speed - value) < 1e-8);
@@ -575,6 +607,14 @@ export class SviberAppCore {
 		document.getElementById("difficulty-select")?.addEventListener("change", event => void this.switchDifficulty(event.target.value));
 		document.getElementById("difficulty-add")?.addEventListener("click", () => void this.newDifficulty());
 		document.getElementById("difficulty-delete")?.addEventListener("click", () => void this.deleteDifficulty());
+		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome"]) {
+			document.getElementById(id)?.addEventListener("change", event => {
+				this.model.editor[id === "lock-visible-range" ? "lockVisibleRange"
+					: id === "play-se" ? "playSe"
+					: id === "seek-back-after-playing" ? "seekBackAfterPlaying" : "metronome"] = Boolean(event.target.checked);
+				this.refresh();
+			});
+		}
 	}
 
 	_bindAudio() {
@@ -586,43 +626,103 @@ export class SviberAppCore {
 			const editor = this.model.editor;
 			const span = editor.visibleRangeEnd - editor.visibleRangeBeginning;
 			const center = editor.visibleRangeBeginning + span / 2;
-			if (this.playFollowOffset === null && time >= center && time <= editor.visibleRangeEnd) {
-				this.playFollowOffset = time - editor.visibleRangeBeginning;
-			}
-			if (typeof this.playFollowOffset === "number") {
-				const bounds = this.timeBounds();
-				const requested = time - this.playFollowOffset;
-				const beginning = Math.max(bounds[0], Math.min(bounds[1] - span, requested));
-				editor.visibleRangeBeginning = beginning;
-				editor.visibleRangeEnd = beginning + span;
-				if (Math.abs(beginning - requested) > 1e-8) this.playFollowOffset = false;
+			if (!editor.lockVisibleRange) {
+				if (this.playFollowOffset === null) {
+					if (this.audio.direction > 0 && time >= center && time <= editor.visibleRangeEnd) {
+						this.playFollowOffset = { direction: 1, value: time - editor.visibleRangeBeginning };
+					} else if (this.audio.direction < 0 && time <= center && time >= editor.visibleRangeBeginning) {
+						this.playFollowOffset = { direction: -1, value: editor.visibleRangeEnd - time };
+					}
+				}
+				if (this.playFollowOffset && typeof this.playFollowOffset === "object") {
+					const bounds = this.timeBounds();
+					const requested = this.playFollowOffset.direction > 0
+						? time - this.playFollowOffset.value : time + this.playFollowOffset.value - span;
+					const beginning = Math.max(bounds[0], Math.min(bounds[1] - span, requested));
+					editor.visibleRangeBeginning = beginning;
+					editor.visibleRangeEnd = beginning + span;
+					if (Math.abs(beginning - requested) > 1e-8) this.playFollowOffset = false;
+				}
 			}
 			this._scheduleHits(time);
+			this.lastPlaybackTime = time;
 			this.refreshPlaybackFrame();
 		});
 		this.audio.addEventListener("play", () => {
 			this.playbackScheduleInvalidated = false;
 			this._rebuildRenderIndex();
+			this._syncAudioLoop();
 			const time = this.currentSeconds();
 			const editor = this.model.editor;
 			const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
-			this.playFollowOffset = time > editor.visibleRangeEnd ? false
-				: time >= center && time >= editor.visibleRangeBeginning
-					? time - editor.visibleRangeBeginning : null;
+			this.playFollowOffset = editor.lockVisibleRange ? false
+				: this.audio.direction > 0
+					? time > editor.visibleRangeEnd ? false : time >= center && time >= editor.visibleRangeBeginning
+						? { direction: 1, value: time - editor.visibleRangeBeginning } : null
+					: time < editor.visibleRangeBeginning ? false : time <= center && time <= editor.visibleRangeEnd
+						? { direction: -1, value: editor.visibleRangeEnd - time } : null;
+			this.lastPlaybackTime = time;
+			this.playbackOrigin ||= {
+				time,
+				editorTime: deepClone(editor.currentTime),
+				timeSnapped: editor.timeSnapped,
+				visibleRangeBeginning: editor.visibleRangeBeginning,
+				visibleRangeEnd: editor.visibleRangeEnd,
+			};
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
+			this.scheduledMetronomeBeats.clear();
 			this._scheduleHits(time);
 			this.refresh();
+		});
+		this.audio.addEventListener("directionchange", () => {
+			this.stage.cancelScheduledHits();
+			this.playFollowOffset = null;
+			this.scheduledHitIds.clear();
+			this.scheduledHoldReleaseIds.clear();
+			this.scheduledMetronomeBeats.clear();
+			this._scheduleHits(this.audio.currentTime, 0);
+			this.refresh();
+		});
+		this.audio.addEventListener("loop", event => {
+			this.audio.cancelScheduledHitSounds();
+			this.stage.cancelScheduledHits();
+			this.scheduledHitIds.clear();
+			this.scheduledHoldReleaseIds.clear();
+			this.scheduledMetronomeBeats.clear();
+			const time = Number(event.detail?.time);
+			if (!this.model.editor.lockVisibleRange && Number.isFinite(time)
+				&& Number.isFinite(this.lastPlaybackTime)
+				&& this.lastPlaybackTime >= this.model.editor.visibleRangeBeginning
+				&& this.lastPlaybackTime <= this.model.editor.visibleRangeEnd
+				&& (time < this.model.editor.visibleRangeBeginning || time > this.model.editor.visibleRangeEnd)) {
+				const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
+				this.setVisibleRange(time - (time < this.model.editor.visibleRangeBeginning ? 0 : span),
+					time < this.model.editor.visibleRangeBeginning ? time + span : time);
+			}
 		});
 		const finish = () => {
 			this.playbackScheduleInvalidated = false;
 			this.stage.cancelScheduledHits();
-			const snapped = this.timing().secondsToSnappedBeat(this.audio.currentTime, this.model.editor.subdivision);
-			this.model.editor.timeSnapped = true;
-			this.model.editor.currentTime = snapped.toJSON();
+			if (this.resumePlaybackAfterSeek) {
+				this.model.editor.timeSnapped = false;
+				this.model.editor.currentTime = this.audio.currentTime;
+			} else if (this.model.editor.seekBackAfterPlaying && this.playbackOrigin) {
+				this.model.editor.timeSnapped = this.playbackOrigin.timeSnapped;
+				this.model.editor.currentTime = deepClone(this.playbackOrigin.editorTime);
+				this.model.editor.visibleRangeBeginning = this.playbackOrigin.visibleRangeBeginning;
+				this.model.editor.visibleRangeEnd = this.playbackOrigin.visibleRangeEnd;
+			} else {
+				const snapped = this.timing().secondsToSnappedBeat(this.audio.currentTime, this.model.editor.subdivision);
+				this.model.editor.timeSnapped = true;
+				this.model.editor.currentTime = snapped.toJSON();
+			}
 			this.playFollowOffset = null;
+			this.lastPlaybackTime = null;
+			if (!this.resumePlaybackAfterSeek) this.playbackOrigin = null;
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
+			this.scheduledMetronomeBeats.clear();
 			this.refresh();
 		};
 		this.audio.addEventListener("pause", finish);
@@ -631,34 +731,54 @@ export class SviberAppCore {
 			this.stage.cancelScheduledHits();
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
+			this.scheduledMetronomeBeats.clear();
 		});
 		this.audio.addEventListener("ratechange", () => {
 			this.stage.cancelScheduledHits();
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
+			this.scheduledMetronomeBeats.clear();
 		});
 	}
 
 	_scheduleHits(current, lateTolerance = 0.02) {
 		if (this.playbackScheduleInvalidated && lateTolerance !== 0) return;
-		const schedule = this.renderIndex
-			? collectIndexedHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
-				this.scheduledHitIds, undefined, lateTolerance)
-			: collectHitSchedule(this.model.events, this.timing(), current, this.audio.rate,
-				this.scheduledHitIds, undefined, lateTolerance);
+		const reverse = this.audio.direction < 0;
+		const playbackEditor = this.model?.editor || {};
+		const loopRange = this.audio.loopRange;
+		const loopBoundary = loopRange ? loopRange[reverse ? 0 : 1] : reverse ? -Infinity : Infinity;
+		const schedule = reverse
+			? this.renderIndex
+				? collectIndexedReverseHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
+					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
+				: collectReverseHitSchedule(this.model.events, this.timing(), current, this.audio.rate,
+					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
+			: this.renderIndex
+				? collectIndexedHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
+					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
+				: collectHitSchedule(this.model.events, this.timing(), current, this.audio.rate,
+					this.scheduledHitIds, undefined, lateTolerance, loopBoundary);
 		for (const { event, delay } of schedule) {
 			this.scheduledHitIds.add(event.id);
-			void this.audio.playHit(event.type, delay);
-			this.stage.triggerHit(event, delay);
+			if (playbackEditor.playSe !== false) void this.audio.playHit(event.type, delay);
+			if (!reverse) this.stage.triggerHit(event, delay);
 		}
-		const releases = this.renderIndex
+		const releases = reverse ? [] : this.renderIndex
 			? collectIndexedHoldReleaseSchedule(this.renderIndex.holdReleaseRecords,
-				current, this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance)
+				current, this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance, loopBoundary)
 			: collectHoldReleaseSchedule(this.model.events, this.timing(), current,
-				this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance);
+				this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance, loopBoundary);
 		for (const { event, delay } of releases) {
 			this.scheduledHoldReleaseIds.add(event.id);
 			this.stage.triggerHit(event, delay);
+		}
+		if (playbackEditor.metronome && this.scheduledMetronomeBeats) {
+			const metronomes = collectMetronomeSchedule(this.timing(), current, this.audio.rate,
+				this.audio.direction, this.scheduledMetronomeBeats, undefined, loopRange);
+			for (const item of metronomes) {
+				this.scheduledMetronomeBeats.add(item.beat);
+				void this.audio.playMetronome(item.delay, item.accent);
+			}
 		}
 	}
 
@@ -704,6 +824,95 @@ export class SviberAppCore {
 			event.returnValue = "";
 		});
 		i18n.subscribe(() => this.refresh());
+	}
+
+	openMacros() {
+		const url = new URL("macros.html", location.href).href;
+		if (this.macroWindow && !this.macroWindow.closed) {
+			this.macroWindow.focus();
+			return;
+		}
+		this.macroWindow = window.open(url, "sviber-macros", "popup,width=1180,height=820");
+		if (!this.macroWindow && globalThis.nw?.Window?.open) {
+			globalThis.nw.Window.open(url, {
+				title: "sviber Macros", width: 1180, height: 820, min_width: 760, min_height: 520,
+			}, popup => { this.macroWindow = popup?.window || null; });
+		}
+	}
+
+	_macroReply(source, message) {
+		try { source?.postMessage(message, "*"); } catch { /* The popup may have closed. */ }
+	}
+
+	async _handleMacroMessage(event) {
+		const message = event.data;
+		if (!message || typeof message !== "object" || !String(message.type || "").startsWith("sviber-macro-")) return;
+		if (this.macroWindow && event.source !== this.macroWindow) return;
+		if (message.type === "sviber-macro-state-request") {
+			this._macroReply(event.source, {
+				type: "sviber-macro-state",
+				requestId: message.requestId,
+				state: deepClone(this.model.snapshot()),
+				project: Boolean(globalThis.nw && this.files.projectPath),
+			});
+			return;
+		}
+		if (message.type === "sviber-macro-project-list") {
+			let files = [];
+			try { files = await this.files.listProjectFiles(".js"); } catch { files = []; }
+			this._macroReply(event.source, { type: "sviber-macro-project-list-result", requestId: message.requestId, files });
+			return;
+		}
+		if (message.type === "sviber-macro-project-read") {
+			let textValue = null;
+			try { textValue = await this.files.readProjectText(String(message.filename || "")); } catch { /* Return null for unsafe/missing files. */ }
+			this._macroReply(event.source, { type: "sviber-macro-project-read-result", requestId: message.requestId, text: textValue });
+			return;
+		}
+		if (message.type === "sviber-macro-project-write") {
+			let ok = false;
+			try { await this.files.writeProjectText(String(message.filename || ""), String(message.text || "")); ok = true; } catch { /* Browser and unsafe paths are rejected. */ }
+			this._macroReply(event.source, { type: "sviber-macro-project-write-result", requestId: message.requestId, ok });
+			return;
+		}
+		if (message.type === "sviber-macro-project-rename") {
+			let ok = false;
+			let error = "";
+			try {
+				await this.files.renameProjectText(String(message.oldFilename || ""), String(message.newFilename || ""));
+				ok = true;
+			} catch (exception) { error = String(exception?.message || exception); }
+			this._macroReply(event.source, {
+				type: "sviber-macro-project-rename-result", requestId: message.requestId, ok, error,
+			});
+			return;
+		}
+		if (message.type !== "sviber-macro-apply" || !message.state) return;
+		try {
+			const encoded = JSON.stringify(message.state);
+			if (encoded.length > 20_000_000) throw new Error("Macro state is too large.");
+			const next = new ChartModel(message.state);
+			if (next.events.length > 500_000 || next.snappees.length > 50_000 || next.channels.length > 10_000) {
+				throw new Error("Macro state exceeds the editor limits.");
+			}
+			const shared = {
+				title: next.metadata.title,
+				artist: next.metadata.artist,
+				music: next.music,
+				image: next.image,
+			};
+			this.commit(i18n.t("history.runMacro"), model => model.restore(next.snapshot()));
+			this.projectTitle = shared.title;
+			this.projectArtist = shared.artist;
+			this.projectMusic = shared.music;
+			this.projectImage = shared.image;
+			this.syncProjectSharedFields();
+			this.updateDirty();
+			this.refresh();
+			this._macroReply(event.source, { type: "sviber-macro-apply-result", requestId: message.requestId, ok: true });
+		} catch (error) {
+			this._macroReply(event.source, { type: "sviber-macro-apply-result", requestId: message.requestId, ok: false, error: String(error?.message || error) });
+		}
 	}
 
 	async _offerAutosave() {
@@ -756,6 +965,7 @@ export class SviberAppCore {
 		this.tooltip.destroy();
 		this.unsubscribeCommandModes?.();
 		document.removeEventListener("keyup", this.boundSpaceKeyUp, true);
+		window.removeEventListener("message", this.macroMessageHandler);
 		cancelAnimationFrame(this.statusUpdateFrame);
 	}
 

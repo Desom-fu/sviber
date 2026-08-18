@@ -374,6 +374,25 @@ textarea:focus-visible,
 	margin: 0;
 }
 
+.status-options {
+	margin-top: 7px;
+	padding-top: 5px;
+	border-top: 1px solid var(--border);
+}
+
+.status-option {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	min-height: 22px;
+	color: var(--text-muted);
+	font-size: 12px;
+}
+
+.status-option input {
+	margin: 0;
+}
+
 .status-item {
 	display: grid;
 	grid-template-columns: minmax(42px, 1fr) auto;

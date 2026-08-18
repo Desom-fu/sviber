@@ -203,18 +203,28 @@ export async function runV8BrowserChecks(page) {
 		app.audio.seek(1);
 		app.refreshNow();
 	});
+	await page.evaluate(() => document.activeElement?.blur());
 	await page.keyboard.press("PageUp");
 	assert.deepEqual(await page.evaluate(() => ({
 		beginning: globalThis.sviber.model.editor.visibleRangeBeginning,
 		ending: globalThis.sviber.model.editor.visibleRangeEnd,
 		beat: globalThis.sviber.model.editor.currentTime,
-	})), { beginning: 2, ending: 4, beat: [3, 0, 1] });
+	})), { beginning: 0, ending: 2, beat: [1, 0, 1] });
 	await page.keyboard.press("PageDown");
 	assert.deepEqual(await page.evaluate(() => ({
 		beginning: globalThis.sviber.model.editor.visibleRangeBeginning,
 		ending: globalThis.sviber.model.editor.visibleRangeEnd,
 		beat: globalThis.sviber.model.editor.currentTime,
-	})), { beginning: 0, ending: 2, beat: [1, 0, 1] });
+	})), { beginning: 2, ending: 4, beat: [3, 0, 1] });
+	await page.evaluate(() => {
+		const app = globalThis.sviber;
+		app.model.editor.visibleRangeBeginning = 0;
+		app.model.editor.visibleRangeEnd = 2;
+		app.model.editor.currentTime = [1, 0, 1];
+		app.model.editor.timeSnapped = true;
+		app.audio.seek(1);
+		app.refreshNow();
+	});
 
 	await page.locator('.tool-button[data-command="music.playPause"]').click();
 	await page.waitForFunction(() => globalThis.sviber.audio.playing === true);

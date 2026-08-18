@@ -1,0 +1,165 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+import { COMMAND_DEFINITIONS, parseShortcut } from "../js/commands.js";
+import { withEventEditing } from "../js/app-event-editing.js";
+import { withHistoryCommands } from "../js/app-history-commands.js";
+import { ChartModel } from "../js/core/chart-model.js";
+import {
+	collectHitSchedule,
+	collectMetronomeSchedule,
+	collectReverseHitSchedule,
+} from "../js/audio/scheduler.js";
+import { validateField } from "../js/ui-fields.js";
+
+const timing = {
+	beatToSeconds(value) {
+		if (Array.isArray(value)) return Number(value[0]) + Number(value[1]) / Number(value[2]);
+		return Number(value);
+	},
+	secondsToBeat(value) {
+		return { toNumber: () => Number(value) };
+	},
+};
+
+test("v9 editor playback settings and A-B marks round-trip canonically", () => {
+	const model = ChartModel.createDefault({
+		editor: {
+			lockVisibleRange: true,
+			playSe: false,
+			seekBackAfterPlaying: true,
+			metronome: true,
+			abLoopMarks: [[4, 0, 1], [1, 1, 2], [4, 0, 1]],
+		},
+	});
+	assert.equal(model.editor.lockVisibleRange, true);
+	assert.equal(model.editor.playSe, false);
+	assert.equal(model.editor.seekBackAfterPlaying, true);
+	assert.equal(model.editor.metronome, true);
+	assert.deepEqual(model.editor.abLoopMarks, [[1, 1, 2], [4, 0, 1]]);
+	const reopened = ChartModel.import(JSON.parse(model.serialize()));
+	assert.deepEqual(reopened.editor, model.editor);
+});
+
+test("v9 Sunniesnow import filters incompatible chain members and allocates a free channel", () => {
+	const model = ChartModel.import({
+		events: [
+			{ type: "tap", time: 0, properties: { x: 0, y: 0 } },
+			{ type: "placeholder", time: 1, properties: { x: -40, y: 20, tipPoint: "guide" } },
+			{ type: "tap", time: 2, properties: { x: 0, y: 0, tipPoint: "guide" } },
+			{ type: "bgNote", time: 3, properties: { x: 1, y: 1, tipPoint: "guide" } },
+			{ type: "hold", time: 4, properties: { x: 20, y: 10, duration: 1, tipPoint: "guide" } },
+			{ type: "image", time: 5, properties: { filename: "visual.png", tipPoint: "guide" } },
+		],
+	}, { offset: 0, initialBpm: 60 });
+	const notes = model.events.filter(event => ["tap", "hold"].includes(event.type)
+		&& event.channel !== model.channels[0].id);
+	assert.equal(notes.length, 2);
+	assert.equal(notes[0].tipPointSpawnType, "chain");
+	assert.equal(notes[1].tipPointSpawnType, "inherit");
+	assert.equal(notes[0].channel, notes[1].channel);
+	assert.notEqual(notes[0].channel, model.channels[0].id);
+	assert.equal(notes[0].tipPointSpawnAbsolutePosition, false);
+	assert.equal(notes[0].tipPointSpawnDistance, Math.hypot(-40, 20));
+	assert.equal(notes[0].tipPointSpawnTime, 1);
+	assert.ok(model.importWarnings.some(warning => warning.includes("unsupported event type image")));
+	assert.equal(model.events.find(event => event.type === "tap" && event.channel === model.channels[0].id).tipPointSpawnType, "none");
+});
+
+test("v9 Sunniesnow import keeps overlapping tip-point chains on separate channels", () => {
+	const model = ChartModel.import({
+		events: [
+			{ type: "placeholder", time: 0, properties: { x: -20, y: 0, tipPoint: "first" } },
+			{ type: "tap", time: 1, properties: { x: 0, y: 0, tipPoint: "first" } },
+			{ type: "tap", time: 4, properties: { x: 20, y: 0, tipPoint: "first" } },
+			{ type: "placeholder", time: 0.5, properties: { x: -20, y: 10, tipPoint: "second" } },
+			{ type: "tap", time: 2, properties: { x: 0, y: 10, tipPoint: "second" } },
+			{ type: "tap", time: 3, properties: { x: 20, y: 10, tipPoint: "second" } },
+		],
+	}, { offset: 0, initialBpm: 60 });
+	const chains = [0, 10].map((y) => model.events
+		.filter(event => event.tipPointSpawnType === "chain" || event.tipPointSpawnType === "inherit")
+		.filter(event => event.channel != null)
+		.filter(event => event.y === y));
+	assert.equal(chains[0].length, 2);
+	assert.equal(chains[1].length, 2);
+	assert.notEqual(chains[0][0].channel, chains[1][0].channel);
+});
+
+test("a single attached event can be dragged freely in v9", () => {
+	const model = new ChartModel({
+		channels: [{ id: 0, name: "Main", active: true }],
+		snappees: [{
+			id: 4, type: "rectangularMesh", name: "Mesh", active: true,
+			transformation: [1, 0, 0, 1, 0, 0], topLeftX: -50, topLeftY: 25,
+			bottomRightX: 50, bottomRightY: -25, horizontalTiles: 2, verticalTiles: 2,
+		}],
+		events: [{
+			id: 8, type: "tap", channel: 0, time: [0, 0, 1], selected: true,
+			attached: true, snappee: 4, snapPoint: [0, 0],
+		}],
+	});
+	const EditingApp = withEventEditing(class {});
+	new EditingApp()._applyPositionMove(model, 8, { x: 25, y: 10 });
+	assert.equal(model.events[0].attached, false);
+	assert.deepEqual([model.events[0].x, model.events[0].y], [25, 10]);
+});
+
+test("reverse and loop-aware schedulers do not schedule across an A-B boundary", () => {
+	const events = [
+		{ id: 0, type: "tap", time: 0.7 },
+		{ id: 1, type: "tap", time: 0.8 },
+		{ id: 2, type: "tap", time: 1 },
+		{ id: 3, type: "tap", time: 1.2 },
+	];
+	const reverse = collectReverseHitSchedule(events, timing, 1, 1, new Set(), 0.3, 0.02, 0.75);
+	assert.deepEqual(reverse.map(item => item.event.id), [2, 1]);
+	const forward = collectHitSchedule(events, timing, 0.9, 1, new Set(), 0.3, 0.02, 1);
+	assert.deepEqual(forward.map(item => item.event.id), []);
+	const metronome = collectMetronomeSchedule(timing, 0.9, 1, 1, new Set(), 0.3, [0, 1]);
+	assert.deepEqual(metronome, []);
+});
+
+test("v9 shortcuts describe reverse playback, A-B marks, exact speed, channels, and page direction", () => {
+	assert.equal(COMMAND_DEFINITIONS["music.playReverse"].shortcut, "Shift+Space");
+	assert.equal(COMMAND_DEFINITIONS["music.abLoop"].shortcut, "L");
+	assert.equal(COMMAND_DEFINITIONS["music.speed025"].shortcut, "Ctrl+4");
+	assert.equal(COMMAND_DEFINITIONS["channel.selectLast"].shortcut, "Alt+0");
+	assert.equal(COMMAND_DEFINITIONS["timeline.pageForward"].shortcut, "PageUp");
+	assert.deepEqual(parseShortcut("Ctrl+Alt+M"), { ctrl: true, shift: false, alt: true, meta: false, key: "m" });
+});
+
+test("the v9 quarter-speed command preserves an exact 0.25 playback rate", () => {
+	const CommandApp = withHistoryCommands(class {});
+	const app = new CommandApp();
+	app.model = { editor: { speed: 1 } };
+	app.audio = { setRate: value => { app.audio.rate = value; } };
+	app.refresh = () => {};
+	app.setSpeed(0.25);
+	assert.equal(app.model.editor.speed, 0.25);
+	assert.equal(app.audio.rate, 0.25);
+});
+
+test("rational validation waits for a canonical, reduced tuple", () => {
+	assert.equal(validateField({ type: "rational" }, [1, 1, 2]), "");
+	assert.notEqual(validateField({ type: "rational" }, [1, 2, 2]), "");
+	assert.notEqual(validateField({ type: "rational" }, [0, 0, 2]), "");
+	assert.notEqual(validateField({ type: "rational" }, [-1, 1, 2]), "");
+	assert.equal(validateField({ type: "rational" }, [-1, -1, 2]), "");
+});
+
+test("v9 documentation and independent macro code are linked", async () => {
+	const [manual, macroPage, macroCode, labels] = await Promise.all([
+		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readFile(new URL("../macros.html", import.meta.url), "utf8"),
+		readFile(new URL("../js/macros.js", import.meta.url), "utf8"),
+		readFile(new URL("../javascript.html", import.meta.url), "utf8"),
+	]);
+	assert.match(manual, /Play in reverse/);
+	assert.match(manual, /宏|Macros interface/);
+	assert.match(macroCode, /monaco-editor/);
+	assert.match(macroPage, /F8/);
+	assert.match(labels, /href="js\/macros\.js"/);
+	assert.match(labels, /Monaco Editor/);
+});

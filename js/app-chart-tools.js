@@ -237,7 +237,7 @@ export const withChartTools = Base => class extends Base {
 			{ id: "segments", type: "integer", labelKey: "field.segments", positive: true, min: 1 },
 			{ id: "closed", type: "checkbox", labelKey: "field.closed" },
 		);
-		if (!editing) fields.push({ id: "transformation", type: "matrix", labelKey: "field.transform", numeric: true });
+		fields.push({ id: "transformation", type: "matrix", labelKey: "field.transform", numeric: true });
 		return fields;
 	}
 
@@ -390,6 +390,15 @@ export const withChartTools = Base => class extends Base {
 			const source = model.snappees.find(item => item.id === id);
 			if (!source) return;
 			model.addSnappee({ ...deepClone(source), id: null, selected: false, name: this.uniqueSnappeeName(source.name) });
+		});
+	}
+
+	moveSnappee(id, direction) {
+		this.commit(i18n.t("history.editSnappee"), model => {
+			const index = model.snappees.findIndex(snappee => snappee.id === id);
+			const target = index + Math.sign(Number(direction));
+			if (index < 0 || target < 0 || target >= model.snappees.length) return;
+			[model.snappees[index], model.snappees[target]] = [model.snappees[target], model.snappees[index]];
 		});
 	}
 

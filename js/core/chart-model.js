@@ -60,6 +60,11 @@ const DEFAULT_EDITOR = Object.freeze({
 	visibleRangeBeginning: 0,
 	visibleRangeEnd: 10,
 	speed: 1,
+	lockVisibleRange: false,
+	playSe: true,
+	seekBackAfterPlaying: false,
+	metronome: false,
+	abLoopMarks: [],
 	currentChannel: 0,
 	allowOutOfBounds: false,
 });
@@ -77,6 +82,17 @@ function finiteNumber(value, fallback = 0) {
 function positiveInteger(value, fallback) {
 	const result = Number(value);
 	return Number.isSafeInteger(result) && result > 0 ? result : fallback;
+}
+
+function normalizeLoopMarks(value) {
+	const marks = [];
+	for (const item of Array.isArray(value) ? value.slice(0, 2) : []) {
+		try {
+			const mark = Rational.from(item);
+			if (!marks.some(existing => existing.equals(mark))) marks.push(mark);
+		} catch { /* Ignore malformed editor-only marks. */ }
+	}
+	return marks.sort((left, right) => left.compare(right)).map(mark => mark.toJSON());
 }
 
 function validId(value) {
@@ -390,6 +406,11 @@ function normalizeEditor(editor, channels) {
 		visibleRangeBeginning: finiteNumber(source.visibleRangeBeginning, DEFAULT_EDITOR.visibleRangeBeginning),
 		visibleRangeEnd: finiteNumber(source.visibleRangeEnd, DEFAULT_EDITOR.visibleRangeEnd),
 		speed: Math.max(0.01, finiteNumber(source.speed, DEFAULT_EDITOR.speed)),
+		lockVisibleRange: Boolean(source.lockVisibleRange),
+		playSe: source.playSe !== false,
+		seekBackAfterPlaying: Boolean(source.seekBackAfterPlaying),
+		metronome: Boolean(source.metronome),
+		abLoopMarks: normalizeLoopMarks(source.abLoopMarks),
 		currentChannel: requested?.active !== false || !activeFallback ? requestedChannel : activeFallback.id,
 		allowOutOfBounds: Boolean(source.allowOutOfBounds),
 	};
@@ -477,8 +498,7 @@ export class ChartModel {
 		const maxDenominator = positiveInteger(options.maxDenominator ?? options.largestDenominator, 192);
 		const chartOffset = finiteNumber(document.offset, 0);
 		const model = ChartModel.createDefault({ metadata: normalizeMetadata(document), timing: timing.toJSON() });
-		const placeholders = new Map();
-		const tipGroups = new Map();
+		const tipChains = new Map();
 		const sourceEvents = Array.isArray(document.events) ? document.events : [];
 		if (document.filters && Object.keys(document.filters).length) {
 			warnings.push("Chart filters are not editable in sviber and were omitted");
@@ -494,16 +514,20 @@ export class ChartModel {
 			const properties = sourceEvent.properties && typeof sourceEvent.properties === "object"
 				? sourceEvent.properties
 				: {};
+			const tipPoint = typeof properties.tipPoint === "string" ? properties.tipPoint : null;
+			const addToChain = record => {
+				if (!tipPoint) return;
+				const list = tipChains.get(tipPoint) ?? [];
+				list.push({ ...record, effectiveSeconds, index, properties });
+				tipChains.set(tipPoint, list);
+			};
 			if (sourceEvent.type === "placeholder") {
-				if (typeof properties.tipPoint === "string") {
-					const list = placeholders.get(properties.tipPoint) ?? [];
-					list.push({ sourceEvent, properties, effectiveSeconds, index });
-					placeholders.set(properties.tipPoint, list);
-				}
+				addToChain({ placeholder: true, sourceEvent });
 				continue;
 			}
 			const type = normalizeEventType(sourceEvent.type);
 			if (!EVENT_TYPE_SET.has(type)) {
+				addToChain({ placeholder: false, tipPointable: false, sourceEvent });
 				warnings.push(`Ignored unsupported event type ${sourceEvent.type} at index ${index}`);
 				continue;
 			}
@@ -530,11 +554,9 @@ export class ChartModel {
 				}
 			}
 			const event = model.addEvent(type, overrides);
-			if (TIP_POINTABLE_TYPES.has(type) && typeof properties.tipPoint === "string") {
-				const list = tipGroups.get(properties.tipPoint) ?? [];
-				list.push({ event, effectiveSeconds, index });
-				tipGroups.set(properties.tipPoint, list);
-			} else if (type === "bgNote" && typeof properties.tipPoint === "string") {
+			if (TIP_POINTABLE_TYPES.has(type)) event.tipPointSpawnType = "none";
+			addToChain({ placeholder: false, tipPointable: TIP_POINTABLE_TYPES.has(type), event, sourceEvent });
+			if (type === "bgNote" && tipPoint) {
 				warnings.push(`The bgNote tip point was omitted at index ${index}`);
 			}
 			if (sourceEvent.timeDependent || sourceEvent.filters) {
@@ -542,30 +564,60 @@ export class ChartModel {
 			}
 		}
 
-		for (const [tipPoint, records] of tipGroups) {
-			records.sort((left, right) => left.effectiveSeconds - right.effectiveSeconds || left.index - right.index);
-			const first = records[0];
-			first.event.tipPointSpawnType = records.length > 1 ? "chain" : "drop";
-			for (let index = 1; index < records.length; index += 1) {
-				records[index].event.tipPointSpawnType = "inherit";
-			}
-			const candidates = (placeholders.get(tipPoint) ?? [])
+		for (const records of tipChains.values()) {
+			let chain = records
+				.filter(record => record.placeholder || record.tipPointable && record.event)
 				.toSorted((left, right) => left.effectiveSeconds - right.effectiveSeconds || left.index - right.index);
-			const placeholder = candidates.findLast((candidate) => candidate.effectiveSeconds <= first.effectiveSeconds)
-				?? candidates[0];
-			if (placeholder) {
-				first.event.tipPointSpawnAbsolutePosition = true;
-				first.event.tipPointSpawnAttached = false;
-				first.event.tipPointSpawnX = finiteNumber(placeholder.properties.x, 0);
-				first.event.tipPointSpawnY = finiteNumber(placeholder.properties.y, 100);
-				first.event.tipPointSpawnTimeBeats = false;
-				first.event.tipPointSpawnTime = Math.max(0, first.effectiveSeconds - placeholder.effectiveSeconds);
-				delete first.event.tipPointSpawnDistance;
-				delete first.event.tipPointSpawnAngle;
-			} else {
-				warnings.push(`Tip point ${tipPoint} has no placeholder; default spawn settings were used`);
+			if (!chain.length) continue;
+			if (!chain[0].placeholder) {
+				const first = chain[0];
+				chain.unshift({
+					placeholder: true,
+					effectiveSeconds: first.effectiveSeconds,
+					index: first.index - 0.5,
+					properties: {
+						x: finiteNumber(first.properties.x, 0),
+						y: finiteNumber(first.properties.y, 0),
+					},
+				});
 			}
+			while (chain[0]?.placeholder && chain[1]?.placeholder) chain.shift();
+			if (!chain[1]) continue;
+			chain = [chain[0], ...chain.slice(1).filter(record => !record.placeholder)];
+			const placeholder = chain[0];
+			const notes = chain.slice(1);
+			if (!notes.length) continue;
+
+			const beginning = Rational.from(notes[0].event.time);
+			const ending = Rational.from(notes.at(-1).event.time);
+			const chainEventIds = new Set(notes.map(record => record.event.id));
+			let channel = model.channels.find(candidate => !model.events.some(event => {
+				if (chainEventIds.has(event.id) || event.channel !== candidate.id) return false;
+				const time = Rational.from(event.time);
+				return time.compare(beginning) >= 0 && time.compare(ending) <= 0;
+			}));
+			if (!channel) channel = model.addChannel(model.channels.length);
+			for (const record of notes) {
+				record.event.channel = channel.id;
+			}
+
+			const first = notes[0];
+			first.event.tipPointSpawnType = notes.length === 1 ? "drop" : "chain";
+			for (const record of notes.slice(1)) record.event.tipPointSpawnType = "inherit";
+			const dx = finiteNumber(placeholder.properties.x, 0) - finiteNumber(first.properties.x, 0);
+			const dy = finiteNumber(placeholder.properties.y, 0) - finiteNumber(first.properties.y, 0);
+			first.event.tipPointSpawnAbsolutePosition = false;
+			first.event.tipPointSpawnDistance = Math.hypot(dx, dy);
+			first.event.tipPointSpawnAngle = Math.atan2(dy, dx);
+			first.event.tipPointSpawnTimeBeats = false;
+			first.event.tipPointSpawnTime = Math.max(0, first.effectiveSeconds - placeholder.effectiveSeconds);
+			delete first.event.tipPointSpawnAttached;
+			delete first.event.tipPointSpawnX;
+			delete first.event.tipPointSpawnY;
+			delete first.event.tipPointSpawnSnappee;
+			delete first.event.tipPointSpawnSnapPoint;
 		}
+		model.editor.currentChannel = model.channels[0].id;
 
 		model.importWarnings = warnings;
 		return model;

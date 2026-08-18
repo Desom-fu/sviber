@@ -65,6 +65,16 @@ const DEFINITIONS = [
 	define('channel.moveDown', 'Ctrl+ArrowDown', 'move-channel-down'),
 	define('channel.selectAbove', 'Alt+ArrowUp'),
 	define('channel.selectBelow', 'Alt+ArrowDown'),
+	define('channel.select1', 'Alt+1'),
+	define('channel.select2', 'Alt+2'),
+	define('channel.select3', 'Alt+3'),
+	define('channel.select4', 'Alt+4'),
+	define('channel.select5', 'Alt+5'),
+	define('channel.select6', 'Alt+6'),
+	define('channel.select7', 'Alt+7'),
+	define('channel.select8', 'Alt+8'),
+	define('channel.select9', 'Alt+9'),
+	define('channel.selectLast', 'Alt+0'),
 
 	define('snappee.rectangularMesh', 'Ctrl+R', 'create-rectangular-mesh', {blockDuringPlayback: true}),
 	define('snappee.radialMesh', null, 'create-radial-mesh', {blockDuringPlayback: true}),
@@ -87,19 +97,21 @@ const DEFINITIONS = [
 	define('transform.moveDownLarge', 'Shift+ArrowDown'),
 	define('transform.moveUpLarge', 'Shift+ArrowUp'),
 	define('transform.moveRightLarge', 'Shift+ArrowRight'),
-	define('transform.flipHorizontal'),
-	define('transform.flipVertical'),
+	define('transform.flipHorizontal', '%'),
+	define('transform.flipVertical', '"'),
 	define('transform.free', 'Ctrl+T', 'free-transform', {checkable: true, blockDuringPlayback: true}),
 	define('transform.matrix', null, null, {blockDuringPlayback: true}),
 	define('transform.moveForward', '>'),
 	define('transform.moveBackward', '<'),
 
 	define('music.playPause', 'Space', 'play-pause', {checkable: true, allowWhenBlocked: true}),
+	define('music.playReverse', 'Shift+Space', null, {checkable: true, allowWhenBlocked: true}),
 	define('music.seekStart', 'Home', 'seek-to-start', {allowWhenBlocked: true}),
 	define('music.seekForward', '.', null, {allowWhenBlocked: true}),
 	define('music.seekBackward', ',', null, {allowWhenBlocked: true}),
-	define('music.seekForward10', 'Ctrl+.', null, {allowWhenBlocked: true}),
-	define('music.seekBackward10', 'Ctrl+,', null, {allowWhenBlocked: true}),
+	define('music.seekForward3', 'Ctrl+.', null, {allowWhenBlocked: true}),
+	define('music.seekBackward3', 'Ctrl+,', null, {allowWhenBlocked: true}),
+	define('music.abLoop', 'L', null, {blockDuringPlayback: true}),
 	define('music.subdivision1', '1', 'time-lattice-1', {checkable: true, group: 'subdivision', allowWhenBlocked: true}),
 	define('music.subdivision2', '2', 'time-lattice-2', {checkable: true, group: 'subdivision', allowWhenBlocked: true}),
 	define('music.subdivision3', '3', 'time-lattice-3', {checkable: true, group: 'subdivision', allowWhenBlocked: true}),
@@ -109,13 +121,15 @@ const DEFINITIONS = [
 	define('music.subdivisionOther', null, null, {allowWhenBlocked: true}),
 	define('music.speedDecrease', '[', null, {allowWhenBlocked: true}),
 	define('music.speedIncrease', ']', null, {allowWhenBlocked: true}),
-	define('music.speed025', null, 'speed-0-25', {checkable: true, group: 'speed', allowWhenBlocked: true}),
-	define('music.speed05', null, 'speed-0-5', {checkable: true, group: 'speed', allowWhenBlocked: true}),
-	define('music.speed1', '\\', 'speed-1', {checkable: true, group: 'speed', allowWhenBlocked: true}),
+	define('music.speed025', 'Ctrl+4', 'speed-0-25', {checkable: true, group: 'speed', allowWhenBlocked: true}),
+	define('music.speed05', 'Ctrl+2', 'speed-0-5', {checkable: true, group: 'speed', allowWhenBlocked: true}),
+	define('music.speed1', 'Ctrl+1', 'speed-1', {checkable: true, group: 'speed', allowWhenBlocked: true}),
 	define('music.zoomIn', 'Ctrl+=', 'zoom-in', {allowWhenBlocked: true}),
 	define('music.zoomOut', 'Ctrl+-', 'zoom-out', {allowWhenBlocked: true}),
 	define('timeline.pageForward', 'PageUp', null, {allowWhenBlocked: true}),
 	define('timeline.pageBackward', 'PageDown', null, {allowWhenBlocked: true}),
+
+	define('macros.open', 'Ctrl+Alt+M', null, {allowWhenBlocked: true}),
 
 	define('help.documentation'),
 	define('help.reportIssues'),
@@ -186,14 +200,20 @@ export const MENU_DEFINITION = Object.freeze([
 	}),
 	Object.freeze({
 		id: 'music', labelKey: 'menu.music', mnemonic: 'm', items: Object.freeze([
-			item('music.playPause'), separator, item('music.seekStart'), item('music.seekForward'),
-			item('music.seekBackward'), item('music.seekForward10'), item('music.seekBackward10'),
+			item('music.playPause'), item('music.playReverse'), separator, item('music.seekStart'), item('music.seekForward'),
+			item('music.seekBackward'), item('music.seekForward3'), item('music.seekBackward3'),
+			separator, item('music.abLoop'),
 			separator, item('music.subdivision1'), item('music.subdivision2'),
 			item('music.subdivision3'), item('music.subdivision4'), item('music.subdivision6'),
 			item('music.subdivision8'), item('music.subdivisionOther'), separator,
 			item('music.speedDecrease'), item('music.speedIncrease'), item('music.speed025'),
 			item('music.speed05'), item('music.speed1'), separator, item('music.zoomIn'),
 			item('music.zoomOut')
+		])
+	}),
+	Object.freeze({
+		id: 'macros', labelKey: 'menu.macros', mnemonic: 'a', items: Object.freeze([
+			item('macros.open')
 		])
 	}),
 	Object.freeze({
@@ -207,7 +227,7 @@ export const TOOLBAR_ITEMS = Object.freeze([
 	'events.tap', 'events.hold', 'events.drag', 'events.flick', 'events.bgNote',
 	'events.bgPattern', 'events.bpmChange', 'separator', 'events.moveChannelAbove',
 	'events.moveChannelBelow', 'channel.createAbove', 'channel.createBelow',
-	'channel.delete', 'channel.moveUp', 'channel.moveDown', 'separator',
+	'channel.delete', 'separator',
 	'snappee.rectangularMesh', 'snappee.radialMesh', 'snappee.regularPolygon',
 	'snappee.bezierCurve', 'snappee.circularArc', 'snappee.pen', 'snappee.activate',
 	'snappee.deactivate', 'snappee.attach', 'snappee.detach', 'separator',
