@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v30";
+const CACHE_VERSION = "sviber-v31";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -17,6 +17,7 @@ const APP_SHELL = [
 	"./css/fonts-local.css",
 	"./css/fonts-web.css",
 	"./css/macros.css",
+	"./css/app-v11.css",
 	"./js/app-helpers.js",
 	"./js/app-core.js",
 	"./js/app-event-editing.js",
@@ -41,7 +42,7 @@ const APP_SHELL = [
 	"./js/render/timeline-helpers.js",
 	"./svg/icon.svg",
 	"./js/vendor-loader.js",
-	"./js/app.js?v=20",
+	"./js/app.js?v=21",
 	"./js/macros.js",
 	"./js/commands.js",
 	"./js/i18n.js",
@@ -64,7 +65,8 @@ const APP_SHELL = [
 	"./js/render/scroll-view.js",
 	"./js/app-macro-bridge.js",
 	"./js/core/snappee-presets.js",
-	"./js/i18n-v10.js",
+	"./json/i18n.en-US.json",
+	"./json/i18n.zh-CN.json",
 	"./js/macro-api.js",
 	"./js/macro-sandbox.js",
 	"./js/ruby-loader.js",
@@ -88,6 +90,8 @@ const APP_SHELL = [
 		"time-lattice-2.svg", "time-lattice-3.svg", "time-lattice-4.svg",
 		"time-lattice-6.svg", "time-lattice-8.svg", "zoom-in.svg", "zoom-out.svg",
 		"flip-horizontally.svg", "flip-vertically.svg",
+		"fullscreen.svg", "lock-visible-range.svg", "macros.svg", "metronome.svg",
+		"read-only.svg", "se.svg", "seek-back-after-playing.svg",
 	].map(name => `svg/icons/${name}`),
 ];
 const CDN_ASSETS = [

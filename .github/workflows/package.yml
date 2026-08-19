@@ -42,12 +42,12 @@ jobs:
             platform: macos-x86_64
             nwPlatform: osx
             arch: x64
-            archive: dmg
+            archive: zip
           - os: macos-15
             platform: macos-aarch64
             nwPlatform: osx
             arch: arm64
-            archive: dmg
+            archive: zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
@@ -68,9 +68,9 @@ jobs:
       - name: Archive Linux app as tar.gz
         if: startsWith(matrix.platform, 'linux-')
         run: tar -czf sviber-${{ matrix.platform }}.tar.gz -C build/nw .
-      - name: Archive macOS app as DMG
+      - name: Archive macOS app as ZIP
         if: startsWith(matrix.platform, 'macos-')
-        run: hdiutil create -volname sviber -srcfolder build/nw -ov -format UDZO sviber-${{ matrix.platform }}.dmg
+        run: ditto -c -k --sequesterRsrc build/nw sviber-${{ matrix.platform }}.zip
       - uses: actions/upload-artifact@v7
         with:
           name: sviber-${{ matrix.platform }}

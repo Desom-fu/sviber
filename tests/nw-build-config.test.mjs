@@ -49,7 +49,7 @@ test("NW.js builds pass an explicit target platform and architecture", async () 
 	assert.match(source, /generatePackagedIcons\(applicationDirectory, TARGET_PLATFORM\)/);
 });
 
-test("release workflows archive each v10 target with the required format", async () => {
+test("release workflows archive each target with the required format", async () => {
 	const workflow = await readFile(new URL("../.github/workflows/package.yml", import.meta.url), "utf8");
 	for (const platform of ["windows-x86", "windows-x86_64", "windows-aarch64"]) {
 		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: zip`));
@@ -58,7 +58,7 @@ test("release workflows archive each v10 target with the required format", async
 		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: tar\\.gz`));
 	}
 	for (const platform of ["macos-x86_64", "macos-aarch64"]) {
-		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: dmg`));
+		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: zip`));
 	}
 	assert.match(workflow, /platform: windows-x86[\s\S]*?nwPlatform: win[\s\S]*?arch: ia32/);
 	assert.match(workflow, /platform: windows-aarch64[\s\S]*?nwPlatform: win[\s\S]*?arch: arm64/);
@@ -67,12 +67,18 @@ test("release workflows archive each v10 target with the required format", async
 	assert.match(workflow, /SVIBER_NW_PLATFORM: \$\{\{ matrix\.nwPlatform \}\}/);
 	assert.match(workflow, /SVIBER_NW_ARCH: \$\{\{ matrix\.arch \}\}/);
 	assert.match(workflow, /startsWith\(matrix\.platform, 'windows-'\)[\s\S]*?Compress-Archive/);
-	assert.match(workflow, /startsWith\(matrix\.platform, 'macos-'\)[\s\S]*?hdiutil create/);
+	assert.match(workflow, /startsWith\(matrix\.platform, 'macos-'\)[\s\S]*?ditto -c -k/);
+	assert.doesNotMatch(workflow, /--keepParent build\/nw/);
 	assert.match(workflow, /if: startsWith\(matrix\.platform, 'linux-'\)[\s\S]*?tar -czf/);
 	assert.match(workflow, /path: sviber-\$\{\{ matrix\.platform \}\}\.\$\{\{ matrix\.archive \}\}/);
 	const release = await readFile(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
 	assert.match(release, /release\/\*\.zip/);
 	assert.match(release, /release\/\*\.tar\.gz/);
-	assert.match(release, /release\/\*\.dmg/);
+	assert.doesNotMatch(release, /release\/\*\.dmg/);
 	assert.match(release, /release\/\*\.nw/);
+});
+
+test("NW.js staging excludes the unshipped icon reference directory", async () => {
+	const source = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
+	assert.match(source, /excludedEntries[\s\S]*?"new-icons-4"/);
 });

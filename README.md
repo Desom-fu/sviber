@@ -90,13 +90,15 @@ My Project/
 - An exported `.ssc` is a ZIP archive for Sunniesnow, not a copy of the editable project. Its root contains the shared music, optional cover/background, and one pure Sunniesnow Chart 1.0 JSON file per difficulty. It contains neither `sviber-project.json` nor the top-level `sviber` extension. All exported entries are at archive root because the target Sunniesnow build discovers level music, images, and difficulty JSON there.
 - Export writes the supported Sunniesnow Chart 1.0 fields without enforcing the external JSON Schema. Empty optional metadata such as artist or charter is preserved; unsupported editor-only data is not written to the formal chart JSON.
 
-The editor automatically records the active dirty difficulty in `localStorage` every 120 seconds by default. **File > Preferences...** changes the interval; `0` disables autosave. If an autosave is newer than the last manual save, recovery is offered on the next launch, and older recovery records are retained until storage pressure requires eviction. Autosaves omit the generated top-level `events` list for speed and space; ordinary saves retain it. The interface follows the browser language: Chinese locales use `zh-CN`; all others use `en-US`. The language choice shown in English is **Simplified Chinese**, while the Chinese interface shows **简体中文** and **English**. The editor, macro page, and manual share the saved explicit light/dark theme; System follows the operating-system preference.
+The editor automatically records the active dirty difficulty in `localStorage` every 120 seconds by default. **File > Preferences...** changes the interval; `0` disables autosave. If an autosave is newer than the last manual save, recovery is offered on the next launch, and older recovery records are retained until storage pressure requires eviction. Autosaves omit the generated top-level `events` list for speed and space; ordinary saves retain it. The interface follows the browser language: Chinese locales use `zh-CN`; all others use `en-US`. The Chinese option is labelled **简体中文** in both interfaces, while the English option is **English**. The editor, macro page, and manual share the saved explicit light/dark theme; System follows the operating-system preference.
+
+The status panel uses icon-only controls for visible-range locking, note SE, seek-back, the constant-strength metronome, read-only mode, and fullscreen. Read-only mode keeps selection, seeking, range navigation, Music commands, and comment editing available while blocking chart, snappee, channel, macro, and history mutations. `F11` toggles fullscreen even when a form is open; `Esc` does not exit it. The difficulty selector keeps global number and Space shortcuts active while focused. Tip-point lines are drawn only between adjacent events that are actually visible in the same guide, and the Scroll view uses the timeline's time scale. The web editor can be installed as a PWA and its service worker caches both JSON translation files.
 
 ## Macros and release packages
 
 The separate **Macros** window supports JavaScript and Ruby global macros. In NW.js, project macros are `.js` or `.rb` files in the project folder. Both APIs expose metadata, editor state, timing, channels, events, snappees, selection, and find/update/remove helpers. JavaScript console output and Ruby `$stdout`/`$stderr` (including `puts`, `print`, and `warn`) are shown in the macro console; a successful run is applied as one undoable chart edit.
 
-Release builds are architecture-specific: Windows provides x86, x86_64, and aarch64 ZIP archives; Linux provides x86_64 and aarch64 `tar.gz` archives; macOS provides x86_64 and aarch64 DMG images. A runtime-free `.nw` package is also produced.
+Release builds are architecture-specific: Windows provides x86, x86_64, and aarch64 ZIP archives; macOS provides x86_64 and aarch64 ZIP archives; Linux provides x86_64 and aarch64 `tar.gz` archives. A runtime-free `.nw` package is also produced.
 
 ## Sharing source or desktop builds
 
@@ -114,4 +116,4 @@ npm run build
 
 The repository is covered by its root license. Third-party JavaScript packages and fonts retain their own licenses; the desktop build includes the downloaded font license files.
 
-For the v9/v10 diff checklist, implementation map, and release verification record, see [`PROMPT-v9-v10-IMPLEMENTATION.md`](PROMPT-v9-v10-IMPLEMENTATION.md).
+For the v9/v10 diff checklist, implementation map, and release verification record, see [`PROMPT-v9-v10-IMPLEMENTATION.md`](PROMPT-v9-v10-IMPLEMENTATION.md). The v10/v11 checklist and implementation record is in [`PROMPT-v10-v11-IMPLEMENTATION.md`](PROMPT-v10-v11-IMPLEMENTATION.md).

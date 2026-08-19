@@ -67,6 +67,8 @@ export class SviberAppCore {
 		this.autosave = new AutosaveManager();
 		this.macroWindow = null;
 		this.macroMessageHandler = event => void handleMacroMessage(this, event);
+		this.fullscreen = false;
+		this.boundFullscreenChange = () => this._syncFullscreenState();
 
 		this.tooltip = new TooltipManager({ i18n });
 		this.toast = new ToastManager({ i18n });
@@ -93,6 +95,7 @@ export class SviberAppCore {
 		this.stage = new StageView(document.getElementById("stage-surface"), this._stageCallbacks());
 		this.scrollView = new ScrollView(document.getElementById("scroll-surface"), {
 			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
+			getTimelineWidth: () => this.timeline.surface.width,
 		});
 		this.inspectorPanel = new InspectorPanel({
 			i18n, tooltip: this.tooltip,
@@ -143,6 +146,7 @@ export class SviberAppCore {
 	}
 
 	async initialize() {
+		await i18n.ready;
 		i18n.apply(document);
 		const difficultySwitcher = document.querySelector(".difficulty-switcher");
 		if (difficultySwitcher) difficultySwitcher.hidden = !globalThis.nw;
@@ -170,6 +174,57 @@ export class SviberAppCore {
 		if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !globalThis.nw) {
 			navigator.serviceWorker.register("service-worker.js").catch(error => console.warn("Service worker registration failed", error));
 		}
+	}
+
+	readOnlyCommandAllowed(id) {
+		if (id !== "edit.delete" && id !== "edit.cut") return false;
+		const events = selected(this.model);
+		return events.length > 0 && events.every(event => event.type === "comment");
+	}
+
+	setReadOnly(value) {
+		const next = Boolean(value);
+		if (Boolean(this.model.editor.readOnly) === next) return next;
+		if (next) this.exitModes();
+		this.model.editor.readOnly = next;
+		try { this.macroWindow?.postMessage({ type: "sviber-macro-read-only", readOnly: next }, "*"); }
+		catch { /* The macro popup may have closed. */ }
+		this.refresh();
+		return next;
+	}
+
+	_isFullscreen() {
+		if (document.fullscreenElement) return true;
+		try { return Boolean(globalThis.nw && globalThis.nw.Window.get().isFullscreen); }
+		catch { return false; }
+	}
+
+	_syncFullscreenState() {
+		const next = this._isFullscreen();
+		const changed = next !== this.fullscreen;
+		this.fullscreen = next;
+		const control = document.getElementById("fullscreen");
+		if (control) control.checked = this.fullscreen;
+		if (changed) this.requestStatusUpdate();
+	}
+
+	async setFullscreen(value) {
+		const requested = Boolean(value);
+		try {
+			if (globalThis.nw?.Window?.get) {
+				const windowObject = globalThis.nw.Window.get();
+				if (requested) windowObject.enterFullscreen?.();
+				else windowObject.leaveFullscreen?.();
+			} else if (requested) {
+				await document.documentElement.requestFullscreen?.();
+			} else if (document.fullscreenElement) {
+				await document.exitFullscreen?.();
+			}
+		} catch (error) {
+			this.toast.error("error.fullscreen", { message: String(error?.message || error) });
+		}
+		this._syncFullscreenState();
+		return this.fullscreen;
 	}
 
 	viewState() {
@@ -227,6 +282,7 @@ export class SviberAppCore {
 	}
 
 	commit(label, mutation, options = {}) {
+		if (this.model.editor.readOnly && !options.allowReadOnly) return null;
 		this.cancelSelectionPreview?.();
 		if (this.freeTransform) this.finishFreeTransform();
 		let previewScheduleDirty = false;
@@ -399,6 +455,7 @@ export class SviberAppCore {
 	}
 
 	preview(label, mutation, options = {}) {
+		if (this.model.editor.readOnly && !options.allowReadOnly) return;
 		if (!this.previewBase) {
 			this.previewBase = this.model.snapshot();
 			this.previewLabel = label;
@@ -486,7 +543,7 @@ export class SviberAppCore {
 		select.style.width = `${Math.min(30, Math.max(12, labelLength + 3))}ch`;
 		select.title = i18n.t("difficulty.select");
 		select.setAttribute("aria-label", i18n.t("difficulty.select"));
-		const blocked = this.audio.playing || Boolean(this.freeTransform);
+		const blocked = this.audio.playing || Boolean(this.freeTransform) || Boolean(this.model.editor.readOnly);
 		select.disabled = blocked;
 	}
 
@@ -504,9 +561,9 @@ export class SviberAppCore {
 		if (reschedulePlayback && this.audio.playing) this._scheduleHits(this.audio.currentTime, 0);
 		this._updateStatus();
 		this.inspectorPanel.render(this.model, { transform: this.freeTransform?.matrix || null });
-		this.snappeesPanel.render(this.model);
-		this.channelsPanel.render(this.model);
-		this.historyPanel.render(this.history);
+		this.snappeesPanel.render(this.model, { readOnly: this.model.editor.readOnly });
+		this.channelsPanel.render(this.model, { readOnly: this.model.editor.readOnly });
+		this.historyPanel.render(this.history, { readOnly: this.model.editor.readOnly });
 		this._refreshDifficultyUi();
 		this.registry.notifyAll();
 		this._syncCheckedCommands();
@@ -523,10 +580,11 @@ export class SviberAppCore {
 		document.getElementById("status-beat").textContent = formatBeat(beat, subdivision);
 		document.getElementById("status-speed").textContent = Number(this.model.editor.speed).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 		for (const [id, property] of [["lock-visible-range", "lockVisibleRange"], ["play-se", "playSe"],
-			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"]]) {
+			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"], ["read-only", "readOnly"]]) {
 			const control = document.getElementById(id);
 			if (control) control.checked = Boolean(this.model.editor[property]);
 		}
+		this._syncFullscreenState();
 		const comments = this.renderIndex?.activeComments(seconds) || this.model.events.filter(event => {
 			if (event.type !== "comment") return false;
 			const start = this.timing().beatToSeconds(event.time);
@@ -534,12 +592,12 @@ export class SviberAppCore {
 			return start <= seconds && end > seconds;
 		});
 		const commentsElement = document.getElementById("status-comments");
-		const commentsSignature = JSON.stringify(comments.map(event => [event.id, event.text]));
+		const commentsSignature = JSON.stringify(comments.map(event => [event.id, event.text, Boolean(event.selected)]));
 		if (commentsElement && commentsElement.dataset.signature !== commentsSignature) {
 			commentsElement.dataset.signature = commentsSignature;
 			commentsElement.replaceChildren(...comments.map(event => {
 				const item = document.createElement("div");
-				item.className = "status-comment";
+				item.className = `status-comment${event.selected ? " is-selected" : ""}`;
 				item.textContent = String(event.text || "");
 				return item;
 			}));
@@ -612,6 +670,8 @@ export class SviberAppCore {
 				this.refresh();
 			});
 		}
+		document.getElementById("read-only")?.addEventListener("change", event => this.setReadOnly(event.target.checked));
+		document.getElementById("fullscreen")?.addEventListener("change", event => void this.setFullscreen(event.target.checked));
 	}
 
 	_bindAudio() {
@@ -809,11 +869,17 @@ export class SviberAppCore {
 			this.help.openLicenseInformation();
 		});
 		document.addEventListener("keydown", event => {
-			if (event.key === "Escape" && !this.dialogs.active) {
-				if (this.freeTransform) event.preventDefault();
-				this.exitModes();
-				for (const snappee of this.model.snappees) snappee.selected = false;
-				this.refresh();
+			if (event.key === "F11") {
+				event.preventDefault();
+				void this.setFullscreen(!this._isFullscreen());
+			} else if (event.key === "Escape") {
+				if (globalThis.nw && this._isFullscreen()) event.preventDefault();
+				if (!this.dialogs.active) {
+					if (this.freeTransform) event.preventDefault();
+					this.exitModes();
+					for (const snappee of this.model.snappees) snappee.selected = false;
+					this.refresh();
+				}
 			} else if (event.key === "Enter" && this.freeTransform && !this.dialogs.active) {
 				event.preventDefault();
 				this.finishFreeTransform();
@@ -822,6 +888,13 @@ export class SviberAppCore {
 				this.finishCurveDraft();
 			}
 		});
+		document.addEventListener("fullscreenchange", this.boundFullscreenChange);
+		try {
+			const windowObject = globalThis.nw?.Window?.get?.();
+			windowObject?.on?.("enter-fullscreen", this.boundFullscreenChange);
+			windowObject?.on?.("leave-fullscreen", this.boundFullscreenChange);
+		} catch { /* NW.js is optional in the browser. */ }
+		this._syncFullscreenState();
 		this.boundSpaceKeyUp = event => {
 			if (event.key !== " " && event.code !== "Space") return;
 			if (this.spacePlaybackStartedAt == null) return;
@@ -849,7 +922,9 @@ export class SviberAppCore {
 	}
 
 	openMacros() {
-		const url = new URL("macros.html", location.href).href;
+		const urlObject = new URL("macros.html", location.href);
+		urlObject.searchParams.set("lang", i18n.language);
+		const url = urlObject.href;
 		if (this.macroWindow && !this.macroWindow.closed) {
 			this.macroWindow.focus();
 			return;
@@ -913,6 +988,7 @@ export class SviberAppCore {
 		this.tooltip.destroy();
 		this.unsubscribeCommandModes?.();
 		document.removeEventListener("keyup", this.boundSpaceKeyUp, true);
+		document.removeEventListener("fullscreenchange", this.boundFullscreenChange);
 		window.removeEventListener("message", this.macroMessageHandler);
 		cancelAnimationFrame(this.statusUpdateFrame);
 	}

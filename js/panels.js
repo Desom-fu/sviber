@@ -328,6 +328,7 @@ export class InspectorPanel {
 		this.cleanup = [];
 		clear(this.element);
 		const selected = model.events.filter(event => event.selected);
+		const commentsOnly = selected.length > 0 && selected.every(event => event.type === "comment");
 		if (Array.isArray(context.transform)) {
 			const transformGroup = this.#group("field.transform");
 			const wrapper = document.createElement("div");
@@ -344,7 +345,7 @@ export class InspectorPanel {
 		}
 		if (!selected.length) {
 			const empty = document.createElement("p");
-			empty.className = "panel-empty-message";
+			empty.className = "panel-empty-message is-muted";
 			empty.textContent = this.i18n.t("panel.noSelection");
 			this.element.append(empty);
 			return;
@@ -353,10 +354,11 @@ export class InspectorPanel {
 		const group = this.#group(selected.every(event => event.type === selected[0].type)
 			? `event.${selected[0].type}` : "panel.commonProperties");
 		const types = commonValue(selected, event => event.type);
-		group.append(this.#row("field.type", makeSelect(document, [
+		const typeControl = makeSelect(document, [
 			"tap", "hold", "drag", "flick", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment",
 		].map(type => ({ value: type, label: this.i18n.t(`event.${type}`) })), types,
-		value => this.onChange("type", value))));
+		value => this.onChange("type", value));
+		group.append(this.#row("field.type", typeControl));
 
 		const time = commonValue(selected, event => event.time);
 		group.append(this.#row("field.time", makeRationalControl(document, time,
@@ -522,6 +524,10 @@ export class InspectorPanel {
 			setControlDisabled(beatsControl, !spawnFieldsEnabled || timeInBeats !== true);
 			group.append(this.#row("field.spawnTimeBeats", beatsControl));
 		}
+		if (model.editor.readOnly) {
+			if (!commentsOnly) group.disabled = true;
+			else setControlDisabled(typeControl, true);
+		}
 		this.element.append(group);
 	}
 }
@@ -559,7 +565,8 @@ export class SnappeesPanel {
 		return button;
 	}
 
-	render(model) {
+	render(model, context = {}) {
+		const readOnly = Boolean(context.readOnly);
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clear(this.element);
@@ -573,7 +580,8 @@ export class SnappeesPanel {
 		model.snappees.forEach((snappee, index) => {
 			const item = document.createElement("div");
 			item.className = `snappee-item${snappee.selected ? " is-selected" : ""}${snappee.active === false ? " is-inactive" : ""}`;
-			item.tabIndex = 0;
+			item.tabIndex = readOnly ? -1 : 0;
+			item.setAttribute("aria-disabled", String(readOnly));
 			item.setAttribute("role", "button");
 			item.setAttribute("aria-pressed", String(Boolean(snappee.selected)));
 			const preview = makeSnappeePreview(document, snappee, 24);
@@ -582,19 +590,19 @@ export class SnappeesPanel {
 			name.textContent = snappee.name;
 			item.append(preview, name,
 				this.#action(snappee.active === false ? "activate" : "deactivate", snappee.active === false ? "panel.snappee.activate" : "panel.snappee.deactivate",
-					() => this.onToggle(snappee.id)),
-				this.#action("duplicate", "panel.snappee.duplicate", () => this.onDuplicate(snappee.id)),
-				this.#action("up", "panel.snappee.moveUp", () => this.onMove(snappee.id, -1), index === 0),
-				this.#action("down", "panel.snappee.moveDown", () => this.onMove(snappee.id, 1), index === model.snappees.length - 1),
-				this.#action("edit", "panel.snappee.edit", () => this.onEdit(snappee.id)),
-				this.#action("delete", "panel.snappee.delete", () => this.onDelete(snappee.id)),
+					() => this.onToggle(snappee.id), readOnly),
+				this.#action("duplicate", "panel.snappee.duplicate", () => this.onDuplicate(snappee.id), readOnly),
+				this.#action("up", "panel.snappee.moveUp", () => this.onMove(snappee.id, -1), readOnly || index === 0),
+				this.#action("down", "panel.snappee.moveDown", () => this.onMove(snappee.id, 1), readOnly || index === model.snappees.length - 1),
+				this.#action("edit", "panel.snappee.edit", () => this.onEdit(snappee.id), readOnly),
+				this.#action("delete", "panel.snappee.delete", () => this.onDelete(snappee.id), readOnly),
 			);
 			item.addEventListener("click", () => {
-				if (snappee.active !== false) this.onSelect(snappee.id);
+				if (!readOnly && snappee.active !== false) this.onSelect(snappee.id);
 			});
-			item.addEventListener("dblclick", () => this.onEdit(snappee.id));
+			item.addEventListener("dblclick", () => { if (!readOnly) this.onEdit(snappee.id); });
 			item.addEventListener("keydown", event => {
-				if (event.key === "Enter") this.onEdit(snappee.id);
+				if (!readOnly && event.key === "Enter") this.onEdit(snappee.id);
 			});
 			this.cleanup.push(this.tooltip?.register(item, "panel.snappee.edit"));
 			this.element.append(item);
@@ -635,7 +643,8 @@ export class ChannelsPanel {
 		return button;
 	}
 
-	render(model) {
+	render(model, context = {}) {
+		const readOnly = Boolean(context.readOnly);
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clear(this.element);
@@ -654,19 +663,19 @@ export class ChannelsPanel {
 			item.append(ordinal, name,
 				this.#action(channel.active === false ? "activate" : "deactivate",
 					channel.active === false ? "panel.channel.activate" : "panel.channel.deactivate",
-					() => this.onToggle(channel.id)),
-				this.#action("duplicate", "panel.channel.duplicate", () => this.onDuplicate(channel.id)),
-				this.#action("up", "panel.channel.moveUp", () => this.onMove(channel.id, -1), index === 0),
-				this.#action("down", "panel.channel.moveDown", () => this.onMove(channel.id, 1), index === model.channels.length - 1),
-				this.#action("edit", "panel.channel.rename", () => this.onEdit(channel.id)),
-				this.#action("delete", "panel.channel.delete", () => this.onDelete(channel.id), model.channels.length <= 1),
+					() => this.onToggle(channel.id), readOnly),
+				this.#action("duplicate", "panel.channel.duplicate", () => this.onDuplicate(channel.id), readOnly),
+				this.#action("up", "panel.channel.moveUp", () => this.onMove(channel.id, -1), readOnly || index === 0),
+				this.#action("down", "panel.channel.moveDown", () => this.onMove(channel.id, 1), readOnly || index === model.channels.length - 1),
+				this.#action("edit", "panel.channel.rename", () => this.onEdit(channel.id), readOnly),
+				this.#action("delete", "panel.channel.delete", () => this.onDelete(channel.id), readOnly || model.channels.length <= 1),
 			);
 			item.addEventListener("click", () => {
 				if (channel.active !== false) this.onSelect(channel.id);
 			});
-			item.addEventListener("dblclick", () => this.onEdit(channel.id));
+			item.addEventListener("dblclick", () => { if (!readOnly) this.onEdit(channel.id); });
 			item.addEventListener("keydown", event => {
-				if (event.key === "Enter") this.onEdit(channel.id);
+				if (!readOnly && event.key === "Enter") this.onEdit(channel.id);
 			});
 			this.cleanup.push(this.tooltip?.register(item, "panel.channel.edit"));
 			this.element.append(item);
@@ -683,13 +692,16 @@ export class HistoryPanel {
 		this.cleanup = [];
 	}
 
-	render(history) {
+	render(history, context = {}) {
+		const readOnly = Boolean(context.readOnly);
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clear(this.element);
 		for (const entry of history.entries) {
 			const button = document.createElement("button");
 			button.type = "button";
+			button.disabled = readOnly;
+			button.setAttribute("aria-disabled", String(readOnly));
 			button.className = `history-item${entry.active ? " is-current" : ""}${entry.undone ? " is-future" : ""}`;
 			const index = document.createElement("span");
 			index.className = "history-index";

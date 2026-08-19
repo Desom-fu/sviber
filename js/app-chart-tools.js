@@ -152,7 +152,7 @@ export const withChartTools = Base => class extends Base {
 				text: values.text,
 				selected: true,
 			});
-		});
+		}, { allowReadOnly: true });
 	}
 
 	uniqueSnappeeName(base) {
@@ -395,8 +395,10 @@ export const withChartTools = Base => class extends Base {
 	}
 
 	selectSnappee(id) {
+		if (this.model.editor.readOnly) return false;
 		for (const snappee of this.model.snappees) snappee.selected = snappee.id === id && snappee.active;
 		this.refresh();
+		return true;
 	}
 
 	toggleSnappee(id) {

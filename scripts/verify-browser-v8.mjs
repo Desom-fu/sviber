@@ -139,7 +139,7 @@ export async function runV8BrowserChecks(page) {
 
 	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 	await page.locator("#channels-tab").click();
-	assert.equal(await page.locator('.menu-command[data-command="channel.rename"]').count(), 1);
+	assert.equal(await page.locator('.menu-command[data-command="channel.rename"]').count(), 0);
 	const leadItem = page.locator("#channels-panel .channel-item").filter({ hasText: "Lead" }).first();
 	await leadItem.locator(".snappee-action").nth(0).click();
 	await page.waitForFunction(() => globalThis.sviber.model.channels.find(channel => channel.id === 10)?.active === false);
@@ -334,6 +334,66 @@ export async function runV8BrowserChecks(page) {
 	await page.waitForTimeout(350);
 	await page.keyboard.up("Space");
 	await page.waitForFunction(() => globalThis.sviber.audio.playing === false);
+
+	await page.evaluate(() => {
+		const app = globalThis.sviber;
+		app.model.events.find(event => event.id === 104).channel = 30;
+		app.selectEvents([107], "replace");
+		app.refreshNow();
+	});
+	await page.locator('.status-option:has(#read-only) img').click();
+	await page.waitForFunction(() => globalThis.sviber.model.editor.readOnly === true);
+	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+	const readOnlyState = await page.evaluate(() => {
+		const app = globalThis.sviber;
+		const historyCursor = app.history.cursor;
+		const historyResult = app.goToHistory(0);
+		return {
+			music: app.registry.isEnabled("music.playPause", app),
+			select: app.registry.isEnabled("edit.selectAll", app),
+			comment: app.registry.isEnabled("events.comment", app),
+			macros: app.registry.isEnabled("macros.open", app),
+			save: app.registry.isEnabled("file.save", app),
+			undo: app.registry.isEnabled("edit.undo", app),
+			create: app.registry.isEnabled("events.tap", app),
+			difficultyDisabled: document.getElementById("difficulty-select").disabled,
+			inspectorDisabled: document.querySelector("#inspector-panel fieldset")?.disabled,
+			channelActionsDisabled: [...document.querySelectorAll("#channels-panel .snappee-action")]
+				.every(button => button.disabled),
+			historyDisabled: [...document.querySelectorAll("#history-list button")]
+				.every(button => button.disabled),
+			historyResult,
+			historyCursorUnchanged: app.history.cursor === historyCursor,
+		};
+	});
+	assert.deepEqual(readOnlyState, {
+		music: true, select: true, comment: true, macros: true,
+		save: false, undo: false, create: false,
+		difficultyDisabled: true, inspectorDisabled: true,
+		channelActionsDisabled: true, historyDisabled: true,
+		historyResult: false, historyCursorUnchanged: true,
+	});
+	const readOnlyComment = await page.evaluate(() => {
+		const app = globalThis.sviber;
+		app.selectEvents([104], "replace");
+		app.editSelectedProperty("text", "read-only comment");
+		app.editSelectedProperty("type", "tap");
+		app.refreshNow();
+		const group = document.querySelector("#inspector-panel fieldset");
+		return {
+			type: app.model.events.find(event => event.id === 104)?.type,
+			text: app.model.events.find(event => event.id === 104)?.text,
+			groupDisabled: group?.disabled,
+			typeDisabled: group?.querySelector("select")?.disabled,
+			textDisabled: group?.querySelector('input[type="text"]')?.disabled,
+		};
+	});
+	assert.deepEqual(readOnlyComment, {
+		type: "comment", text: "read-only comment", groupDisabled: false,
+		typeDisabled: true, textDisabled: false,
+	});
+	await page.locator('.status-option:has(#read-only) img').click();
+	await page.waitForFunction(() => globalThis.sviber.model.editor.readOnly === false);
 
 	await page.evaluate(() => { void globalThis.sviber.registry.execute("help.about", globalThis.sviber); });
 	await page.locator(".about-information").waitFor();

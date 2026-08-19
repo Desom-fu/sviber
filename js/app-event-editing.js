@@ -142,7 +142,7 @@ export const withEventEditing = Base => class extends Base {
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false, allowPlaying: true, scheduleDirty: false });
+		}, { dirty: false, allowPlaying: true, allowReadOnly: true, scheduleDirty: false });
 	}
 
 	_reconcileStageMoveAttachmentException(selectionBefore) {
@@ -287,7 +287,7 @@ export const withEventEditing = Base => class extends Base {
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false, scheduleDirty: false });
+		}, { dirty: false, allowReadOnly: true, scheduleDirty: false });
 	}
 
 	seekBeat(beat, channel = null, clearSelection = false, options = {}) {
@@ -928,6 +928,11 @@ export const withEventEditing = Base => class extends Base {
 
 	editSelectedProperty(property, value) {
 		const historyLabel = i18n.t("history.editEvent", { type: "" });
+		const commentProperties = new Set(["time", "channel", "duration", "endTime", "text"]);
+		const allowReadOnly = this.model.editor.readOnly
+			&& selected(this.model).length > 0
+			&& selected(this.model).every(event => event.type === "comment")
+			&& commentProperties.has(property);
 		if (property === "tipPointSpawnType" && value === "chain"
 			&& this.model.events.filter(event => event.selected).length > 1) {
 			const result = this.commit(historyLabel, model => connectSelectedTipPointChain(model.events));
@@ -974,7 +979,7 @@ export const withEventEditing = Base => class extends Base {
 					event[property] = deepClone(nextValue);
 				}
 			}
-		});
+		}, { allowReadOnly });
 		if (property === "duration" || property === "endTime" || property === "angle" || property === "type") {
 			this.rememberCreationDefaults(selected(this.model));
 		}

@@ -346,7 +346,9 @@ async function copyApplication() {
 	await rm(buildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
 	await mkdir(applicationDirectory, { recursive: true });
-	const excludedEntries = new Set([".git", "build", "tests", "test-results", "node_modules", "package-lock.json"]);
+	const excludedEntries = new Set([
+		".git", "build", "new-icons-4", "tests", "test-results", "node_modules", "package-lock.json",
+	]);
 	for (const entry of await readdir(sviberDirectory, { withFileTypes: true })) {
 		if (excludedEntries.has(entry.name)) continue;
 		await cp(path.join(sviberDirectory, entry.name), path.join(applicationDirectory, entry.name), {

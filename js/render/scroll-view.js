@@ -66,19 +66,24 @@ export class ScrollView {
 	}
 
 	#mapping(width, height) {
-		const scale = Math.max(0.1, width / (CHART_BOUNDS.maxX - CHART_BOUNDS.minX));
+		const project = projectState(this.state);
+		const visibleSpan = Math.max(0.001,
+			Number(project?.editor?.visibleRangeEnd) - Number(project?.editor?.visibleRangeBeginning));
+		const timelineWidth = Math.max(1, Number(this.callbacks.getTimelineWidth?.()) || width);
+		const xScale = Math.max(0.1, width / (CHART_BOUNDS.maxX - CHART_BOUNDS.minX));
+		const timeScale = Math.max(0.1, timelineWidth / visibleSpan);
 		const current = this.#currentSeconds();
 		const baseline = height - Math.min(36, Math.max(20, height * 0.12));
-		const timeSpan = height / scale;
+		const timeSpan = height / timeScale;
 		return {
-			scale, baseline, timeSpan,
+			xScale, timeScale, baseline, timeSpan,
 			toScreen: (x, time) => ({
-				x: (Number(x) - CHART_BOUNDS.minX) * scale,
-				y: baseline - (Number(time) - current) * scale,
+				x: (Number(x) - CHART_BOUNDS.minX) * xScale,
+				y: baseline - (Number(time) - current) * timeScale,
 			}),
 			fromScreen: (x, y) => ({
-				x: x / scale + CHART_BOUNDS.minX,
-				time: current - (y - baseline) / scale,
+				x: x / xScale + CHART_BOUNDS.minX,
+				time: current - (y - baseline) / timeScale,
 			}),
 		};
 	}

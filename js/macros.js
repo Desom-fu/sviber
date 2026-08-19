@@ -1,48 +1,19 @@
+import { MESSAGES } from "./i18n.js";
+
 const GLOBAL_KEY = "sviber.macros";
 const MONACO_VERSION = "0.52.2";
 const MONACO_CDN_BASE = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs`;
-const LANGUAGE = String(navigator.language || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
-const TEXT = Object.freeze({
-	"en-US": {
-		"page.title": "sviber Macros", "menu.aria": "Macros menu", "menu.file": "File", "menu.edit": "Edit", "menu.run": "Run",
-		"menu.new": "New...", "menu.save": "Save", "menu.rename": "Rename...", "menu.import": "Import...", "menu.export": "Export...", "menu.delete": "Delete...",
-		"menu.undo": "Undo", "menu.redo": "Redo", "menu.cut": "Cut", "menu.copy": "Copy", "menu.paste": "Paste",
-		"list.global": "Global", "list.project": "Project", "console.heading": "Console", "empty.none": "No macros",
-		"empty.projectBrowser": "Project macros require NW.js.", "form.newTitle": "New macro", "form.renameTitle": "Rename macro",
-		"form.importTitle": "Import macro", "form.name": "Name", "form.scope": "Macro scope", "form.language": "Macro language", "form.cancel": "Cancel", "form.ok": "OK",
-		"language.javascript": "JavaScript", "language.ruby": "Ruby",
-		"error.emptyName": "Macro name cannot be empty.", "error.reservedName": "Macro names cannot contain filesystem-reserved characters.",
-		"error.duplicateName": "Macro names must be unique.", "error.projectUnavailable": "Project macros are available only in NW.js.",
-		"error.saveProject": "Unable to save the project macro.", "error.createProject": "Unable to create the project macro.",
-		"error.importProject": "Unable to import the project macro.", "error.renameProject": "Unable to rename the project macro.", "error.deleteProject": "Unable to delete the project macro.",
-		"error.noMacro": "Open a macro first.", "error.noState": "The sviber window did not return chart state.",
-		"error.noOpener": "Open the macro window from sviber before running a macro.", "error.export": "Unable to export the macro.", "error.globalStore": "Unable to write global macros to localStorage.",
-		"title.projectAvailable": "Project macros", "title.projectUnavailable": "Project macros require NW.js.",
-		"error.monaco": "Monaco unavailable; using the plain-text editor.", "message.applied": "Macro applied as one undoable action.",
-		"message.timeout": "Macro execution timed out.", "message.discard": "Discard unsaved changes to {name}?", "message.exported": "Macro exported.",
-		"message.delete": "Delete macro {name}? This cannot be undone.", "message.deleted": "Macro deleted.", "error.rubyLoad": "Unable to load ruby.wasm."
-	},
-	"zh-CN": {
-		"page.title": "sviber 宏", "menu.aria": "宏菜单", "menu.file": "文件", "menu.edit": "编辑", "menu.run": "运行",
-		"menu.new": "新建...", "menu.save": "保存", "menu.rename": "重命名...", "menu.import": "导入...", "menu.export": "导出...", "menu.delete": "删除...",
-		"menu.undo": "撤销", "menu.redo": "重做", "menu.cut": "剪切", "menu.copy": "复制", "menu.paste": "粘贴",
-		"list.global": "全局", "list.project": "项目", "console.heading": "控制台", "empty.none": "没有宏",
-		"empty.projectBrowser": "项目宏仅在 NW.js 中可用。", "form.newTitle": "新建宏", "form.renameTitle": "重命名宏",
-		"form.importTitle": "导入宏", "form.name": "名称", "form.scope": "宏范围", "form.language": "宏语言", "form.cancel": "取消", "form.ok": "确定",
-		"language.javascript": "JavaScript", "language.ruby": "Ruby",
-		"error.emptyName": "宏名称不能为空。", "error.reservedName": "宏名称不能包含文件系统保留字符。",
-		"error.duplicateName": "宏名称不能重复。", "error.projectUnavailable": "项目宏仅在 NW.js 中可用。",
-		"error.saveProject": "无法保存项目宏。", "error.createProject": "无法创建项目宏。",
-		"error.importProject": "无法导入项目宏。", "error.renameProject": "无法重命名项目宏。", "error.deleteProject": "无法删除项目宏。",
-		"error.noMacro": "请先打开一个宏。", "error.noState": "sviber 窗口没有返回谱面状态。",
-		"error.noOpener": "请从 sviber 打开宏窗口后再运行宏。", "error.export": "无法导出宏。", "error.globalStore": "无法写入 localStorage 中的全局宏。",
-		"title.projectAvailable": "项目宏", "title.projectUnavailable": "项目宏仅在 NW.js 中可用。",
-		"error.monaco": "Monaco 不可用，已切换到纯文本编辑器。", "message.applied": "宏已作为一个可撤销操作应用。",
-		"message.timeout": "宏运行超时。", "message.discard": "放弃对“{name}”的未保存修改吗？", "message.exported": "宏已导出。",
-		"message.delete": "删除宏“{name}”吗？此操作无法撤销。", "message.deleted": "宏已删除。", "error.rubyLoad": "无法加载 ruby.wasm。"
-	}
-});
-const t = key => TEXT[LANGUAGE][key] ?? TEXT["en-US"][key] ?? key;
+function preferredLanguage() {
+	const query = new URLSearchParams(location.search).get("lang");
+	if (query === "en-US" || query === "zh-CN") return query;
+	try {
+		const stored = JSON.parse(localStorage.getItem("sviber.preferences") || "{}").language;
+		if (stored === "en-US" || stored === "zh-CN") return stored;
+	} catch { /* Ignore unavailable or malformed preference storage. */ }
+	return String(navigator.language || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
+}
+const LANGUAGE = preferredLanguage();
+const t = key => MESSAGES[LANGUAGE][`macro.${key}`] ?? MESSAGES["en-US"][`macro.${key}`] ?? key;
 const interpolate = (key, values = {}) => t(key).replace(/\{(\w+)\}/g, (_, name) => String(values[name] ?? ""));
 
 const elements = {
@@ -69,6 +40,7 @@ let editorReady = false;
 let requestCounter = 0;
 let projectAvailable = false;
 let projectMacrosLoaded = false;
+let readOnly = false;
 let rubyResourcesPromise = null;
 
 window.addEventListener("sviber-theme-change", event => {
@@ -201,7 +173,7 @@ function showMacroForm({
 		const submit = event => {
 			event.preventDefault();
 			const name = macroName(elements.formName.value);
-			const selectedScope = includeScope && projectAvailable && projectRadio?.checked ? "project" : "global";
+			const selectedScope = includeScope && projectAvailable && !readOnly && projectRadio?.checked ? "project" : "global";
 			const selectedLanguage = includeLanguage && rubyRadio?.checked ? "ruby" : language;
 			const error = validate?.(name, selectedScope, selectedLanguage) || "";
 			if (error) {
@@ -218,9 +190,10 @@ function showMacroForm({
 		elements.formError.textContent = "";
 		elements.formScope.hidden = !includeScope;
 		elements.formLanguage.hidden = !includeLanguage;
-		if (projectRadio) projectRadio.disabled = !projectAvailable || !includeScope;
-		if (globalRadio) globalRadio.checked = !includeScope || scope !== "project" || !projectAvailable;
-		if (projectRadio) projectRadio.checked = includeScope && scope === "project" && projectAvailable;
+		const projectWritable = projectAvailable && !readOnly;
+		if (projectRadio) projectRadio.disabled = !projectWritable || !includeScope;
+		if (globalRadio) globalRadio.checked = !includeScope || scope !== "project" || !projectWritable;
+		if (projectRadio) projectRadio.checked = includeScope && scope === "project" && projectWritable;
 		if (rubyRadio) rubyRadio.checked = includeLanguage && language === "ruby";
 		if (javascriptRadio) javascriptRadio.checked = !includeLanguage || language !== "ruby";
 		elements.form.addEventListener("submit", submit);
@@ -235,6 +208,31 @@ function showMacroForm({
 
 function currentTab() { return activeKey ? openTabs.get(activeKey) : null; }
 
+function tabIsEditable(tab = currentTab()) {
+	return !readOnly || tab?.macro?.type !== "project";
+}
+
+function refreshReadOnlyState() {
+	const tab = currentTab();
+	const editable = tabIsEditable(tab);
+	if (editorReady) editor.updateOptions({ readOnly: !editable });
+	elements.fallback.readOnly = !editable;
+	const projectRadio = elements.form?.querySelector('input[name="macro-scope"][value="project"]');
+	if (projectRadio) projectRadio.disabled = readOnly || !projectAvailable;
+	const blockedForProject = new Set(["save", "rename", "delete", "undo", "redo", "cut", "paste"]);
+	for (const button of document.querySelectorAll("[data-action]")) {
+		const disabled = readOnly && (button.dataset.action === "run"
+			|| tab?.macro?.type === "project" && blockedForProject.has(button.dataset.action));
+		button.disabled = disabled;
+		button.setAttribute("aria-disabled", String(disabled));
+	}
+}
+
+function setReadOnlyState(value) {
+	readOnly = Boolean(value);
+	refreshReadOnlyState();
+}
+
 function getEditorValue() {
 	return editorReady ? editor.getValue() : elements.fallback.value;
 }
@@ -246,7 +244,7 @@ function setEditorValue(value) {
 
 function markDirty() {
 	const tab = currentTab();
-	if (!tab || tab.loading) return;
+	if (!tab || tab.loading || !tabIsEditable(tab)) return;
 	tab.macro.content = getEditorValue();
 	tab.dirty = true;
 	renderTabs();
@@ -315,6 +313,7 @@ function activateTab(key) {
 	queueMicrotask(() => { tab.loading = false; });
 	renderTabs();
 	renderList();
+	refreshReadOnlyState();
 }
 
 function openMacro(macro) {
@@ -334,6 +333,7 @@ function closeTab(key, force = false) {
 		else { setEditorValue(""); renderTabs(); }
 	}
 	renderList();
+	refreshReadOnlyState();
 }
 
 async function loadProjectMacros() {
@@ -354,6 +354,7 @@ async function loadProjectMacros() {
 
 async function saveTab(tab) {
 	if (!tab) return false;
+	if (!tabIsEditable(tab)) { appendConsole(t("error.readOnly"), "error"); return false; }
 	tab.macro.content = getEditorValue();
 	if (tab.macro.type === "global") writeGlobal();
 	else {
@@ -395,6 +396,7 @@ async function newMacro() {
 async function renameMacro() {
 	const tab = currentTab();
 	if (!tab) return;
+	if (!tabIsEditable(tab)) { appendConsole(t("error.readOnly"), "error"); return; }
 	const values = await showMacroForm({
 		titleKey: "form.renameTitle", initialName: tab.macro.name, includeScope: false,
 		language: tab.macro.language,
@@ -523,6 +525,7 @@ async function exportMacro() {
 
 async function deleteMacro() {
 	const tab = currentTab();
+	if (!tabIsEditable(tab)) { appendConsole(t("error.readOnly"), "error"); return; }
 	if (!tab || !window.confirm(interpolate("message.delete", { name: tab.macro.name }))) return;
 	if (tab.macro.type === "project") {
 		const result = await request("sviber-macro-project-delete", { filename: tab.macro.filename });
@@ -558,10 +561,13 @@ function loadRubyResources() {
 }
 
 async function runMacro() {
+	if (readOnly) { appendConsole(t("error.readOnly"), "error"); return; }
 	const tab = currentTab();
 	if (!tab) { appendConsole(t("error.noMacro"), "error"); return; }
 	tab.macro.content = getEditorValue();
 	const stateResult = await request("sviber-macro-state-request");
+	setReadOnlyState(stateResult.readOnly);
+	if (readOnly) { appendConsole(t("error.readOnly"), "error"); return; }
 	if (!stateResult.state) {
 		appendConsole(window.opener ? t("error.noState") : t("error.noOpener"), "error");
 		return;
@@ -628,8 +634,8 @@ function installMenus() {
 		void actions[button.dataset.action]?.();
 	}));
 	document.addEventListener("keydown", event => {
-		if (event.key === "F8") { event.preventDefault(); void runMacro(); }
-		if (event.ctrlKey && event.key.toLowerCase() === "s") { event.preventDefault(); void saveTab(currentTab()); }
+		if (event.key === "F8") { event.preventDefault(); if (!readOnly) void runMacro(); }
+		if (event.ctrlKey && event.key.toLowerCase() === "s") { event.preventDefault(); if (tabIsEditable()) void saveTab(currentTab()); }
 		if (event.ctrlKey && event.key.toLowerCase() === "n") { event.preventDefault(); void newMacro(); }
 	});
 	elements.import.addEventListener("change", () => void handleImport());
@@ -652,7 +658,13 @@ function loadScript(source) {
 }
 
 async function installEditor() {
-	const fallback = () => { editorReady = false; elements.editor.hidden = true; elements.fallback.hidden = false; elements.fallback.addEventListener("input", markDirty); };
+	const fallback = () => {
+		editorReady = false;
+		elements.editor.hidden = true;
+		elements.fallback.hidden = false;
+		elements.fallback.addEventListener("input", markDirty);
+		refreshReadOnlyState();
+	};
 	try {
 		const nwRuntime = Boolean(globalThis.nw);
 		if (nwRuntime && typeof window.require === "function" && typeof window.require.config !== "function") {
@@ -671,6 +683,7 @@ async function installEditor() {
 		await new Promise((resolve, reject) => window.require(["vs/editor/editor.main"], resolve, reject));
 		editor = window.monaco.editor.create(elements.editor, { value: "", language: "javascript", theme: globalThis.sviberTheme?.isDark() ? "vs-dark" : "vs", automaticLayout: true, minimap: { enabled: false } });
 		editorReady = true;
+		refreshReadOnlyState();
 		elements.editor.hidden = false;
 		elements.fallback.hidden = true;
 		editor.onDidChangeModelContent(markDirty);
@@ -685,6 +698,7 @@ async function initializeProjectAccess() {
 	if (!window.opener) return;
 	const result = await request("sviber-macro-state-request");
 	projectAvailable = Boolean(result.project);
+	setReadOnlyState(result.readOnly);
 	const projectTab = document.querySelector('[data-list="project"]');
 	if (projectTab) {
 		projectTab.disabled = !projectAvailable;
@@ -693,6 +707,12 @@ async function initializeProjectAccess() {
 	if (projectAvailable) await loadProjectMacros();
 	renderList();
 }
+
+window.addEventListener("message", event => {
+	if (event.source === window.opener && event.data?.type === "sviber-macro-read-only") {
+		setReadOnlyState(event.data.readOnly);
+	}
+});
 
 applyLocale();
 readGlobal();

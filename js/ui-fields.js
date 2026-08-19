@@ -295,6 +295,31 @@ export function createFieldControl(field, value, environment = {}) {
 			focus = () => select.focus();
 			break;
 		}
+		case 'slider': {
+			const group = documentRef.createElement('div');
+			group.className = 'slider-field';
+			const input = documentRef.createElement('input');
+			input.type = 'range';
+			if (field.min != null) input.min = String(field.min);
+			if (field.max != null) input.max = String(field.max);
+			if (field.step != null) input.step = String(field.step);
+			input.value = value == null || value === MIXED_VALUE ? String(field.default ?? field.min ?? 0) : String(value);
+			const output = documentRef.createElement('output');
+			output.htmlFor = input.id = nextControlId('slider');
+			const update = () => {
+				const number = Number(input.value);
+				output.value = Number.isFinite(number) ? (field.formatValue ? field.formatValue(number) : String(number)) : '';
+				output.textContent = output.value;
+			};
+			input.addEventListener('input', () => { update(); notify({ target: input, type: 'input' }); });
+			input.addEventListener('change', () => notify({ target: input, type: 'change' }));
+			update();
+			group.append(input, output);
+			element = group;
+			read = () => Number(input.value);
+			focus = () => input.focus();
+			break;
+		}
 		case 'checkbox': {
 			const line = documentRef.createElement('label');
 			line.className = 'checkbox-line';

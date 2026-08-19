@@ -10,6 +10,7 @@ import {
 	tipPointVisualState,
 } from "../js/render/stage.js";
 import { timelineTipConnector } from "../js/render/timeline.js";
+import { timelineTipSegments } from "../js/render/timeline-helpers.js";
 
 function note(id, beat, tipPointSpawnType, overrides = {}) {
 	return {
@@ -176,6 +177,21 @@ test("timeline tip connectors keep spawn time and clip safely outside the viewpo
 	assert.deepEqual(tipPointPathBetween([{ time: 1, x: 2, y: 3 }], 0, 2), [
 		{ time: 1, x: 2, y: 3, index: 0 },
 	]);
+});
+
+test("timeline tip lines only draw segments belonging to visible chain events", () => {
+	const checkpoints = [
+		{ time: 0, x: 0, y: 10 },
+		{ time: 4, x: 40, y: 10 },
+		{ time: 8, x: 80, y: 10 },
+		{ time: 12, x: 120, y: 10 },
+	];
+	assert.deepEqual(timelineTipSegments(checkpoints, 5, 7), []);
+	assert.deepEqual(timelineTipSegments(checkpoints, 3, 7), [
+		[{ time: 3, x: 30, y: 10 }, checkpoints[1]],
+		[checkpoints[1], { time: 7, x: 70, y: 10 }],
+	]);
+	assert.deepEqual(timelineTipSegments([{ time: 2, x: 20, y: 5 }], 0, 4), []);
 });
 
 test("tip point corner geometry stays finite across coincident checkpoints", () => {

@@ -13,6 +13,7 @@ import {
 	currentSeconds,
 	drawTimelineEventIcon,
 	projectState,
+	timelineTipSegments,
 	tipSpawnDirectionSegment,
 	timingFor,
 } from "./timeline-helpers.js";
@@ -424,7 +425,7 @@ export class TimelineView {
 				guide.spawnSettings, firstPosition, project.snappees, resolvedSpawn,
 			);
 			const shortConnector = tipSpawnDirectionSegment(firstPosition, spawnPosition, checkpoints[1]);
-			const line = tipPointPathBetween(checkpoints.eventCheckpoints, beginning, ending);
+			const segments = timelineTipSegments(checkpoints.eventCheckpoints, beginning, ending);
 			context.save();
 			if (!activeChannelIds.has(guide.events[0]?.channel)) context.globalAlpha = 0.28;
 			if (shortConnector.length > 1) {
@@ -440,10 +441,11 @@ export class TimelineView {
 			context.lineCap = "round";
 			context.lineJoin = "round";
 			context.beginPath();
-			line.forEach((point, index) => {
-				if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
-			});
-			if (line.length > 1) context.stroke();
+			for (const [from, to] of segments) {
+				context.moveTo(from.x, from.y);
+				context.lineTo(to.x, to.y);
+			}
+			if (segments.length) context.stroke();
 			const visual = tipPointVisualState(checkpoints, now);
 			if (!visual) {
 				context.restore();

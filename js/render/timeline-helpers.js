@@ -184,6 +184,35 @@ export function timelineTipConnector(checkpoints, tailLength = 12) {
 	];
 }
 
+export function timelineTipSegments(checkpoints, beginning, ending) {
+	if (!Array.isArray(checkpoints) || checkpoints.length < 2
+		|| !Number.isFinite(beginning) || !Number.isFinite(ending) || ending < beginning) return [];
+	const interpolate = (from, to, time) => {
+		const duration = to.time - from.time;
+		const progress = duration > 0 ? (time - from.time) / duration : 0;
+		return {
+			time,
+			x: from.x + (to.x - from.x) * progress,
+			y: from.y + (to.y - from.y) * progress,
+		};
+	};
+	const segments = [];
+	for (let index = 0; index + 1 < checkpoints.length; index += 1) {
+		const from = checkpoints[index];
+		const to = checkpoints[index + 1];
+		const fromVisible = from.time >= beginning && from.time <= ending;
+		const toVisible = to.time >= beginning && to.time <= ending;
+		// Do not turn a connection between two off-screen notes into a full-width lane.
+		if (!fromVisible && !toVisible) continue;
+		const clippedFrom = from.time < beginning ? interpolate(from, to, beginning) : from;
+		const clippedTo = to.time > ending ? interpolate(from, to, ending) : to;
+		if (clippedFrom.time <= ending && clippedTo.time >= beginning) {
+			segments.push([clippedFrom, clippedTo]);
+		}
+	}
+	return segments;
+}
+
 export function tipSpawnDirectionSegment(firstPosition, spawnPosition, screenPoint, tailLength = 12) {
 	if (!firstPosition || !spawnPosition || !screenPoint) return [];
 	const dx = Number(spawnPosition.x) - Number(firstPosition.x);

@@ -1,0 +1,67 @@
+.status-options {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 3px;
+}
+
+.status-option {
+	justify-content: center;
+	width: 30px;
+	height: 30px;
+	min-height: 0;
+}
+
+.status-option input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0 0 0 0);
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.status-option img {
+	width: 26px;
+	height: 26px;
+	padding: 1px;
+	border: 1px solid transparent;
+	border-radius: 2px;
+}
+
+.status-option:hover img,
+.status-option input:focus-visible + img {
+	border-color: var(--border-strong);
+	background: var(--hover);
+}
+
+.status-option input:checked + img {
+	background: color-mix(in srgb, var(--focus) 18%, transparent);
+	box-shadow: inset 0 0 0 1px var(--focus);
+}
+
+.status-comment.is-selected {
+	color: var(--accent);
+}
+
+.panel-empty-message.is-muted {
+	color: var(--text-muted);
+}
+
+.slider-field {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr) 52px;
+	align-items: center;
+	gap: 8px;
+}
+
+.slider-field input[type="range"] {
+	width: 100%;
+}
+
+.slider-field output {
+	font-family: "Cascadia Mono", Consolas, monospace;
+	font-variant-numeric: tabular-nums;
+	text-align: right;
+}

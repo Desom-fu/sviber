@@ -25,6 +25,7 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	goToHistory(index) {
+		if (this.model.editor.readOnly) return false;
 		if (this.freeTransform) this.cancelFreeTransform();
 		this.cancelPreview();
 		this.creationMode = null;
@@ -34,6 +35,7 @@ export const withHistoryCommands = Base => class extends Base {
 		this.updateDirty();
 		this.queueMediaSync();
 		this.refresh();
+		return true;
 	}
 
 	_registerCommands() {
@@ -92,7 +94,6 @@ export const withHistoryCommands = Base => class extends Base {
 
 		command("channel.createAbove", () => this.createChannel(0));
 		command("channel.createBelow", () => this.createChannel(1));
-		command("channel.rename", () => void this.editChannel(this.model.editor.currentChannel));
 		command("channel.delete", () => void this.deleteCurrentChannel(), () => this.model.channels.length > 1);
 		command("channel.moveUp", () => this.moveCurrentChannel(-1), () => this.currentChannelIndex() > 0);
 		command("channel.moveDown", () => this.moveCurrentChannel(1), () => this.currentChannelIndex() < this.model.channels.length - 1);
@@ -249,7 +250,7 @@ export const withHistoryCommands = Base => class extends Base {
 	deleteSelected() {
 		this.commit(i18n.t("history.deleteEvents"), model => {
 			model.events = model.events.filter(event => !event.selected);
-		});
+		}, { allowReadOnly: this.model.editor.readOnly && selected(this.model).every(event => event.type === "comment") });
 	}
 
 	canMoveSelectedChannel(direction) {

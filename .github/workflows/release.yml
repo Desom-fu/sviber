@@ -32,5 +32,4 @@ jobs:
           files: |
             release/*.zip
             release/*.tar.gz
-            release/*.dmg
             release/*.nw

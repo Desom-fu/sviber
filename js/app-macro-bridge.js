@@ -27,6 +27,7 @@ async function projectFileMessage(app, source, message) {
 	if (message.type === "sviber-macro-project-write") {
 		let ok = false;
 		try {
+			if (app.model.editor.readOnly) throw new Error("The chart is read-only.");
 			await app.files.writeProjectText(String(message.filename || ""), String(message.text || ""));
 			ok = true;
 		} catch { /* Browser and unsafe paths are rejected. */ }
@@ -42,7 +43,11 @@ async function projectFileMessage(app, source, message) {
 	if (!operations[message.type]) return false;
 	let ok = false;
 	let error = "";
-	try { await operations[message.type](); ok = true; }
+	try {
+		if (app.model.editor.readOnly) throw new Error("The chart is read-only.");
+		await operations[message.type]();
+		ok = true;
+	}
 	catch (exception) { error = String(exception?.message || exception); }
 	reply(source, { type: `${message.type}-result`, requestId: message.requestId, ok, error });
 	return true;
@@ -50,6 +55,7 @@ async function projectFileMessage(app, source, message) {
 
 function applyMacroState(app, source, message) {
 	try {
+		if (app.model.editor.readOnly) throw new Error("The chart is read-only.");
 		const encoded = JSON.stringify(message.state);
 		if (encoded.length > 20_000_000) throw new Error("Macro state is too large.");
 		const next = new ChartModel(message.state);
@@ -82,6 +88,7 @@ export async function handleMacroMessage(app, event) {
 			type: "sviber-macro-state", requestId: message.requestId,
 			state: deepClone(app.model.snapshot()),
 			project: Boolean(globalThis.nw && app.files.projectPath),
+			readOnly: Boolean(app.model.editor.readOnly),
 		});
 		return;
 	}

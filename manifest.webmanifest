@@ -1,6 +1,7 @@
 {
 	"name": "sviber",
 	"short_name": "sviber",
+	"id": "./",
 	"description": "Sunniesnow chart editor",
 	"start_url": "./",
 	"scope": "./",

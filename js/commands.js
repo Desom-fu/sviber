@@ -30,7 +30,7 @@ const DEFINITIONS = [
 	define('file.openProjectFolder', null, null, {desktopOnly: true}),
 	define('file.chartProperties', null, null, {blockDuringPlayback: true}),
 	define('file.deleteChart', null, null, {desktopOnly: true, blockDuringPlayback: true}),
-	define('file.preferences', null, null, {blockDuringPlayback: true}),
+	define('file.preferences', 'Ctrl+/', null, {allowInInput: true, blockDuringPlayback: true}),
 
 	define('edit.undo', 'Ctrl+Z'),
 	define('edit.redo', 'Ctrl+Y'),
@@ -60,7 +60,6 @@ const DEFINITIONS = [
 
 	define('channel.createAbove', 'Insert', 'create-channel-above'),
 	define('channel.createBelow', 'Shift+Insert', 'create-channel-below'),
-	define('channel.rename', null, 'edit', {blockDuringPlayback: true}),
 	define('channel.delete', null, 'delete-channel'),
 	define('channel.moveUp', 'Ctrl+ArrowUp', 'move-channel-up'),
 	define('channel.moveDown', 'Ctrl+ArrowDown', 'move-channel-down'),
@@ -131,9 +130,9 @@ const DEFINITIONS = [
 	define('timeline.pageForward', 'PageUp', null, {allowWhenBlocked: true}),
 	define('timeline.pageBackward', 'PageDown', null, {allowWhenBlocked: true}),
 
-	define('macros.open', 'Ctrl+Alt+M', null, {allowWhenBlocked: true}),
+	define('macros.open', 'Ctrl+Alt+M', 'macros', {allowWhenBlocked: true}),
 
-	define('help.documentation'),
+	define('help.documentation', 'F1', null, {allowWhenBlocked: true}),
 	define('help.reportIssues'),
 	define('help.about', null, null, {blockDuringPlayback: true})
 ];
@@ -177,7 +176,7 @@ export const MENU_DEFINITION = Object.freeze([
 	}),
 	Object.freeze({
 		id: 'channel', labelKey: 'menu.channel', mnemonic: 'c', items: Object.freeze([
-			item('channel.createAbove'), item('channel.createBelow'), item('channel.rename'), item('channel.delete'),
+			item('channel.createAbove'), item('channel.createBelow'), item('channel.delete'),
 			item('channel.moveUp'), item('channel.moveDown')
 		])
 	}),
@@ -235,7 +234,7 @@ export const TOOLBAR_ITEMS = Object.freeze([
 	'snappee.deactivate', 'snappee.attach', 'snappee.detach', 'separator',
 	'transform.flipHorizontal', 'transform.flipVertical', 'transform.free', 'separator', 'music.playPause', 'music.seekStart',
 	'music.subdivision2', 'music.subdivision4', 'music.speed025', 'music.speed05',
-	'music.speed1', 'music.zoomIn', 'music.zoomOut'
+	'music.speed1', 'music.zoomIn', 'music.zoomOut', 'separator', 'macros.open'
 ]);
 
 const KEY_ALIASES = Object.freeze({
@@ -309,6 +308,7 @@ function isEditableTarget(target) {
 	}
 	const editable = target.closest('input, textarea, select, [contenteditable="true"]');
 	if (!editable) return false;
+	if (editable.matches?.("#difficulty-select")) return false;
 	return !editable.matches?.('input[type="checkbox"], input[type="radio"]');
 }
 
@@ -317,6 +317,16 @@ function valueOf(value, context, fallback) {
 		return value(context);
 	}
 	return value == null ? fallback : value;
+}
+
+function allowedWhileReadOnly(definition, context) {
+	if (definition.allowWhenReadOnly === true) return true;
+	if (typeof definition.allowWhenReadOnly === 'function') return Boolean(definition.allowWhenReadOnly(context, definition.id));
+	const id = definition.id;
+	if (id.startsWith('music.') || id.startsWith('timeline.') || id.startsWith('channel.select')) return true;
+	if (id === 'file.preferences' || id === 'macros.open' || id.startsWith('help.')) return true;
+	if (id.startsWith('edit.select') || id === 'edit.copy' || id === 'events.comment') return true;
+	return Boolean(context?.readOnlyCommandAllowed?.(id));
 }
 
 export class CommandRegistry {
@@ -391,7 +401,8 @@ export class CommandRegistry {
 	isEnabled(id, context) {
 		const record = this.get(id);
 		if (record.definition.desktopOnly && !globalThis.nw) return false;
-		if (this.hardBlocked(context)) return false;
+		if (this.hardBlocked(context) && !record.definition.allowWhenHardBlocked) return false;
+		if (context?.model?.editor?.readOnly && !allowedWhileReadOnly(record.definition, context)) return false;
 		if (this.playbackBlocked(context) && record.definition.blockDuringPlayback) return false;
 		if (this.blocked(context) && !record.definition.allowWhenBlocked) {
 			return false;
@@ -428,8 +439,9 @@ export class CommandRegistry {
 		if (event.defaultPrevented || event.isComposing) {
 			return false;
 		}
+		const focusedTarget = event.target || globalThis.document?.activeElement;
 		for (const definition of Object.values(this.definitions)) {
-			if (!definition.shortcut || isEditableTarget(event.target) && !definition.allowInInput) {
+			if (!definition.shortcut || isEditableTarget(focusedTarget) && !definition.allowInInput) {
 				continue;
 			}
 			if (!matchesShortcut(event, definition.shortcut, {metaAsCtrl: this.metaAsCtrl})) {
