@@ -111,6 +111,8 @@ export const withEventEditing = Base => class extends Base {
 			onTipSpawn: (id, point) => this.setTipSpawn(id, point),
 			onPreviewSnappeeHandle: (id, index, point) => this.previewSnappeeHandle(id, index, point),
 			onSnappeeHandle: (id, index, point) => this.setSnappeeHandle(id, index, point),
+			onPreviewSnappeeMove: (id, delta) => this.previewSnappeeMove(id, delta),
+			onSnappeeMove: (id, delta) => this.moveSnappee(id, delta),
 			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode),
 			onBoxSelect: (ids, mode) => this.finishSelectionPreview(ids, mode),
 			onEndPreview: () => this.endInteractionPreview(),
@@ -601,6 +603,16 @@ export const withEventEditing = Base => class extends Base {
 		this.commit(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point));
 	}
 
+	previewSnappeeMove(id, delta) {
+		this.preview(i18n.t("history.editSnappee"), model => this._applyTransformMutation(model,
+			[1, 0, 0, 1, Number(delta?.x) || 0, Number(delta?.y) || 0], { snappeeId: id, onlySnappee: true }));
+	}
+
+	moveSnappee(id, delta) {
+		this.commit(i18n.t("history.editSnappee"), model => this._applyTransformMutation(model,
+			[1, 0, 0, 1, Number(delta?.x) || 0, Number(delta?.y) || 0], { snappeeId: id, onlySnappee: true }));
+	}
+
 	_applySnappeeHandle(model, id, index, point) {
 		return mutateSnappeeWithinBounds(model, id, snappee => {
 			let localPoint;
@@ -645,13 +657,18 @@ export const withEventEditing = Base => class extends Base {
 			.map(event => event.snappee));
 	}
 
-	transformationTargets(model = this.model) {
-		const attachedIds = this.attachedSnappeeIds(model);
-		if (!model.events.some(event => event.selected)) {
+	transformationTargets(model = this.model, options = {}) {
+		const explicitSnappeeId = options.snappeeId;
+		const attachedIds = explicitSnappeeId == null
+			? this.attachedSnappeeIds(model)
+			: new Set([explicitSnappeeId]);
+		if (explicitSnappeeId == null && !model.events.some(event => event.selected)) {
 			const selectedSnappee = model.snappees.find(snappee => snappee.selected && snappee.active !== false);
 			if (selectedSnappee) attachedIds.add(selectedSnappee.id);
 		}
-		const directEvents = model.events.filter(event => event.selected && MOVABLE_TYPES.has(event.type) && !event.attached);
+		const directEvents = options.onlySnappee
+			? []
+			: model.events.filter(event => event.selected && MOVABLE_TYPES.has(event.type) && !event.attached);
 		const affectedEvents = model.events.filter(event => directEvents.includes(event)
 			|| (event.attached && attachedIds.has(event.snappee) && MOVABLE_TYPES.has(event.type)));
 		return { attachedIds, directEvents, affectedEvents };
@@ -718,8 +735,8 @@ export const withEventEditing = Base => class extends Base {
 		delete event.tipPointSpawnSnapPoint;
 	}
 
-	_applyTransformMutation(model, matrix) {
-		const { attachedIds, directEvents, affectedEvents } = this.transformationTargets(model);
+	_applyTransformMutation(model, matrix, options = {}) {
+		const { attachedIds, directEvents, affectedEvents } = this.transformationTargets(model, options);
 		if (!directEvents.length && !attachedIds.size) return false;
 		for (const snappee of model.snappees) {
 			if (!attachedIds.has(snappee.id) || allowsOutOfBounds(model)) continue;

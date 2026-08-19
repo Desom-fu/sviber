@@ -418,6 +418,7 @@ export class StageViewCore {
 			context.fillStyle = snappee.color || "#58b6ef";
 			context.globalAlpha = 0.82;
 			context.lineWidth = snappee.selected ? 1.8 : 1;
+			const bodySegments = [];
 			if (snappee.type === "rectangularMesh" || snappee.type === "parametricMesh") {
 				const byIndex = new Map(points.map(value => [String(value.snapPoint), value]));
 				context.beginPath();
@@ -430,6 +431,7 @@ export class StageViewCore {
 						const to = mapping.toScreen(next);
 						context.moveTo(from.x, from.y);
 						context.lineTo(to.x, to.y);
+						bodySegments.push([from, to]);
 					}
 				}
 				context.stroke();
@@ -442,16 +444,23 @@ export class StageViewCore {
 				path.forEach((value, index) => {
 					const point = mapping.toScreen(value);
 					if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
+					if (index) bodySegments.push([mapping.toScreen(path[index - 1]), point]);
 				});
+				if (snappee.closed && path.length > 1) bodySegments.push([mapping.toScreen(path.at(-1)), mapping.toScreen(path[0])]);
 				context.stroke();
 			} else {
 				context.beginPath();
 				points.forEach((value, index) => {
 					const point = mapping.toScreen(value);
 					if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
+					if (index) bodySegments.push([mapping.toScreen(points[index - 1]), point]);
 				});
 				if (snappee.closed) context.closePath();
+				if (snappee.closed && points.length > 1) bodySegments.push([mapping.toScreen(points.at(-1)), mapping.toScreen(points[0])]);
 				context.stroke();
+			}
+			if (snappee.selected && bodySegments.length) {
+				this.hitRegions.push({ type: "snappee-body", snappee, segments: bodySegments, tolerance: 9 });
 			}
 			for (const value of points) {
 				const point = mapping.toScreen(value);

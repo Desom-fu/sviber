@@ -4,6 +4,20 @@ import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapP
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
 
+function pointToSegmentDistance(point, beginning, ending) {
+	const dx = ending.x - beginning.x;
+	const dy = ending.y - beginning.y;
+	const lengthSquared = dx * dx + dy * dy;
+	if (lengthSquared <= 1e-12) return Math.hypot(point.x - beginning.x, point.y - beginning.y);
+	const progress = Math.max(0, Math.min(1,
+		((point.x - beginning.x) * dx + (point.y - beginning.y) * dy) / lengthSquared));
+	return Math.hypot(point.x - (beginning.x + progress * dx), point.y - (beginning.y + progress * dy));
+}
+
+function pointToSegmentsDistance(point, segments) {
+	return Math.min(...segments.map(([beginning, ending]) => pointToSegmentDistance(point, beginning, ending)));
+}
+
 export const withStageInteractions = Base => class extends Base {
 	_drawHud(context, width, height, project, now) {
 		const metadata = project.metadata || this.state;
@@ -124,11 +138,15 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_hitTest(point) {
-		const priorities = ["free-scale", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "snappee-handle", "event"];
+		const priorities = ["free-scale", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "snappee-handle", "event", "snappee-body"];
 		for (const type of priorities) {
 			for (let index = this.hitRegions.length - 1; index >= 0; index -= 1) {
 				const region = this.hitRegions[index];
 				if (region.type !== type) continue;
+				if (type === "snappee-body") {
+					if (pointToSegmentsDistance(point, region.segments) > region.tolerance) continue;
+					return region;
+				}
 				if (region.polygon) {
 					if (!pointInPolygon(point, region.polygon)) continue;
 				} else if (point.x < region.x || point.x > region.x + region.width
@@ -262,6 +280,14 @@ export const withStageInteractions = Base => class extends Base {
 			this.drag = { type: "tip", hit, start: point };
 		} else if (hit?.type === "snappee-handle") {
 			this.drag = { type: "snappee", hit, start: point };
+		} else if (hit?.type === "snappee-body") {
+			if (playing) return;
+			this.drag = {
+				type: "snappee-move",
+				hit,
+				start: point,
+				startChart: mapping.toChart(point),
+			};
 		} else {
 			const primary = shiftPrimary;
 			if (primary) {
@@ -352,6 +378,11 @@ export const withStageInteractions = Base => class extends Base {
 			const candidates = project.snappees.filter(snappee => snappee.id !== this.drag.hit.snappee.id);
 			const snap = findNearestSnapPoint(chart, candidates, { activeOnly: true, maxDistance: 9 / mapping.scale });
 			this.callbacks.onPreviewSnappeeHandle?.(this.drag.hit.snappee.id, this.drag.hit.index, snap || chart);
+		} else if (this.drag.type === "snappee-move") {
+			this.callbacks.onPreviewSnappeeMove?.(this.drag.hit.snappee.id, {
+				x: chart.x - this.drag.startChart.x,
+				y: chart.y - this.drag.startChart.y,
+			});
 		} else if (this.drag.type === "draft-point") {
 			const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale });
 			this.callbacks.onPreviewCurvePoint?.(this.drag.hit.index, snap || chart);
@@ -402,6 +433,11 @@ export const withStageInteractions = Base => class extends Base {
 			const candidates = project.snappees.filter(snappee => snappee.id !== drag.hit.snappee.id);
 			const snap = findNearestSnapPoint(chart, candidates, { activeOnly: true, maxDistance: 9 / mapping.scale });
 			this.callbacks.onSnappeeHandle?.(drag.hit.snappee.id, drag.hit.index, snap || chart);
+		} else if (drag.type === "snappee-move") {
+			this.callbacks.onSnappeeMove?.(drag.hit.snappee.id, {
+				x: chart.x - drag.startChart.x,
+				y: chart.y - drag.startChart.y,
+			});
 		} else if (drag.type === "draft-point") {
 			if (this.pointerMoved) {
 				const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale });
