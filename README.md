@@ -32,18 +32,20 @@ On Windows, launch `build/nw/sviber.exe`. The first build needs network access t
 
 1. Choose **File > New project...** and enter the first difficulty's metadata, beat-zero audio time (Offset), and initial BPM. The new project initially exists in memory; the first **File > Save project** asks you to select its project folder. Later saves write back to that folder.
 2. Use **File > Set music...** and **Set background...** to load the music and optional cover/background shared by every difficulty. Saving copies those assets into the project-folder root.
-3. Use the difficulty selector at the top to choose the difficulty being edited. Select **+** to create another difficulty and **-** to delete the current one. Each difficulty has its own undo/redo history, which is restored when you switch back to it; a project must retain at least one difficulty.
-4. Navigate with the waveform, mouse wheel, and green/yellow timeline controls. Double-click a purple BPM label to edit it.
+3. Use the difficulty selector at the top to choose the difficulty being edited. Use **File > New chart...** to create another difficulty and **File > Delete chart...** to delete the current one. The selector itself is a drop-down with no extra action buttons. Each difficulty has its own undo/redo history, which is restored when you switch back to it; a project must retain at least one difficulty.
+4. Navigate with the waveform, mouse wheel, and green/yellow timeline controls. Double-click a purple BPM label to edit it. Use the Scroll view at the left to inspect event time/x relationships without changing chart data; the side-edge buttons can hide either auxiliary view when more editor width is needed.
 5. With no selected non-pattern event, select an event tool and click the stage to place notes. When events are selected, choosing an event tool converts their event type.
 6. Create meshes or curves from **Snappee**, activate them, and use **Attach** to bind selected positioned events to their nearest valid points.
 7. Edit shared or type-specific values in the Inspector. Use the timeline for beat/channel movement and the stage for spatial movement.
 8. Notes use Sunniesnow's default visual sizes and automatically scale with the stage. Positioned events are kept inside `x = -100..100`, `y = -50..50` by default, including pasted notes and notes moved indirectly by editing a snappee. Enable **Transform > Allow out-of-bounds notes** to create, paste, drag, edit, transform, or attach notes beyond that boundary; the boundary remains visible as a reference.
-9. Press Space to preview playback with Sunniesnow-style note sounds, hit effects, event visuals, tip points, and HUD.
+9. Press Space to preview playback with Sunniesnow-style note sounds, hit effects, event visuals, tip points, and HUD. The optional metronome is a constant synthesized click on every beat, with no strong/weak beat accents; its level follows the Preferences SE volume.
 10. Choose **File > Save project** to save the manifest, shared media, and every editable difficulty JSON. Choose **File > Export Sunniesnow level...** to package all difficulties into one `.ssc` file; project music is required for export.
 
 To migrate an older file, choose **File > Import chart/level file...** and select a legacy Sviber JSON, plain Sunniesnow JSON, or `.ssc`. For an `.ssc`, choose one chart, music file, and image from the archive. The result is imported as one difficulty in the current project; use **Save project** afterward to place it in a project folder.
 
 The timeline supports rectangular selection, `Ctrl` to add or copy while dragging, `Alt` to remove, and `Shift` for time/channel range selection. The stage uses the same selection modifiers. Most creation and editing commands are intentionally locked during playback; Music commands remain available.
+
+The visible timeline range is part of the editable chart state and is restored when a saved chart is opened. `Ctrl`+wheel zooms the range, `Shift`+wheel scrolls channel lanes, and `PageUp`/`PageDown` pages the range. With **Lock visible range** enabled, playback and ordinary seeking do not move it, while the scrollbar, `Ctrl`+wheel, and range keyboard commands remain available. Holding `Shift` while dragging an event keeps the last selected event as the move context and does not retarget another event under the pointer.
 
 To connect multiple notes with one Sunniesnow tip point, select at least two consecutive notes in the same channel and choose **Chain** in the Inspector. Sviber marks the first note as the chain start, makes the remaining selected notes inherit that path, and stops the path before the next unselected note.
 
@@ -66,6 +68,8 @@ To connect multiple notes with one Sunniesnow tip point, select at least two con
 
 Every menu mnemonic and command shortcut is also shown in the interface. `Esc` exits event, curve, snappee-handle, or transform modes as appropriate.
 
+The **Snappee > Preset snappee...** command adds the playfield grid, turntable, four hexagons, or pentagon with localized names. Snap-point matching uses a chart-coordinate distance of 6.125. A point outside the chart boundary is rejected; only a mathematically boundary point that misses by tiny floating-point round-off receives a minimal tolerance.
+
 ## Project folder and level format
 
 A saved project is a folder with a flat root layout. Asset names and difficulty filenames may differ, but the structure is:
@@ -86,7 +90,13 @@ My Project/
 - An exported `.ssc` is a ZIP archive for Sunniesnow, not a copy of the editable project. Its root contains the shared music, optional cover/background, and one pure Sunniesnow Chart 1.0 JSON file per difficulty. It contains neither `sviber-project.json` nor the top-level `sviber` extension. All exported entries are at archive root because the target Sunniesnow build discovers level music, images, and difficulty JSON there.
 - Export writes the supported Sunniesnow Chart 1.0 fields without enforcing the external JSON Schema. Empty optional metadata such as artist or charter is preserved; unsupported editor-only data is not written to the formal chart JSON.
 
-The editor automatically records the active dirty difficulty in `localStorage` once per minute. If an autosave is newer than the last manual save, recovery is offered on the next launch. The interface follows the browser language: Chinese locales use `zh-CN`; all others use `en-US`. DOM controls also follow `prefers-color-scheme`.
+The editor automatically records the active dirty difficulty in `localStorage` every 120 seconds by default. **File > Preferences...** changes the interval; `0` disables autosave. If an autosave is newer than the last manual save, recovery is offered on the next launch, and older recovery records are retained until storage pressure requires eviction. Autosaves omit the generated top-level `events` list for speed and space; ordinary saves retain it. The interface follows the browser language: Chinese locales use `zh-CN`; all others use `en-US`. The language choice shown in English is **Simplified Chinese**, while the Chinese interface shows **简体中文** and **English**. The editor, macro page, and manual share the saved explicit light/dark theme; System follows the operating-system preference.
+
+## Macros and release packages
+
+The separate **Macros** window supports JavaScript and Ruby global macros. In NW.js, project macros are `.js` or `.rb` files in the project folder. Both APIs expose metadata, editor state, timing, channels, events, snappees, selection, and find/update/remove helpers. JavaScript console output and Ruby `$stdout`/`$stderr` (including `puts`, `print`, and `warn`) are shown in the macro console; a successful run is applied as one undoable chart edit.
+
+Release builds are architecture-specific: Windows provides x86, x86_64, and aarch64 ZIP archives; Linux provides x86_64 and aarch64 `tar.gz` archives; macOS provides x86_64 and aarch64 DMG images. A runtime-free `.nw` package is also produced.
 
 ## Sharing source or desktop builds
 
@@ -103,3 +113,5 @@ npm run build
 `verify:browser` uses `http://127.0.0.1:4173/sviber/` by default and starts a temporary local server when that URL is unavailable; set `SVIBER_BASE_URL` to override it. It checks Chinese and English UI, light and dark themes, the 960x620 minimum window, responsive Sunniesnow note sizing, bounded and out-of-bounds editing paths, real pointer interactions, nonblank canvases, and an offline reload.
 
 The repository is covered by its root license. Third-party JavaScript packages and fonts retain their own licenses; the desktop build includes the downloaded font license files.
+
+For the v9/v10 diff checklist, implementation map, and release verification record, see [`PROMPT-v9-v10-IMPLEMENTATION.md`](PROMPT-v9-v10-IMPLEMENTATION.md).

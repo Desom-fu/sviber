@@ -1,0 +1,5 @@
+<svg width='32' height='32' xmlns='http://www.w3.org/2000/svg'>
+<path fill='none' stroke='#388bda' stroke-width='2' d='M16 5v22'/>
+<circle fill='#29a9b9' stroke='#e8f8b8' stroke-width='2' cx='23' cy='19' r='4'/>
+<circle fill='none' stroke='#29a9b9' stroke-dasharray='1 1' cx='9' cy='19' r='4'/>
+</svg>

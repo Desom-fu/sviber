@@ -135,6 +135,7 @@ export const withFileWorkflows = Base => class extends Base {
 			image: this.projectImage,
 			editor: { allowOutOfBounds: this.preferences.allowOutOfBounds },
 		});
+		model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
 		const id = `difficulty-${this.nextDifficultyId++}`;
 		const history = new History(model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
 		this.difficulties.push({
@@ -150,21 +151,54 @@ export const withFileWorkflows = Base => class extends Base {
 	}
 
 	async deleteDifficulty() {
-		if (this.difficulties.length <= 1) return false;
+		if (!this.files.projectPath && !this.files.projectDirectoryHandle) return false;
 		const activeIndex = this.difficulties.findIndex(entry => entry.id === this.activeDifficultyId);
+		if (activeIndex < 0) return false;
 		const confirmed = await this.dialogs.confirm({
-			titleKey: "dialog.deleteDifficulty",
-			messageKey: "dialog.deleteDifficultyMessage",
+			titleKey: "dialog.deleteChart",
+			messageKey: "dialog.deleteChartMessage",
 		});
 		if (!confirmed) return false;
-		const next = this.difficulties[activeIndex + 1] || this.difficulties[activeIndex - 1];
 		this.difficulties.splice(activeIndex, 1);
 		this.projectDirty = true;
-		this.activeDifficultyId = next.id;
-		this.model = next.model;
-		this.history = next.history;
-		this.savedSignature = next.savedSignature;
+		const next = this.difficulties[activeIndex] || this.difficulties[activeIndex - 1];
+		if (next) {
+			this.activeDifficultyId = next.id;
+			this.model = next.model;
+			this.history = next.history;
+			this.savedSignature = next.savedSignature;
+		} else {
+			const metadata = {
+				...this.model.metadata,
+				title: this.projectTitle || "New chart",
+				artist: this.projectArtist || "",
+				difficultyName: "Master",
+				difficultyColor: difficultyColor("Master"),
+				difficulty: "12",
+				difficultySup: "",
+				charter: this.lastCharter(),
+			};
+			this.model = ChartModel.createDefault({
+				metadata,
+				timing: { offset: 0, initialBpm: 120, bpmChanges: [] },
+				music: this.projectMusic,
+				image: this.projectImage,
+				editor: { allowOutOfBounds: this.preferences.allowOutOfBounds },
+			});
+			this.model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
+			this.activeDifficultyId = `difficulty-${this.nextDifficultyId++}`;
+			this.history = new History(this.model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
+			this.difficulties.push({
+				id: this.activeDifficultyId,
+				file: uniqueChartFilename(this.model.metadata.difficultyName, this.difficulties.map(entry => entry.file)),
+				model: this.model,
+				history: this.history,
+				savedSignature: null,
+			});
+			this.savedSignature = null;
+		}
 		this.difficultyUiSignature = "";
+		this.syncProjectSharedFields();
 		this.updateDirty();
 		this.refresh();
 		return true;
@@ -206,6 +240,7 @@ export const withFileWorkflows = Base => class extends Base {
 			timing: { offset: values.offset, initialBpm: values.initialBpm, bpmChanges: [] },
 			editor: { allowOutOfBounds: this.preferences.allowOutOfBounds },
 		});
+		model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
 		this.installProject([{ model, id: "difficulty-0", file: uniqueChartFilename(model.metadata.difficultyName) }], {
 			activeChart: "difficulty-0",
 			name: model.metadata.title,
@@ -269,13 +304,19 @@ export const withFileWorkflows = Base => class extends Base {
 					{ value: "zh-CN", labelKey: "option.language.chinese" },
 				] },
 				{ id: "noteSpeed", type: "number", labelKey: "field.noteSpeed", positive: true, min: 0.01, step: "any" },
+				{ id: "seVolume", type: "number", labelKey: "field.seVolume", min: 0, max: 1, step: 0.05 },
+				{ id: "musicVolume", type: "number", labelKey: "field.musicVolume", min: 0, max: 1, step: 0.05 },
 				{ id: "allowOutOfBounds", type: "checkbox", labelKey: "field.allowOutOfBounds" },
+				{ id: "autoSaveInterval", type: "number", labelKey: "field.autoSaveInterval", min: 0, step: 1 },
 			],
 		});
 		if (!values) return null;
 		this.preferences = storePreferences(values);
 		applyThemePreference(this.preferences.theme);
 		i18n.setLanguage(resolvePreferenceLanguage(this.preferences.language));
+		this.audio.setSeVolume(this.preferences.seVolume);
+		this.audio.setMusicVolume(this.preferences.musicVolume);
+		this.startAutosave();
 		for (const entry of this.difficulties) {
 			entry.model.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
 			entry.history.transformStates(state => {
@@ -286,6 +327,21 @@ export const withFileWorkflows = Base => class extends Base {
 		this.model.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
 		this.refresh();
 		return this.preferences;
+	}
+
+	startAutosave() {
+		this.autosave.setInterval(this.preferences.autoSaveInterval * 1000);
+		this.autosave.start(() => {
+			if (this.modelSignature() === this.savedSignature) return;
+			try {
+				const timestamp = this.autosave.save(this.model);
+				this.history.markCurrent("autosave", timestamp);
+				this.historyPanel.render(this.history);
+				this.toast.show("toast.autosaved", {}, { duration: 1400 });
+			} catch (error) {
+				console.warn("Auto-save failed", error);
+			}
+		});
 	}
 
 	async requestImportOptions(document) {
@@ -627,9 +683,8 @@ export const withFileWorkflows = Base => class extends Base {
 		const snappeeIds = new Set(chosen.flatMap(event => [event.snappee, event.tipPointSpawnSnappee]).filter(value => value != null));
 		const events = chosen.map(event => {
 			const copy = deepClone(event);
-			copy.beat = Rational.from(event.time).sub(minimumBeat).toJSON();
+			copy.time = Rational.from(event.time).sub(minimumBeat).toJSON();
 			copy.channel = this.model.channels.findIndex(channel => channel.id === event.channel) - minimumChannel;
-			delete copy.time;
 			return copy;
 		});
 		this.internalClipboard = {
@@ -689,7 +744,7 @@ export const withFileWorkflows = Base => class extends Base {
 			for (const source of data.events) {
 				const copy = deepClone(source);
 				copy.id = null;
-				copy.time = this.currentBeat().add(copy.beat ?? copy.time ?? 0).toJSON();
+				copy.time = this.currentBeat().add(copy.time ?? copy.beat ?? 0).toJSON();
 				copy.channel = model.channels[currentChannel + channelOffset(copy)].id;
 				copy.selected = true;
 				delete copy.beat;

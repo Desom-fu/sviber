@@ -1,3 +1,5 @@
+import { V10_COMMAND_TEXT, V10_MESSAGES } from './i18n-v10.js';
+
 const COMMAND_TEXT_EN = {
 	'file.newProject': ['New project...', 'Create a new Sviber project'],
 	'file.newChart': ['New chart...', 'Create another chart in the current project'],
@@ -359,7 +361,7 @@ const BASE_EN = {
 	'option.theme.dark': 'Dark',
 	'option.language.system': 'Follow system',
 	'option.language.english': 'English',
-	'option.language.chinese': '简体中文',
+	'option.language.chinese': 'Simplified Chinese',
 	'field.autosave': 'Recovery point',
 	'field.untitled': 'Untitled',
 	'history.marker.save': 'Manual save',
@@ -882,8 +884,8 @@ function expandCommands(base, commandText) {
 export const SUPPORTED_LANGUAGES = Object.freeze(['en-US', 'zh-CN']);
 
 export const MESSAGES = Object.freeze({
-	'en-US': expandCommands(BASE_EN, COMMAND_TEXT_EN),
-	'zh-CN': expandCommands(BASE_ZH, COMMAND_TEXT_ZH)
+	'en-US': expandCommands({...BASE_EN, ...V10_MESSAGES['en-US']}, {...COMMAND_TEXT_EN, ...V10_COMMAND_TEXT['en-US']}),
+	'zh-CN': expandCommands({...BASE_ZH, ...V10_MESSAGES['zh-CN']}, {...COMMAND_TEXT_ZH, ...V10_COMMAND_TEXT['zh-CN']})
 });
 
 export function normalizeLanguage(language) {

@@ -13,6 +13,7 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { SNAPPEE_PRESETS, createPresetSnappee } from "./core/snappee-presets.js";
 
 export const withChartTools = Base => class extends Base {
 	async showSelectionFilter() {
@@ -168,6 +169,26 @@ export const withChartTools = Base => class extends Base {
 		const names = new Set(this.model.snappees.map(snappee => snappee.name));
 		while (names.has(`${base} ${index}`)) index += 1;
 		return `${base} ${index}`;
+	}
+
+	async showPresetSnappeeDialog() {
+		const values = await this.dialogs.form({
+			titleKey: "dialog.presetSnappee",
+			values: { preset: SNAPPEE_PRESETS[0].id },
+			fields: [{ id: "preset", type: "select", labelKey: "field.presetSnappee",
+				options: SNAPPEE_PRESETS.map(preset => ({
+					value: preset.id, labelKey: `snappee.preset.${preset.id}`,
+				})) }],
+		});
+		if (!values) return null;
+		const name = this.uniqueSnappeeName(i18n.t(`snappee.preset.${values.preset}`));
+		let created = null;
+		this.commit(i18n.t("command.snappee.preset"), model => {
+			for (const snappee of model.snappees) snappee.selected = false;
+			created = model.addSnappee(createPresetSnappee(values.preset, name));
+			created.selected = true;
+		});
+		return created?.id ?? null;
 	}
 
 	snappeeFields(type, editing = false) {

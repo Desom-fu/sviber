@@ -46,7 +46,7 @@ test("v9 editor playback settings and A-B marks round-trip canonically", () => {
 });
 
 test("language options keep the Chinese label in both locales", () => {
-	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "简体中文");
+	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "Simplified Chinese");
 	assert.equal(MESSAGES["zh-CN"]["option.language.chinese"], "简体中文");
 	assert.equal(MESSAGES["zh-CN"]["option.language.english"], "English");
 });

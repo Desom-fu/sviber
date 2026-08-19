@@ -232,7 +232,8 @@ textarea:focus-visible,
 }
 
 .difficulty-switcher select {
-	width: clamp(110px, 15vw, 190px);
+	width: auto;
+	max-width: min(30ch, 24vw);
 	height: 29px;
 	min-width: 0;
 	border: 1px solid var(--border-strong);
@@ -325,7 +326,7 @@ textarea:focus-visible,
 }
 
 .editor-row {
-	grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 320px);
+	grid-template-columns: clamp(150px, 14vw, 220px) minmax(0, 1fr) clamp(260px, 24vw, 320px);
 }
 
 .render-surface {
@@ -336,6 +337,37 @@ textarea:focus-visible,
 	background: var(--timeline);
 }
 
+.edge-toggle {
+	position: absolute;
+	top: 50%;
+	z-index: 5;
+	display: grid;
+	width: 18px;
+	height: 44px;
+	padding: 0;
+	place-items: center;
+	border: 1px solid var(--border-strong);
+	background: var(--chrome-strong);
+	color: var(--text);
+	font-size: 18px;
+	transform: translateY(-50%);
+	opacity: 0;
+}
+
+.render-surface:hover .edge-toggle,
+.edge-toggle:focus-visible {
+	opacity: 1;
+}
+
+.edge-toggle-right { right: 0; }
+.edge-toggle-left { left: 0; }
+
+.editor-row.is-scroll-hidden { grid-template-columns: 0 minmax(0, 1fr) clamp(260px, 24vw, 320px); }
+.editor-row.is-side-hidden { grid-template-columns: clamp(150px, 14vw, 220px) minmax(0, 1fr) 0; }
+.editor-row.is-scroll-hidden.is-side-hidden { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.editor-row.is-scroll-hidden #scroll-view-panel,
+.editor-row.is-side-hidden .side-panel { display: none; }
+
 .render-surface canvas {
 	display: block;
 	width: 100% !important;
@@ -345,6 +377,19 @@ textarea:focus-visible,
 
 .timeline-surface {
 	border-right: 1px solid var(--border-strong);
+}
+
+.scroll-view-panel {
+	position: relative;
+	min-width: 0;
+	min-height: 0;
+	border-right: 1px solid var(--border-strong);
+	background: var(--timeline);
+}
+
+.scroll-surface {
+	width: 100%;
+	height: 100%;
 }
 
 .status-panel,
@@ -545,7 +590,7 @@ textarea:focus-visible,
 }
 
 .rational-input {
-	grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+	grid-template-columns: minmax(0, 1.8fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
 }
 
 .pair-input {

@@ -185,7 +185,7 @@ async function assertCanvas(locator, name) {
 
 async function waitForEditor(page) {
 	await page.waitForFunction(() => document.querySelector("#loading-screen")?.hidden === true, null, { timeout: 30_000 });
-	await page.waitForFunction(() => globalThis.sviber?.model && document.querySelectorAll(".render-surface canvas").length === 2);
+	await page.waitForFunction(() => globalThis.sviber?.model && document.querySelectorAll(".render-surface canvas").length === 3);
 }
 
 async function measureTapRadius(page) {
@@ -470,6 +470,7 @@ try {
 
 	const canvasSummaries = {
 		timeline: await assertCanvas(page.locator("#timeline-surface canvas"), "timeline-desktop"),
+		scroll: await assertCanvas(page.locator("#scroll-surface canvas"), "scroll-desktop"),
 		stage: await assertCanvas(page.locator("#stage-surface canvas"), "stage-desktop"),
 	};
 	const desktopTapMetric = await measureTapRadius(page);
@@ -478,7 +479,7 @@ try {
 
 	const outOfBoundsFixture = await page.evaluate(() => {
 		const app = globalThis.sviber;
-		app.preferences = { noteSpeed: 2, allowOutOfBounds: false };
+		app.preferences = { ...app.preferences, noteSpeed: 2, allowOutOfBounds: false };
 		app.model.editor.allowOutOfBounds = false;
 		app.model.snappees = [];
 		localStorage.setItem("sviber.preferences", JSON.stringify(app.preferences));
@@ -507,7 +508,8 @@ try {
 	const historyBeforeOutOfBoundsToggle = await page.evaluate(() => globalThis.sviber.history.length);
 	await page.locator('.menu-root[data-menu-id="file"] .menu-root-button').click();
 	await page.locator('.menu-command[data-command="file.preferences"]').click();
-	await page.locator('.dialog-field input[type="number"]').fill("3");
+	await page.getByRole("spinbutton", { name: "音符速度" }).fill("3");
+	assert.equal(await page.getByRole("spinbutton", { name: "自动保存间隔（秒）" }).inputValue(), "120");
 	await page.locator('.dialog-field input[type="checkbox"]').check();
 	await page.locator('.dialog-button[data-dialog-action="ok"]').click();
 	await page.waitForFunction(() => globalThis.sviber.model.editor.allowOutOfBounds === true);
@@ -521,7 +523,10 @@ try {
 	});
 	assert.deepEqual(persistedOutOfBoundsSetting, {
 		model: true,
-		preferences: { theme: "system", language: "system", noteSpeed: 3, allowOutOfBounds: true },
+		preferences: {
+			theme: "system", language: "system", noteSpeed: 3,
+			seVolume: 1, musicVolume: 1, autoSaveInterval: 120, allowOutOfBounds: true,
+		},
 	});
 
 	await page.locator('.tool-button[data-command="events.tap"]').click();
@@ -836,7 +841,7 @@ try {
 	});
 	assert.equal(toolbarGeometry.switcher.right - toolbarGeometry.switcher.left, 0,
 		`the web chart selector occupies layout space: ${JSON.stringify(toolbarGeometry)}`);
-	assert.equal(toolbarGeometry.buttons.length, 32);
+	assert.equal(toolbarGeometry.buttons.length, 34);
 	assert.ok(toolbarGeometry.buttons.every(button => button.width > 0
 		&& button.left >= toolbarGeometry.toolbar.left - 1 && button.right <= toolbarGeometry.toolbar.right + 1),
 		`not every toolbar command is visible at 960px: ${JSON.stringify(toolbarGeometry)}`);
@@ -845,6 +850,7 @@ try {
 			`canvas width ${canvas.width} does not match host width ${canvas.parentWidth}`);
 	}
 	await assertCanvas(page.locator("#timeline-surface canvas"), "timeline-narrow");
+	await assertCanvas(page.locator("#scroll-surface canvas"), "scroll-narrow");
 	await assertCanvas(page.locator("#stage-surface canvas"), "stage-narrow");
 	await page.screenshot({ path: path.join(outputDirectory, "sviber-960x620-zh-CN.png"), fullPage: true });
 
@@ -867,6 +873,7 @@ try {
 		}));
 		assert.equal(darkColors.body, "rgb(24, 26, 29)");
 		assert.equal(darkColors.panel, "rgb(32, 35, 39)");
+		await assertCanvas(englishPage.locator("#scroll-surface canvas"), "scroll-dark-en-US");
 		await assertCanvas(englishPage.locator("#stage-surface canvas"), "stage-dark-en-US");
 		await englishPage.screenshot({ path: path.join(outputDirectory, "sviber-desktop-dark-en-US.png"), fullPage: true });
 	} finally {
@@ -881,6 +888,7 @@ try {
 	await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
 	await waitForEditor(page);
 	assert.equal(await page.locator("#inspector-tab").textContent(), "检查器");
+	await assertCanvas(page.locator("#scroll-surface canvas"), "scroll-offline");
 	await assertCanvas(page.locator("#stage-surface canvas"), "stage-offline");
 	await page.screenshot({ path: path.join(outputDirectory, "sviber-offline.png"), fullPage: true });
 

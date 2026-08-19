@@ -1,9 +1,11 @@
 import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { createWriteStream, existsSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { pipeline } from "node:stream/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import JSZip from "jszip";
 import nwbuild from "nw-builder";
 import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
@@ -22,6 +24,7 @@ const fontCacheDirectory = path.join(sviberDirectory, "node_modules", ".cache", 
 const HOST_PLATFORM = process.platform === "win32" ? "win" : process.platform === "darwin" ? "osx" : "linux";
 const TARGET_PLATFORM = String(process.env.SVIBER_NW_PLATFORM || HOST_PLATFORM).toLowerCase();
 const TARGET_ARCH = String(process.env.SVIBER_NW_ARCH || process.arch).toLowerCase();
+const PACKAGE_ONLY = /^(?:1|true)$/i.test(String(process.env.SVIBER_NW_PACKAGE_ONLY || ""));
 const TARGET_ARCHITECTURES = {
 	win: new Set(["ia32", "x64", "arm64"]),
 	osx: new Set(["x64", "arm64"]),
@@ -257,7 +260,12 @@ async function copyProductionDependencies(applicationDirectory) {
 			recursive: true,
 			filter(entry) {
 				const relative = path.relative(source, entry);
-				return relative !== "node_modules" && !relative.startsWith(`node_modules${path.sep}`);
+				if (relative === "node_modules" || relative.startsWith(`node_modules${path.sep}`)) return false;
+				if (packageName === "@ruby/3.4-wasm-wasi") {
+					const normalized = relative.split(path.sep).join("/");
+					return normalized !== "dist/ruby.debug+stdlib.wasm" && normalized !== "dist/ruby.wasm";
+				}
+				return true;
 			},
 		});
 	}
@@ -395,11 +403,34 @@ async function runBuilder() {
 	}
 }
 
+async function addDirectoryToZip(zip, directory, prefix = "") {
+	for (const entry of await readdir(directory, { withFileTypes: true })) {
+		const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
+		const filename = path.join(directory, entry.name);
+		if (entry.isDirectory()) await addDirectoryToZip(zip, filename, relative);
+		else if (entry.isFile()) zip.file(relative, await readFile(filename), { date: new Date(0) });
+	}
+}
+
+async function createNwPackage() {
+	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
+	const destination = path.join(buildDirectory, `sviber-${sourcePackage.version}.nw`);
+	const zip = new JSZip();
+	await addDirectoryToZip(zip, stageDirectory);
+	await pipeline(zip.generateNodeStream({
+		type: "nodebuffer", streamFiles: true, compression: "DEFLATE", compressionOptions: { level: 9 },
+	}), createWriteStream(destination));
+	console.log(`Runtime-free NW.js package written to ${destination}`);
+}
+
 if (!existsSync(path.join(sviberDirectory, "node_modules"))) {
 	throw new Error("Run npm install before building the NW.js application.");
 }
 
 await copyApplication();
 await downloadFonts();
-await runBuilder();
-console.log(`NW.js build written to ${outputDirectory}`);
+await createNwPackage();
+if (!PACKAGE_ONLY) {
+	await runBuilder();
+	console.log(`NW.js build written to ${outputDirectory}`);
+}

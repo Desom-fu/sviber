@@ -371,8 +371,8 @@ export async function runInteractionChecks(page, outputDirectory) {
 	await page.keyboard.press("Escape");
 	await page.evaluate(() => globalThis.sviber.copyEvents());
 	const clipboardShape = await page.evaluate(() => globalThis.sviber.internalClipboard.events);
-	assert.ok(clipboardShape.length === 2 && clipboardShape.every(event => Array.isArray(event.beat)));
-	assert.ok(clipboardShape.every(event => !Object.hasOwn(event, "time") && Number.isInteger(event.channel)));
+	assert.ok(clipboardShape.length === 2 && clipboardShape.every(event => Array.isArray(event.time)));
+	assert.ok(clipboardShape.every(event => !Object.hasOwn(event, "beat") && Number.isInteger(event.channel)));
 	const commandBoundaryBehavior = await page.evaluate(async ({ snapshot, historyLabel, savedSignature }) => {
 		const app = globalThis.sviber;
 		const liveSnapshot = app.model.snapshot();

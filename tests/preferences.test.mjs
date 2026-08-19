@@ -25,7 +25,8 @@ test("preferences migrate old values and normalize theme and language choices", 
 		[PREFERENCES_KEY]: JSON.stringify({ noteSpeed: 3.5, allowOutOfBounds: true }),
 	});
 	assert.deepEqual(loadPreferences(oldStorage), {
-		theme: "system", language: "system", noteSpeed: 3.5, allowOutOfBounds: true,
+		theme: "system", language: "system", noteSpeed: 3.5,
+		seVolume: 1, musicVolume: 1, autoSaveInterval: 120, allowOutOfBounds: true,
 	});
 
 	const invalidStorage = memoryStorage({
@@ -87,6 +88,7 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 	}
 	assert.match(macroPage, /src="js\/theme-bootstrap\.js"/);
 	assert.match(docsPage, /src="\.\.\/js\/theme-bootstrap\.js"/);
+	assert.match(index, /src="js\/theme-bootstrap\.js"/);
 	assert.match(bootstrap, /sviber\.preferences/);
 	assert.match(bootstrap, /sviber-theme-change/);
 	assert.match(serviceWorker, /\.\/js\/theme-bootstrap\.js/);

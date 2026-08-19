@@ -458,6 +458,14 @@ export class FileManager {
 		return newPath;
 	}
 
+	async removeProjectText(filename) {
+		const directory = this.#currentProjectDirectory();
+		if (!directory || directory.type !== "nw" || !globalThis.nw) {
+			throw new Error("Project macro files are available only in an NW.js project.");
+		}
+		await this.#removeDirectoryFile(directory, String(filename));
+	}
+
 	async listProjectFiles(extension = ".js") {
 		if (!this.projectPath || !globalThis.nw) return [];
 		const modules = nwModules();
@@ -668,7 +676,7 @@ export class FileManager {
 export class AutosaveManager {
 	constructor(options = {}) {
 		this.storage = options.storage || globalThis.localStorage;
-		this.interval = options.interval || 60_000;
+		this.interval = options.interval ?? 120_000;
 		this.maxEntries = options.maxEntries ?? Infinity;
 		this.timer = 0;
 	}
@@ -688,7 +696,12 @@ export class AutosaveManager {
 
 	start(callback) {
 		this.stop();
+		if (!(this.interval > 0)) return;
 		this.timer = setInterval(callback, this.interval);
+	}
+
+	setInterval(milliseconds) {
+		this.interval = Math.max(0, Number(milliseconds) || 0);
 	}
 
 	stop() {
@@ -701,7 +714,8 @@ export class AutosaveManager {
 		let timestamp = Date.now();
 		while (entries.includes(timestamp)) timestamp += 1;
 		const key = `${AUTOSAVE_PREFIX}${timestamp}`;
-		const value = model instanceof ChartModel ? model.serialize(0) : JSON.stringify(model);
+		const value = model instanceof ChartModel
+			? model.serialize(0, { includeGeneratedEvents: false }) : JSON.stringify(model);
 		const removeOldest = () => {
 			const oldest = entries.shift();
 			if (oldest != null) this.storage.removeItem(`${AUTOSAVE_PREFIX}${oldest}`);

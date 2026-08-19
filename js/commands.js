@@ -29,6 +29,7 @@ const DEFINITIONS = [
 	define('file.exportClipboard'),
 	define('file.openProjectFolder', null, null, {desktopOnly: true}),
 	define('file.chartProperties', null, null, {blockDuringPlayback: true}),
+	define('file.deleteChart', null, null, {desktopOnly: true, blockDuringPlayback: true}),
 	define('file.preferences', null, null, {blockDuringPlayback: true}),
 
 	define('edit.undo', 'Ctrl+Z'),
@@ -84,6 +85,7 @@ const DEFINITIONS = [
 	define('snappee.circularArc', null, 'create-circular-curve', {checkable: true, blockDuringPlayback: true}),
 	define('snappee.pen', 'Ctrl+P', 'pen', {checkable: true, blockDuringPlayback: true}),
 	define('snappee.parametricCurve', null, null, {blockDuringPlayback: true}),
+	define('snappee.preset', null, null, {blockDuringPlayback: true}),
 	define('snappee.activate', 'A', 'activate-snappee'),
 	define('snappee.deactivate', 'Shift+A', 'deactivate-snappee'),
 	define('snappee.attach', 'S', 'attach'),
@@ -97,8 +99,8 @@ const DEFINITIONS = [
 	define('transform.moveDownLarge', 'Shift+ArrowDown'),
 	define('transform.moveUpLarge', 'Shift+ArrowUp'),
 	define('transform.moveRightLarge', 'Shift+ArrowRight'),
-	define('transform.flipHorizontal', '%'),
-	define('transform.flipVertical', '"'),
+	define('transform.flipHorizontal', '%', 'flip-horizontally'),
+	define('transform.flipVertical', '"', 'flip-vertically'),
 	define('transform.free', 'Ctrl+T', 'free-transform', {checkable: true, blockDuringPlayback: true}),
 	define('transform.matrix', null, null, {blockDuringPlayback: true}),
 	define('transform.moveForward', '>'),
@@ -153,7 +155,7 @@ export const MENU_DEFINITION = Object.freeze([
 			item('file.saveLevel'), item('file.exportClipboard'), separator,
 			item('file.setMusic'), item('file.setBackground'), separator,
 			item('file.openProjectFolder'), separator,
-			item('file.chartProperties'), separator, item('file.preferences')
+			item('file.chartProperties'), separator, item('file.deleteChart'), separator, item('file.preferences')
 		])
 	}),
 	Object.freeze({
@@ -184,7 +186,7 @@ export const MENU_DEFINITION = Object.freeze([
 			item('snappee.rectangularMesh'), item('snappee.radialMesh'),
 			item('snappee.parametricMesh'), separator, item('snappee.regularPolygon'),
 			item('snappee.bezierCurve'), item('snappee.circularArc'), item('snappee.pen'),
-			item('snappee.parametricCurve'), separator, item('snappee.activate'),
+			item('snappee.parametricCurve'), separator, item('snappee.preset'), separator, item('snappee.activate'),
 			item('snappee.deactivate'), separator, item('snappee.attach'), item('snappee.detach')
 		])
 	}),
@@ -231,7 +233,7 @@ export const TOOLBAR_ITEMS = Object.freeze([
 	'snappee.rectangularMesh', 'snappee.radialMesh', 'snappee.regularPolygon',
 	'snappee.bezierCurve', 'snappee.circularArc', 'snappee.pen', 'snappee.activate',
 	'snappee.deactivate', 'snappee.attach', 'snappee.detach', 'separator',
-	'transform.free', 'separator', 'music.playPause', 'music.seekStart',
+	'transform.flipHorizontal', 'transform.flipVertical', 'transform.free', 'separator', 'music.playPause', 'music.seekStart',
 	'music.subdivision2', 'music.subdivision4', 'music.speed025', 'music.speed05',
 	'music.speed1', 'music.zoomIn', 'music.zoomOut'
 ]);
@@ -433,7 +435,7 @@ export class CommandRegistry {
 			if (!matchesShortcut(event, definition.shortcut, {metaAsCtrl: this.metaAsCtrl})) {
 				continue;
 			}
-			if (event.repeat && definition.id === 'music.playPause') {
+			if (event.repeat && (definition.id === 'music.playPause' || definition.id === 'music.playReverse')) {
 				event.preventDefault();
 				return true;
 			}

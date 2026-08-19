@@ -167,7 +167,7 @@ export const withStageInteractions = Base => class extends Base {
 		const target = allowOutOfBounds ? raw : clampPointToChartBounds(raw);
 		const snap = findNearestSnapPoint(target, project.snappees, {
 			activeOnly: true,
-			maxDistance: 9 / mapping.scale,
+			maxDistance: 6.125,
 			bounds: allowOutOfBounds ? undefined : CHART_BOUNDS,
 		});
 		this.creationPreview = snap ? { ...snap, snappee: snap.snappee } : target;
@@ -250,6 +250,9 @@ export const withStageInteractions = Base => class extends Base {
 			? project.events.findLast(candidate => candidate.selected && MOVABLE_TYPES.has(candidate.type)
 				&& activeChannels.has(candidate.channel))
 			: null;
+		const shiftSnappee = event.shiftKey && !shiftPrimary
+			? project.snappees.find(snappee => snappee.selected && isSnappeeVisible(snappee))
+			: null;
 		if (freeTransform) {
 			if (playing) return;
 			if (!hit?.type?.startsWith("free-")) return;
@@ -299,6 +302,13 @@ export const withStageInteractions = Base => class extends Base {
 					start: point,
 					startChart: position,
 					collapseSelectionOnClick: false,
+				};
+			} else if (shiftSnappee) {
+				this.drag = {
+					type: "snappee-move",
+					hit: { type: "snappee-body", snappee: shiftSnappee },
+					start: point,
+					startChart: mapping.toChart(point),
 				};
 			} else {
 				this.drag = { type: "box", start: point, mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace" };

@@ -1,7 +1,8 @@
 import { Rational } from "../core/rational.js";
+import { resolveAttachedPosition } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
-import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointVisualState } from "./stage.js";
+import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointSpawnPosition, tipPointVisualState } from "./stage.js";
 import {
 	BEAT_LINE_COLORS,
 	TIMELINE_COMMENT_TEXT_COLOR,
@@ -10,9 +11,9 @@ import {
 	beatColor,
 	beatDenominator,
 	currentSeconds,
-	drawPatternIcon,
+	drawTimelineEventIcon,
 	projectState,
-	timelineTipConnector,
+	tipSpawnDirectionSegment,
 	timingFor,
 } from "./timeline-helpers.js";
 
@@ -348,7 +349,7 @@ export class TimelineView {
 					y: position.y - 8, width: Math.abs(endX - position.x) + 10, height: 16,
 				});
 			}
-			this.#drawEventIcon(context, event, position.x, position.y, color);
+			drawTimelineEventIcon(context, event, position.x, position.y, color);
 			if (interactive) {
 				this.eventCenters.push({ event, x: position.x, y: position.y });
 				this.hitRegions.push({ type: "event", event, x: position.x - 12, y: position.y - 12, width: 24, height: 24 });
@@ -368,61 +369,6 @@ export class TimelineView {
 			}
 			context.restore();
 		}
-	}
-
-	#drawEventIcon(context, event, x, y, color) {
-		context.save();
-		context.fillStyle = color;
-		context.strokeStyle = color;
-		context.lineWidth = 2;
-		if (["grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"].includes(event.type)) {
-			drawPatternIcon(context, event.type, x, y, 8, color);
-		} else if (event.type === "bigText") {
-			context.font = "bold 13px sans-serif";
-			context.textAlign = "center";
-			context.textBaseline = "middle";
-			context.fillText("T", x, y);
-		} else if (event.type === "comment") {
-			context.beginPath();
-			context.moveTo(x - 8, y - 6);
-			context.lineTo(x + 8, y - 6);
-			context.lineTo(x + 8, y + 4);
-			context.lineTo(x + 2, y + 4);
-			context.lineTo(x - 2, y + 8);
-			context.lineTo(x - 2, y + 4);
-			context.lineTo(x - 8, y + 4);
-			context.closePath();
-			context.stroke();
-		} else if (event.type === "bgNote") {
-			context.beginPath();
-			for (let index = 0; index < 6; index += 1) {
-				const angle = index * Math.PI / 3;
-				const px = x + Math.cos(angle) * 9;
-				const py = y + Math.sin(angle) * 9;
-				if (!index) context.moveTo(px, py); else context.lineTo(px, py);
-			}
-			context.closePath();
-			context.fill();
-		} else if (event.type === "drag") {
-			context.beginPath();
-			context.arc(x, y, 6, 0, Math.PI * 2);
-			context.stroke();
-			context.beginPath();
-			context.arc(x, y, 2.5, 0, Math.PI * 2);
-			context.fill();
-		} else {
-			context.beginPath();
-			context.arc(x, y, 8, 0, Math.PI * 2);
-			context.fill();
-			if (event.text) {
-				context.fillStyle = "#111417";
-				context.font = "bold 8px sans-serif";
-				context.textAlign = "center";
-				context.textBaseline = "middle";
-				context.fillText(String(event.text).slice(0, 3), x, y);
-			}
-		}
-		context.restore();
 	}
 
 	#drawDiamond(context, x, y, size = 10) {
@@ -471,9 +417,24 @@ export class TimelineView {
 		for (const guide of guides) {
 			const checkpoints = this.#tipPointCheckpoints(guide, layout, project, offsets);
 			if (!checkpoints) continue;
-			const line = tipPointPathBetween(timelineTipConnector(checkpoints), beginning, ending);
+			const firstPosition = this.renderIndex?.positionFor(guide.events[0])
+				|| resolveAttachedPosition(guide.events[0], project.snappees) || guide.events[0];
+			const resolvedSpawn = this.renderIndex?.tipSpawnPositionFor(guide.spawnSettings);
+			const spawnPosition = tipPointSpawnPosition(
+				guide.spawnSettings, firstPosition, project.snappees, resolvedSpawn,
+			);
+			const shortConnector = tipSpawnDirectionSegment(firstPosition, spawnPosition, checkpoints[1]);
+			const line = tipPointPathBetween(checkpoints.eventCheckpoints, beginning, ending);
 			context.save();
 			if (!activeChannelIds.has(guide.events[0]?.channel)) context.globalAlpha = 0.28;
+			if (shortConnector.length > 1) {
+				context.strokeStyle = "#a98500";
+				context.lineWidth = 1.5;
+				context.beginPath();
+				context.moveTo(shortConnector[0].x, shortConnector[0].y);
+				context.lineTo(shortConnector[1].x, shortConnector[1].y);
+				context.stroke();
+			}
 			context.strokeStyle = "rgba(255,255,255,0.24)";
 			context.lineWidth = 5;
 			context.lineCap = "round";
@@ -523,6 +484,7 @@ export class TimelineView {
 			const event = guide.events[index];
 			checkpoints.push(makePoint(guide.eventTimes[index], baseY + (offsets.get(event.id) || 0)));
 		}
+		Object.defineProperty(checkpoints, "eventCheckpoints", { value: checkpoints.slice(1) });
 		this.tipPointCheckpointCache.guides.set(guide, checkpoints);
 		return checkpoints;
 	}

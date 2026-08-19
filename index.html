@@ -17,6 +17,7 @@
 	<title>Untitled Normal - sviber</title>
 	<link rel="manifest" href="manifest.webmanifest">
 	<link rel="icon" href="svg/icon.svg" type="image/svg+xml">
+	<script src="js/theme-bootstrap.js"></script>
 	<script src="js/font-loader.js"></script>
 	<link rel="stylesheet" href="css/app.css">
 </head>
@@ -26,11 +27,8 @@
 			<nav id="menu-bar" class="menu-bar" aria-label="Application menu" data-i18n-aria-label="aria.applicationMenu"></nav>
 			<div class="tool-row">
 				<div id="tool-bar" class="tool-bar" role="toolbar" aria-label="Chart tools" data-i18n-aria-label="aria.chartTools"></div>
-				<div class="difficulty-switcher" role="group" aria-label="Difficulties" data-i18n-aria-label="aria.difficulties" hidden>
-					<span id="difficulty-color" class="difficulty-color" aria-hidden="true"></span>
+				<div class="difficulty-switcher" aria-label="Difficulties" data-i18n-aria-label="aria.difficulties" hidden>
 					<select id="difficulty-select" aria-label="Difficulty" data-tooltip-key="difficulty.select"></select>
-					<button id="difficulty-add" class="difficulty-action" type="button" data-tooltip-key="difficulty.add">+</button>
-					<button id="difficulty-delete" class="difficulty-action" type="button" data-tooltip-key="difficulty.delete">&#8722;</button>
 				</div>
 			</div>
 		</header>
@@ -56,7 +54,13 @@
 			</section>
 
 			<section class="editor-row" aria-label="Chart editor" data-i18n-aria-label="aria.chartEditor">
-				<div id="stage-surface" class="render-surface stage-surface" tabindex="0"></div>
+				<aside id="scroll-view-panel" class="scroll-view-panel" aria-label="Scroll view" data-i18n-aria-label="aria.scrollView">
+					<div id="scroll-surface" class="render-surface scroll-surface" tabindex="0"></div>
+				</aside>
+				<div id="stage-surface" class="render-surface stage-surface" tabindex="0">
+					<button id="scroll-view-toggle" class="edge-toggle edge-toggle-left" type="button" aria-label="Hide scroll view" data-tooltip-key="layout.hideScrollView">&#8249;</button>
+					<button id="side-panel-toggle" class="edge-toggle edge-toggle-right" type="button" aria-label="Hide side panels" data-tooltip-key="layout.hideSidePanel">&#8250;</button>
+				</div>
 				<aside class="side-panel">
 					<div class="side-tabs" role="tablist">
 						<button id="inspector-tab" class="side-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="inspector-panel" data-i18n="panel.inspector">Inspector</button>

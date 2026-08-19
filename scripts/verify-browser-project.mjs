@@ -29,7 +29,7 @@ export async function runProjectChecks(page, outputDirectory) {
 		globalThis.__difficultyFixture = { originalForm, originalConfirm, originalConfirmUnsavedChart, firstId, firstCount };
 		return { firstId, firstCount };
 	});
-	await page.locator("#difficulty-add").click();
+	await page.evaluate(() => globalThis.sviber.newDifficulty());
 	await page.waitForFunction(firstId => globalThis.sviber.difficulties.length === 2
 		&& globalThis.sviber.activeDifficultyId !== firstId, difficultyFixture.firstId);
 	await page.waitForFunction(() => document.querySelectorAll("#difficulty-select option").length === 2);
@@ -230,13 +230,11 @@ export async function runProjectChecks(page, outputDirectory) {
 	assert.equal(reopenedProject.imageReference, "cover.svg");
 	assert.equal(reopenedProject.backgroundLoaded, true);
 
-	await page.locator("#difficulty-delete").click();
+	await page.evaluate(() => globalThis.sviber.deleteDifficulty());
 	await page.waitForFunction(firstId => globalThis.sviber.difficulties.length === 1
 		&& globalThis.sviber.activeDifficultyId === firstId, difficultyFixture.firstId);
-	await page.waitForFunction(() => document.querySelectorAll("#difficulty-select option").length === 1
-		&& document.querySelector("#difficulty-delete")?.disabled);
+	await page.waitForFunction(() => document.querySelectorAll("#difficulty-select option").length === 1);
 	assert.equal(await page.locator("#difficulty-select option").count(), 1);
-	assert.equal(await page.locator("#difficulty-delete").isDisabled(), true);
 	await page.evaluate(async () => {
 		const app = globalThis.sviber;
 		await app.files.saveProject(app.projectSnapshot());
@@ -248,6 +246,29 @@ export async function runProjectChecks(page, outputDirectory) {
 		const manifest = JSON.parse(await files.get("sviber-project.json").text());
 		return manifest.charts.length === 1 && !files.has("Master.json");
 	});
+	const lastChartReplacement = await page.evaluate(async () => {
+		const app = globalThis.sviber;
+		const deletedId = app.activeDifficultyId;
+		const deleted = await app.deleteDifficulty();
+		await app.files.saveProject(app.projectSnapshot());
+		app.markProjectSaved();
+		return {
+			deleted,
+			deletedId,
+			activeId: app.activeDifficultyId,
+			count: app.difficulties.length,
+			events: app.model.events.length,
+			name: app.model.metadata.difficultyName,
+			files: [...globalThis.__browserProjectFiles.keys()].sort(),
+		};
+	});
+	assert.equal(lastChartReplacement.deleted, true);
+	assert.equal(lastChartReplacement.count, 1);
+	assert.notEqual(lastChartReplacement.activeId, lastChartReplacement.deletedId);
+	assert.equal(lastChartReplacement.events, 0);
+	assert.equal(lastChartReplacement.name, "Master");
+	assert.deepEqual(lastChartReplacement.files,
+		["Master.json", "cover.svg", "music.wav", "sviber-project.json"]);
 	await page.evaluate(() => {
 		const app = globalThis.sviber;
 		app.dialogs.form = globalThis.__difficultyFixture.originalForm;

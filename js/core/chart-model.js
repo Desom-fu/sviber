@@ -334,27 +334,6 @@ export function createDefaultSnappees() {
 			name: "Playfield grid", topLeftX: -100, topLeftY: 50,
 			bottomRightX: 100, bottomRightY: -50, horizontalTiles: 16, verticalTiles: 8,
 		}),
-		createSnappee("radialMesh", {
-			name: "Radial grid", centerX: 0, centerY: 0, radius: 50,
-			azimuthalTiles: 16, radialTiles: 4, active: false,
-		}),
-		createSnappee("regularPolygonCurve", {
-			name: "Outer hexagon", centerX: 0, centerY: 0, radius: 100 / Math.sqrt(3),
-			angle: 0, sides: 6, segmentsPerSide: 4, active: false,
-		}),
-		createSnappee("regularPolygonCurve", {
-			name: "Middle hexagon", centerX: 0, centerY: 0, radius: 50,
-			angle: Math.PI / 2, sides: 6, segmentsPerSide: 4, active: false,
-		}),
-		createSnappee("regularPolygonCurve", {
-			name: "Inner hexagon", centerX: 0, centerY: 0, radius: 50 / Math.sqrt(3),
-			angle: 0, sides: 6, segmentsPerSide: 2, active: false,
-		}),
-		createSnappee("regularPolygonCurve", {
-			name: "Pentagon", centerX: 0, centerY: 20 * Math.sqrt(5) - 50,
-			radius: 100 - 20 * Math.sqrt(5), angle: Math.PI / 2,
-			sides: 5, segmentsPerSide: 4, active: false,
-		}),
 	];
 }
 
@@ -867,12 +846,15 @@ export class ChartModel {
 		return result;
 	}
 
-	toJSON() {
-		return { ...this.exportSunniesnow(), sviber: this.serializeSviber() };
+	toJSON(options = {}) {
+		const result = options.includeGeneratedEvents === false
+			? { ...clone(this.metadata), $schema: SUNNIESNOW_SCHEMA }
+			: this.exportSunniesnow();
+		return { ...result, sviber: this.serializeSviber() };
 	}
 
-	serialize(space = 2) {
-		return JSON.stringify(this.toJSON(), null, space);
+	serialize(space = 2, options = {}) {
+		return JSON.stringify(this.toJSON(options), null, space);
 	}
 
 	clone() {

@@ -31,6 +31,9 @@ export class AudioPlayer extends EventTarget {
 		this.buffer = null;
 		this.source = null;
 		this.gain = null;
+		this.seGain = null;
+		this.musicVolume = 1;
+		this.seVolume = 1;
 		this.waveform = null;
 		this.objectUrl = null;
 		this.filename = "";
@@ -83,8 +86,11 @@ export class AudioPlayer extends EventTarget {
 			if (!AudioContext) return null;
 			this.context = new AudioContext({ latencyHint: "interactive" });
 			this.gain = this.context.createGain();
-			this.gain.gain.value = 1;
+			this.gain.gain.value = this.musicVolume;
 			this.gain.connect(this.context.destination);
+			this.seGain = this.context.createGain();
+			this.seGain.gain.value = this.seVolume;
+			this.seGain.connect(this.context.destination);
 		}
 		if (this.context.state === "suspended") await this.context.resume();
 		return this.context;
@@ -130,6 +136,16 @@ export class AudioPlayer extends EventTarget {
 		this.rate = nextRate;
 		if (wasPlaying) this.#startSource();
 		this.dispatchEvent(new CustomEvent("ratechange", { detail: nextRate }));
+	}
+
+	setMusicVolume(volume) {
+		this.musicVolume = Math.max(0, Math.min(1, Number(volume) || 0));
+		if (this.gain) this.gain.gain.value = this.musicVolume;
+	}
+
+	setSeVolume(volume) {
+		this.seVolume = Math.max(0, Math.min(1, Number(volume) || 0));
+		if (this.seGain) this.seGain.gain.value = this.seVolume;
 	}
 
 	setLoopRange(range) {
@@ -311,7 +327,7 @@ export class AudioPlayer extends EventTarget {
 		source.buffer = this.hitBuffers.get(sampleType);
 		gain.gain.setValueAtTime(1, context.currentTime);
 		source.connect(gain);
-		gain.connect(context.destination);
+		gain.connect(this.seGain || context.destination);
 		const record = { source, gain, startTime: time };
 		this.hitSources.add(record);
 		source.onended = () => {
@@ -334,7 +350,7 @@ export class AudioPlayer extends EventTarget {
 		gain.gain.setValueAtTime(1, time);
 		gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
 		source.connect(gain);
-		gain.connect(context.destination);
+		gain.connect(this.seGain || context.destination);
 		const record = { source, gain, startTime: time };
 		this.hitSources.add(record);
 		source.onended = () => {

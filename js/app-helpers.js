@@ -21,7 +21,9 @@ export const PREFERENCES_KEY = "sviber.preferences";
 export const LAST_CHARTER_KEY = "sviber.lastCharter";
 export const LAST_OPEN_KEY = "sviber.lastOpen";
 export const DEFAULT_PREFERENCES = Object.freeze({
-	theme: "system", language: "system", noteSpeed: 2, allowOutOfBounds: false,
+	theme: "system", language: "system", noteSpeed: 2,
+	seVolume: 1, musicVolume: 1, autoSaveInterval: 120,
+	allowOutOfBounds: false,
 });
 
 function preferenceChoice(value, choices, fallback) {
@@ -30,10 +32,17 @@ function preferenceChoice(value, choices, fallback) {
 
 function normalizePreferences(source = {}) {
 	const noteSpeed = Number(source.noteSpeed);
+	const volume = (value, fallback) => Number.isFinite(Number(value))
+		? Math.max(0, Math.min(1, Number(value))) : fallback;
+	const autoSaveInterval = Number(source.autoSaveInterval);
 	return {
 		theme: preferenceChoice(source.theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme),
 		language: preferenceChoice(source.language, ["system", "en-US", "zh-CN"], DEFAULT_PREFERENCES.language),
 		noteSpeed: noteSpeed > 0 ? noteSpeed : DEFAULT_PREFERENCES.noteSpeed,
+		seVolume: volume(source.seVolume, DEFAULT_PREFERENCES.seVolume),
+		musicVolume: volume(source.musicVolume, DEFAULT_PREFERENCES.musicVolume),
+		autoSaveInterval: Number.isFinite(autoSaveInterval) && autoSaveInterval >= 0
+			? autoSaveInterval : DEFAULT_PREFERENCES.autoSaveInterval,
 		allowOutOfBounds: Boolean(source.allowOutOfBounds),
 	};
 }

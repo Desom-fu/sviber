@@ -54,6 +54,9 @@ export const withHistoryCommands = Base => class extends Base {
 		command("file.openProjectFolder", () => this.files.openProjectFolder(),
 			() => Boolean(globalThis.nw && this.files.projectPath));
 		command("file.chartProperties", () => void this.showChartProperties(false));
+		command("file.deleteChart", () => void this.deleteDifficulty(), () => Boolean(
+			this.files.projectPath || this.files.projectDirectoryHandle,
+		));
 		command("file.preferences", () => void this.showPreferences());
 
 		command("edit.undo", () => this.undo(), () => this.history.canUndo);
@@ -110,6 +113,7 @@ export const withHistoryCommands = Base => class extends Base {
 		command("snappee.circularArc", () => this.startCurveDraft("circularArcCurve"));
 		command("snappee.pen", () => this.startCurveDraft("penCurve"));
 		command("snappee.parametricCurve", () => void this.showSnappeeDialog("parametricCurve"));
+		command("snappee.preset", () => void this.showPresetSnappeeDialog());
 		command("snappee.activate", () => this.setAttachedSnappeesActive(true), () => selected(this.model).length > 0);
 		command("snappee.deactivate", () => this.setAttachedSnappeesActive(false), () => selected(this.model).length > 0);
 		command("snappee.attach", () => this.attachSelected(), () => selected(this.model).some(event => MOVABLE_TYPES.has(event.type)) && this.model.snappees.some(snappee => snappee.active));
@@ -127,10 +131,19 @@ export const withHistoryCommands = Base => class extends Base {
 		command("transform.moveBackward", () => this.moveSelectedInTime(-1), () => selected(this.model).length > 0);
 
 		command("music.playPause", (_context, event) => {
-			if (event?.type === "keydown" && !this.audio.playing) this.spacePlaybackStartedAt = performance.now();
+			if (event?.type === "keydown" && !this.audio.playing) {
+				this.spacePlaybackStartedAt = performance.now();
+				this.spacePlaybackCommand = "music.playPause";
+			}
 			return void this.togglePlayback();
 		});
-		command("music.playReverse", () => void this.toggleReversePlayback());
+		command("music.playReverse", (_context, event) => {
+			if (event?.type === "keydown" && (!this.audio.playing || this.audio.direction > 0)) {
+				this.spacePlaybackStartedAt = performance.now();
+				this.spacePlaybackCommand = "music.playReverse";
+			}
+			return void this.toggleReversePlayback();
+		});
 		command("music.seekStart", () => this.seekStart());
 		command("music.seekForward", () => this.navigateWheel(1, false));
 		command("music.seekBackward", () => this.navigateWheel(-1, false));

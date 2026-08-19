@@ -385,6 +385,25 @@ export function tipPointPathBetween(checkpoints, beginning, ending) {
 	return finish();
 }
 
+export function tipPointSpawnPosition(settings, eventPosition, snappees, resolvedAttachedPosition = null) {
+	if (settings.tipPointSpawnAbsolutePosition) {
+		const attached = resolvedAttachedPosition
+			|| resolveAttachedPosition(settings, snappees, { prefix: "tipPointSpawn" });
+		if (attached) return attached;
+		const x = Number(settings.tipPointSpawnX);
+		const y = Number(settings.tipPointSpawnY);
+		return { x: Number.isFinite(x) ? x : 0, y: Number.isFinite(y) ? y : 100 };
+	}
+	const providedDistance = Number(settings.tipPointSpawnDistance ?? 100);
+	const providedAngle = Number(settings.tipPointSpawnAngle ?? Math.PI / 2);
+	const distance = Math.max(0, Number.isFinite(providedDistance) ? providedDistance : 100);
+	const angle = Number.isFinite(providedAngle) ? providedAngle : Math.PI / 2;
+	return {
+		x: eventPosition.x + Math.cos(angle) * distance,
+		y: eventPosition.y + Math.sin(angle) * distance,
+	};
+}
+
 export function tipPointVisualState(checkpoints, now) {
 	if (!checkpoints.length || !Number.isFinite(now)) return null;
 	const startTime = checkpoints[0].time;

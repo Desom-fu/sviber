@@ -72,7 +72,7 @@ export const withEventEditing = Base => class extends Base {
 			onVisibleRange: (beginning, end) => this.setVisibleRange(beginning, end),
 			onPageVisibleRange: direction => this.pageVisibleRange(direction),
 			onEditBpm: index => void this.showBpmDialog(index),
-			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey),
+			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey),
 		};
 	}
 
@@ -226,6 +226,7 @@ export const withEventEditing = Base => class extends Base {
 		preview.targets = targets;
 		this.timeline.requestRender();
 		this.stage.requestRender();
+		this.scrollView?.requestRender();
 	}
 
 	finishSelectionPreview(ids, mode = "replace") {
@@ -254,6 +255,7 @@ export const withEventEditing = Base => class extends Base {
 		this.selectionPreview = null;
 		this.timeline.requestRender();
 		this.stage.requestRender();
+		this.scrollView?.requestRender();
 		return true;
 	}
 
@@ -303,6 +305,7 @@ export const withEventEditing = Base => class extends Base {
 		if (options.lightweight && !clearSelection && channel == null) {
 			this.timeline.requestRender();
 			this.stage.requestRender();
+			this.scrollView?.requestRender();
 			this.requestStatusUpdate();
 		} else {
 			this.refresh();
@@ -342,6 +345,7 @@ export const withEventEditing = Base => class extends Base {
 				this.audio.seek(this.currentSeconds());
 			}
 			this.stage.requestRender();
+			this.scrollView?.requestRender();
 			this.requestStatusUpdate();
 		}
 	}
@@ -390,6 +394,7 @@ export const withEventEditing = Base => class extends Base {
 		if (!moveVisibleRange) {
 			this.timeline.requestRender();
 			this.stage.requestRender();
+			this.scrollView?.requestRender();
 			this.requestStatusUpdate();
 			this.audio.seek(nextSeconds);
 			return;
@@ -401,6 +406,7 @@ export const withEventEditing = Base => class extends Base {
 		else if (this.model.editor.visibleRangeEnd > bounds[1]) this.setVisibleRange(bounds[1] - span, bounds[1]);
 		else this.timeline.requestRender();
 		this.stage.requestRender();
+		this.scrollView?.requestRender();
 		this.requestStatusUpdate();
 		this.audio.seek(nextSeconds);
 	}

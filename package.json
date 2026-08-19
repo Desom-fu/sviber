@@ -1,6 +1,6 @@
 {
 	"name": "sviber",
-	"version": "0.1.7",
+	"version": "0.2.0",
 	"private": true,
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",
@@ -21,7 +21,7 @@
 		"min_width": 960,
 		"min_height": 620,
 		"position": "center",
-		"icon": "svg/icon.png"
+		"icon": "svg/icon.svg"
 	},
 	"scripts": {
 		"start": "http-server .. -p 4173 -c-1",
@@ -32,6 +32,8 @@
 		"verify:browser": "node scripts/check-source-size.mjs && node scripts/verify-browser.mjs"
 	},
 	"dependencies": {
+		"@ruby/3.4-wasm-wasi": "2.7.2",
+		"@ruby/wasm-wasi": "2.10.1",
 		"audio-decode": "^3.12.0",
 		"jszip": "^3.10.1",
 		"mathjs": "^15.2.0",

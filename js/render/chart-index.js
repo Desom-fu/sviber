@@ -23,6 +23,17 @@ function upperBound(records, value, field) {
 	return low;
 }
 
+function lowerBound(records, value, field) {
+	let low = 0;
+	let high = records.length;
+	while (low < high) {
+		const middle = (low + high) >> 1;
+		if (records[middle][field] < value) low = middle + 1;
+		else high = middle;
+	}
+	return low;
+}
+
 export class IntervalIndex {
 	constructor(records, startField = "rangeStart", endField = "rangeEnd") {
 		this.startField = startField;
@@ -111,6 +122,10 @@ export class ChartRenderIndex {
 		this.commentIndex = new IntervalIndex(this.commentRecords, "start", "end");
 		this.movableRecords = this.activeEventRecords.filter(record => MOVABLE_TYPES.has(record.event.type));
 		this.movableIndex = new IntervalIndex(this.movableRecords, "visibleStart", "visibleEnd");
+		this.scrollIndex = new IntervalIndex(this.movableRecords, "start", "end");
+		this.scrollDurationIndex = new IntervalIndex(
+			this.movableRecords.filter(record => record.end > record.start), "start", "end",
+		);
 		this.creationEchoIndex = new IntervalIndex(this.movableRecords, "echoStart", "echoEnd");
 		this.timelineIndex = new IntervalIndex(this.eventRecords, "start", "end");
 		this.patternRecords = this.activeEventRecords.filter(record => PATTERN_TYPES.has(record.event.type))
@@ -248,6 +263,41 @@ export class ChartRenderIndex {
 		return this.movableIndex.query(now);
 	}
 
+	scrollEventRecords(beginning, ending, maximum = Infinity) {
+		if (!Number.isFinite(maximum)) return this.scrollIndex.query(beginning, ending);
+		maximum = Math.max(1, Math.floor(maximum));
+		const records = this.scrollIndex.records;
+		const first = lowerBound(records, beginning, "start");
+		const last = upperBound(records, ending, "start");
+		const count = Math.max(0, last - first);
+		const result = [];
+		const seen = new Set();
+		const append = record => {
+			if (!record || seen.has(record)) return;
+			seen.add(record);
+			result.push(record);
+		};
+		if (count <= maximum) {
+			for (let index = first; index < last; index += 1) append(records[index]);
+		} else {
+			for (let sample = 0; sample < maximum; sample += 1) {
+				const index = first + Math.floor(sample * count / maximum);
+				append(records[index]);
+			}
+		}
+		for (const record of this.scrollDurationIndex.query(beginning)) {
+			if (record.start < beginning) append(record);
+		}
+		for (const id of this.selectedEventIds) {
+			const event = this.eventById.get(id);
+			const record = event && this.eventRecordMap.get(event);
+			if (record && this.activeChannelIds.has(event.channel) && MOVABLE_TYPES.has(event.type)
+				&& record.start <= ending && record.end >= beginning) append(record);
+		}
+		Object.defineProperty(result, "sampled", { value: count > maximum });
+		return result;
+	}
+
 	creationEchoRecords(now) {
 		return this.creationEchoIndex.query(now);
 	}
@@ -264,6 +314,10 @@ export class ChartRenderIndex {
 
 	activeTipGuides(now) {
 		return this.tipGuideIndex.query(now);
+	}
+
+	scrollTipGuides(beginning, ending) {
+		return this.tipGuideIndex.query(beginning, ending);
 	}
 
 	timelineTipGuides(beginning, ending) {

@@ -342,7 +342,13 @@ export class InspectorPanel {
 			transformGroup.append(this.#row("field.transform", wrapper));
 			this.element.append(transformGroup);
 		}
-		if (!selected.length) return;
+		if (!selected.length) {
+			const empty = document.createElement("p");
+			empty.className = "panel-empty-message";
+			empty.textContent = this.i18n.t("panel.noSelection");
+			this.element.append(empty);
+			return;
+		}
 
 		const group = this.#group(selected.every(event => event.type === selected[0].type)
 			? `event.${selected[0].type}` : "panel.commonProperties");

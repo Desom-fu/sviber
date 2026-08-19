@@ -110,6 +110,61 @@ export function drawPatternIcon(context, type, x, y, radius, color) {
 	context.restore();
 }
 
+export function drawTimelineEventIcon(context, event, x, y, color) {
+	context.save();
+	context.fillStyle = color;
+	context.strokeStyle = color;
+	context.lineWidth = 2;
+	if (["grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"].includes(event.type)) {
+		drawPatternIcon(context, event.type, x, y, 8, color);
+	} else if (event.type === "bigText") {
+		context.font = "bold 13px sans-serif";
+		context.textAlign = "center";
+		context.textBaseline = "middle";
+		context.fillText("T", x, y);
+	} else if (event.type === "comment") {
+		context.beginPath();
+		context.moveTo(x - 8, y - 6);
+		context.lineTo(x + 8, y - 6);
+		context.lineTo(x + 8, y + 4);
+		context.lineTo(x + 2, y + 4);
+		context.lineTo(x - 2, y + 8);
+		context.lineTo(x - 2, y + 4);
+		context.lineTo(x - 8, y + 4);
+		context.closePath();
+		context.stroke();
+	} else if (event.type === "bgNote") {
+		context.beginPath();
+		for (let index = 0; index < 6; index += 1) {
+			const angle = index * Math.PI / 3;
+			const px = x + Math.cos(angle) * 9;
+			const py = y + Math.sin(angle) * 9;
+			if (!index) context.moveTo(px, py); else context.lineTo(px, py);
+		}
+		context.closePath();
+		context.fill();
+	} else if (event.type === "drag") {
+		context.beginPath();
+		context.arc(x, y, 6, 0, Math.PI * 2);
+		context.stroke();
+		context.beginPath();
+		context.arc(x, y, 2.5, 0, Math.PI * 2);
+		context.fill();
+	} else {
+		context.beginPath();
+		context.arc(x, y, 8, 0, Math.PI * 2);
+		context.fill();
+		if (event.text) {
+			context.fillStyle = "#111417";
+			context.font = "bold 8px sans-serif";
+			context.textAlign = "center";
+			context.textBaseline = "middle";
+			context.fillText(String(event.text).slice(0, 3), x, y);
+		}
+	}
+	context.restore();
+}
+
 export function timelineTipConnector(checkpoints, tailLength = 12) {
 	if (!Array.isArray(checkpoints) || checkpoints.length < 2) return [];
 	const spawn = checkpoints[0];
@@ -126,5 +181,18 @@ export function timelineTipConnector(checkpoints, tailLength = 12) {
 	return [
 		{ ...spawn, x: firstEvent.x + dx / length * fixedLength, y: firstEvent.y + dy / length * fixedLength },
 		...checkpoints.slice(1),
+	];
+}
+
+export function tipSpawnDirectionSegment(firstPosition, spawnPosition, screenPoint, tailLength = 12) {
+	if (!firstPosition || !spawnPosition || !screenPoint) return [];
+	const dx = Number(spawnPosition.x) - Number(firstPosition.x);
+	const dy = Number(firstPosition.y) - Number(spawnPosition.y);
+	const length = Math.hypot(dx, dy);
+	if (!(length > 1e-8)) return [];
+	const fixedLength = Math.max(1, Number(tailLength) || 12);
+	return [
+		{ x: screenPoint.x + dx / length * fixedLength, y: screenPoint.y + dy / length * fixedLength },
+		{ x: screenPoint.x, y: screenPoint.y },
 	];
 }

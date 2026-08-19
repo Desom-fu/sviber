@@ -19,11 +19,13 @@ import {
 } from "./audio/scheduler.js";
 import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
+import { ScrollView } from "./render/scroll-view.js";
 import { ChartRenderIndex } from "./render/chart-index.js";
 import { HelpController } from "./help.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { ChannelsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { handleMacroMessage } from "./app-macro-bridge.js";
 
 export class SviberAppCore {
 	constructor() {
@@ -31,6 +33,7 @@ export class SviberAppCore {
 		applyThemePreference(this.preferences.theme);
 		i18n.setLanguage(resolvePreferenceLanguage(this.preferences.language));
 		this.model = ChartModel.createDefault({ editor: { allowOutOfBounds: this.preferences.allowOutOfBounds } });
+		this.model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
 		this.history = new History(this.model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
 		this.dirty = false;
 		this.creationMode = null;
@@ -59,9 +62,11 @@ export class SviberAppCore {
 		this.renderIndex = null;
 		this.mediaSync = Promise.resolve();
 		this.audio = new AudioPlayer();
+		this.audio.setSeVolume(this.preferences.seVolume);
+		this.audio.setMusicVolume(this.preferences.musicVolume);
 		this.autosave = new AutosaveManager();
 		this.macroWindow = null;
-		this.macroMessageHandler = event => void this._handleMacroMessage(event);
+		this.macroMessageHandler = event => void handleMacroMessage(this, event);
 
 		this.tooltip = new TooltipManager({ i18n });
 		this.toast = new ToastManager({ i18n });
@@ -86,6 +91,9 @@ export class SviberAppCore {
 
 		this.timeline = new TimelineView(document.getElementById("timeline-surface"), this._timelineCallbacks());
 		this.stage = new StageView(document.getElementById("stage-surface"), this._stageCallbacks());
+		this.scrollView = new ScrollView(document.getElementById("scroll-surface"), {
+			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
+		});
 		this.inspectorPanel = new InspectorPanel({
 			i18n, tooltip: this.tooltip,
 			onChange: (property, value) => this.editSelectedProperty(property, value),
@@ -145,25 +153,20 @@ export class SviberAppCore {
 		this._bindInputs();
 		this._bindAudio();
 		this._bindGlobalInteraction();
+		this._bindLayoutToggles();
 		window.addEventListener("message", this.macroMessageHandler);
-		await Promise.all([this.timeline.surface.ready, this.stage.surface.ready]);
+		await Promise.all([
+			this.timeline.surface.ready,
+			this.stage.surface.ready,
+			this.scrollView.surface.ready,
+		]);
 		this.refreshNow();
 		document.getElementById("app").setAttribute("aria-busy", "false");
 		document.getElementById("loading-screen").hidden = true;
 		const autosaveOffered = await this._offerAutosave();
 		if (!autosaveOffered) await this.reopenLastDocument?.();
 		this.refreshNow();
-		this.autosave.start(() => {
-			if (this.modelSignature() === this.savedSignature) return;
-			try {
-				const timestamp = this.autosave.save(this.model);
-				this.history.markCurrent("autosave", timestamp);
-				this.historyPanel.render(this.history);
-				this.toast.show("toast.autosaved", {}, { duration: 1400 });
-			} catch (error) {
-				console.warn("Auto-save failed", error);
-			}
-		});
+		this.startAutosave();
 		if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !globalThis.nw) {
 			navigator.serviceWorker.register("service-worker.js").catch(error => console.warn("Service worker registration failed", error));
 		}
@@ -431,6 +434,7 @@ export class SviberAppCore {
 		const view = this.viewState();
 		this.timeline.setState(view);
 		this.stage.setState(view);
+		this.scrollView.setState(view);
 		this._updateStatus();
 		this.playbackFrameCount = (this.playbackFrameCount || 0) + 1;
 	}
@@ -452,10 +456,7 @@ export class SviberAppCore {
 
 	_refreshDifficultyUi() {
 		const select = document.getElementById("difficulty-select");
-		const swatch = document.getElementById("difficulty-color");
-		const addButton = document.getElementById("difficulty-add");
-		const deleteButton = document.getElementById("difficulty-delete");
-		if (!select || !swatch || !addButton || !deleteButton) return;
+		if (!select) return;
 		const signature = JSON.stringify({
 			language: i18n.language,
 			active: this.activeDifficultyId,
@@ -464,7 +465,6 @@ export class SviberAppCore {
 				name: entry.model.metadata.difficultyName,
 				difficulty: entry.model.metadata.difficulty,
 				sup: entry.model.metadata.difficultySup,
-				dirty: this.modelSignature(entry.model) !== entry.savedSignature,
 			})),
 		});
 		if (signature !== this.difficultyUiSignature) {
@@ -472,26 +472,22 @@ export class SviberAppCore {
 				const option = document.createElement("option");
 				const metadata = entry.model.metadata;
 				const level = `${metadata.difficulty || ""}${metadata.difficultySup || ""}`.trim();
-				const dirty = this.modelSignature(entry.model) !== entry.savedSignature ? "* " : "";
 				option.value = entry.id;
-				option.textContent = `${dirty}${metadata.difficultyName}${level ? ` ${level}` : ""}`;
+				option.textContent = `${metadata.difficultyName}${level ? ` ${level}` : ""}`;
+				option.style.color = String(metadata.difficultyColor || "#7f7f7f");
 				return option;
 			}));
 			select.value = this.activeDifficultyId;
 			this.difficultyUiSignature = signature;
 		}
 		const active = this.activeDifficultyState();
-		swatch.style.background = String(active?.model.metadata.difficultyColor || "#7f7f7f");
+		select.style.color = String(active?.model.metadata.difficultyColor || "#7f7f7f");
+		const labelLength = select.selectedOptions[0]?.textContent?.length || 12;
+		select.style.width = `${Math.min(30, Math.max(12, labelLength + 3))}ch`;
 		select.title = i18n.t("difficulty.select");
 		select.setAttribute("aria-label", i18n.t("difficulty.select"));
-		addButton.title = i18n.t("difficulty.add");
-		addButton.setAttribute("aria-label", i18n.t("difficulty.add"));
-		deleteButton.title = i18n.t("difficulty.delete");
-		deleteButton.setAttribute("aria-label", i18n.t("difficulty.delete"));
 		const blocked = this.audio.playing || Boolean(this.freeTransform);
 		select.disabled = blocked;
-		addButton.disabled = blocked;
-		deleteButton.disabled = blocked || this.difficulties.length <= 1;
 	}
 
 	refreshNow() {
@@ -504,6 +500,7 @@ export class SviberAppCore {
 		document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${timelineHeight}px`);
 		this.timeline.setState(view);
 		this.stage.setState(view);
+		this.scrollView.setState(view);
 		if (reschedulePlayback && this.audio.playing) this._scheduleHits(this.audio.currentTime, 0);
 		this._updateStatus();
 		this.inspectorPanel.render(this.model, { transform: this.freeTransform?.matrix || null });
@@ -782,6 +779,29 @@ export class SviberAppCore {
 		}
 	}
 
+	_bindLayoutToggles() {
+		const row = document.querySelector(".editor-row");
+		const scrollButton = document.getElementById("scroll-view-toggle");
+		const sideButton = document.getElementById("side-panel-toggle");
+		const update = () => {
+			const scrollHidden = row?.classList.contains("is-scroll-hidden");
+			const sideHidden = row?.classList.contains("is-side-hidden");
+			if (scrollButton) {
+				scrollButton.textContent = scrollHidden ? "›" : "‹";
+				scrollButton.title = i18n.t(scrollHidden ? "layout.showScrollView" : "layout.hideScrollView");
+				scrollButton.setAttribute("aria-label", scrollButton.title);
+			}
+			if (sideButton) {
+				sideButton.textContent = sideHidden ? "‹" : "›";
+				sideButton.title = i18n.t(sideHidden ? "layout.showSidePanel" : "layout.hideSidePanel");
+				sideButton.setAttribute("aria-label", sideButton.title);
+			}
+		};
+		scrollButton?.addEventListener("click", () => { row?.classList.toggle("is-scroll-hidden"); update(); });
+		sideButton?.addEventListener("click", () => { row?.classList.toggle("is-side-hidden"); update(); });
+		update();
+	}
+
 	_bindGlobalInteraction() {
 		const licenseLink = document.querySelector(".javascript-license-link");
 		licenseLink?.addEventListener("click", event => {
@@ -806,17 +826,19 @@ export class SviberAppCore {
 			if (event.key !== " " && event.code !== "Space") return;
 			if (this.spacePlaybackStartedAt == null) return;
 			const held = performance.now() - this.spacePlaybackStartedAt;
+			const command = this.spacePlaybackCommand;
 			this.spacePlaybackStartedAt = null;
+			this.spacePlaybackCommand = null;
 			if (held < 300 || !this.audio.playing || this.dialogs.active) return;
 			event.preventDefault();
-			void this.registry.execute("music.playPause", this, event);
+			void this.registry.execute(command || "music.playPause", this, event);
 		};
 		document.addEventListener("keyup", this.boundSpaceKeyUp, true);
 		document.addEventListener("wheel", event => {
 			if (this.dialogs.active || event.defaultPrevented
 				|| event.target.closest(".property-panel,.history-list,.status-panel,.menu-popup,.dialog-body,.tool-bar,select,textarea")) return;
 			event.preventDefault();
-			this.navigateWheel(event.deltaY, event.ctrlKey);
+			this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey);
 		}, { passive: false });
 		window.addEventListener("beforeunload", event => {
 			if (!this.dirty) return;
@@ -837,81 +859,6 @@ export class SviberAppCore {
 			globalThis.nw.Window.open(url, {
 				title: "sviber Macros", width: 1180, height: 820, min_width: 760, min_height: 520,
 			}, popup => { this.macroWindow = popup?.window || null; });
-		}
-	}
-
-	_macroReply(source, message) {
-		try { source?.postMessage(message, "*"); } catch { /* The popup may have closed. */ }
-	}
-
-	async _handleMacroMessage(event) {
-		const message = event.data;
-		if (!message || typeof message !== "object" || !String(message.type || "").startsWith("sviber-macro-")) return;
-		if (this.macroWindow && event.source !== this.macroWindow) return;
-		if (message.type === "sviber-macro-state-request") {
-			this._macroReply(event.source, {
-				type: "sviber-macro-state",
-				requestId: message.requestId,
-				state: deepClone(this.model.snapshot()),
-				project: Boolean(globalThis.nw && this.files.projectPath),
-			});
-			return;
-		}
-		if (message.type === "sviber-macro-project-list") {
-			let files = [];
-			try { files = await this.files.listProjectFiles(".js"); } catch { files = []; }
-			this._macroReply(event.source, { type: "sviber-macro-project-list-result", requestId: message.requestId, files });
-			return;
-		}
-		if (message.type === "sviber-macro-project-read") {
-			let textValue = null;
-			try { textValue = await this.files.readProjectText(String(message.filename || "")); } catch { /* Return null for unsafe/missing files. */ }
-			this._macroReply(event.source, { type: "sviber-macro-project-read-result", requestId: message.requestId, text: textValue });
-			return;
-		}
-		if (message.type === "sviber-macro-project-write") {
-			let ok = false;
-			try { await this.files.writeProjectText(String(message.filename || ""), String(message.text || "")); ok = true; } catch { /* Browser and unsafe paths are rejected. */ }
-			this._macroReply(event.source, { type: "sviber-macro-project-write-result", requestId: message.requestId, ok });
-			return;
-		}
-		if (message.type === "sviber-macro-project-rename") {
-			let ok = false;
-			let error = "";
-			try {
-				await this.files.renameProjectText(String(message.oldFilename || ""), String(message.newFilename || ""));
-				ok = true;
-			} catch (exception) { error = String(exception?.message || exception); }
-			this._macroReply(event.source, {
-				type: "sviber-macro-project-rename-result", requestId: message.requestId, ok, error,
-			});
-			return;
-		}
-		if (message.type !== "sviber-macro-apply" || !message.state) return;
-		try {
-			const encoded = JSON.stringify(message.state);
-			if (encoded.length > 20_000_000) throw new Error("Macro state is too large.");
-			const next = new ChartModel(message.state);
-			if (next.events.length > 500_000 || next.snappees.length > 50_000 || next.channels.length > 10_000) {
-				throw new Error("Macro state exceeds the editor limits.");
-			}
-			const shared = {
-				title: next.metadata.title,
-				artist: next.metadata.artist,
-				music: next.music,
-				image: next.image,
-			};
-			this.commit(i18n.t("history.runMacro"), model => model.restore(next.snapshot()));
-			this.projectTitle = shared.title;
-			this.projectArtist = shared.artist;
-			this.projectMusic = shared.music;
-			this.projectImage = shared.image;
-			this.syncProjectSharedFields();
-			this.updateDirty();
-			this.refresh();
-			this._macroReply(event.source, { type: "sviber-macro-apply-result", requestId: message.requestId, ok: true });
-		} catch (error) {
-			this._macroReply(event.source, { type: "sviber-macro-apply-result", requestId: message.requestId, ok: false, error: String(error?.message || error) });
 		}
 	}
 
@@ -959,6 +906,7 @@ export class SviberAppCore {
 		this.autosave.stop();
 		this.timeline.destroy();
 		this.stage.destroy();
+		this.scrollView.destroy();
 		this.audio.destroy();
 		this.menu.destroy();
 		this.toolbar.destroy();

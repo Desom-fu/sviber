@@ -14,7 +14,7 @@
 		<header class="macro-chrome">
 			<nav class="macro-menu" aria-label="Macros menu" data-i18n-aria="menu.aria">
 				<div class="menu-root"><button type="button" data-menu="file" data-i18n="menu.file" data-mnemonic="F">File</button><div class="menu-popup" data-popup="file">
-					<button data-action="new"><span data-i18n="menu.new">New...</span> <kbd>Ctrl+N</kbd></button><button data-action="save"><span data-i18n="menu.save">Save</span> <kbd>Ctrl+S</kbd></button><button data-action="rename" data-i18n="menu.rename">Rename...</button><button data-action="import" data-i18n="menu.import">Import...</button><button data-action="export" data-i18n="menu.export">Export...</button>
+					<button data-action="new"><span data-i18n="menu.new">New...</span> <kbd>Ctrl+N</kbd></button><button data-action="save"><span data-i18n="menu.save">Save</span> <kbd>Ctrl+S</kbd></button><button data-action="rename" data-i18n="menu.rename">Rename...</button><button data-action="import" data-i18n="menu.import">Import...</button><button data-action="export" data-i18n="menu.export">Export...</button><button data-action="delete" data-i18n="menu.delete">Delete...</button>
 				</div></div>
 				<div class="menu-root"><button type="button" data-menu="edit" data-i18n="menu.edit" data-mnemonic="E">Edit</button><div class="menu-popup" data-popup="edit">
 					<button data-action="undo"><span data-i18n="menu.undo">Undo</span> <kbd>Ctrl+Z</kbd></button><button data-action="redo"><span data-i18n="menu.redo">Redo</span> <kbd>Ctrl+Y</kbd></button><hr><button data-action="cut"><span data-i18n="menu.cut">Cut</span> <kbd>Ctrl+X</kbd></button><button data-action="copy"><span data-i18n="menu.copy">Copy</span> <kbd>Ctrl+C</kbd></button><button data-action="paste"><span data-i18n="menu.paste">Paste</span> <kbd>Ctrl+V</kbd></button>
@@ -29,7 +29,7 @@
 			</aside>
 			<section class="macro-editor-area">
 				<div id="macro-editor-tabs" class="editor-tabs"></div>
-				<div id="macro-editor" class="macro-editor" aria-label="JavaScript macro editor"></div>
+				<div id="macro-editor" class="macro-editor" aria-label="Macro code editor"></div>
 				<textarea id="macro-fallback" class="macro-fallback" spellcheck="false" hidden></textarea>
 					<section class="macro-console"><div class="console-heading" data-i18n="console.heading">Console</div><pre id="macro-console-output"></pre></section>
 			</section>
@@ -44,11 +44,16 @@
 					<label><input type="radio" name="macro-scope" value="global" checked><span data-i18n="list.global">Global</span></label>
 					<label><input type="radio" name="macro-scope" value="project"><span data-i18n="list.project">Project</span></label>
 				</fieldset>
+				<fieldset id="macro-form-language-field" class="macro-form-scope">
+					<legend data-i18n="form.language">Macro language</legend>
+					<label><input type="radio" name="macro-language" value="javascript" checked><span data-i18n="language.javascript">JavaScript</span></label>
+					<label><input type="radio" name="macro-language" value="ruby"><span data-i18n="language.ruby">Ruby</span></label>
+				</fieldset>
 				<p id="macro-form-error" class="macro-form-error" role="alert" hidden></p>
 				<div class="macro-form-actions"><button type="button" value="cancel" data-macro-cancel data-i18n="form.cancel">Cancel</button><button type="submit" data-i18n="form.ok">OK</button></div>
 			</form>
 		</dialog>
-		<input id="macro-import" type="file" accept=".js,text/javascript" hidden>
+		<input id="macro-import" type="file" accept=".js,.rb,text/javascript,text/x-ruby" hidden>
 	<script type="module" src="js/macros.js"></script>
 </body>
 </html>

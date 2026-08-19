@@ -6,11 +6,11 @@ import { builderApplicationOptions, PACKAGED_WINDOW_ICON } from "../scripts/nw-b
 
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
-test("source and packaged NW.js windows use a PNG runtime icon", async () => {
-	assert.equal(packageJson.window.icon, "svg/icon.png");
+test("source keeps only the SVG icon and builds runtime icons", async () => {
+	assert.equal(packageJson.window.icon, "svg/icon.svg");
 	assert.equal(PACKAGED_WINDOW_ICON, "sviber/icon.png");
-	const png = await readFile(new URL("../svg/icon.png", import.meta.url));
-	assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+	const svg = await readFile(new URL("../svg/icon.svg", import.meta.url), "utf8");
+	assert.match(svg, /<svg\b/);
 });
 
 test("NW.js builder selects native icon formats for each desktop platform", () => {
@@ -49,24 +49,30 @@ test("NW.js builds pass an explicit target platform and architecture", async () 
 	assert.match(source, /generatePackagedIcons\(applicationDirectory, TARGET_PLATFORM\)/);
 });
 
-test("release workflow archives Windows and macOS as ZIP and Linux as tar.gz", async () => {
-	const workflow = await readFile(new URL("../.github/workflows/test.yml", import.meta.url), "utf8");
-	for (const platform of ["windows-x64", "windows-x86", "windows-arm64", "macos-x64", "macos-arm64"]) {
+test("release workflows archive each v10 target with the required format", async () => {
+	const workflow = await readFile(new URL("../.github/workflows/package.yml", import.meta.url), "utf8");
+	for (const platform of ["windows-x86", "windows-x86_64", "windows-aarch64"]) {
 		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: zip`));
 	}
-	for (const platform of ["linux-x64", "linux-arm64"]) {
+	for (const platform of ["linux-x86_64", "linux-aarch64"]) {
 		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: tar\\.gz`));
 	}
+	for (const platform of ["macos-x86_64", "macos-aarch64"]) {
+		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: dmg`));
+	}
 	assert.match(workflow, /platform: windows-x86[\s\S]*?nwPlatform: win[\s\S]*?arch: ia32/);
-	assert.match(workflow, /platform: windows-arm64[\s\S]*?nwPlatform: win[\s\S]*?arch: arm64/);
-	assert.match(workflow, /platform: macos-arm64[\s\S]*?nwPlatform: osx[\s\S]*?arch: arm64/);
-	assert.match(workflow, /platform: linux-arm64[\s\S]*?nwPlatform: linux[\s\S]*?arch: arm64/);
+	assert.match(workflow, /platform: windows-aarch64[\s\S]*?nwPlatform: win[\s\S]*?arch: arm64/);
+	assert.match(workflow, /platform: macos-aarch64[\s\S]*?nwPlatform: osx[\s\S]*?arch: arm64/);
+	assert.match(workflow, /platform: linux-aarch64[\s\S]*?nwPlatform: linux[\s\S]*?arch: arm64/);
 	assert.match(workflow, /SVIBER_NW_PLATFORM: \$\{\{ matrix\.nwPlatform \}\}/);
 	assert.match(workflow, /SVIBER_NW_ARCH: \$\{\{ matrix\.arch \}\}/);
-	assert.match(workflow, /if: matrix\.os == 'windows-latest'[\s\S]*?Compress-Archive/);
-	assert.match(workflow, /if: matrix\.os == 'macos-15-intel'[\s\S]*?zip -qry/);
-	assert.match(workflow, /NW\.js frameworks contain symlinks/);
-	assert.match(workflow, /if: matrix\.archive == 'tar\.gz'[\s\S]*?tar -czf/);
+	assert.match(workflow, /startsWith\(matrix\.platform, 'windows-'\)[\s\S]*?Compress-Archive/);
+	assert.match(workflow, /startsWith\(matrix\.platform, 'macos-'\)[\s\S]*?hdiutil create/);
+	assert.match(workflow, /if: startsWith\(matrix\.platform, 'linux-'\)[\s\S]*?tar -czf/);
 	assert.match(workflow, /path: sviber-\$\{\{ matrix\.platform \}\}\.\$\{\{ matrix\.archive \}\}/);
-	assert.match(workflow, /files: \|\s*release\/\*\.zip\s*release\/\*\.tar\.gz/);
+	const release = await readFile(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
+	assert.match(release, /release\/\*\.zip/);
+	assert.match(release, /release\/\*\.tar\.gz/);
+	assert.match(release, /release\/\*\.dmg/);
+	assert.match(release, /release\/\*\.nw/);
 });

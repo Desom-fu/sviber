@@ -177,8 +177,11 @@ test("all default snappee types produce finite sample points", () => {
 	assert.equal(sampleSnappee(createSnappee("regularPolygonCurve")).length, 20);
 });
 
-test("boundary snappee points remain attachable despite floating-point noise", () => {
-	const polygons = createDefaultSnappees().filter(snappee => snappee.type === "regularPolygonCurve");
+test("chart-boundary snappee points use only the documented tiny tolerance", () => {
+	const polygons = [createSnappee("regularPolygonCurve", {
+		name: "Outer hexagon", centerX: 0, centerY: 0, radius: 100 / Math.sqrt(3),
+		angle: 0, sides: 6, segmentsPerSide: 4,
+	})];
 	assert.ok(polygons.some(snappee => sampleSnappee(snappee).some(point =>
 		point.x < CHART_BOUNDS.minX
 		|| point.x > CHART_BOUNDS.maxX
@@ -357,19 +360,12 @@ test("History records manual and automatic save markers on the current entry", (
 	assert.deepEqual(history.currentEntry.metadata.historyMarkers, { autosave: 100, save: 200 });
 });
 
-test("new charts activate only the rectangular default snappee", () => {
+test("new charts create and activate only the rectangular default snappee", () => {
 	const snappees = createDefaultSnappees();
-	assert.equal(snappees.length, 6);
-	assert.deepEqual(snappees.map(item => item.type), [
-		"rectangularMesh", "radialMesh", "regularPolygonCurve",
-		"regularPolygonCurve", "regularPolygonCurve", "regularPolygonCurve",
-	]);
-	assert.deepEqual(snappees.map(item => item.active), [true, false, false, false, false, false]);
+	assert.equal(snappees.length, 1);
+	assert.deepEqual(snappees.map(item => item.type), ["rectangularMesh"]);
+	assert.deepEqual(snappees.map(item => item.active), [true]);
 	assert.deepEqual([snappees[0].horizontalTiles, snappees[0].verticalTiles], [16, 8]);
-	assert.deepEqual([snappees[1].azimuthalTiles, snappees[1].radialTiles], [16, 4]);
-	assert.deepEqual(snappees.slice(2).map(item => [item.sides, item.segmentsPerSide]), [[6, 4], [6, 4], [6, 2], [5, 4]]);
-	assert.ok(Math.abs(snappees[2].radius - 100 / Math.sqrt(3)) < 1e-12);
-	assert.ok(Math.abs(snappees[5].centerY - (20 * Math.sqrt(5) - 50)) < 1e-12);
 });
 
 test("ChartModel deletions do not renumber surviving IDs and saved IDs round-trip", () => {
