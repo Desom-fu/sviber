@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { COMMAND_DEFINITIONS, CommandRegistry, parseShortcut } from "../js/commands.js";
+import { withChartTools } from "../js/app-chart-tools.js";
 import { withEventEditing } from "../js/app-event-editing.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
@@ -111,6 +112,33 @@ test("a single attached event can be dragged freely in v9", () => {
 	new EditingApp()._applyPositionMove(model, 8, { x: 25, y: 10 });
 	assert.equal(model.events[0].attached, false);
 	assert.deepEqual([model.events[0].x, model.events[0].y], [25, 10]);
+});
+
+test("a duplicated circular arc remains movable and serializable in the composed app", () => {
+	const model = ChartModel.createDefault();
+	const source = model.addSnappee("circularArcCurve", {
+		name: "Arc", centerX: -20, centerY: 0, radius: 20,
+		beginningAngle: 0, endAngle: 0, closed: true, segments: 24,
+	});
+	const TestApp = withChartTools(withEventEditing(class {
+		constructor() { this.model = model; }
+		commit(_label, mutation) { return mutation(this.model); }
+		preview(_label, mutation) { return mutation(this.model); }
+	}));
+	const app = new TestApp();
+
+	app.duplicateSnappee(source.id);
+	const copy = model.snappees.at(-1);
+	assert.equal(copy.type, "circularArcCurve");
+	app.moveSnappee(copy.id, { x: 5, y: 0 });
+	assert.deepEqual(copy.transformation, [1, 0, 0, 1, 5, 0]);
+	assert.ok(model.snappees.every(snappee => snappee && typeof snappee === "object"));
+	assert.doesNotThrow(() => model.serialize());
+
+	app.moveSnappeeInList(copy.id, -1);
+	assert.equal(model.snappees.at(-2).id, copy.id);
+	app.moveSnappeeInList(copy.id, { x: 1, y: 0 });
+	assert.ok(model.snappees.every(snappee => snappee && typeof snappee === "object"));
 });
 
 test("reverse and loop-aware schedulers do not schedule across an A-B boundary", () => {

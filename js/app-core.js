@@ -103,7 +103,7 @@ export class SviberAppCore {
 			onDuplicate: id => this.duplicateSnappee(id),
 			onDelete: id => void this.deleteSnappee(id),
 			onEdit: id => void this.editSnappee(id),
-			onMove: (id, direction) => this.moveSnappee(id, direction),
+			onMove: (id, direction) => this.moveSnappeeInList(id, direction),
 		});
 		this.channelsPanel = new ChannelsPanel({
 			i18n, tooltip: this.tooltip,

@@ -393,11 +393,11 @@ export const withChartTools = Base => class extends Base {
 		});
 	}
 
-	moveSnappee(id, direction) {
+	moveSnappeeInList(id, direction) {
 		this.commit(i18n.t("history.editSnappee"), model => {
 			const index = model.snappees.findIndex(snappee => snappee.id === id);
 			const target = index + Math.sign(Number(direction));
-			if (index < 0 || target < 0 || target >= model.snappees.length) return;
+			if (index < 0 || !Number.isInteger(target) || target < 0 || target >= model.snappees.length) return;
 			[model.snappees[index], model.snappees[target]] = [model.snappees[target], model.snappees[index]];
 		});
 	}
