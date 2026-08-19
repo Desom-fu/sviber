@@ -12,7 +12,7 @@ import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainSnappeeTranslation, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 
@@ -604,13 +604,21 @@ export const withEventEditing = Base => class extends Base {
 	}
 
 	previewSnappeeMove(id, delta) {
-		this.preview(i18n.t("history.editSnappee"), model => this._applyTransformMutation(model,
-			[1, 0, 0, 1, Number(delta?.x) || 0, Number(delta?.y) || 0], { snappeeId: id, onlySnappee: true }));
+		this.preview(i18n.t("history.editSnappee"), model => {
+			const movement = constrainSnappeeTranslation(model, id, delta);
+			return this._applyTransformMutation(model, [1, 0, 0, 1, movement.x, movement.y], {
+				snappeeId: id, onlySnappee: true,
+			});
+		});
 	}
 
 	moveSnappee(id, delta) {
-		this.commit(i18n.t("history.editSnappee"), model => this._applyTransformMutation(model,
-			[1, 0, 0, 1, Number(delta?.x) || 0, Number(delta?.y) || 0], { snappeeId: id, onlySnappee: true }));
+		this.commit(i18n.t("history.editSnappee"), model => {
+			const movement = constrainSnappeeTranslation(model, id, delta);
+			return this._applyTransformMutation(model, [1, 0, 0, 1, movement.x, movement.y], {
+				snappeeId: id, onlySnappee: true,
+			});
+		});
 	}
 
 	_applySnappeeHandle(model, id, index, point) {

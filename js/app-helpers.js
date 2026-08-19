@@ -144,6 +144,34 @@ export function mutateSnappeeWithinBounds(model, id, mutation) {
 	return true;
 }
 
+export function constrainSnappeeTranslation(model, id, delta) {
+	const requested = { x: Number(delta?.x) || 0, y: Number(delta?.y) || 0 };
+	if (allowsOutOfBounds(model)) return requested;
+	const limits = { minX: -Infinity, maxX: Infinity, minY: -Infinity, maxY: Infinity };
+	const includePoint = position => {
+		limits.minX = Math.max(limits.minX, CHART_BOUNDS.minX - position.x);
+		limits.maxX = Math.min(limits.maxX, CHART_BOUNDS.maxX - position.x);
+		limits.minY = Math.max(limits.minY, CHART_BOUNDS.minY - position.y);
+		limits.maxY = Math.min(limits.maxY, CHART_BOUNDS.maxY - position.y);
+	};
+	const snappee = model.snappees.find(item => item.id === id);
+	if (!snappee) return requested;
+	try {
+		for (const point of sampleSnappee(snappee)) includePoint(point);
+	} catch {
+		return requested;
+	}
+	for (const event of model.events) {
+		if (!event.attached || event.snappee !== id || !MOVABLE_TYPES.has(event.type)) continue;
+		const position = resolveAttachedPosition(event, model.snappees);
+		if (position) includePoint(position);
+	}
+	return {
+		x: Math.max(limits.minX, Math.min(limits.maxX, requested.x)),
+		y: Math.max(limits.minY, Math.min(limits.maxY, requested.y)),
+	};
+}
+
 export function constrainPastedEvent(model, event) {
 	if (!MOVABLE_TYPES.has(event.type)) return;
 	let position = event;

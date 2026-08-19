@@ -5,6 +5,7 @@ import test from "node:test";
 import { COMMAND_DEFINITIONS, CommandRegistry, parseShortcut } from "../js/commands.js";
 import { withChartTools } from "../js/app-chart-tools.js";
 import { withEventEditing } from "../js/app-event-editing.js";
+import { CHART_BOUNDS, sampleSnappee } from "../js/core/geometry.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import {
@@ -139,6 +140,29 @@ test("a duplicated circular arc remains movable and serializable in the composed
 	assert.equal(model.snappees.at(-2).id, copy.id);
 	app.moveSnappeeInList(copy.id, { x: 1, y: 0 });
 	assert.ok(model.snappees.every(snappee => snappee && typeof snappee === "object"));
+});
+
+test("snappee body movement clamps at the chart boundary instead of snapping back", () => {
+	const model = ChartModel.createDefault();
+	const arc = model.addSnappee("circularArcCurve", {
+		name: "Near edge", centerX: -49.60404751429828, centerY: 0.13060513713539224,
+		radius: 49.868015838099424, beginningAngle: 0, endAngle: 0,
+		closed: true, segments: 24,
+	});
+	const TestApp = withEventEditing(class {
+		constructor() { this.model = model; }
+		commit(_label, mutation) { return mutation(this.model); }
+		preview(_label, mutation) { return mutation(this.model); }
+	});
+	const app = new TestApp();
+
+	app.moveSnappee(arc.id, { x: -5, y: 0 });
+	const transformed = sampleSnappee(arc);
+	assert.ok(transformed.every(point =>
+		point.x >= CHART_BOUNDS.minX && point.x <= CHART_BOUNDS.maxX
+		&& point.y >= CHART_BOUNDS.minY && point.y <= CHART_BOUNDS.maxY));
+	assert.ok(arc.transformation[4] < 0);
+	assert.ok(arc.transformation[4] > -1);
 });
 
 test("reverse and loop-aware schedulers do not schedule across an A-B boundary", () => {
