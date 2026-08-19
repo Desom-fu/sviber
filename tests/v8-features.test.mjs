@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { COMMAND_DEFINITIONS } from "../js/commands.js";
+import { COMMAND_DEFINITIONS, CommandRegistry } from "../js/commands.js";
 import { SviberAppCore } from "../js/app-core.js";
 import { withEventEditing } from "../js/app-event-editing.js";
+import { withHistoryCommands } from "../js/app-history-commands.js";
 import { ChartModel, createEvent } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
 import { MESSAGES } from "../js/i18n.js";
@@ -130,6 +131,44 @@ test("spatial transforms include selected tip-point cursor spawns", () => {
 	const placeholder = model.generateSunniesnowEvents().find(event => event.type === "placeholder");
 	assert.ok(Math.abs(placeholder.properties.x + 65) < 1e-12);
 	assert.ok(Math.abs(placeholder.properties.y - 10) < 1e-12);
+});
+
+test("selected pen snappees support flips, translation, and free-transform bounds", () => {
+	const model = new ChartModel({
+		channels: [{ id: 0, name: "Main", active: true }],
+		snappees: [{
+			id: 12, type: "penCurve", name: "Pen line", active: true, selected: true,
+			transformation: [1, 0, 0, 1, 0, 0],
+			commands: [{ type: "M", x: 10, y: 0 }, { type: "C", x1: 14, y1: 0, x2: 18, y2: 0, x: 22, y: 0 }],
+			segments: 8, closed: false,
+		}],
+	});
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	assert.equal(app.transformationAvailable(model), true);
+	assert.equal(app._applyTransformMutation(model, [-1, 0, 0, 1, 0, 0]), true);
+	assert.deepEqual(model.snappees[0].transformation, [-1, 0, 0, 1, 0, 0]);
+	assert.equal(app._applyTransformMutation(model, [1, 0, 0, -1, 0, 0]), true);
+	assert.deepEqual(model.snappees[0].transformation.map(value => value === 0 ? 0 : value), [-1, 0, 0, -1, 0, 0]);
+	assert.ok(app.transformSelectionBounds(model).maxY > app.transformSelectionBounds(model).minY);
+	assert.equal(app._applyTransformMutation(model, [1, 0, 0, 1, 5, 7]), true);
+	assert.deepEqual(model.snappees[0].transformation.map(value => value === 0 ? 0 : value), [-1, 0, 0, -1, 5, 7]);
+});
+
+test("transform commands are enabled for a selected snappee without selected events", () => {
+	const model = ChartModel.createDefault({ events: [], snappees: [{
+		id: 20, type: "bezierCurve", name: "Curve", active: true, selected: true,
+		transformation: [1, 0, 0, 1, 0, 0], controlPoints: [{ x: -20, y: -10 }, { x: 20, y: 10 }],
+		segments: 4, closed: false,
+	}] });
+	const CommandApp = withHistoryCommands(withEventEditing(class {}));
+	const app = new CommandApp();
+	app.model = model;
+	app.registry = new CommandRegistry();
+	app._registerCommands();
+	for (const id of ["transform.moveLeft", "transform.flipHorizontal", "transform.flipVertical", "transform.free", "transform.matrix"]) {
+		assert.equal(app.registry.isEnabled(id, app), true, `${id} should be enabled`);
+	}
 });
 
 test("absolute tip-point cursor spawns follow vertical and matrix transforms", () => {

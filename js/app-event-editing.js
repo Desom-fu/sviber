@@ -657,6 +657,11 @@ export const withEventEditing = Base => class extends Base {
 		return { attachedIds, directEvents, affectedEvents };
 	}
 
+	transformationAvailable(model = this.model) {
+		const { attachedIds, directEvents } = this.transformationTargets(model);
+		return attachedIds.size > 0 || directEvents.length > 0;
+	}
+
 	transformSelectionBounds(model = this.model) {
 		const { attachedIds, directEvents } = this.transformationTargets(model);
 		const points = directEvents.map(event => resolveAttachedPosition(event, model.snappees)).filter(Boolean);
@@ -667,8 +672,23 @@ export const withEventEditing = Base => class extends Base {
 		if (!points.length) return null;
 		const xs = points.map(point => point.x);
 		const ys = points.map(point => point.y);
-		const bounds = { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-		if (bounds.maxX - bounds.minX <= 1e-6 || bounds.maxY - bounds.minY <= 1e-6) return null;
+		const minX = Math.min(...xs);
+		const maxX = Math.max(...xs);
+		const minY = Math.min(...ys);
+		const maxY = Math.max(...ys);
+		// Keep a usable transform box for a perfectly horizontal or vertical line.
+		// The minimum extent is only for the handles; the underlying geometry is unchanged.
+		const minimumExtent = 1;
+		const centerX = (minX + maxX) / 2;
+		const centerY = (minY + maxY) / 2;
+		const halfWidth = Math.max((maxX - minX) / 2, minimumExtent / 2);
+		const halfHeight = Math.max((maxY - minY) / 2, minimumExtent / 2);
+		const bounds = {
+			minX: centerX - halfWidth,
+			maxX: centerX + halfWidth,
+			minY: centerY - halfHeight,
+			maxY: centerY + halfHeight,
+		};
 		return bounds;
 	}
 
@@ -701,6 +721,14 @@ export const withEventEditing = Base => class extends Base {
 	_applyTransformMutation(model, matrix) {
 		const { attachedIds, directEvents, affectedEvents } = this.transformationTargets(model);
 		if (!directEvents.length && !attachedIds.size) return false;
+		for (const snappee of model.snappees) {
+			if (!attachedIds.has(snappee.id) || allowsOutOfBounds(model)) continue;
+			let points;
+			try { points = sampleSnappee(snappee); } catch { return false; }
+			for (const point of points) {
+				if (!pointAllowed(model, applyTransform(point, matrix))) return false;
+			}
+		}
 		for (const event of affectedEvents) {
 			const position = resolveAttachedPosition(event, model.snappees);
 			if (!position) return false;

@@ -118,12 +118,11 @@ export const withHistoryCommands = Base => class extends Base {
 		for (const [id, dx, dy] of [
 			["transform.moveLeft", -1, 0], ["transform.moveDown", 0, -1], ["transform.moveUp", 0, 1], ["transform.moveRight", 1, 0],
 			["transform.moveLeftLarge", -12.5, 0], ["transform.moveDownLarge", 0, -12.5], ["transform.moveUpLarge", 0, 12.5], ["transform.moveRightLarge", 12.5, 0],
-		]) command(id, () => this.translateSelected(dx, dy), () => selected(this.model).length > 0);
-		command("transform.flipHorizontal", () => this.applyTransformToSelection([-1, 0, 0, 1, 0, 0]), () => selected(this.model).length > 0);
-		command("transform.flipVertical", () => this.applyTransformToSelection([1, 0, 0, -1, 0, 0]), () => selected(this.model).length > 0);
-		command("transform.free", () => this.startFreeTransform(), () => selected(this.model).some(event => MOVABLE_TYPES.has(event.type))
-			|| this.model.snappees.some(snappee => snappee.selected && snappee.active !== false));
-		command("transform.matrix", () => void this.showTransformDialog(), () => selected(this.model).length > 0);
+		]) command(id, () => this.translateSelected(dx, dy), () => this.transformationAvailable());
+		command("transform.flipHorizontal", () => this.applyTransformToSelection([-1, 0, 0, 1, 0, 0]), () => this.transformationAvailable());
+		command("transform.flipVertical", () => this.applyTransformToSelection([1, 0, 0, -1, 0, 0]), () => this.transformationAvailable());
+		command("transform.free", () => this.startFreeTransform(), () => this.transformationAvailable());
+		command("transform.matrix", () => void this.showTransformDialog(), () => this.transformationAvailable());
 		command("transform.moveForward", () => this.moveSelectedInTime(1), () => selected(this.model).length > 0);
 		command("transform.moveBackward", () => this.moveSelectedInTime(-1), () => selected(this.model).length > 0);
 
