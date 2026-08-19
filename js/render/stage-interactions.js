@@ -226,6 +226,12 @@ export const withStageInteractions = Base => class extends Base {
 			return;
 		}
 		const freeTransform = this.callbacks.getFreeTransform?.();
+		const activeChannels = this.renderIndex?.activeChannelIds
+			|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+		const shiftPrimary = event.shiftKey
+			? project.events.findLast(candidate => candidate.selected && MOVABLE_TYPES.has(candidate.type)
+				&& activeChannels.has(candidate.channel))
+			: null;
 		if (freeTransform) {
 			if (playing) return;
 			if (!hit?.type?.startsWith("free-")) return;
@@ -241,7 +247,7 @@ export const withStageInteractions = Base => class extends Base {
 			if (hit.type === "free-scale") {
 				try { this.drag.startLocal = applyTransform(chart, invertTransform(this.drag.matrix)); } catch { this.drag = null; return; }
 			}
-		} else if (hit?.type === "event") {
+		} else if (hit?.type === "event" && !shiftPrimary) {
 			if (event.altKey) {
 				this.callbacks.onSelectEvents?.([hit.event.id], "remove");
 				return;
@@ -257,12 +263,7 @@ export const withStageInteractions = Base => class extends Base {
 		} else if (hit?.type === "snappee-handle") {
 			this.drag = { type: "snappee", hit, start: point };
 		} else {
-			const activeChannels = this.renderIndex?.activeChannelIds
-				|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
-			const primary = event.shiftKey
-				? project.events.findLast(candidate => candidate.selected && MOVABLE_TYPES.has(candidate.type)
-					&& activeChannels.has(candidate.channel))
-				: null;
+			const primary = shiftPrimary;
 			if (primary) {
 				const position = this.renderIndex?.positionFor(primary)
 					|| resolveAttachedPosition(primary, project.snappees) || primary;

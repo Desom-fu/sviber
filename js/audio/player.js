@@ -330,8 +330,8 @@ export class AudioPlayer extends EventTarget {
 		const source = context.createOscillator();
 		const gain = context.createGain();
 		source.type = "square";
-		source.frequency.setValueAtTime(1320, time);
-		gain.gain.setValueAtTime(0.3, time);
+		source.frequency.setValueAtTime(400, time);
+		gain.gain.setValueAtTime(1, time);
 		gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
 		source.connect(gain);
 		gain.connect(context.destination);

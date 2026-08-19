@@ -157,6 +157,12 @@ test("global shortcuts remain active when a status checkbox is focused", () => {
 	assert.equal(executions, 2);
 });
 
+test("shift-dragging the stage never retargets another event", async () => {
+	const interactions = await readFile(new URL("../js/render/stage-interactions.js", import.meta.url), "utf8");
+	assert.match(interactions, /const shiftPrimary = event\.shiftKey[\s\S]*?findLast\(candidate => candidate\.selected/);
+	assert.match(interactions, /hit\?\.type === "event" && !shiftPrimary/);
+});
+
 test("v9 shortcuts describe reverse playback, A-B marks, exact speed, channels, and page direction", () => {
 	assert.equal(COMMAND_DEFINITIONS["music.playReverse"].shortcut, "Shift+Space");
 	assert.equal(COMMAND_DEFINITIONS["music.abLoop"].shortcut, "L");

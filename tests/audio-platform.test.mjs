@@ -342,8 +342,8 @@ test("AudioPlayer uses a constant, louder metronome tone", async () => {
 	player.context = context;
 	await player.playMetronome(0);
 	await player.playMetronome(0.1);
-	assert.deepEqual(oscillators.map(item => item.frequency.values[0][0]), [1320, 1320]);
-	assert.deepEqual(gains.map(item => item.gain.values[0][0]), [0.3, 0.3]);
+	assert.deepEqual(oscillators.map(item => item.frequency.values[0][0]), [400, 400]);
+	assert.deepEqual(gains.map(item => item.gain.values[0][0]), [1, 1]);
 });
 
 test("Sunniesnow hit sample buffers are finite and type-specific", () => {

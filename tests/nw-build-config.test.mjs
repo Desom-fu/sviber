@@ -36,3 +36,15 @@ test("NW.js build creates a real macOS ICNS with iconutil", async () => {
 	assert.match(source, /spawn\("iconutil"/);
 	assert.match(source, /builderApplicationOptions\(process\.platform, sourcePackage\)/);
 });
+
+test("release workflow archives Windows and macOS as ZIP and Linux as tar.gz", async () => {
+	const workflow = await readFile(new URL("../.github/workflows/test.yml", import.meta.url), "utf8");
+	assert.match(workflow, /platform: windows-x64[\s\S]*?archive: zip/);
+	assert.match(workflow, /platform: macos-x64[\s\S]*?archive: zip/);
+	assert.match(workflow, /platform: linux-x64[\s\S]*?archive: tar\.gz/);
+	assert.match(workflow, /if: matrix\.os == 'windows-latest'[\s\S]*?Compress-Archive/);
+	assert.match(workflow, /if: matrix\.os == 'macos-15-intel'[\s\S]*?zip -qr/);
+	assert.match(workflow, /if: matrix\.archive == 'tar\.gz'[\s\S]*?tar -czf/);
+	assert.match(workflow, /path: sviber-\$\{\{ matrix\.platform \}\}\.\$\{\{ matrix\.archive \}\}/);
+	assert.match(workflow, /files: \|\s*release\/\*\.zip\s*release\/\*\.tar\.gz/);
+});
