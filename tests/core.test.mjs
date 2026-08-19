@@ -177,6 +177,25 @@ test("all default snappee types produce finite sample points", () => {
 	assert.equal(sampleSnappee(createSnappee("regularPolygonCurve")).length, 20);
 });
 
+test("boundary snappee points remain attachable despite floating-point noise", () => {
+	const polygons = createDefaultSnappees().filter(snappee => snappee.type === "regularPolygonCurve");
+	assert.ok(polygons.some(snappee => sampleSnappee(snappee).some(point =>
+		point.x < CHART_BOUNDS.minX
+		|| point.x > CHART_BOUNDS.maxX
+		|| point.y < CHART_BOUNDS.minY
+		|| point.y > CHART_BOUNDS.maxY)));
+	for (const snappee of polygons) {
+		for (const point of sampleSnappee(snappee)) {
+			const nearest = findNearestSnapPoint(point, [snappee], {
+				activeOnly: false, bounds: CHART_BOUNDS, maxDistance: 1e-6,
+			});
+			assert.ok(nearest, `${snappee.name} point ${JSON.stringify(point.snapPoint)} should remain attachable`);
+			assert.deepEqual(nearest.snapPoint, point.snapPoint);
+		}
+	}
+	assert.equal(isPointWithinChartBounds({ x: 0, y: CHART_BOUNDS.maxY + 1e-10 }), false);
+});
+
 test("pen nodes preserve straight segments, dragged Bezier handles, and curved closure", () => {
 	const nodes = [
 		{ x: 0, y: 0, incoming: { x: -2, y: 0 }, outgoing: { x: 2, y: 0 } },

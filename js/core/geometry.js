@@ -3,6 +3,7 @@ export const CHART_BOUNDS = Object.freeze({ minX: -100, maxX: 100, minY: -50, ma
 
 const TAU = Math.PI * 2;
 const EPSILON = 1e-12;
+const SNAP_BOUNDARY_EPSILON = 1e-9;
 
 function finiteNumber(value, label) {
 	const result = Number(value);
@@ -494,10 +495,10 @@ function snappeeCollection(snappees) {
 
 function insideBounds(candidate, bounds) {
 	if (!bounds) return true;
-	return candidate.x >= (bounds.minX ?? -Infinity)
-		&& candidate.x <= (bounds.maxX ?? Infinity)
-		&& candidate.y >= (bounds.minY ?? -Infinity)
-		&& candidate.y <= (bounds.maxY ?? Infinity);
+	return candidate.x >= (bounds.minX ?? -Infinity) - SNAP_BOUNDARY_EPSILON
+		&& candidate.x <= (bounds.maxX ?? Infinity) + SNAP_BOUNDARY_EPSILON
+		&& candidate.y >= (bounds.minY ?? -Infinity) - SNAP_BOUNDARY_EPSILON
+		&& candidate.y <= (bounds.maxY ?? Infinity) + SNAP_BOUNDARY_EPSILON;
 }
 
 export function findNearestSnapPoint(input, snappees, options = {}) {
