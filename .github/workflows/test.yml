@@ -82,7 +82,9 @@ jobs:
         run: Compress-Archive -Path build/nw/* -DestinationPath sviber-${{ matrix.platform }}.zip
       - name: Archive macOS build
         if: matrix.os == 'macos-15-intel'
-        run: cd build/nw && zip -qr ../../sviber-${{ matrix.platform }}.zip .
+        # NW.js frameworks contain symlinks. -y stores the links instead of
+        # following them and archiving the same framework files repeatedly.
+        run: cd build/nw && zip -qry ../../sviber-${{ matrix.platform }}.zip .
       - name: Archive Linux build
         if: matrix.archive == 'tar.gz'
         run: tar -czf sviber-${{ matrix.platform }}.tar.gz -C build/nw .

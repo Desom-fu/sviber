@@ -64,7 +64,8 @@ test("release workflow archives Windows and macOS as ZIP and Linux as tar.gz", a
 	assert.match(workflow, /SVIBER_NW_PLATFORM: \$\{\{ matrix\.nwPlatform \}\}/);
 	assert.match(workflow, /SVIBER_NW_ARCH: \$\{\{ matrix\.arch \}\}/);
 	assert.match(workflow, /if: matrix\.os == 'windows-latest'[\s\S]*?Compress-Archive/);
-	assert.match(workflow, /if: matrix\.os == 'macos-15-intel'[\s\S]*?zip -qr/);
+	assert.match(workflow, /if: matrix\.os == 'macos-15-intel'[\s\S]*?zip -qry/);
+	assert.match(workflow, /NW\.js frameworks contain symlinks/);
 	assert.match(workflow, /if: matrix\.archive == 'tar\.gz'[\s\S]*?tar -czf/);
 	assert.match(workflow, /path: sviber-\$\{\{ matrix\.platform \}\}\.\$\{\{ matrix\.archive \}\}/);
 	assert.match(workflow, /files: \|\s*release\/\*\.zip\s*release\/\*\.tar\.gz/);
