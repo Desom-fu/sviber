@@ -51,6 +51,19 @@ export async function runPreferenceAndLicenseChecks(browser, baseUrl, outputDire
 			language: document.documentElement.lang,
 		})), { theme: "dark", language: "en-US" });
 
+		const docsPage = await context.newPage();
+		await docsPage.goto(new URL("docs/index.html", baseUrl).href, { waitUntil: "domcontentloaded" });
+		const macroPage = await context.newPage();
+		await macroPage.goto(new URL("macros.html", baseUrl).href, { waitUntil: "domcontentloaded" });
+		assert.deepEqual(await docsPage.evaluate(() => ({
+			theme: document.documentElement.dataset.theme,
+			page: getComputedStyle(document.documentElement).getPropertyValue("--page").trim(),
+		})), { theme: "dark", page: "#151719" });
+		assert.deepEqual(await macroPage.evaluate(() => ({
+			theme: document.documentElement.dataset.theme,
+			surface: getComputedStyle(document.documentElement).getPropertyValue("--surface").trim(),
+		})), { theme: "dark", surface: "#17191c" });
+
 		await openPreferences(page);
 		await page.screenshot({ path: path.join(outputDirectory, "preferences-dialog-dark-en-US.png"), fullPage: true });
 		await page.locator(".dialog select").nth(0).selectOption("system");
@@ -59,6 +72,15 @@ export async function runPreferenceAndLicenseChecks(browser, baseUrl, outputDire
 		await page.waitForFunction(() => !document.documentElement.hasAttribute("data-theme")
 			&& document.documentElement.lang === "zh-CN");
 		assert.equal(await page.locator(".tool-button img").first().evaluate(icon => getComputedStyle(icon).filter), "none");
+		for (const standalonePage of [docsPage, macroPage]) {
+			await standalonePage.waitForFunction(() => !document.documentElement.hasAttribute("data-theme"));
+		}
+		assert.equal(await docsPage.evaluate(() => getComputedStyle(document.documentElement)
+			.getPropertyValue("--page").trim()), "#f5f6f7");
+		assert.equal(await macroPage.evaluate(() => getComputedStyle(document.documentElement)
+			.getPropertyValue("--surface").trim()), "#f4f5f6");
+		await docsPage.close();
+		await macroPage.close();
 
 		const licenseWindowPromise = context.waitForEvent("page");
 		await page.locator(".javascript-license-link").click();

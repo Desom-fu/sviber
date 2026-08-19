@@ -1,5 +1,5 @@
 :root {
-	color-scheme: light dark;
+	color-scheme: light;
 	font-family: Inter, "Segoe UI", "Noto Sans CJK SC", sans-serif;
 	--page: #f5f6f7;
 	--surface: #ffffff;
@@ -16,8 +16,24 @@
 	color: var(--text);
 }
 
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--page: #151719;
+	--surface: #202327;
+	--chrome: #292d31;
+	--border: #454b52;
+	--text: #e6e9ec;
+	--body-text: #c8cdd2;
+	--muted: #aab1b8;
+	--link: #75b7ff;
+	--focus: #57d59a;
+	--brand: #ffe35a;
+	--code: #292d32;
+}
+
 @media (prefers-color-scheme: dark) {
-	:root {
+	:root:not([data-theme]) {
+		color-scheme: dark;
 		--page: #151719;
 		--surface: #202327;
 		--chrome: #292d31;

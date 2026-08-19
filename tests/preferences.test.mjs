@@ -61,22 +61,39 @@ test("explicit themes update the document root and title color", () => {
 	assert.equal(attributes.has("data-theme"), false);
 });
 
-test("theme CSS and license pages expose explicit navigation states", async () => {
-	const [themes, appStyles, index, labels, viewer, navigation] = await Promise.all([
+test("theme CSS and standalone pages expose explicit preference states", async () => {
+	const [themes, appStyles, macroStyles, docsStyles, index, macroPage, docsPage,
+		labels, viewer, navigation, bootstrap, serviceWorker] = await Promise.all([
 		readFile(new URL("../css/themes.css", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../css/macros.css", import.meta.url), "utf8"),
+		readFile(new URL("../docs/docs.css", import.meta.url), "utf8"),
 		readFile(new URL("../index.html", import.meta.url), "utf8"),
+		readFile(new URL("../macros.html", import.meta.url), "utf8"),
+		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../javascript.html", import.meta.url), "utf8"),
 		readFile(new URL("../source-viewer.html", import.meta.url), "utf8"),
 		readFile(new URL("../js/license-page.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/theme-bootstrap.js", import.meta.url), "utf8"),
+		readFile(new URL("../service-worker.js", import.meta.url), "utf8"),
 	]);
 	assert.match(themes, /:root\[data-theme="dark"\]/);
 	assert.match(themes, /:root:not\(\[data-theme\]\)/);
 	assert.match(appStyles, /:root\[data-theme="dark"\] \.tool-button img/);
 	assert.match(appStyles, /:root:not\(\[data-theme\]\) \.tool-button img/);
+	for (const standaloneStyles of [macroStyles, docsStyles]) {
+		assert.match(standaloneStyles, /:root\[data-theme="dark"\]/);
+		assert.match(standaloneStyles, /:root:not\(\[data-theme\]\)/);
+	}
+	assert.match(macroPage, /src="js\/theme-bootstrap\.js"/);
+	assert.match(docsPage, /src="\.\.\/js\/theme-bootstrap\.js"/);
+	assert.match(bootstrap, /sviber\.preferences/);
+	assert.match(bootstrap, /sviber-theme-change/);
+	assert.match(serviceWorker, /\.\/js\/theme-bootstrap\.js/);
 	assert.match(index, /href="javascript\.html" target="sviber-license"/);
 	assert.match(labels, /data-return-editor/);
 	assert.match(labels, /data-view-source="js\/app\.js"/);
+	assert.match(labels, /data-view-source="js\/theme-bootstrap\.js"/);
 	assert.match(viewer, /href="javascript\.html"/);
 	assert.match(viewer, /data-return-editor/);
 	assert.match(navigation, /SOURCES\.has\(filename\)/);

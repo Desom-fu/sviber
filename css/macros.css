@@ -1,5 +1,5 @@
 :root {
-	color-scheme: light dark;
+	color-scheme: light;
 	--surface: #f4f5f6;
 	--panel: #ffffff;
 	--chrome: #e6e8eb;
@@ -8,8 +8,27 @@
 	--muted: #697078;
 	--accent: #2468c7;
 }
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--surface: #17191c;
+	--panel: #202328;
+	--chrome: #292d32;
+	--border: #444a52;
+	--text: #e7eaed;
+	--muted: #a7afb8;
+	--accent: #69a7ff;
+}
 @media (prefers-color-scheme: dark) {
-	:root { --surface: #17191c; --panel: #202328; --chrome: #292d32; --border: #444a52; --text: #e7eaed; --muted: #a7afb8; --accent: #69a7ff; }
+	:root:not([data-theme]) {
+		color-scheme: dark;
+		--surface: #17191c;
+		--panel: #202328;
+		--chrome: #292d32;
+		--border: #444a52;
+		--text: #e7eaed;
+		--muted: #a7afb8;
+		--accent: #69a7ff;
+	}
 }
 * { box-sizing: border-box; }
 .visually-hidden { position: absolute !important; width: 1px !important; height: 1px !important; margin: -1px !important; overflow: hidden !important; clip: rect(0 0 0 0) !important; white-space: nowrap !important; border: 0 !important; }

@@ -12,6 +12,7 @@
 	<meta name="twitter:card" content="summary">
 	<meta name="twitter:title" content="sviber User Manual">
 	<link rel="icon" href="../svg/icon.svg" type="image/svg+xml">
+	<script src="../js/theme-bootstrap.js"></script>
 	<link rel="stylesheet" href="docs.css">
 </head>
 <body>
@@ -118,7 +119,7 @@
 				<h3 id="en-editor-data">Editor fields</h3>
 				<p>The Sviber <code>editor</code> object stores <code>lockVisibleRange</code>, <code>playSe</code>, <code>seekBackAfterPlaying</code>, <code>metronome</code>, and zero, one, or two rational <code>abLoopMarks</code> in addition to time, subdivision, range, speed, current channel, and out-of-bounds settings. Rational inputs are integer + numerator/denominator controls. Validation waits until focus leaves the whole three-input group, then requires a positive denominator, a reduced fraction, and a numerator smaller than the denominator.</p>
 				<h3 id="en-preferences">Preferences and appearance</h3>
-				<p>Preferences choose light/dark/system theme, interface language, note speed, and whether placement may leave chart bounds. Theme and language default from the operating system and are stored globally; changing them does not create chart history. Documentation uses the same language selector and independently follows <code>prefers-color-scheme</code>.</p>
+				<p>Preferences choose light/dark/system theme, interface language, note speed, and whether placement may leave chart bounds. Theme and language default from the operating system and are stored globally; changing them does not create chart history. The documentation and macro pages use the saved Sviber theme; when it is set to System, they follow <code>prefers-color-scheme</code>.</p>
 				<h3 id="en-troubleshooting">Troubleshooting</h3>
 				<p>If audio fails, check the complete decoder error chain in the developer console and verify that the packaged decoder bundle exists. If Monaco cannot load, the macro window deliberately falls back to a plain text editor. For rendering or timing bugs, reproduce in both browser and NW.js, export the chart, and include Help &gt; About runtime information and the import warning text in an issue.</p>
 			</article>
@@ -193,7 +194,7 @@
 
 				<h2 id="zh-data">数据与偏好</h2>
 				<h3 id="zh-editor-data">编辑器字段</h3><p>Sviber 的 <code>editor</code> 对象除时间、细分、范围、速度、当前通道和超界设置外，还保存 <code>lockVisibleRange</code>、<code>playSe</code>、<code>seekBackAfterPlaying</code>、<code>metronome</code> 以及零到两个有理数 <code>abLoopMarks</code>。有理数输入由整数 + 分子/分母组成；离开整个三输入组后才校验，要求分母为正、分数最简且分子小于分母。</p>
-				<h3 id="zh-preferences">偏好与外观</h3><p>偏好可选择浅色/深色/跟随系统主题、界面语言、音符速度及是否允许越过谱面边界。主题和语言默认取系统并全局保存；修改不产生谱面历史。文档页有独立语言选择，并按 <code>prefers-color-scheme</code> 自动明暗。</p>
+				<h3 id="zh-preferences">偏好与外观</h3><p>偏好可选择浅色/深色/跟随系统主题、界面语言、音符速度及是否允许越过谱面边界。主题和语言默认取系统并全局保存；修改不产生谱面历史。手册页和宏页面使用 Sviber 保存的主题；设置为跟随系统时才按 <code>prefers-color-scheme</code> 自动明暗。</p>
 				<h3 id="zh-troubleshooting">故障排查</h3><p>音频失败时在开发者控制台查看完整解码器错误链，并确认打包版包含 decoder bundle。Monaco 加载失败时宏窗口会降级到纯文本编辑器。渲染或定时问题请在浏览器和 NW.js 都复现，导出谱面，并在问题报告中附上“帮助 &gt; 关于”的运行时信息和导入警告。</p>
 			</article>
 		</main>

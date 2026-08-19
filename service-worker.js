@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v27";
+const CACHE_VERSION = "sviber-v28";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -31,6 +31,7 @@ const APP_SHELL = [
 	"./js/nw-source-bootstrap.js",
 	"./js/font-loader.js",
 	"./js/license-page.js",
+	"./js/theme-bootstrap.js",
 	"./js/help.js",
 	"./js/render/stage-helpers.js",
 	"./js/render/stage-core.js",

@@ -65,6 +65,12 @@ let requestCounter = 0;
 let projectAvailable = false;
 let projectMacrosLoaded = false;
 
+window.addEventListener("sviber-theme-change", event => {
+	if (editorReady && globalThis.monaco?.editor) {
+		globalThis.monaco.editor.setTheme(event.detail?.dark ? "vs-dark" : "vs");
+	}
+});
+
 function applyLocale() {
 	document.documentElement.lang = LANGUAGE;
 	for (const element of document.querySelectorAll("[data-i18n]")) {
@@ -596,7 +602,7 @@ async function installEditor() {
 		}
 		window.require.config({ paths: { vs: vsBase } });
 		await new Promise((resolve, reject) => window.require(["vs/editor/editor.main"], resolve, reject));
-		editor = window.monaco.editor.create(elements.editor, { value: "", language: "javascript", theme: matchMedia("(prefers-color-scheme: dark)").matches ? "vs-dark" : "vs", automaticLayout: true, minimap: { enabled: false } });
+		editor = window.monaco.editor.create(elements.editor, { value: "", language: "javascript", theme: globalThis.sviberTheme?.isDark() ? "vs-dark" : "vs", automaticLayout: true, minimap: { enabled: false } });
 		editorReady = true;
 		elements.editor.hidden = false;
 		elements.fallback.hidden = true;
