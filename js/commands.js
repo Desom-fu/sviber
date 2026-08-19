@@ -305,7 +305,9 @@ function isEditableTarget(target) {
 	if (!target || typeof target.closest !== 'function') {
 		return false;
 	}
-	return Boolean(target.closest('input, textarea, select, [contenteditable="true"]'));
+	const editable = target.closest('input, textarea, select, [contenteditable="true"]');
+	if (!editable) return false;
+	return !editable.matches?.('input[type="checkbox"], input[type="radio"]');
 }
 
 function valueOf(value, context, fallback) {

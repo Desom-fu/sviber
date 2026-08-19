@@ -359,7 +359,7 @@ const BASE_EN = {
 	'option.theme.dark': 'Dark',
 	'option.language.system': 'Follow system',
 	'option.language.english': 'English',
-	'option.language.chinese': 'Simplified Chinese',
+	'option.language.chinese': '简体中文',
 	'field.autosave': 'Recovery point',
 	'field.untitled': 'Untitled',
 	'history.marker.save': 'Manual save',

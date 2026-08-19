@@ -323,15 +323,15 @@ export class AudioPlayer extends EventTarget {
 		return record;
 	}
 
-	async playMetronome(delay = 0, accent = false) {
+	async playMetronome(delay = 0) {
 		const context = await this.ensureContext();
 		if (!context?.createOscillator || !context?.createGain) return null;
 		const time = context.currentTime + Math.max(0, Number(delay) || 0);
 		const source = context.createOscillator();
 		const gain = context.createGain();
 		source.type = "square";
-		source.frequency.setValueAtTime(accent ? 1760 : 1320, time);
-		gain.gain.setValueAtTime(accent ? 0.24 : 0.16, time);
+		source.frequency.setValueAtTime(1320, time);
+		gain.gain.setValueAtTime(0.3, time);
 		gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.045);
 		source.connect(gain);
 		gain.connect(context.destination);

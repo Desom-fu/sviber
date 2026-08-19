@@ -125,7 +125,7 @@ export function collectMetronomeSchedule(timing, currentTime, playbackRate, dire
 			&& (forward ? time >= loopRange[1] - 1e-8 : time <= loopRange[0] + 1e-8)) continue;
 		const distance = forward ? time - currentTime : currentTime - time;
 		if (distance < -0.02 || distance > Math.max(0, lookAhead) * rate + 1e-8) continue;
-		result.push({ beat, time, delay: Math.max(0, distance / rate), accent: beat % 4 === 0 });
+		result.push({ beat, time, delay: Math.max(0, distance / rate), accent: false });
 	}
 	return result;
 }

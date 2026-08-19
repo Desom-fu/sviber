@@ -314,6 +314,38 @@ test("AudioPlayer cancels only future hit sources while retaining active sources
 	assert.equal(player.hitSources.size, 0);
 });
 
+test("AudioPlayer uses a constant, louder metronome tone", async () => {
+	const oscillators = [];
+	const gains = [];
+	const context = {
+		currentTime: 4,
+		destination: {},
+		createOscillator() {
+			const oscillator = {
+				type: "",
+				frequency: { values: [], setValueAtTime(value, time) { this.values.push([value, time]); } },
+				connect() {}, disconnect() {}, start() {}, stop() {},
+			};
+			oscillators.push(oscillator);
+			return oscillator;
+		},
+		createGain() {
+			const gain = {
+				gain: { values: [], setValueAtTime(value, time) { this.values.push([value, time]); }, exponentialRampToValueAtTime() {} },
+				connect() {}, disconnect() {},
+			};
+			gains.push(gain);
+			return gain;
+		},
+	};
+	const player = new AudioPlayer();
+	player.context = context;
+	await player.playMetronome(0);
+	await player.playMetronome(0.1);
+	assert.deepEqual(oscillators.map(item => item.frequency.values[0][0]), [1320, 1320]);
+	assert.deepEqual(gains.map(item => item.gain.values[0][0]), [0.3, 0.3]);
+});
+
 test("Sunniesnow hit sample buffers are finite and type-specific", () => {
 	const tap = createSunniesnowHitSamples("tap", 8000);
 	const drag = createSunniesnowHitSamples("drag", 8000);

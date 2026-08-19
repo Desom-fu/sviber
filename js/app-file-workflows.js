@@ -472,8 +472,10 @@ export const withFileWorkflows = Base => class extends Base {
 			this.projectMusic = reference;
 			this.syncProjectSharedFields();
 			this.syncProjectHistorySharedFields({ metadata: false });
-			this.model.editor.visibleRangeBeginning = Math.min(0, this.model.timing.offset);
-			this.model.editor.visibleRangeEnd = Math.min(this.audio.duration, this.model.editor.visibleRangeBeginning + 10);
+			if (record) {
+				this.model.editor.visibleRangeBeginning = Math.min(0, this.model.timing.offset);
+				this.model.editor.visibleRangeEnd = Math.min(this.audio.duration, this.model.editor.visibleRangeBeginning + 10);
+			}
 			if (record) {
 				this.projectDirty = true;
 				this.updateDirty();

@@ -777,7 +777,7 @@ export class SviberAppCore {
 				this.audio.direction, this.scheduledMetronomeBeats, undefined, loopRange);
 			for (const item of metronomes) {
 				this.scheduledMetronomeBeats.add(item.beat);
-				void this.audio.playMetronome(item.delay, item.accent);
+				void this.audio.playMetronome(item.delay);
 			}
 		}
 	}

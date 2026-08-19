@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { COMMAND_DEFINITIONS, parseShortcut } from "../js/commands.js";
+import { COMMAND_DEFINITIONS, CommandRegistry, parseShortcut } from "../js/commands.js";
 import { withEventEditing } from "../js/app-event-editing.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
@@ -12,6 +12,7 @@ import {
 	collectReverseHitSchedule,
 } from "../js/audio/scheduler.js";
 import { validateField } from "../js/ui-fields.js";
+import { MESSAGES } from "../js/i18n.js";
 
 const timing = {
 	beatToSeconds(value) {
@@ -40,6 +41,12 @@ test("v9 editor playback settings and A-B marks round-trip canonically", () => {
 	assert.deepEqual(model.editor.abLoopMarks, [[1, 1, 2], [4, 0, 1]]);
 	const reopened = ChartModel.import(JSON.parse(model.serialize()));
 	assert.deepEqual(reopened.editor, model.editor);
+});
+
+test("language options keep the Chinese label in both locales", () => {
+	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "简体中文");
+	assert.equal(MESSAGES["zh-CN"]["option.language.chinese"], "简体中文");
+	assert.equal(MESSAGES["zh-CN"]["option.language.english"], "English");
 });
 
 test("v9 Sunniesnow import filters incompatible chain members and allocates a free channel", () => {
@@ -121,6 +128,35 @@ test("reverse and loop-aware schedulers do not schedule across an A-B boundary",
 	assert.deepEqual(metronome, []);
 });
 
+test("metronome scheduling uses one sound for every beat", () => {
+	const schedule = collectMetronomeSchedule(timing, 0, 1, 1, new Set(), 2);
+	assert.ok(schedule.length > 1);
+	assert.ok(schedule.every(item => item.accent === false));
+});
+
+test("global shortcuts remain active when a status checkbox is focused", () => {
+	let executions = 0;
+	const registry = new CommandRegistry({
+		space: { id: "space", shortcut: "Space" },
+		number: { id: "number", shortcut: "1" },
+	});
+	registry.register("space", () => { executions += 1; });
+	registry.register("number", () => { executions += 1; });
+	const checkbox = {
+		closest() { return checkbox; },
+		matches(selector) { return selector === 'input[type="checkbox"], input[type="radio"]'; },
+	};
+	const event = key => ({
+		key, target: checkbox, defaultPrevented: false, isComposing: false,
+		ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, repeat: false,
+		preventDefault() { this.defaultPrevented = true; },
+		stopImmediatePropagation() {},
+	});
+	assert.equal(registry.handleKeyboard(event(" "), {}), true);
+	assert.equal(registry.handleKeyboard(event("1"), {}), true);
+	assert.equal(executions, 2);
+});
+
 test("v9 shortcuts describe reverse playback, A-B marks, exact speed, channels, and page direction", () => {
 	assert.equal(COMMAND_DEFINITIONS["music.playReverse"].shortcut, "Shift+Space");
 	assert.equal(COMMAND_DEFINITIONS["music.abLoop"].shortcut, "L");
@@ -150,11 +186,12 @@ test("rational validation waits for a canonical, reduced tuple", () => {
 });
 
 test("v9 documentation and independent macro code are linked", async () => {
-	const [manual, macroPage, macroCode, labels] = await Promise.all([
+	const [manual, macroPage, macroCode, labels, workflows] = await Promise.all([
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../macros.html", import.meta.url), "utf8"),
 		readFile(new URL("../js/macros.js", import.meta.url), "utf8"),
 		readFile(new URL("../javascript.html", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8"),
 	]);
 	assert.match(manual, /Play in reverse/);
 	assert.match(manual, /宏|Macros interface/);
@@ -162,4 +199,5 @@ test("v9 documentation and independent macro code are linked", async () => {
 	assert.match(macroPage, /F8/);
 	assert.match(labels, /href="js\/macros\.js"/);
 	assert.match(labels, /Monaco Editor/);
+	assert.match(workflows, /if \(record\) \{\s*this\.model\.editor\.visibleRangeBeginning/);
 });
