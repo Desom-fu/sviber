@@ -30,12 +30,38 @@ jobs:
         include:
           - os: windows-latest
             platform: windows-x64
+            nwPlatform: win
+            arch: x64
+            archive: zip
+          - os: windows-latest
+            platform: windows-x86
+            nwPlatform: win
+            arch: ia32
+            archive: zip
+          - os: windows-latest
+            platform: windows-arm64
+            nwPlatform: win
+            arch: arm64
             archive: zip
           - os: ubuntu-latest
             platform: linux-x64
+            nwPlatform: linux
+            arch: x64
+            archive: tar.gz
+          - os: ubuntu-latest
+            platform: linux-arm64
+            nwPlatform: linux
+            arch: arm64
             archive: tar.gz
           - os: macos-15-intel
             platform: macos-x64
+            nwPlatform: osx
+            arch: x64
+            archive: zip
+          - os: macos-15-intel
+            platform: macos-arm64
+            nwPlatform: osx
+            arch: arm64
             archive: zip
     runs-on: ${{ matrix.os }}
     steps:
@@ -45,7 +71,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build
+      - name: Build targeted NW.js package
+        env:
+          SVIBER_NW_PLATFORM: ${{ matrix.nwPlatform }}
+          SVIBER_NW_ARCH: ${{ matrix.arch }}
+        run: npm run build
       - name: Archive Windows build
         if: matrix.os == 'windows-latest'
         shell: pwsh

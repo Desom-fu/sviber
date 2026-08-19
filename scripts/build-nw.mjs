@@ -18,6 +18,21 @@ const buildDirectory = path.join(sviberDirectory, "build");
 const stageDirectory = path.join(buildDirectory, "stage");
 const outputDirectory = path.join(buildDirectory, "nw");
 const fontCacheDirectory = path.join(sviberDirectory, "node_modules", ".cache", "sviber", "fonts");
+
+const HOST_PLATFORM = process.platform === "win32" ? "win" : process.platform === "darwin" ? "osx" : "linux";
+const TARGET_PLATFORM = String(process.env.SVIBER_NW_PLATFORM || HOST_PLATFORM).toLowerCase();
+const TARGET_ARCH = String(process.env.SVIBER_NW_ARCH || process.arch).toLowerCase();
+const TARGET_ARCHITECTURES = {
+	win: new Set(["ia32", "x64", "arm64"]),
+	osx: new Set(["x64", "arm64"]),
+	linux: new Set(["x64", "arm64"]),
+};
+if (!["win", "osx", "linux"].includes(TARGET_PLATFORM)) {
+	throw new Error(`Unsupported NW.js target platform: ${TARGET_PLATFORM}`);
+}
+if (!TARGET_ARCHITECTURES[TARGET_PLATFORM].has(TARGET_ARCH)) {
+	throw new Error(`Unsupported NW.js target: ${TARGET_PLATFORM}-${TARGET_ARCH}`);
+}
 const FONT_ASSETS = [
 	{
 		name: "LXGWWenKai-Regular.ttf",
@@ -306,14 +321,14 @@ async function generateMacosIcon(source, destination) {
 	}
 }
 
-async function generatePackagedIcons(applicationDirectory) {
+async function generatePackagedIcons(applicationDirectory, targetPlatform) {
 	const source = path.join(applicationDirectory, "svg", "icon.svg");
 	const tasks = [
 		generateWindowsIcon(source, path.join(applicationDirectory, "icon.ico")),
 		sharp(source).resize(512, 512, { fit: "contain" }).png()
 			.toFile(path.join(applicationDirectory, "icon.png")),
 	];
-	if (process.platform === "darwin") {
+	if (targetPlatform === "osx") {
 		tasks.push(generateMacosIcon(source, path.join(applicationDirectory, "icon.icns")));
 	}
 	await Promise.all(tasks);
@@ -337,7 +352,7 @@ async function copyApplication() {
 	await writeBuildInformation(applicationDirectory);
 	await copyProductionDependencies(applicationDirectory);
 	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), { minify: true });
-	await generatePackagedIcons(applicationDirectory);
+	await generatePackagedIcons(applicationDirectory, TARGET_PLATFORM);
 	await verifyPackagedFontCss(applicationDirectory);
 
 	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
@@ -366,12 +381,14 @@ async function runBuilder() {
 			mode: "build",
 			version: nwPackage.version,
 			flavor: "normal",
+			platform: TARGET_PLATFORM,
+			arch: TARGET_ARCH,
 			glob: false,
 			srcDir: stageDirectory,
 			outDir: outputDirectory,
 			cacheDir: path.join(sviberDirectory, "node_modules", "nw"),
 			logLevel: "info",
-			app: builderApplicationOptions(process.platform, sourcePackage),
+			app: builderApplicationOptions(TARGET_PLATFORM, sourcePackage),
 		});
 	} finally {
 		process.chdir(previousDirectory);
