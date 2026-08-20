@@ -27,6 +27,22 @@ test("v10 preset snappees keep documented geometry and localized-ready ids", () 
 	], [-100, 50, 100, -50, 16, 8]);
 });
 
+test("preset snappee labels retain the matching legacy default names", async () => {
+	const [english, chinese] = await Promise.all([
+		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8"),
+		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
+	]);
+	const labels = JSON.parse(english);
+	const labelsZh = JSON.parse(chinese);
+	assert.deepEqual(SNAPPEE_PRESETS.map(({ id }) => labels[`snappee.preset.${id}`]), [
+		"Playfield grid", "Radial grid", "Outer hexagon", "Middle hexagon",
+		"Smallest hexagon", "Inner hexagon", "Pentagon",
+	]);
+	assert.deepEqual(SNAPPEE_PRESETS.map(({ id }) => labelsZh[`snappee.preset.${id}`]), [
+		"游玩区域网格", "径向网格", "外六边形", "中六边形", "最小六边形", "内六边形", "五边形",
+	]);
+});
+
 test("JavaScript macro API exposes live chart collections and mutation helpers", async () => {
 	await import("../js/macro-api.js");
 	const api = globalThis.createSviberMacroApi({

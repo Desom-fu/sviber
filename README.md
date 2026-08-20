@@ -68,7 +68,7 @@ To connect multiple notes with one Sunniesnow tip point, select at least two con
 
 Every menu mnemonic and command shortcut is also shown in the interface. `Esc` exits event, curve, snappee-handle, or transform modes as appropriate.
 
-The **Snappee > Preset snappee...** command adds the playfield grid, turntable, four hexagons, or pentagon with localized names. Snap-point matching uses a chart-coordinate distance of 6.125. A point outside the chart boundary is rejected; only a mathematically boundary point that misses by tiny floating-point round-off receives a minimal tolerance.
+The **Snappee > Preset snappee...** command adds the Playfield grid, Radial grid, Outer/Middle/Smallest/Inner hexagons, or Pentagon with localized names. Snap-point matching uses a chart-coordinate distance of 6.125. A point outside the chart boundary is rejected; only a mathematically boundary point that misses by tiny floating-point round-off receives a minimal tolerance.
 
 ## Project folder and level format
 
