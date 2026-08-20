@@ -12,6 +12,13 @@ import { MESSAGES } from "../js/i18n.js";
 import { ChartRenderIndex } from "../js/render/chart-index.js";
 import { TIMELINE_COMMENT_TEXT_COLOR, timelineTipConnector } from "../js/render/timeline-helpers.js";
 
+function finishPlayback(app) {
+	const listeners = new Map();
+	app.audio.addEventListener = (type, callback) => listeners.set(type, callback);
+	SviberAppCore.prototype._bindAudio.call(app);
+	listeners.get("pause")();
+}
+
 function contrastRatio(foreground, background) {
 	const luminance = color => {
 		const channels = color.match(/[0-9a-f]{2}/gi).map(channel => parseInt(channel, 16) / 255)
@@ -283,6 +290,73 @@ test("invalidated playback skips stale ticks but permits the zero-tolerance rebu
 	assert.deepEqual(hitCalls, [["tap", 0.05]]);
 	assert.equal(effectCalls.length, 1);
 	assert.deepEqual([...app.scheduledHitIds], [1]);
+});
+
+test("stopping playback keeps a visible range locked after playback starts", () => {
+	const app = {
+		playbackScheduleInvalidated: true,
+		stage: { cancelScheduledHits() {} },
+		model: {
+			editor: {
+				currentTime: [8, 0, 1], timeSnapped: false,
+				visibleRangeBeginning: 4, visibleRangeEnd: 14,
+				lockVisibleRange: true, seekBackAfterPlaying: true,
+			},
+		},
+		audio: { currentTime: 8 },
+		playbackOrigin: {
+			editorTime: [1, 0, 1], timeSnapped: true,
+			visibleRangeBeginning: 0, visibleRangeEnd: 10,
+		},
+		resumePlaybackAfterSeek: false,
+		playFollowOffset: { direction: 1, value: 5 },
+		lastPlaybackTime: 8,
+		scheduledHitIds: new Set([1]),
+		scheduledHoldReleaseIds: new Set([2]),
+		scheduledMetronomeBeats: new Set([3]),
+		refresh() {},
+	};
+
+	finishPlayback(app);
+
+	assert.deepEqual(app.model.editor.currentTime, [1, 0, 1]);
+	assert.equal(app.model.editor.timeSnapped, true);
+	assert.deepEqual([
+		app.model.editor.visibleRangeBeginning,
+		app.model.editor.visibleRangeEnd,
+	], [4, 14]);
+});
+
+test("stopping playback restores the original visible range when it is not locked", () => {
+	const app = {
+		stage: { cancelScheduledHits() {} },
+		model: {
+			editor: {
+				currentTime: [8, 0, 1], timeSnapped: false,
+				visibleRangeBeginning: 4, visibleRangeEnd: 14,
+				lockVisibleRange: false, seekBackAfterPlaying: true,
+			},
+		},
+		audio: { currentTime: 8 },
+		playbackOrigin: {
+			editorTime: [1, 0, 1], timeSnapped: true,
+			visibleRangeBeginning: 0, visibleRangeEnd: 10,
+		},
+		resumePlaybackAfterSeek: false,
+		playFollowOffset: null,
+		lastPlaybackTime: 8,
+		scheduledHitIds: new Set(),
+		scheduledHoldReleaseIds: new Set(),
+		scheduledMetronomeBeats: new Set(),
+		refresh() {},
+	};
+
+	finishPlayback(app);
+
+	assert.deepEqual([
+		app.model.editor.visibleRangeBeginning,
+		app.model.editor.visibleRangeEnd,
+	], [0, 10]);
 });
 
 test("render index separates inactive gameplay from complete timeline and comments", () => {

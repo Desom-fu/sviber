@@ -768,8 +768,10 @@ export class SviberAppCore {
 			} else if (this.model.editor.seekBackAfterPlaying && this.playbackOrigin) {
 				this.model.editor.timeSnapped = this.playbackOrigin.timeSnapped;
 				this.model.editor.currentTime = deepClone(this.playbackOrigin.editorTime);
-				this.model.editor.visibleRangeBeginning = this.playbackOrigin.visibleRangeBeginning;
-				this.model.editor.visibleRangeEnd = this.playbackOrigin.visibleRangeEnd;
+				if (!this.model.editor.lockVisibleRange) {
+					this.model.editor.visibleRangeBeginning = this.playbackOrigin.visibleRangeBeginning;
+					this.model.editor.visibleRangeEnd = this.playbackOrigin.visibleRangeEnd;
+				}
 			} else {
 				const snapped = this.timing().secondsToSnappedBeat(this.audio.currentTime, this.model.editor.subdivision);
 				this.model.editor.timeSnapped = true;
