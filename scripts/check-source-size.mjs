@@ -3,7 +3,7 @@ import path from "node:path";
 
 const MAX_LINES = 1000;
 const SOURCE_EXTENSIONS = new Set([".js", ".mjs", ".css", ".html"]);
-const IGNORED_DIRECTORIES = new Set([".git", "build", "new-icons-4", "node_modules", "test-results"]);
+const IGNORED_DIRECTORIES = new Set([".git", "build", "node_modules", "test-results"]);
 
 async function sourceFiles(directory) {
 	const entries = await readdir(directory, { withFileTypes: true });

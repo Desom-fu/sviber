@@ -78,7 +78,7 @@ test("release workflows archive each target with the required format", async () 
 	assert.match(release, /release\/\*\.nw/);
 });
 
-test("NW.js staging excludes the unshipped icon reference directory", async () => {
+test("NW.js staging includes the shipped icon directory", async () => {
 	const source = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
-	assert.match(source, /excludedEntries[\s\S]*?"new-icons-4"/);
+	assert.doesNotMatch(source, /new-icons-4/);
 });

@@ -107,8 +107,8 @@ Macros 窗口会从主窗口读取并实时接收只读状态：
 
 ### 3.2 英文界面的中文语言名称
 
-- 英文和中文翻译中，中文选项都固定显示 `简体中文`。
-- 英文选项在两种界面中都固定显示 `English`。
+- 英文界面的语言选项显示 `English` 和 `Simplified Chinese`。
+- 中文界面的语言选项显示 `英文` 和 `简体中文`。
 - 宏页面也使用同一份翻译数据，并优先读取 URL 或已保存的界面语言。
 
 ### 3.3 难度下拉框聚焦后快捷键失效
@@ -163,7 +163,7 @@ Macros 窗口会从主窗口读取并实时接收只读状态：
 
 - macOS workflow 从 DMG 改为 `ditto` 生成 ZIP，仍保留 `.app` 的资源属性。
 - Release workflow 只收集 ZIP、`tar.gz` 和 `.nw`，不再收集 DMG。
-- `scripts/build-nw.mjs` 明确排除用户提供的 `new-icons-4/` 参考目录；该目录保留在本地，不提交也不打包。
+- 七个 `new-icons-4/` 图标已逐字节核对并归位到正式的 `svg/icons/` 目录；重复的参考目录已删除，构建只保留正式图标目录。
 - `package.json` 与 `package-lock.json` 版本均更新为 `0.2.1`。
 - 推送 `v0.2.1` tag 后由 Release workflow 先测试、再构建所有架构、最后创建 GitHub Release。
 
@@ -196,7 +196,14 @@ Macros 窗口会从主窗口读取并实时接收只读状态：
 - 构建内所有 sviber `package.json` 版本均为 `0.2.1`。
 - 本次本地验证生成的 `.nw` 大小：95,265,305 bytes。
 - 该本地验证文件的 SHA-256：`60C640F84C64B91D039162EC69648AB3B56995494AA2901FEB7440D884AA8933`；Release workflow 会重新构建附件，因此线上附件哈希会另行生成。
-- 递归检查确认构建中不存在 `new-icons-4/`。
+- 递归检查确认构建中不存在重复的 `new-icons-4/` 目录，七个状态图标均从 `svg/icons/` 正式目录加载。
+
+## 9. v0.2.2 Bugfix
+
+- 修复左侧 Scroll View 折叠时 CSS Grid 自动重排的问题：现在只收起左栏，Stage 会扩展，右侧面板仍保持在右侧。
+- 正式采用 `new-icons-4/` 提供的七个状态图标并删除重复目录；NW.js 构建只包含 `svg/icons/`。
+- 语言设置按当前界面本地化：英文显示 `English` / `Simplified Chinese`，中文显示 `英文` / `简体中文`；手册语言选择器同步更新。
+- 版本更新为 `0.2.2`，Service Worker 更新为 `sviber-v32`，入口 cachebuster 更新为 `v=22`。
 
 ## 8. 提交信息
 

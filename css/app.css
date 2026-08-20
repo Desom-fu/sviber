@@ -366,7 +366,10 @@ textarea:focus-visible,
 .editor-row.is-side-hidden { grid-template-columns: clamp(150px, 14vw, 220px) minmax(0, 1fr) 0; }
 .editor-row.is-scroll-hidden.is-side-hidden { grid-template-columns: 0 minmax(0, 1fr) 0; }
 .editor-row.is-scroll-hidden #scroll-view-panel,
-.editor-row.is-side-hidden .side-panel { display: none; }
+.editor-row.is-side-hidden .side-panel {
+	visibility: hidden;
+	pointer-events: none;
+}
 
 .render-surface canvas {
 	display: block;

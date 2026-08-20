@@ -20,7 +20,7 @@
 		<a class="brand" href="../index.html">sviber</a>
 		<select id="language" aria-label="Language">
 			<option value="en">English</option>
-			<option value="zh-CN">简体中文</option>
+			<option value="zh-CN">Simplified Chinese</option>
 		</select>
 	</header>
 	<div class="doc-layout">
@@ -128,7 +128,7 @@
 				<h3 id="en-editor-data">Editor fields</h3>
 				<p>The editable <code>editor</code> state stores time snapping, subdivision, current time/channel, visible range, playback speed, out-of-bounds permission, <code>lockVisibleRange</code>, <code>playSe</code>, <code>seekBackAfterPlaying</code>, <code>metronome</code>, <code>readOnly</code>, and zero, one, or two rational <code>abLoopMarks</code>. Rational inputs use integer + numerator/denominator controls. Validation waits until focus leaves the complete group, then requires a positive denominator, a reduced fraction, and a numerator smaller than the denominator.</p>
 				<h3 id="en-preferences">Preferences, language, and appearance</h3>
-				<p>Preferences are global and do not create chart history. They include Light, Dark, or System theme; interface language; note speed; SE volume; music volume; out-of-bounds placement; and autosave interval in seconds. SE and music volume default to 1 and are edited with a range slider plus a numeric output. The default autosave interval is 120 seconds, and zero disables it. The Chinese choice is labelled <b>简体中文</b> in both interfaces, while the English choice remains <b>English</b>.</p>
+				<p>Preferences are global and do not create chart history. They include Light, Dark, or System theme; interface language; note speed; SE volume; music volume; out-of-bounds placement; and autosave interval in seconds. SE and music volume default to 1 and are edited with a range slider plus a numeric output. The default autosave interval is 120 seconds, and zero disables it. Each language selector uses its current interface language: English shows <b>Simplified Chinese</b>, while Chinese shows <b>简体中文</b>; the English choice remains <b>English</b>.</p>
 				<p>The main editor, macro page, and manual share the saved theme. Explicit Dark or Light always wins; System follows the operating-system color preference. The language choice is remembered separately for the manual. The web editor can be installed as a PWA; its Service Worker caches both JSON translation files and the icon controls.</p>
 				<h3 id="en-file-format">Saved data</h3>
 				<p>An editable JSON chart keeps the <code>sviber</code> extension with timing, channels, snappees, events, and editor state. A normal save also writes a generated top-level <code>events</code> list for Sunniesnow compatibility; inactive-channel events and editor-only comments are omitted from that generated list. Autosave intentionally leaves that generated list out. Exported level charts contain only the supported Sunniesnow data.</p>
@@ -229,7 +229,7 @@
 				<h3 id="zh-editor-data">编辑器字段</h3>
 				<p>可编辑的 <code>editor</code> 状态保存时间吸附、细分、当前时间/通道、可见范围、播放速度、超界许可、<code>lockVisibleRange</code>、<code>playSe</code>、<code>seekBackAfterPlaying</code>、<code>metronome</code>、<code>readOnly</code> 以及零到两个有理数 <code>abLoopMarks</code>。有理数输入由整数 + 分子/分母组成；离开整个输入组后才校验，要求分母为正、分数最简且分子小于分母。</p>
 				<h3 id="zh-preferences">偏好、语言与外观</h3>
-				<p>偏好是全局设置，不产生谱面历史。可设置浅色、深色或跟随系统主题、界面语言、音符速度、音效音量、音乐音量、允许超界放置和自动保存秒数。音效和音乐音量使用滑块与数值输出，默认均为 1；自动保存默认 120 秒，设为 0 可关闭。中文选项在两种界面中都显示为 <b>简体中文</b>；英文选项始终显示 <b>English</b>。</p>
+				<p>偏好是全局设置，不产生谱面历史。可设置浅色、深色或跟随系统主题、界面语言、音符速度、音效音量、音乐音量、允许超界放置和自动保存秒数。音效和音乐音量使用滑块与数值输出，默认均为 1；自动保存默认 120 秒，设为 0 可关闭。中文界面显示“简体中文”和“英文”，英文界面显示“Simplified Chinese”和“English”。</p>
 				<p>主编辑器、宏页面和手册页面共享已保存主题。明确选择深色或浅色时优先于系统设置；选择跟随系统时才根据操作系统明暗变化。手册的语言选择会单独记住。网页编辑器可以安装为 PWA，Service Worker 会缓存两个 JSON 翻译文件和状态图标。</p>
 				<h3 id="zh-file-format">保存数据</h3>
 				<p>可编辑 JSON 在 <code>sviber</code> 扩展中保存定时、通道、吸附器、事件和编辑器状态。普通保存还会写入供 Sunniesnow 使用的顶层 <code>events</code> 列表；停用通道的事件和仅供编辑的注释不会进入该列表。自动保存刻意省略生成列表。导出的关卡只包含 sviber 支持的 Sunniesnow 数据。</p>

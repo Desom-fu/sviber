@@ -31,9 +31,16 @@ test("v11 localization is loaded from matching JSON dictionaries", async () => {
 	assert.match(source, /i18n\.en-US\.json/);
 	assert.match(source, /i18n\.zh-CN\.json/);
 	assert.deepEqual(Object.keys(english).sort(), Object.keys(chinese).sort());
-	assert.equal(english["option.language.chinese"], "简体中文");
-	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "简体中文");
-	assert.equal(chinese["option.language.english"], "English");
+	assert.equal(english["option.language.chinese"], "Simplified Chinese");
+	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "Simplified Chinese");
+	assert.equal(chinese["option.language.english"], "英文");
+});
+
+test("layout toggles preserve the stage grid slot when hiding a side", async () => {
+	const css = await readFile(new URL("../css/app.css", import.meta.url), "utf8");
+	assert.match(css, /\.editor-row\.is-scroll-hidden\s+#scroll-view-panel,[\s\S]*?visibility:\s*hidden/);
+	assert.match(css, /\.editor-row\.is-side-hidden\s+\.side-panel[\s\S]*?pointer-events:\s*none/);
+	assert.doesNotMatch(css, /\.editor-row\.is-scroll-hidden[^\{]*\{\s*display:\s*none/);
 });
 
 test("v11 command surfaces remove duplicate channel rename and add shortcuts and macros", () => {

@@ -1,6 +1,10 @@
 const languageSelect = document.getElementById("language");
 const contents = document.getElementById("contents");
 const supported = new Set(["en", "zh-CN"]);
+const languageLabels = Object.freeze({
+	en: { en: "English", "zh-CN": "Simplified Chinese" },
+	"zh-CN": { en: "英文", "zh-CN": "简体中文" },
+});
 
 function normalizeLanguage(value) {
 	const language = String(value || "").toLowerCase();
@@ -41,6 +45,8 @@ function setLanguage(language) {
 	const selected = supported.has(language) ? language : "en";
 	document.documentElement.lang = selected;
 	languageSelect.value = selected;
+	languageSelect.setAttribute("aria-label", selected === "zh-CN" ? "语言" : "Language");
+	for (const option of languageSelect.options) option.textContent = languageLabels[selected][option.value];
 	localStorage.setItem("sviber.documentationLanguage", selected);
 	let visible = null;
 	for (const article of document.querySelectorAll("article[data-language]")) {
