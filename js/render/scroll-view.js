@@ -313,7 +313,10 @@ export class ScrollView {
 	}
 
 	render() {
-		if (this.renderFrame) cancelAnimationFrame(this.renderFrame);
+		if (this.renderFrame) {
+			cancelAnimationFrame(this.renderFrame);
+			this.renderFrame = 0;
+		}
 		if (!this.state || !this.surface.context) return;
 		this.surface.resize();
 		this.surface.render((context, width, height) => this.#draw(context, width, height));

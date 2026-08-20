@@ -166,14 +166,14 @@ textarea:focus-visible,
 :root[data-theme="dark"] .menu-command-icon img,
 :root[data-theme="dark"] .tool-button img,
 :root[data-theme="dark"] .snappee-action img {
-	filter: brightness(1.2) drop-shadow(0 0 1px rgb(255 255 255 / 75%));
+	filter: brightness(1.2);
 }
 
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme]) .menu-command-icon img,
 	:root:not([data-theme]) .tool-button img,
 	:root:not([data-theme]) .snappee-action img {
-		filter: brightness(1.2) drop-shadow(0 0 1px rgb(255 255 255 / 75%));
+		filter: brightness(1.2);
 	}
 }
 
@@ -352,11 +352,11 @@ textarea:focus-visible,
 	font-size: 18px;
 	transform: translateY(-50%);
 	opacity: 0;
+	pointer-events: none;
 }
 
-.render-surface:hover .edge-toggle,
-.edge-toggle:focus-visible {
-	opacity: 1;
+.stage-surface.is-hovering-left-edge .edge-toggle-left, .stage-surface.is-hovering-right-edge .edge-toggle-right, .edge-toggle:focus-visible {
+	opacity: 1; pointer-events: auto;
 }
 
 .edge-toggle-right { right: 0; }

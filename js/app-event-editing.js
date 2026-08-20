@@ -31,6 +31,7 @@ export const withEventEditing = Base => class extends Base {
 		return {
 			getWaveform: () => this.audio.waveform,
 			getTimeBounds: () => this.timeBounds(true),
+			onTimelineResize: () => this.scrollView?.requestRender(),
 			isPlaying: () => this.audio.playing,
 			onSeekStart: () => {
 				this.resumePlaybackAfterSeek = this.audio.playing ? this.audio.direction : false;
@@ -320,6 +321,7 @@ export const withEventEditing = Base => class extends Base {
 		this.model.editor.visibleRangeBeginning = start;
 		this.model.editor.visibleRangeEnd = Math.min(bounds[1], start + span);
 		this.timeline.requestRender();
+		this.scrollView?.requestRender();
 	}
 
 	pageVisibleRange(direction) {

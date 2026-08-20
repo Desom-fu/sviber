@@ -349,6 +349,17 @@ try {
 	assert.ok(layout.timeline.bottom <= layout.editor.top + 1);
 	assert.ok(layout.editor.bottom <= layout.footer.top + 1);
 	assert.ok(layout.footer.bottom <= layout.innerHeight + 1);
+	const stageBox = await page.locator("#stage-surface").boundingBox();
+	assert.ok(stageBox, "stage surface has no layout box");
+	await page.mouse.move(stageBox.x + stageBox.width / 2, stageBox.y + stageBox.height / 2);
+	assert.equal(await page.locator("#scroll-view-toggle").evaluate(button => getComputedStyle(button).opacity), "0");
+	assert.equal(await page.locator("#side-panel-toggle").evaluate(button => getComputedStyle(button).opacity), "0");
+	await page.mouse.move(stageBox.x + 8, stageBox.y + stageBox.height / 2);
+	assert.equal(await page.locator("#scroll-view-toggle").evaluate(button => getComputedStyle(button).opacity), "1");
+	assert.equal(await page.locator("#side-panel-toggle").evaluate(button => getComputedStyle(button).opacity), "0");
+	await page.mouse.move(stageBox.x + stageBox.width - 8, stageBox.y + stageBox.height / 2);
+	assert.equal(await page.locator("#scroll-view-toggle").evaluate(button => getComputedStyle(button).opacity), "0");
+	assert.equal(await page.locator("#side-panel-toggle").evaluate(button => getComputedStyle(button).opacity), "1");
 	const timelineCanvas = page.locator("#timeline-surface canvas");
 	await timelineCanvas.hover({ position: { x: 320, y: 80 } });
 	await page.mouse.wheel(0, 100);
@@ -377,6 +388,29 @@ try {
 		const editor = globalThis.sviber.model.editor;
 		return editor.visibleRangeEnd - editor.visibleRangeBeginning > previous;
 	}, spanAfterWheelUp);
+	const stoppedZoomScrollPixelDifference = await page.evaluate(async () => {
+		const app = globalThis.sviber;
+		const editor = app.model.editor;
+		const originalRange = [editor.visibleRangeBeginning, editor.visibleRangeEnd];
+		const pixels = () => app.scrollView.surface.context.getImageData(
+			0, 0, app.scrollView.surface.width, app.scrollView.surface.height).data.slice();
+		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		const before = pixels();
+		const center = (originalRange[0] + originalRange[1]) / 2;
+		const span = (originalRange[1] - originalRange[0]) * 0.82;
+		app.setVisibleRange(center - span / 2, center + span / 2);
+		await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+		const after = pixels();
+		app.setVisibleRange(...originalRange);
+		let difference = 0;
+		for (let index = 0; index < before.length; index += 4) {
+			if (before[index] !== after[index] || before[index + 1] !== after[index + 1]
+				|| before[index + 2] !== after[index + 2]) difference += 1;
+		}
+		return difference;
+	});
+	assert.ok(stoppedZoomScrollPixelDifference > 0,
+		"changing the visible range while stopped did not redraw the Scroll View");
 	const snappeeVisibility = await page.evaluate(() => {
 		const app = globalThis.sviber;
 		const snapshot = app.model.snapshot();

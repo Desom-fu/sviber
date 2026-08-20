@@ -28,7 +28,10 @@ export class TimelineView {
 		this.callbacks = callbacks;
 		this.surface = new PixiCanvasSurface(host, {
 			background: "#090a0c",
-			onResize: () => this.render(),
+			onResize: () => {
+				this.render();
+				this.callbacks.onTimelineResize?.();
+			},
 		});
 		this.state = null;
 		this.timing = null;

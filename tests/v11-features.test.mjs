@@ -37,10 +37,23 @@ test("v11 localization is loaded from matching JSON dictionaries", async () => {
 });
 
 test("layout toggles preserve the stage grid slot when hiding a side", async () => {
-	const css = await readFile(new URL("../css/app.css", import.meta.url), "utf8");
+	const [css, layout, editing, timeline] = await Promise.all([
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../js/ui-layout.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-event-editing.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8"),
+	]);
 	assert.match(css, /\.editor-row\.is-scroll-hidden\s+#scroll-view-panel,[\s\S]*?visibility:\s*hidden/);
 	assert.match(css, /\.editor-row\.is-side-hidden\s+\.side-panel[\s\S]*?pointer-events:\s*none/);
 	assert.doesNotMatch(css, /\.editor-row\.is-scroll-hidden[^\{]*\{\s*display:\s*none/);
+	assert.doesNotMatch(css, /\.render-surface:hover\s+\.edge-toggle/);
+	assert.match(css, /\.stage-surface\.is-hovering-left-edge\s+\.edge-toggle-left/);
+	assert.match(css, /\.stage-surface\.is-hovering-right-edge\s+\.edge-toggle-right/);
+	assert.match(layout, /offset <= 28/);
+	assert.match(layout, /offset >= bounds\.width - 28/);
+	assert.match(editing, /this\.timeline\.requestRender\(\);\s*this\.scrollView\?\.requestRender\(\);/);
+	assert.match(editing, /onTimelineResize: \(\) => this\.scrollView\?\.requestRender\(\)/);
+	assert.match(timeline, /this\.callbacks\.onTimelineResize\?\.\(\)/);
 });
 
 test("v11 command surfaces remove duplicate channel rename and add shortcuts and macros", () => {
@@ -149,6 +162,7 @@ test("v11 UI uses icon controls, sliders, fullscreen, read-only macros, and PWA 
 	assert.equal(manifest.display, "standalone");
 	assert.match(worker, /json\/i18n\.en-US\.json/);
 	assert.match(worker, /json\/i18n\.zh-CN\.json/);
+	assert.match(worker, /js\/ui-layout\.js/);
 });
 
 test("v11 Scroll View, manual, and release notes describe the implemented behavior", async () => {

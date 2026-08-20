@@ -26,6 +26,7 @@ import { AutosaveManager, FileManager } from "./platform.js";
 import { ChannelsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 import { handleMacroMessage } from "./app-macro-bridge.js";
+import { bindEdgeToggleReveal } from "./ui-layout.js";
 
 export class SviberAppCore {
 	constructor() {
@@ -843,6 +844,7 @@ export class SviberAppCore {
 		const row = document.querySelector(".editor-row");
 		const scrollButton = document.getElementById("scroll-view-toggle");
 		const sideButton = document.getElementById("side-panel-toggle");
+		bindEdgeToggleReveal(document.getElementById("stage-surface"));
 		const update = () => {
 			const scrollHidden = row?.classList.contains("is-scroll-hidden");
 			const sideHidden = row?.classList.contains("is-side-hidden");

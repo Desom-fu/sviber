@@ -82,6 +82,7 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 	assert.match(themes, /:root:not\(\[data-theme\]\)/);
 	assert.match(appStyles, /:root\[data-theme="dark"\] \.tool-button img/);
 	assert.match(appStyles, /:root:not\(\[data-theme\]\) \.tool-button img/);
+	assert.doesNotMatch(appStyles, /drop-shadow/);
 	for (const standaloneStyles of [macroStyles, docsStyles]) {
 		assert.match(standaloneStyles, /:root\[data-theme="dark"\]/);
 		assert.match(standaloneStyles, /:root:not\(\[data-theme\]\)/);
