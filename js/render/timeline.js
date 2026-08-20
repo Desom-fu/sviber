@@ -12,6 +12,7 @@ import {
 	beatDenominator,
 	currentSeconds,
 	drawTimelineEventIcon,
+	eventDrawLayer,
 	projectState,
 	timelineTipSegments,
 	tipSpawnDirectionSegment,
@@ -325,6 +326,10 @@ export class TimelineView {
 		const ending = project.editor.visibleRangeEnd;
 		const records = this.renderIndex?.timelineRecords(beginning, ending)
 			|| project.events.map(event => ({ event }));
+		records.sort((left, right) => eventDrawLayer(left.event) - eventDrawLayer(right.event)
+			|| (left.start ?? this.timing.beatToSeconds(left.event.time))
+			- (right.start ?? this.timing.beatToSeconds(right.event.time))
+			|| (left.sequence ?? 0) - (right.sequence ?? 0));
 		for (const record of records) {
 			const { event } = record;
 			const interactive = activeChannelIds.has(event.channel);

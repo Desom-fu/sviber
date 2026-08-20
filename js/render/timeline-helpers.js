@@ -33,6 +33,15 @@ export const TIMELINE_DURATION_TYPES = new Set([
 	"diamondGrid", "pentagon", "turntable", "hexagram", "comment",
 ]);
 
+const BACKGROUND_EVENT_TYPES = new Set([
+	"bgNote", "bigText", "grid", "hexagon", "checkerboard",
+	"diamondGrid", "pentagon", "turntable", "hexagram",
+]);
+
+export function eventDrawLayer(event) {
+	return BACKGROUND_EVENT_TYPES.has(event?.type) ? 0 : 1;
+}
+
 export function projectState(state) {
 	return state?.sviber ? { ...state.sviber, metadata: state } : state;
 }

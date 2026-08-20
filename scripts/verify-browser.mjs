@@ -411,6 +411,23 @@ try {
 	});
 	assert.ok(stoppedZoomScrollPixelDifference > 0,
 		"changing the visible range while stopped did not redraw the Scroll View");
+	const scrollEventLayer = await page.evaluate(() => {
+		const app = globalThis.sviber;
+		const snapshot = app.model.snapshot();
+		app.model.events = [];
+		app.model.addEvent("bgNote", { time: [1, 0, 1], duration: [0, 1, 1], channel: 0, x: 0, y: 0 });
+		app.model.addEvent("tap", { time: [1, 0, 1], channel: 0, x: 0, y: 0 });
+		app.model.editor.currentTime = [0, 0, 1];
+		app.model.editor.timeSnapped = true;
+		app.refreshNow();
+		const point = app.scrollView.hitRegions.find(region => region.event.type === "tap");
+		const pixel = app.scrollView.surface.context.getImageData(Math.round(point.x), Math.round(point.y), 1, 1).data;
+		app.model.restore(snapshot);
+		app.refreshNow();
+		return [...pixel];
+	});
+	assert.deepEqual(scrollEventLayer.slice(0, 3), [85, 215, 191],
+		"a bgNote was drawn above the ordinary note in the Scroll View");
 	const snappeeVisibility = await page.evaluate(() => {
 		const app = globalThis.sviber;
 		const snapshot = app.model.snapshot();

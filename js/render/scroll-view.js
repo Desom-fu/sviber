@@ -7,6 +7,7 @@ import {
 	TIMELINE_EVENT_COLORS,
 	beatColor,
 	drawTimelineEventIcon,
+	eventDrawLayer,
 	projectState,
 	tipSpawnDirectionSegment,
 	timingFor,
@@ -250,7 +251,7 @@ export class ScrollView {
 			}
 		}
 		if (dense) records.push(...buckets.values());
-		records.sort((left, right) => Number(left.event.type === "bgNote") - Number(right.event.type === "bgNote")
+		records.sort((left, right) => eventDrawLayer(left.event) - eventDrawLayer(right.event)
 			|| left.start - right.start);
 		for (const record of records) {
 			const { event, point } = record;

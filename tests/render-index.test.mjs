@@ -4,6 +4,7 @@ import test from "node:test";
 import { collectIndexedHitSchedule } from "../js/audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartRenderIndex } from "../js/render/chart-index.js";
+import { eventDrawLayer } from "../js/render/timeline-helpers.js";
 
 function largeProject(eventCount = 10_000) {
 	const channels = Array.from({ length: 4 }, (_, id) => ({ id }));
@@ -20,6 +21,11 @@ function largeProject(eventCount = 10_000) {
 	}));
 	return { channels, events, snappees: [] };
 }
+
+test("ordinary notes draw above bg notes, background patterns, and big text", () => {
+	for (const type of ["bgNote", "grid", "bigText"]) assert.equal(eventDrawLayer({ type }), 0);
+	for (const type of ["tap", "hold", "drag", "flick"]) assert.equal(eventDrawLayer({ type }), 1);
+});
 
 test("render index limits 10k-event playback work to active time windows", () => {
 	const project = largeProject();
