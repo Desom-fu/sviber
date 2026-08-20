@@ -531,6 +531,42 @@ export function findNearestSnapPoint(input, snappees, options = {}) {
 	return nearest;
 }
 
+export function snapSnappeeTranslation(snappee, delta, snappees, options = {}) {
+	const movement = {
+		x: finiteNumber(delta?.x ?? delta?.[0], "translation.x"),
+		y: finiteNumber(delta?.y ?? delta?.[1], "translation.y"),
+	};
+	const activeOnly = options.activeOnly ?? true;
+	const targets = [];
+	for (const candidate of snappeeCollection(snappees)) {
+		if (candidate === snappee || (snappee?.id != null && candidate?.id === snappee.id)) continue;
+		if (activeOnly && candidate.active === false) continue;
+		for (const point of sampleSnappee(candidate, options)) {
+			if (insideBounds(point, options.bounds)) targets.push(point);
+		}
+	}
+	if (!targets.length) return movement;
+	const maxDistance = options.maxDistance ?? Infinity;
+	if (maxDistance < 0) return movement;
+	let bestSquared = maxDistance ** 2;
+	let correction = null;
+	for (const source of sampleSnappee(snappee, options)) {
+		const moved = { x: source.x + movement.x, y: source.y + movement.y };
+		for (const target of targets) {
+			const dx = target.x - moved.x;
+			const dy = target.y - moved.y;
+			const squared = dx * dx + dy * dy;
+			if (squared > bestSquared || (correction && squared === bestSquared)) continue;
+			bestSquared = squared;
+			correction = { x: dx, y: dy };
+		}
+	}
+	return correction ? {
+		x: movement.x + correction.x,
+		y: movement.y + correction.y,
+	} : movement;
+}
+
 export function resolveAttachedPosition(value, snappees, options = {}) {
 	const prefix = options.prefix ?? "";
 	const field = (name) => prefix ? `${prefix}${name[0].toUpperCase()}${name.slice(1)}` : name;

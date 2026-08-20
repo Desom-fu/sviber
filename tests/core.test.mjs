@@ -27,6 +27,7 @@ import {
 	resolveAttachedPosition,
 	sampleSnappee,
 	sampleSnappeePath,
+	snapSnappeeTranslation,
 } from "../js/core/geometry.js";
 import { History } from "../js/core/history.js";
 import {
@@ -220,6 +221,26 @@ test("pen nodes preserve straight segments, dragged Bezier handles, and curved c
 	});
 	assert.equal(sampled.length, 12);
 	assert.ok(sampled.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)));
+});
+
+test("open pen segment count uses one more vertex and whole-curve movement snaps to a mesh", () => {
+	const mesh = createSnappee("rectangularMesh", {
+		id: 1, topLeftX: 0, topLeftY: 0, bottomRightX: 20, bottomRightY: 20,
+		horizontalTiles: 1, verticalTiles: 1,
+	});
+	const pen = createSnappee("penCurve", {
+		id: 2,
+		commands: [{ type: "M", x: -10, y: -1 }, { type: "L", x: 20, y: -1 }],
+		segments: 3,
+		closed: false,
+	});
+	assert.equal(sampleSnappee(pen).length, 4);
+	assert.deepEqual(snapSnappeeTranslation(pen, { x: 9.25, y: 0.5 }, [mesh, pen], {
+		activeOnly: true, maxDistance: 2,
+	}), { x: 10, y: 1 });
+	assert.deepEqual(snapSnappeeTranslation(pen, { x: 4, y: 4 }, [mesh, pen], {
+		activeOnly: true, maxDistance: 0.1,
+	}), { x: 4, y: 4 });
 });
 
 test("Bezier and pen display paths retain smooth points between snap points", () => {
