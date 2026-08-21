@@ -1,6 +1,14 @@
 # PROMPT v13 implementation
 
-This release implements the additions in `PROMPT-v13.md` and bumps the application to `0.4.0`.
+This release implements the additions in `PROMPT-v13.md` and bumps the application to `0.4.1`.
+
+## v0.4.1 regression fixes
+
+- Ruby macros now pass wasm bytes to the sandbox and compile them inside the iframe realm. This avoids cross-realm `WebAssembly.Module` initialization hangs, so a minimal `puts "hello world"` macro completes and applies normally. The runtime loader and wasm fallback URLs use the matching `@ruby/3.4-wasm-wasi@2.7.2` package in both local and hosted builds.
+- Added a toolbar separator immediately before `events.bpmChange` so the timing action is visually separated from background-event tools.
+- Increased the reset-main-field button's border, text weight, background contrast, hover state, and keyboard focus outline.
+- Timeline `Ctrl+Shift+wheel` now calls the main-field zoom callback and leaves the timeline visible range unchanged; ordinary `Ctrl+wheel` retains timeline range zooming.
+- Added unit/static assertions and browser checks for all four regressions, including a real Ruby macro execution and UI state checks.
 
 ## Packaging and release infrastructure
 
@@ -39,9 +47,9 @@ This release implements the additions in `PROMPT-v13.md` and bumps the applicati
 
 ## Verification
 
-- `npm test`: 164 tests passed.
+- `npm test`: 165 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
-- `npm run build`: generated `build/sviber-0.4.0.nw` and the NW.js desktop directory.
+- `npm run build`: generated `build/sviber-0.4.1.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
 - `ruby tests/ruby-macro-smoke.rb`: passed (Ruby API rational, group, `b`/`b!`, and TipPoint checks).
 - Final v12/v13 audit was rerun with `git diff --no-index --unified=0`: all 41 low-level diff hunks were reviewed and mapped to the logical areas below before the release tag was moved.

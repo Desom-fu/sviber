@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { ChartModel } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
-import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../js/commands.js";
+import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/commands.js";
 
 test("bar lines drive rational beat lines and snapping", () => {
 	const timing = new TimingMap({ initialBpm: 120, barLines: [{ time: [1, 2, 3] }] });
@@ -98,4 +98,14 @@ test("v13 macro geometry, tip-point serialization, relative copy, and deletion a
 	const channel = api.Channel.new("Temporary");
 	channel.delete();
 	assert.throws(() => channel.select(), /deleted/);
+});
+
+test("v0.4.1 toolbar and wheel routing keep main-field controls discoverable", async () => {
+	assert.equal(TOOLBAR_ITEMS[TOOLBAR_ITEMS.indexOf("events.bpmChange") - 1], "separator");
+	const [css, timeline] = await Promise.all([
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8"),
+	]);
+	assert.match(css, /\.reset-main-field-view[^\{]*\{[^}]*border: 2px solid var\(--text\)/s);
+	assert.match(timeline, /if \(event\.ctrlKey && event\.shiftKey\) \{[\s\S]*onMainFieldZoom/s);
 });

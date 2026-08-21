@@ -50,6 +50,7 @@ const withEventEditingBase = Base => class extends Base {
 			onVisibleRange: (beginning, end) => this.setVisibleRange(beginning, end),
 			onPageVisibleRange: direction => this.pageVisibleRange(direction),
 			onEditBpm: index => void this.showBpmDialog(index),
+			onMainFieldZoom: factor => this.setMainFieldZoom(factor),
 			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey),
 		};
 	}

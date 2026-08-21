@@ -403,6 +403,22 @@ try {
 		const editor = globalThis.sviber.model.editor;
 		return editor.visibleRangeEnd - editor.visibleRangeBeginning > previous;
 	}, spanAfterWheelUp);
+	const timelineGestureBefore = await page.evaluate(() => { const editor = globalThis.sviber.model.editor; return { zoom: editor.mainFieldZoom, span: editor.visibleRangeEnd - editor.visibleRangeBeginning }; });
+	await page.keyboard.down("Control");
+	await page.keyboard.down("Shift");
+	await page.mouse.wheel(0, -100);
+	await page.keyboard.up("Shift");
+	await page.keyboard.up("Control");
+	await page.waitForFunction(previous => globalThis.sviber.model.editor.mainFieldZoom > previous, timelineGestureBefore.zoom);
+	assert.equal(await page.evaluate(() => { const editor = globalThis.sviber.model.editor; return editor.visibleRangeEnd - editor.visibleRangeBeginning; }), timelineGestureBefore.span, "timeline Ctrl+Shift+wheel changed its visible range");
+	const bpmButton = page.locator('#tool-bar [data-command="events.bpmChange"]');
+	assert.equal(await bpmButton.evaluate(button => button.previousElementSibling?.getAttribute("role")), "separator");
+	await page.evaluate(() => { globalThis.sviber.model.editor.mainFieldPanX = 12; globalThis.sviber.refreshNow(); });
+	const resetView = page.locator("#reset-main-field-view");
+	assert.equal(await resetView.isHidden(), false);
+	const resetContrast = await resetView.evaluate(button => { const style = getComputedStyle(button); return [style.color, style.backgroundColor, style.borderTopColor]; });
+	assert.notEqual(resetContrast[0], resetContrast[1], "reset view control has insufficient contrast");
+	await page.evaluate(() => globalThis.sviber.resetMainFieldView());
 	const stoppedZoomScrollPixelDifference = await page.evaluate(async () => {
 		const app = globalThis.sviber;
 		const editor = app.model.editor;

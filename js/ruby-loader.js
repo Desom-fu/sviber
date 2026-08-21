@@ -1,9 +1,11 @@
 (function loadSviberRubyRuntime(global) {
-	const isNw = Boolean(global.nw);
-	const localFirst = isNw || location.protocol === "file:" || /^(?:localhost|127\.0\.0\.1)$/.test(location.hostname);
-	const sources = localFirst
-		? ["node_modules/@ruby/wasm-wasi/dist/browser.umd.js", "https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.10.1/dist/browser.umd.js"]
-		: ["https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.10.1/dist/browser.umd.js", "node_modules/@ruby/wasm-wasi/dist/browser.umd.js"];
+	// The sandboxed macro iframe has an opaque origin, so hostname/protocol checks
+	// cannot distinguish local development from a hosted page. The local script
+	// fails quickly when it is not packaged, then the matching CDN build is used.
+	const sources = [
+		"node_modules/@ruby/3.4-wasm-wasi/dist/browser.umd.js",
+		"https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.7.2/dist/browser.umd.js",
+	];
 
 	function inject(source) {
 		return new Promise((resolve, reject) => {

@@ -1,6 +1,6 @@
 {
 	"name": "sviber",
-	"version": "0.4.0",
+	"version": "0.4.1",
 	"private": true,
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",
@@ -33,7 +33,6 @@
 	},
 	"dependencies": {
 		"@ruby/3.4-wasm-wasi": "2.7.2",
-		"@ruby/wasm-wasi": "2.10.1",
 		"audio-decode": "^3.12.0",
 		"jszip": "^3.10.1",
 		"mathjs": "^15.2.0",

@@ -11,6 +11,7 @@ export async function runMacroChecks(browser, baseUrl) {
 			if (location.pathname.endsWith("/sviber/")) {
 				localStorage.setItem("sviber.macros", JSON.stringify({
 					smoke: "state.metadata.title = 'Macro smoke'; globalThis.console.log('macro smoke ok');",
+					rubySmoke: { language: "ruby", content: "puts \\\"hello world\\\"" },
 				}));
 			}
 		} catch { /* Sandboxed macro frames have no storage origin. */ }
@@ -53,8 +54,12 @@ export async function runMacroChecks(browser, baseUrl) {
 		assert.equal(await page.evaluate(() => globalThis.sviber.history.length), historyBefore + 1);
 		await popup.waitForFunction(() => document.querySelector("#macro-console-output")
 			?.textContent.includes("macro smoke ok"));
+		await popup.getByRole("button", { name: "rubySmoke", exact: true }).click();
+		await popup.keyboard.press("F8");
+		await popup.waitForFunction(() => document.querySelector("#macro-console-output")
+			?.textContent.includes("hello world"), null, { timeout: 30_000 });
 		assert.deepEqual(pageErrors, []);
-		return { locale: "zh-CN", dialog: true, applied: true, historyDelta: 1, consoleForwarded: true };
+		return { locale: "zh-CN", dialog: true, applied: true, historyDelta: 2, consoleForwarded: true, ruby: true };
 	} finally {
 		await popup?.close().catch(() => {});
 		await context.close();

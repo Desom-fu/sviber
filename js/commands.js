@@ -242,7 +242,7 @@ export const MENU_DEFINITION = Object.freeze([
 
 export const TOOLBAR_ITEMS = Object.freeze([
 	'events.tap', 'events.hold', 'events.drag', 'events.flick', 'events.bgNote',
-	'events.bgPattern', 'events.bpmChange', 'separator', 'events.moveChannelAbove',
+	'events.bgPattern', 'separator', 'events.bpmChange', 'separator', 'events.moveChannelAbove',
 	'events.moveChannelBelow', 'channel.createAbove', 'channel.createBelow',
 	'channel.delete', 'separator',
 	'snappee.rectangularMesh', 'snappee.radialMesh', 'snappee.regularPolygon',

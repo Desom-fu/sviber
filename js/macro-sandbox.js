@@ -38,10 +38,11 @@
 	async function runRuby(message) {
 		await global.sviberRubyRuntimeReady;
 		const runtime = global["ruby-wasm-wasi"];
-		if (!runtime?.DefaultRubyVM || !(message.rubyModule instanceof WebAssembly.Module)) {
+		if (!runtime?.DefaultRubyVM || !(message.rubyBytes instanceof ArrayBuffer)) {
 			throw new Error("ruby.wasm is unavailable in the macro sandbox.");
 		}
-		const { vm } = await runtime.DefaultRubyVM(message.rubyModule, { consolePrint: false });
+		const rubyModule = await WebAssembly.compile(message.rubyBytes);
+		const { vm } = await runtime.DefaultRubyVM(rubyModule, { consolePrint: false });
 		const encode = value => btoa(unescape(encodeURIComponent(String(value))));
 		const statePayload = encode(JSON.stringify(message.state));
 		const codePayload = encode(message.code || "");

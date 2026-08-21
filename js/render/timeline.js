@@ -964,6 +964,10 @@ export class TimelineView {
 	#wheel(event) {
 		event.preventDefault();
 		const project = projectState(this.state);
+		if (event.ctrlKey && event.shiftKey) {
+			this.callbacks.onMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12);
+			return;
+		}
 		if (project.channels.length > 3 && event.shiftKey) {
 			const nextOffset = Math.max(0, Math.min(project.channels.length - 3,
 				this.channelOffset + Math.sign(event.deltaY)));

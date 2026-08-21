@@ -544,18 +544,29 @@ async function deleteMacro() {
 
 function loadRubyResources() {
 	if (!rubyResourcesPromise) {
+		const localFirst = Boolean(globalThis.nw) || location.protocol === "file:"
+			|| /^(?:localhost|127\.0\.0\.1)$/.test(location.hostname);
+		const wasmSources = localFirst
+			? ["node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm", "https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm"]
+			: ["https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm", "node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm"];
+		const fetchWasm = async () => {
+			let failure;
+			for (const source of wasmSources) {
+				try {
+					const response = await fetch(new URL(source, location.href));
+					if (!response.ok) throw new Error(`ruby.wasm HTTP ${response.status}`);
+					return await response.arrayBuffer();
+				} catch (error) { failure = error; }
+			}
+			throw failure || new Error("ruby.wasm is unavailable.");
+		};
 		rubyResourcesPromise = Promise.all([
 			fetch(new URL("js/macro-api.rb", location.href)).then(response => {
 				if (!response.ok) throw new Error(`Ruby API HTTP ${response.status}`);
 				return response.text();
 			}),
-			fetch(new URL(globalThis.nw
-				? "node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm"
-				: "https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm", location.href)).then(response => {
-				if (!response.ok) throw new Error(`ruby.wasm HTTP ${response.status}`);
-				return response.arrayBuffer();
-			}).then(bytes => WebAssembly.compile(bytes)),
-		]).then(([rubyApi, rubyModule]) => ({ rubyApi, rubyModule }));
+			fetchWasm(),
+		]).then(([rubyApi, rubyBytes]) => ({ rubyApi, rubyBytes }));
 	}
 	return rubyResourcesPromise;
 }
