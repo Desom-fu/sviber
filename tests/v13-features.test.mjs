@@ -74,3 +74,28 @@ test("v13 macro wrappers expose timing, location, grouping, channels, and clips"
 	assert.equal(api.Chart.clips[0].name, "test");
 	assert.equal(clip.paste([2, 0, 1], channel).length, 1);
 });
+
+test("v13 macro geometry, tip-point serialization, relative copy, and deletion are enforced", async () => {
+	await import("../js/macro-api.js");
+	const api = globalThis.createSviberMacroApi({
+		editor: { currentChannel: 0, currentTime: [3, 0, 1] },
+		channels: [{ id: 0, name: "Main", active: true }], events: [], snappees: [], clips: [],
+	});
+	const mesh = new api.RectangularMesh(-10, 10, 10, -10, 2, 2);
+	assert.deepEqual(mesh.pos(2, 2).toArray(), [10, -10]);
+	const attached = new api.Location(mesh, [1, 1]);
+	const note = api.Event.new({ type: "tap", location: attached, time: [1, 1, 2] });
+	assert.equal(note.location.attachedQ(), true);
+	const tip = api.TipPoint.chain({ location: new api.Location(4, 5), timeBeats: [1, 1, 2] });
+	note.tipPoint = tip;
+	assert.equal(note.toJSON().tipPointSpawnAbsolutePosition, true);
+	const matrix = new api.AffineMatrix2D().translate(2, 3).rotate(Math.PI / 2);
+	assert.ok(Math.abs(matrix.a) < 1e-12);
+	api.transform(note, new api.AffineMatrix2D().translate(1, 0));
+	const copies = api.copy([note]);
+	assert.equal(copies.length, 1);
+	assert.deepEqual(copies[0].time, [3, 0, 1]);
+	const channel = api.Channel.new("Temporary");
+	channel.delete();
+	assert.throws(() => channel.select(), /deleted/);
+});

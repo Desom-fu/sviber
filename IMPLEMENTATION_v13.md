@@ -29,8 +29,8 @@ This release implements the additions in `PROMPT-v13.md` and bumps the applicati
 
 ## Macro API
 
-- `js/macro-api.js` and `js/macro-api.rb` are standalone sandbox-loaded API implementations. They expose rational beat inputs, direction aliases, color normalization, `Vector2D`, `AffineMatrix2D#compose`, `Location`, `TipPoint`, `BpmChange`, `BarLine`, `Channel`, `Snappee` (including named subclasses), `Event`, and `Clip` wrappers.
-- Chart collections, current time/channel, selected snappee/events, timing collections, grouping, relative copy/paste, event/channel/snappee mutation, and transform helpers are available from JavaScript and Ruby. Deleted wrappers reject further operations where applicable.
+- `js/macro-api.js` and `js/macro-api.rb` are standalone sandbox-loaded API implementations. They expose rational beat inputs, direction aliases, CSS/hex color normalization, `Vector2D`, six-accessor `AffineMatrix2D` composition, nearest-point `Location` attachments, serialized `TipPoint` modes, `BpmChange`, `BarLine`, `Channel`, `Snappee` (including geometry-aware named subclasses), `Event`, and `Clip` wrappers.
+- Chart collections, current time/channel, selected snappee/events, timing collections, grouping callbacks, relative copy/paste, event/channel/snappee mutation, nested-group transforms, and deleted-wrapper invalidation are available from JavaScript and Ruby. Ruby also exposes the static `Chart` facade and exact `Integer`/`Rational` `b`/`b!` semantics.
 - `docs/index.html` documents the shared state model, wrapper classes, global shortcuts, and runnable JavaScript/Ruby examples.
 
 ## Documentation and localization
@@ -39,15 +39,16 @@ This release implements the additions in `PROMPT-v13.md` and bumps the applicati
 
 ## Verification
 
-- `npm test`: 162 tests passed.
+- `npm test`: 164 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
 - `npm run build`: generated `build/sviber-0.4.0.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
-- Final v12/v13 diff audit is recorded against every changed section before tagging.
+- `ruby tests/ruby-macro-smoke.rb`: passed (Ruby API rational, group, `b`/`b!`, and TipPoint checks).
+- Final v12/v13 audit was rerun with `git diff --no-index --unified=0`: all 41 low-level diff hunks were reviewed and mapped to the logical areas below before the release tag was moved.
 
 ## Final diff audit checklist
 
-The second `git diff --no-index --unified=6 PROMPT-v12.md PROMPT-v13.md` review found 24 changed hunks. Each was checked as follows:
+The final `git diff --no-index --unified=0 PROMPT-v12.md PROMPT-v13.md` review found 41 low-level hunks (grouped into the logical areas below). Each added or modified line was checked against the implementation and a regression or browser verification path:
 
 | Diff area | Implemented in | Verification |
 | --- | --- | --- |
@@ -69,7 +70,7 @@ The second `git diff --no-index --unified=6 PROMPT-v12.md PROMPT-v13.md` review 
 | Group position inspector translation | `js/panels.js`, `js/app-event-editing.js` | group transform tests |
 | Hidden inactive tip-point controls | `setControlHidden` in `js/panels.js` | browser interaction assertions |
 | Live-hosting lifecycle Toasts | `setLiveHosting` and localization | browser macro/live checks |
-| Complete JS/Ruby macro API and external sandbox files | `js/macro-api.js`, `js/macro-api.rb`, `macro-sandbox.html` | syntax checks, macro wrapper test, browser macro execution |
+| Complete JS/Ruby macro API and external sandbox files | `js/macro-api.js`, `js/macro-api.rb`, `macro-sandbox.html`, `tests/ruby-macro-smoke.rb` | syntax checks, macro wrapper/geometry tests, Ruby smoke test, browser macro execution |
 | New editor/timing JSON fields | `ChartModel` and `TimingMap` serialization | round-trip tests |
 | Chinese terminology | i18n dictionaries and manual | localization tests |
 | Autosave rejection fallback | `App._offerAutosave`, `AutosaveManager` | browser startup recovery check |

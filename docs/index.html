@@ -262,7 +262,25 @@ b!([1, 0, 1]); transform(n, AffineMatrix2D.new.translate(12, 0))</code></pre>
 				<h3 id="zh-macro-api">宏 API</h3>
 				<p>两种语言都会收到谱面的深拷贝，可以读写元数据、编辑器字段、定时、通道、事件和吸附器。JavaScript 提供 <code>state</code>/<code>chart</code> 与 <code>api</code>；Ruby 提供 <code>state</code>/<code>chart</code> 与 <code>sviber</code>。宏中的集合对象会实时反映对副本的修改。</p>
 				<table><thead><tr><th>JavaScript</th><th>Ruby</th><th>用途</th></tr></thead><tbody><tr><td><code>tap</code>/<code>t</code>、<code>hold</code>/<code>h</code>、<code>drag</code>/<code>d</code>、<code>flick</code>/<code>f</code>、<code>bgNote</code>/<code>bg</code></td><td><code>tap</code>/<code>t</code>、<code>hold</code>/<code>h</code>、<code>drag</code>/<code>d</code>、<code>flick</code>/<code>f</code>、<code>bg_note</code>/<code>bg</code></td><td>按当前时间/通道添加事件，可传坐标、时长、角度、附着或 Tip 字段覆盖值。</td></tr><tr><td><code>event</code>、<code>channel</code>、<code>snappee</code></td><td><code>event</code>、<code>channel</code>、<code>snappee</code></td><td>添加任意事件、通道或吸附器；JS 另有 <code>addEvent</code>/<code>addChannel</code>/<code>addSnappee</code>，Ruby 有对应的 <code>add_channel</code>/<code>add_snappee</code>。</td></tr><tr><td><code>find*</code>、<code>update*</code>、<code>remove*</code></td><td><code>find_*</code>、<code>update_*</code>、<code>remove_*</code></td><td>按 ID 或对象查找、修改、删除记录。</td></tr><tr><td><code>select</code>、<code>addSelection</code>、<code>removeSelection</code>、<code>clearSelection</code></td><td><code>select</code>、<code>add_selection</code>、<code>remove_selection</code>、<code>clear_selection</code></td><td>改变事件选择。</td></tr><tr><td><code>setTime</code>、<code>setCurrentChannel</code></td><td><code>set_time</code>、<code>set_current_channel</code></td><td>改变编辑器时间（有理数元组或秒数）和当前通道。</td></tr><tr><td><code>console.log/info/warn/error</code>、<code>log</code></td><td><code>puts</code>、<code>warn</code>、<code>log</code></td><td>把输出发送到宏控制台；Ruby 会捕获标准输出和标准错误。</td></tr></tbody></table>
-				<p>宏抛出异常或返回无效谱面时，只在控制台显示，不会应用。运行成功会同步共享元数据/媒体，并产生一条历史记录。</p>
+				<p><strong>数据与数学：</strong>JavaScript 的节拍值接受数字、<code>[numerator, denominator]</code> 或文件格式三元组；Ruby 只接受 <code>Integer</code>/<code>Rational</code>，写入 JSON 时统一为三元组。角度可写弧度或 <code>"up"</code>、<code>"down_left"</code> 等方向名，颜色接受十六进制、RGB 或 CSS 颜色名。</p>
+				<p><strong>对象 API：</strong><code>Chart</code> 提供 <code>currentTime</code>、通道、事件、吸附器、BPM 变化和 bar line 集合；<code>Vector2D</code> 支持加减乘，<code>AffineMatrix2D</code> 支持平移、缩放、旋转、翻转和 <code>compose</code>。<code>Location</code> 可用 <code>new Location(x,y)</code> 或 <code>new Location(snappee, point)</code> 创建；<code>TipPoint.chain</code>/<code>drop</code> 支持相对距离或绝对位置，并严格区分秒和节拍。<code>RectangularMesh</code>、<code>RadialMesh</code>、<code>ParametricMesh</code>、<code>RegularPolygonCurve</code>、<code>BezierCurve</code>、<code>PenCurve</code>、<code>ParametricCurve</code> 都可通过 <code>pos</code> 读取几何采样点。</p>
+				<p><strong>复制与分组示例：</strong></p>
+				<pre><code>// JavaScript
+const lane = api.Channel.current;
+const first = api.t({ location: new api.Location(0, 0), time: [1, 1, 2] });
+const group = api.g([first], 0xff8800);
+group.location = new api.Location(10, 5); // translates descendants
+api.copy([group]); // pastes relative to Chart.currentTime/currentChannel
+api.transform(group, new api.AffineMatrix2D().rotate(Math.PI / 2));
+
+# Ruby
+lane = Chart.current_channel
+note = t(l(0, 0), "A")
+group = g([note], 0xff8800)
+group.location = l(10, 5)
+copy([group])
+transform(group, AffineMatrix2D.new.translate(2, 0))</code></pre>
+				<p>删除后的对象会失效；再次读取、选择、移动或修改会抛出异常。宏抛出异常或返回无效谱面时，只在控制台显示，不会应用。运行成功会同步共享元数据/媒体，并产生一条历史记录。</p>
 
 				<h2 id="zh-data">数据与偏好</h2>
 				<h3 id="zh-editor-data">编辑器字段</h3>
