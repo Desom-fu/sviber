@@ -405,7 +405,7 @@ export const withChartTools = Base => class extends Base {
 		this.commit(i18n.t("history.editSnappee"), model => {
 			const snappee = model.snappees.find(item => item.id === id);
 			if (snappee) { snappee.active = !snappee.active; if (!snappee.active) snappee.selected = false; }
-		});
+		}, { allowReadOnly: true });
 	}
 
 	duplicateSnappee(id) {

@@ -24,7 +24,7 @@ export const LAST_OPEN_KEY = "sviber.lastOpen";
 export const DEFAULT_PREFERENCES = Object.freeze({
 	theme: "system", language: "system", noteSpeed: 2,
 	seVolume: 1, musicVolume: 1, autoSaveInterval: 120,
-	allowOutOfBounds: false, liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
+	liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
 });
 
 function preferenceChoice(value, choices, fallback) {
@@ -44,7 +44,6 @@ function normalizePreferences(source = {}) {
 		musicVolume: volume(source.musicVolume, DEFAULT_PREFERENCES.musicVolume),
 		autoSaveInterval: Number.isFinite(autoSaveInterval) && autoSaveInterval >= 0
 			? autoSaveInterval : DEFAULT_PREFERENCES.autoSaveInterval,
-		allowOutOfBounds: Boolean(source.allowOutOfBounds),
 		liveHostingAddress: String(source.liveHostingAddress || DEFAULT_PREFERENCES.liveHostingAddress),
 		liveReloadPort: Math.max(0, Math.floor(Number(source.liveReloadPort ?? DEFAULT_PREFERENCES.liveReloadPort) || 0)),
 	};
@@ -116,7 +115,7 @@ export function selected(model) {
 }
 
 export function allowsOutOfBounds(model) {
-	return Boolean(model.editor?.allowOutOfBounds);
+	return Boolean(model.editor?.allowOutOfBound || model.editor?.allowOutOfBounds);
 }
 
 export function pointAllowed(model, point) {

@@ -174,8 +174,8 @@ test("v11 Scroll View, manual, and release notes describe the implemented behavi
 	]);
 	assert.match(scrollView, /timeScale = Math\.max\(0\.1, timelineWidth \/ visibleSpan\)/);
 	assert.match(scrollView, /xScale = Math\.max/);
-	assert.match(manual, /six checkboxes use icons without visible text labels/);
-	assert.match(manual, /六个复选框都只有图标/);
+	assert.match(manual, /icon controls have no visible text labels/);
+	assert.match(manual, /状态栏图标控件没有可见文字/);
 	assert.match(manual, /same pixels-per-second scale/);
 	assert.match(manual, /纵向每秒像素比例与时间轴/);
 	assert.match(readme, /macOS provides x86_64 and aarch64 ZIP archives/);

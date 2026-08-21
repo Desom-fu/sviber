@@ -431,8 +431,8 @@ function normalizeEditor(editor, channels) {
 		readOnly: Boolean(source.readOnly),
 		abLoopMarks: normalizeLoopMarks(source.abLoopMarks),
 		currentChannel: requested?.active !== false || !activeFallback ? requestedChannel : activeFallback.id,
-		allowOutOfBounds: Boolean(source.allowOutOfBounds ?? source.allowOutOfBound),
-		allowOutOfBound: Boolean(source.allowOutOfBound ?? source.allowOutOfBounds),
+		allowOutOfBound: Boolean(source.allowOutOfBound || source.allowOutOfBounds),
+		allowOutOfBounds: Boolean(source.allowOutOfBound || source.allowOutOfBounds),
 		timelineChannelOffset: Math.max(0, Math.min(Math.max(0, channels.length - 3), Math.round(finiteNumber(source.timelineChannelOffset, 0)))),
 		showGroupingInTimeline: source.showGroupingInTimeline !== false,
 		showGroupingInMainField: source.showGroupingInMainField !== false,
@@ -815,10 +815,12 @@ export class ChartModel {
 	}
 
 	serializeSviber() {
+		const editor = clone(this.editor);
+		delete editor.allowOutOfBounds;
 		return {
 			music: this.music,
 			image: this.image,
-			editor: clone(this.editor),
+			editor,
 			timing: this.timing.toJSON(),
 			channels: clone(this.channels),
 			events: clone(this.events),
@@ -876,7 +878,7 @@ export class ChartModel {
 		};
 	}
 
-	_makePlaceholder(targetEvent, spawnSettings, tipPoint, sequence) {
+	_makePlaceholder(targetEvent, spawnSettings, tipPoint, sequence, channelIndex) {
 		const targetPosition = resolveAttachedPosition(targetEvent, this.snappees) ?? {
 			x: finiteNumber(targetEvent.x, 0),
 			y: finiteNumber(targetEvent.y, 0),
@@ -886,29 +888,24 @@ export class ChartModel {
 		const spawnTime = spawnSettings.tipPointSpawnTimeBeats
 			? this.timing.beatToSeconds(Rational.from(targetEvent.time).sub(spawnSettings.tipPointSpawnTime ?? 1))
 			: targetTime - Math.max(0, finiteNumber(spawnSettings.tipPointSpawnTime, 1));
-		return {
-			exported: {
-				type: "placeholder",
-				time: spawnTime,
-				properties: { x: spawnPosition.x, y: spawnPosition.y, tipPoint },
-			},
-			sequence,
-			placeholder: true,
-		};
+		return { exported: { type: "placeholder", time: spawnTime,
+			properties: { x: spawnPosition.x, y: spawnPosition.y, tipPoint } }, sequence, placeholder: true, channelIndex };
 	}
 
 	generateSunniesnowEvents() {
+		const channelOrder = new Map(this.channels.map((channel, index) => [channel.id, index]));
 		const activeChannels = new Set(this.channels
 			.filter(channel => channel.active !== false)
 			.map(channel => channel.id));
 		const records = this.allEvents({ includeGroups: false })
 			.filter(event => event.type !== "comment" && activeChannels.has(event.channel))
 			.map((event, sequence) => ({
-			event,
-			exported: this._exportEvent(event),
-			sequence,
-			placeholder: false,
-		}));
+				event,
+				exported: this._exportEvent(event),
+				channelIndex: channelOrder.get(event.channel) ?? Infinity,
+				sequence,
+				placeholder: false,
+			}));
 		const placeholders = [];
 		let guideSerial = 0;
 
@@ -928,14 +925,14 @@ export class ChartModel {
 					if (declaredMode === "chain" || !chainTipPoint) {
 						previousSettings = record.event;
 						chainTipPoint = `sviber-tip-${record.event.id}-${guideSerial++}`;
-						placeholders.push(this._makePlaceholder(record.event, previousSettings, chainTipPoint, record.sequence));
+						placeholders.push(this._makePlaceholder(record.event, previousSettings, chainTipPoint, record.sequence, record.channelIndex));
 					}
 					record.exported.properties.tipPoint = chainTipPoint;
 				} else if (effectiveMode === "drop") {
 					if (declaredMode === "drop" || !previousSettings) previousSettings = record.event;
 					const tipPoint = `sviber-tip-${record.event.id}-${guideSerial++}`;
 					record.exported.properties.tipPoint = tipPoint;
-					placeholders.push(this._makePlaceholder(record.event, previousSettings, tipPoint, record.sequence));
+					placeholders.push(this._makePlaceholder(record.event, previousSettings, tipPoint, record.sequence, record.channelIndex));
 					chainTipPoint = null;
 				} else {
 					chainTipPoint = null;
@@ -952,7 +949,8 @@ export class ChartModel {
 		}
 
 		return [...records, ...placeholders]
-			.toSorted((left, right) => left.exported.time - right.exported.time
+			.toSorted((left, right) => left.channelIndex - right.channelIndex
+				|| left.exported.time - right.exported.time
 				|| Number(right.placeholder) - Number(left.placeholder)
 				|| left.sequence - right.sequence)
 			.map(({ exported }) => exported);

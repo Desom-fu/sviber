@@ -430,11 +430,13 @@ test("ChartModel persists nextIds so reopened charts never reuse deleted IDs", (
 
 test("ChartModel defaults and round-trips the out-of-bounds editor setting", () => {
 	const model = ChartModel.createDefault();
-	assert.equal(model.editor.allowOutOfBounds, false);
-	model.editor.allowOutOfBounds = true;
+	assert.equal(model.editor.allowOutOfBound, false);
+	model.editor.allowOutOfBound = true;
 	const reopened = ChartModel.import(model.toJSON());
+	assert.equal(reopened.editor.allowOutOfBound, true);
 	assert.equal(reopened.editor.allowOutOfBounds, true);
-	assert.equal(reopened.toJSON().sviber.editor.allowOutOfBounds, true);
+	assert.equal(reopened.toJSON().sviber.editor.allowOutOfBound, true);
+	assert.equal(Object.hasOwn(reopened.toJSON().sviber.editor, "allowOutOfBounds"), false);
 });
 
 test("ChartModel prefers embedded sviber state over top-level generated events", () => {

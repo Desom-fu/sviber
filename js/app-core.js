@@ -31,9 +31,8 @@ import { LiveHosting } from "./live-hosting.js";
 export class SviberAppCore {
 	constructor() {
 		this.preferences = loadPreferences();
-		applyThemePreference(this.preferences.theme);
-		i18n.setLanguage(resolvePreferenceLanguage(this.preferences.language));
-		this.model = ChartModel.createDefault({ editor: { allowOutOfBounds: this.preferences.allowOutOfBounds } });
+		applyThemePreference(this.preferences.theme); i18n.setLanguage(resolvePreferenceLanguage(this.preferences.language));
+		this.model = ChartModel.createDefault();
 		this.model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
 		this.history = new History(this.model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
 		this.dirty = false;
@@ -406,7 +405,6 @@ export class SviberAppCore {
 		const knownFiles = charts.map(item => item.file).filter(Boolean);
 		this.difficulties = charts.map(chart => {
 			const model = chart.model instanceof ChartModel ? chart.model : ChartModel.import(chart.document);
-			model.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
 			const id = String(chart.id || `difficulty-${this.nextDifficultyId++}`);
 			const match = id.match(/^difficulty-(\d+)$/);
 			if (match) this.nextDifficultyId = Math.max(this.nextDifficultyId, Number(match[1]) + 1);
@@ -538,7 +536,7 @@ export class SviberAppCore {
 		select.style.width = `${Math.min(30, Math.max(12, labelLength + 3))}ch`;
 		select.title = i18n.t("difficulty.select");
 		select.setAttribute("aria-label", i18n.t("difficulty.select"));
-		const blocked = this.audio.playing || Boolean(this.freeTransform) || Boolean(this.model.editor.readOnly);
+		const blocked = this.audio.playing || Boolean(this.freeTransform);
 		select.disabled = blocked;
 	}
 	refreshNow() {
@@ -576,7 +574,7 @@ export class SviberAppCore {
 		for (const [id, property] of [["lock-visible-range", "lockVisibleRange"], ["play-se", "playSe"],
 			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"],
 			["show-grouping-in-timeline", "showGroupingInTimeline"], ["show-grouping-in-main-field", "showGroupingInMainField"],
-			["show-tip-points", "showTipPoints"], ["allow-out-of-bound", "allowOutOfBounds"], ["read-only", "readOnly"]]) {
+			["show-tip-points", "showTipPoints"], ["allow-out-of-bound", "allowOutOfBound"], ["read-only", "readOnly"]]) {
 			const control = document.getElementById(id);
 			if (control) control.checked = Boolean(this.model.editor[property]);
 		}
@@ -656,14 +654,20 @@ export class SviberAppCore {
 		document.getElementById("difficulty-delete")?.addEventListener("click", () => void this.deleteDifficulty());
 		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "allow-out-of-bound"]) {
 			document.getElementById(id)?.addEventListener("change", event => {
+				if (id === "allow-out-of-bound") {
+					const checked = Boolean(event.target.checked);
+					this.commit(i18n.t("history.allowOutOfBounds"), model => {
+						model.editor.allowOutOfBound = checked; model.editor.allowOutOfBounds = checked;
+					});
+					return;
+				}
 				this.model.editor[id === "lock-visible-range" ? "lockVisibleRange"
 					: id === "play-se" ? "playSe"
 					: id === "seek-back-after-playing" ? "seekBackAfterPlaying"
 					: id === "show-grouping-in-timeline" ? "showGroupingInTimeline"
 					: id === "show-grouping-in-main-field" ? "showGroupingInMainField"
 					: id === "show-tip-points" ? "showTipPoints"
-					: id === "allow-out-of-bound" ? "allowOutOfBounds" : "metronome"] = Boolean(event.target.checked);
-				if (id === "allow-out-of-bound") this.preferences.allowOutOfBounds = Boolean(event.target.checked);
+					: "metronome"] = Boolean(event.target.checked);
 				this.refresh();
 			});
 		}
@@ -962,7 +966,6 @@ export class SviberAppCore {
 		});
 		if (values) {
 			const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0];
-			recovery.model.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
 			this.installProject([{
 				id: "difficulty-0",
 				file: uniqueChartFilename(recovery.model.metadata.difficultyName),

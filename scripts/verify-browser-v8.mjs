@@ -369,8 +369,8 @@ export async function runV8BrowserChecks(page) {
 	assert.deepEqual(readOnlyState, {
 		music: true, select: true, comment: true, macros: true,
 		save: false, undo: false, create: false,
-		difficultyDisabled: true, inspectorDisabled: true,
-		channelActionsDisabled: true, historyDisabled: true,
+		difficultyDisabled: false, inspectorDisabled: true,
+		channelActionsDisabled: false, historyDisabled: true,
 		historyResult: false, historyCursorUnchanged: true,
 	});
 	const readOnlyComment = await page.evaluate(() => {

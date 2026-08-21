@@ -552,9 +552,10 @@ export async function runInteractionChecks(page, outputDirectory) {
 			y: rectangle.top + y * rectangle.height / surface.height,
 		};
 	});
-	await page.mouse.move(transformCenter.x, transformCenter.y);
+	// The centered crosshair is the v12 anchor handle; start just beside it to test translation.
+	await page.mouse.move(transformCenter.x + 30, transformCenter.y);
 	await page.mouse.down();
-	await page.mouse.move(transformCenter.x + 24, transformCenter.y - 12);
+	await page.mouse.move(transformCenter.x + 54, transformCenter.y - 12);
 	await page.mouse.up();
 	await page.waitForFunction(() => Math.abs(globalThis.sviber.freeTransform.matrix[4]) > 0.1);
 	await page.screenshot({ path: path.join(outputDirectory, "sviber-free-transform.png"), fullPage: true });

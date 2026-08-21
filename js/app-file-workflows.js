@@ -134,7 +134,6 @@ export const withFileWorkflows = Base => class extends Base {
 			},
 			music: this.projectMusic,
 			image: this.projectImage,
-			editor: { allowOutOfBounds: this.preferences.allowOutOfBounds },
 		});
 		model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
 		const id = `difficulty-${this.nextDifficultyId++}`;
@@ -184,7 +183,6 @@ export const withFileWorkflows = Base => class extends Base {
 				timing: { offset: 0, initialBpm: 120, bpmChanges: [] },
 				music: this.projectMusic,
 				image: this.projectImage,
-				editor: { allowOutOfBounds: this.preferences.allowOutOfBounds },
 			});
 			this.model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
 			this.activeDifficultyId = `difficulty-${this.nextDifficultyId++}`;
@@ -239,7 +237,6 @@ export const withFileWorkflows = Base => class extends Base {
 		const model = ChartModel.createDefault({
 			metadata: values,
 			timing: { offset: values.offset, initialBpm: values.initialBpm, bpmChanges: [] },
-			editor: { allowOutOfBounds: this.preferences.allowOutOfBounds },
 		});
 		model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
 		this.installProject([{ model, id: "difficulty-0", file: uniqueChartFilename(model.metadata.difficultyName) }], {
@@ -309,7 +306,6 @@ export const withFileWorkflows = Base => class extends Base {
 					formatValue: value => value.toFixed(2) },
 				{ id: "musicVolume", type: "slider", labelKey: "field.musicVolume", min: 0, max: 1, step: 0.01,
 					formatValue: value => value.toFixed(2) },
-				{ id: "allowOutOfBounds", type: "checkbox", labelKey: "field.allowOutOfBounds" },
 				{ id: "liveHostingAddress", type: "text", labelKey: "field.liveHostingAddress", disabled: () => !globalThis.nw },
 				{ id: "liveReloadPort", type: "integer", labelKey: "field.liveReloadPort", min: 0, disabled: () => !globalThis.nw },
 				{ id: "autoSaveInterval", type: "number", labelKey: "field.autoSaveInterval", min: 0, step: 1 },
@@ -325,14 +321,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.audio.setSeVolume(this.preferences.seVolume);
 		this.audio.setMusicVolume(this.preferences.musicVolume);
 		this.startAutosave();
-		for (const entry of this.difficulties) {
-			entry.model.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
-			entry.history.transformStates(state => {
-				state.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
-				return state;
-			});
-		}
-		this.model.editor.allowOutOfBounds = this.preferences.allowOutOfBounds;
 		this.refresh();
 		return this.preferences;
 	}
@@ -713,7 +701,7 @@ export const withFileWorkflows = Base => class extends Base {
 			channels: copiedChannelIndices.map(index => ({ ...deepClone(this.model.channels[index]), channelOffset: index - minimumChannel })),
 			snappees: this.model.snappees.filter(snappee => snappeeIds.has(snappee.id)).map(deepClone),
 		};
-		try { await navigator.clipboard.writeText(JSON.stringify(events)); } catch { /* Internal clipboard remains available. */ }
+		try { await navigator.clipboard.writeText(JSON.stringify(this.internalClipboard)); } catch { /* Internal clipboard remains available. */ }
 	}
 
 	async hostedLevel() {
@@ -796,7 +784,8 @@ export const withFileWorkflows = Base => class extends Base {
 		if (!data?.events?.length) return;
 		this.commit(i18n.t("toast.pasted"), model => {
 			const snappeeMap = new Map();
-			if (duplicateSnappees || options.duplicateSnappees) {
+			const shouldDuplicateSnappees = duplicateSnappees || options.duplicateSnappees;
+			if (shouldDuplicateSnappees) {
 				const names = new Set(model.snappees.map(snappee => snappee.name));
 				const referencedSnappees = new Set();
 				const collectSnappeeReferences = event => {
@@ -854,8 +843,8 @@ export const withFileWorkflows = Base => class extends Base {
 					item.time = this.currentBeat().add(item.time ?? item.beat ?? 0).toJSON();
 					item.channel = channelMap.get(channelOffset(item)) ?? model.channels[currentChannel + channelOffset(item)].id;
 					item.selected = true;
-					if (duplicateSnappees && snappeeMap.has(item.snappee)) item.snappee = snappeeMap.get(item.snappee);
-					if (duplicateSnappees && snappeeMap.has(item.tipPointSpawnSnappee)) item.tipPointSpawnSnappee = snappeeMap.get(item.tipPointSpawnSnappee);
+					if (shouldDuplicateSnappees && snappeeMap.has(item.snappee)) item.snappee = snappeeMap.get(item.snappee);
+					if (shouldDuplicateSnappees && snappeeMap.has(item.tipPointSpawnSnappee)) item.tipPointSpawnSnappee = snappeeMap.get(item.tipPointSpawnSnappee);
 					if (item.type === "group") for (const child of item.events || []) pasteTree(child);
 				};
 				pasteTree(copy);

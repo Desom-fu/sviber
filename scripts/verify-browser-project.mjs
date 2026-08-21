@@ -38,6 +38,22 @@ export async function runProjectChecks(page, outputDirectory) {
 	assert.match(await page.locator("#difficulty-select").inputValue(), /^difficulty-/);
 	assert.equal(await page.evaluate(() => globalThis.sviber.model.metadata.difficultyName), "Master");
 	assert.equal(await page.evaluate(() => globalThis.sviber.model.events.length), 0);
+	await page.locator('.status-option:has(#allow-out-of-bound) img').click();
+	await page.waitForFunction(() => globalThis.sviber.model.editor.allowOutOfBound === true);
+	assert.deepEqual(await page.evaluate(() => {
+		const editor = globalThis.sviber.model.toJSON().sviber.editor;
+		return { value: editor.allowOutOfBound, hasLegacy: Object.hasOwn(editor, "allowOutOfBounds") };
+	}), { value: true, hasLegacy: false });
+	await page.locator("#difficulty-select").selectOption(difficultyFixture.firstId);
+	await page.waitForFunction(firstId => globalThis.sviber.activeDifficultyId === firstId, difficultyFixture.firstId);
+	assert.equal(await page.evaluate(() => globalThis.sviber.model.editor.allowOutOfBound), false,
+		"out-of-bound state leaked into the first difficulty");
+	await page.locator("#difficulty-select").selectOption(secondId);
+	await page.waitForFunction(id => globalThis.sviber.activeDifficultyId === id, secondId);
+	assert.equal(await page.evaluate(() => globalThis.sviber.model.editor.allowOutOfBound), true,
+		"out-of-bound state was not retained by the second difficulty");
+	await page.locator('.status-option:has(#allow-out-of-bound) img').click();
+	await page.waitForFunction(() => globalThis.sviber.model.editor.allowOutOfBound === false);
 	await page.evaluate(() => {
 		const app = globalThis.sviber;
 		app.commit("browser master fixture", model => {

@@ -26,7 +26,7 @@ test("preferences migrate old values and normalize theme and language choices", 
 	});
 	assert.deepEqual(loadPreferences(oldStorage), {
 		theme: "system", language: "system", noteSpeed: 3.5,
-		seVolume: 1, musicVolume: 1, autoSaveInterval: 120, allowOutOfBounds: true,
+		seVolume: 1, musicVolume: 1, autoSaveInterval: 120,
 		liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
 	});
 
@@ -42,6 +42,7 @@ test("stored appearance and language preferences round-trip", () => {
 		theme: "dark", language: "zh-CN", noteSpeed: 4, allowOutOfBounds: true,
 	}, storage);
 	assert.deepEqual(JSON.parse(storage.value(PREFERENCES_KEY)), stored);
+	assert.equal(Object.hasOwn(stored, "allowOutOfBounds"), false);
 	assert.deepEqual(loadPreferences(storage), stored);
 	assert.equal(resolvePreferenceLanguage("system", "zh-HK"), "zh-CN");
 	assert.equal(resolvePreferenceLanguage("system", "en-GB"), "en-US");

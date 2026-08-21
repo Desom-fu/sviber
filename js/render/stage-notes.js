@@ -350,7 +350,12 @@ export const withStageNotes = Base => class extends Base {
 		];
 		const chart = original.map(point => applyTransform(point, descriptor.matrix));
 		const screen = chart.map(mapping.toScreen);
-		const centerChart = applyTransform({ x: (minX + maxX) / 2, y: (minY + maxY) / 2 }, descriptor.matrix);
+		const edges = [
+			{ x: (minX + maxX) / 2, y: maxY }, { x: maxX, y: (minY + maxY) / 2 },
+			{ x: (minX + maxX) / 2, y: minY }, { x: minX, y: (minY + maxY) / 2 },
+		].map(point => applyTransform(point, descriptor.matrix));
+		const edgeScreen = edges.map(mapping.toScreen);
+		const centerChart = descriptor.anchorFollows ? applyTransform(descriptor.anchorLocal, descriptor.matrix) : descriptor.anchor;
 		const topChart = applyTransform({ x: (minX + maxX) / 2, y: maxY }, descriptor.matrix);
 		const center = mapping.toScreen(centerChart);
 		const top = mapping.toScreen(topChart);
@@ -359,7 +364,8 @@ export const withStageNotes = Base => class extends Base {
 			x: top.x + (top.x - center.x) / length * 28,
 			y: top.y + (top.y - center.y) / length * 28,
 		};
-		return { descriptor, original, chart, screen, centerChart, center, top, rotate };
+		const anchor = mapping.toScreen(centerChart);
+		return { descriptor, original, chart, screen, edges, edgeScreen, centerChart, center: anchor, top, rotate };
 	}
 
 	_drawFreeTransform(context, mapping) {
@@ -376,6 +382,10 @@ export const withStageNotes = Base => class extends Base {
 		});
 		context.closePath();
 		context.stroke();
+		geometry.edgeScreen.forEach(point => {
+			context.fillRect(point.x - 4, point.y - 4, 8, 8);
+			context.strokeRect(point.x - 4, point.y - 4, 8, 8);
+		});
 		context.setLineDash([]);
 		context.beginPath();
 		context.moveTo(geometry.top.x, geometry.top.y);
@@ -386,7 +396,17 @@ export const withStageNotes = Base => class extends Base {
 		context.fill();
 		context.stroke();
 		this.hitRegions.push({ type: "free-move", polygon: geometry.screen });
+		context.beginPath();
+		context.arc(geometry.center.x, geometry.center.y, 7, 0, Math.PI * 2);
+		context.moveTo(geometry.center.x - 10, geometry.center.y);
+		context.lineTo(geometry.center.x + 10, geometry.center.y);
+		context.moveTo(geometry.center.x, geometry.center.y - 10);
+		context.lineTo(geometry.center.x, geometry.center.y + 10);
+		context.stroke();
+		this.hitRegions.push({ type: "free-anchor", x: geometry.center.x - 12, y: geometry.center.y - 12, width: 24, height: 24 });
 		this.hitRegions.push({ type: "free-rotate", x: geometry.rotate.x - 10, y: geometry.rotate.y - 10, width: 20, height: 20 });
+		geometry.edgeScreen.forEach((point, index) => this.hitRegions.push({ type: "free-scale-edge", index,
+			x: point.x - 10, y: point.y - 10, width: 20, height: 20 }));
 		geometry.screen.forEach((point, index) => {
 			context.fillRect(point.x - 5, point.y - 5, 10, 10);
 			context.strokeRect(point.x - 5, point.y - 5, 10, 10);

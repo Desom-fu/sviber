@@ -620,7 +620,7 @@ export class SnappeesPanel {
 			name.textContent = snappee.name;
 			item.append(preview, name,
 				this.#action(snappee.active === false ? "activate" : "deactivate", snappee.active === false ? "panel.snappee.activate" : "panel.snappee.deactivate",
-					() => this.onToggle(snappee.id), readOnly),
+					() => this.onToggle(snappee.id), false),
 				this.#action("duplicate", "panel.snappee.duplicate", () => this.onDuplicate(snappee.id), readOnly),
 				this.#action("up", "panel.snappee.moveUp", () => this.onMove(snappee.id, -1), readOnly || index === 0),
 				this.#action("down", "panel.snappee.moveDown", () => this.onMove(snappee.id, 1), readOnly || index === model.snappees.length - 1),
@@ -693,7 +693,7 @@ export class ChannelsPanel {
 			item.append(ordinal, name,
 				this.#action(channel.active === false ? "activate" : "deactivate",
 					channel.active === false ? "panel.channel.activate" : "panel.channel.deactivate",
-					() => this.onToggle(channel.id), readOnly),
+					() => this.onToggle(channel.id), false),
 				this.#action("duplicate", "panel.channel.duplicate", () => this.onDuplicate(channel.id), readOnly),
 				this.#action("up", "panel.channel.moveUp", () => this.onMove(channel.id, -1), readOnly || index === 0),
 				this.#action("down", "panel.channel.moveDown", () => this.onMove(channel.id, 1), readOnly || index === model.channels.length - 1),

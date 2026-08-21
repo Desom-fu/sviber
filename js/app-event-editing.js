@@ -13,8 +13,9 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainSnappeeTranslation, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { withFreeTransform } from "./app-free-transform.js";
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
-export const withEventEditing = Base => class extends Base {
+const withEventEditingBase = Base => class extends Base {
 	exitCreationModes() {
 		if (!this.creationMode && !this.curveDraft) return false;
 		this.creationMode = null; this.curveDraft = null;
@@ -122,6 +123,7 @@ export const withEventEditing = Base => class extends Base {
 					&& activeChannels.has(event.channel)).map(event => event.id), mode);
 			},
 			onPreviewFreeTransform: matrix => this.previewFreeTransform(matrix),
+			onPreviewFreeTransformAnchor: anchor => this.previewFreeTransformAnchor(anchor),
 		};
 	}
 	selectEvents(ids, mode = "replace") {
@@ -732,11 +734,10 @@ export const withEventEditing = Base => class extends Base {
 		const maxX = Math.max(...xs);
 		const minY = Math.min(...ys);
 		const maxY = Math.max(...ys);
-		const minimumExtent = 1;
 		const centerX = (minX + maxX) / 2;
 		const centerY = (minY + maxY) / 2;
-		const halfWidth = Math.max((maxX - minX) / 2, minimumExtent / 2);
-		const halfHeight = Math.max((maxY - minY) / 2, minimumExtent / 2);
+		const halfWidth = Math.max((maxX - minX) / 2, 0.5);
+		const halfHeight = Math.max((maxY - minY) / 2, 0.5);
 		const bounds = {
 			minX: centerX - halfWidth,
 			maxX: centerX + halfWidth,
@@ -799,22 +800,6 @@ export const withEventEditing = Base => class extends Base {
 		for (const event of affectedEvents) {
 			if (event.type === "flick") event.angle = transformAngle(event.angle, matrix);
 		}
-		return true;
-	}
-	startFreeTransform() {
-		if (this.freeTransform) {
-			this.finishFreeTransform();
-			return true;
-		}
-		this.exitModes();
-		const bounds = this.transformSelectionBounds();
-		if (!bounds) return false;
-		this.freeTransform = {
-			base: this.model.snapshot(),
-			bounds,
-			matrix: [1, 0, 0, 1, 0, 0],
-		};
-		this.refresh();
 		return true;
 	}
 	previewFreeTransform(transform) {
@@ -998,3 +983,4 @@ export const withEventEditing = Base => class extends Base {
 		return result;
 	}
 };
+export const withEventEditing = Base => withFreeTransform(withEventEditingBase(Base));

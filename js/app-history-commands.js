@@ -386,7 +386,7 @@ export const withHistoryCommands = Base => class extends Base {
 			const above = model.channels.slice(0, index).reverse().find(candidate => candidate.active !== false);
 			const below = model.channels.slice(index + 1).find(candidate => candidate.active !== false);
 			model.editor.currentChannel = (above || below || channel).id;
-		});
+		}, { allowReadOnly: true });
 	}
 
 	duplicateChannel(id) {

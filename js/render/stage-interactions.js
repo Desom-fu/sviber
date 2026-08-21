@@ -138,7 +138,7 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_hitTest(point) {
-		const priorities = ["free-scale", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "group-anchor", "snappee-handle", "event", "snappee-body"];
+		const priorities = ["free-scale", "free-scale-edge", "free-anchor", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "group-anchor", "snappee-handle", "event", "snappee-body"];
 		for (const type of priorities) {
 			for (let index = this.hitRegions.length - 1; index >= 0; index -= 1) {
 				const region = this.hitRegions[index];
@@ -167,7 +167,7 @@ export const withStageInteractions = Base => class extends Base {
 		const target = allowOutOfBounds ? raw : clampPointToChartBounds(raw);
 		const snap = findNearestSnapPoint(target, project.snappees, {
 			activeOnly: true,
-			maxDistance: 6.125,
+			maxDistance: 6.25,
 			bounds: allowOutOfBounds ? undefined : CHART_BOUNDS,
 		});
 		this.creationPreview = snap ? { ...snap, snappee: snap.snappee } : target;
@@ -265,7 +265,7 @@ export const withStageInteractions = Base => class extends Base {
 				matrix: [...freeTransform.matrix],
 				bounds: { ...freeTransform.bounds },
 			};
-			if (hit.type === "free-scale") {
+			if (hit.type === "free-scale" || hit.type === "free-scale-edge") {
 				try { this.drag.startLocal = applyTransform(chart, invertTransform(this.drag.matrix)); } catch { this.drag = null; return; }
 			}
 		} else if (hit?.type === "group-anchor" && !shiftPrimary) {
@@ -331,13 +331,16 @@ export const withStageInteractions = Base => class extends Base {
 			return multiplyTransforms([1, 0, 0, 1, chart.x - drag.startChart.x, chart.y - drag.startChart.y], drag.matrix);
 		}
 		if (drag.type === "free-rotate") {
-			const center = applyTransform({
-				x: (drag.bounds.minX + drag.bounds.maxX) / 2,
-				y: (drag.bounds.minY + drag.bounds.maxY) / 2,
-			}, drag.matrix);
+			const descriptor = this.callbacks.getFreeTransform?.();
+			const center = descriptor?.anchorFollows
+				? applyTransform(descriptor.anchorLocal, drag.matrix)
+				: descriptor?.anchor || applyTransform({
+					x: (drag.bounds.minX + drag.bounds.maxX) / 2,
+					y: (drag.bounds.minY + drag.bounds.maxY) / 2,
+				}, drag.matrix);
 			const beginning = Math.atan2(drag.startChart.y - center.y, drag.startChart.x - center.x);
 			let angle = Math.atan2(chart.y - center.y, chart.x - center.x) - beginning;
-			if (event.shiftKey) angle = Math.round(angle / (Math.PI / 12)) * Math.PI / 12;
+			if (event.ctrlKey) angle = Math.round(angle / (Math.PI / 4)) * Math.PI / 4;
 			const cosine = Math.cos(angle);
 			const sine = Math.sin(angle);
 			const rotation = [cosine, sine, -sine, cosine,
@@ -352,15 +355,45 @@ export const withStageInteractions = Base => class extends Base {
 				{ x: drag.bounds.minX, y: drag.bounds.maxY }, { x: drag.bounds.maxX, y: drag.bounds.maxY },
 				{ x: drag.bounds.maxX, y: drag.bounds.minY }, { x: drag.bounds.minX, y: drag.bounds.minY },
 			];
-			const anchor = corners[(drag.hit.index + 2) % 4];
+			const descriptor = this.callbacks.getFreeTransform?.();
+			let fixed = descriptor?.anchorFollows ? descriptor.anchorLocal : descriptor?.anchor;
+			if (fixed && !descriptor?.anchorFollows) {
+				try { fixed = applyTransform(fixed, invertTransform(drag.matrix)); } catch { fixed = null; }
+			}
+			const anchor = event.shiftKey && fixed ? fixed : corners[(drag.hit.index + 2) % 4];
 			const startX = drag.startLocal.x - anchor.x;
 			const startY = drag.startLocal.y - anchor.y;
 			let scaleX = Math.abs(startX) < 1e-8 ? 1 : (local.x - anchor.x) / startX;
 			let scaleY = Math.abs(startY) < 1e-8 ? 1 : (local.y - anchor.y) / startY;
-			if (event.shiftKey) {
+			if (event.ctrlKey) {
 				const magnitude = Math.max(Math.abs(scaleX), Math.abs(scaleY));
 				scaleX = Math.sign(scaleX || 1) * magnitude;
 				scaleY = Math.sign(scaleY || 1) * magnitude;
+			}
+			if (Math.abs(scaleX) < 0.01 || Math.abs(scaleY) < 0.01) return drag.matrix;
+			return multiplyTransforms(drag.matrix, [scaleX, 0, 0, scaleY,
+				anchor.x * (1 - scaleX), anchor.y * (1 - scaleY)]);
+		}
+		if (drag.type === "free-scale-edge") {
+			let local;
+			try { local = applyTransform(chart, invertTransform(drag.matrix)); } catch { return drag.matrix; }
+			const descriptor = this.callbacks.getFreeTransform?.();
+			const edge = drag.hit.index;
+			let fixed = descriptor?.anchorFollows ? descriptor.anchorLocal : descriptor?.anchor;
+			if (fixed && !descriptor?.anchorFollows) {
+				try { fixed = applyTransform(fixed, invertTransform(drag.matrix)); } catch { fixed = null; }
+			}
+			const defaultFixed = edge === 0 ? { x: 0, y: drag.bounds.minY } : edge === 1 ? { x: drag.bounds.minX, y: 0 }
+				: edge === 2 ? { x: 0, y: drag.bounds.maxY } : { x: drag.bounds.maxX, y: 0 };
+			const anchor = event.shiftKey && fixed ? fixed : defaultFixed;
+			let scaleX = 1;
+			let scaleY = 1;
+			if (edge === 0 || edge === 2) {
+				const start = drag.startLocal.y - anchor.y;
+				scaleY = Math.abs(start) < 1e-8 ? 1 : (local.y - anchor.y) / start;
+			} else {
+				const start = drag.startLocal.x - anchor.x;
+				scaleX = Math.abs(start) < 1e-8 ? 1 : (local.x - anchor.x) / start;
 			}
 			if (Math.abs(scaleX) < 0.01 || Math.abs(scaleY) < 0.01) return drag.matrix;
 			return multiplyTransforms(drag.matrix, [scaleX, 0, 0, scaleY,
@@ -376,7 +409,30 @@ export const withStageInteractions = Base => class extends Base {
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		const chart = mapping.toChart(point);
-		if (this.drag.type.startsWith("free-")) {
+		if (this.drag.type === "free-anchor") {
+			const descriptor = this.callbacks.getFreeTransform?.();
+			const candidates = [];
+			for (const point of descriptor?.anchorPoints || []) candidates.push({ point: applyTransform(point, descriptor.matrix), follows: true, local: point });
+			const { minX, maxX, minY, maxY } = descriptor.bounds;
+			for (const point of [
+				{ x: minX, y: maxY }, { x: (minX + maxX) / 2, y: maxY }, { x: maxX, y: maxY },
+				{ x: maxX, y: (minY + maxY) / 2 }, { x: maxX, y: minY }, { x: (minX + maxX) / 2, y: minY },
+				{ x: minX, y: minY }, { x: minX, y: (minY + maxY) / 2 },
+				{ x: (minX + maxX) / 2, y: (minY + maxY) / 2 },
+			]) candidates.push({ point: applyTransform(point, descriptor.matrix), follows: true, local: point });
+			const internal = candidates.sort((left, right) => Math.hypot(left.point.x - chart.x, left.point.y - chart.y)
+				- Math.hypot(right.point.x - chart.x, right.point.y - chart.y))[0];
+			const limit = 9 / mapping.scale;
+			if (internal && Math.hypot(internal.point.x - chart.x, internal.point.y - chart.y) <= limit) {
+				this.callbacks.onPreviewFreeTransformAnchor?.(internal);
+			} else {
+				const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: limit,
+					bounds: project.editor?.allowOutOfBounds ? undefined : CHART_BOUNDS });
+				this.callbacks.onPreviewFreeTransformAnchor?.(snap
+					? { point: snap, follows: false }
+					: { point: chart, follows: false });
+			}
+		} else if (this.drag.type.startsWith("free-")) {
 			this.callbacks.onPreviewFreeTransform?.(this._freeTransformMatrix(this.drag, chart, event));
 		} else if (this.drag.type === "event") {
 			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
@@ -446,7 +502,27 @@ export const withStageInteractions = Base => class extends Base {
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		const chart = mapping.toChart(point);
-		if (drag.type.startsWith("free-")) {
+		if (drag.type === "free-anchor") {
+			const descriptor = this.callbacks.getFreeTransform?.();
+			const candidates = [];
+			for (const point of descriptor?.anchorPoints || []) candidates.push({ point: applyTransform(point, descriptor.matrix), follows: true, local: point });
+			const { minX, maxX, minY, maxY } = descriptor.bounds;
+			for (const point of [
+				{ x: minX, y: maxY }, { x: (minX + maxX) / 2, y: maxY }, { x: maxX, y: maxY },
+				{ x: maxX, y: (minY + maxY) / 2 }, { x: maxX, y: minY }, { x: (minX + maxX) / 2, y: minY },
+				{ x: minX, y: minY }, { x: minX, y: (minY + maxY) / 2 },
+				{ x: (minX + maxX) / 2, y: (minY + maxY) / 2 },
+			]) candidates.push({ point: applyTransform(point, descriptor.matrix), follows: true, local: point });
+			const internal = candidates.sort((left, right) => Math.hypot(left.point.x - chart.x, left.point.y - chart.y)
+				- Math.hypot(right.point.x - chart.x, right.point.y - chart.y))[0];
+			const limit = 9 / mapping.scale;
+			if (internal && Math.hypot(internal.point.x - chart.x, internal.point.y - chart.y) <= limit) this.callbacks.onPreviewFreeTransformAnchor?.(internal);
+			else {
+				const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: limit,
+					bounds: project.editor?.allowOutOfBounds ? undefined : CHART_BOUNDS });
+				this.callbacks.onPreviewFreeTransformAnchor?.(snap ? { point: snap, follows: false } : { point: chart, follows: false });
+			}
+		} else if (drag.type.startsWith("free-")) {
 			this.callbacks.onPreviewFreeTransform?.(this._freeTransformMatrix(drag, chart, event));
 		} else if (drag.type === "event" && this.pointerMoved) {
 			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);

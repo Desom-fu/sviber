@@ -530,7 +530,9 @@ try {
 
 	const outOfBoundsFixture = await page.evaluate(() => {
 		const app = globalThis.sviber;
-		app.preferences = { ...app.preferences, noteSpeed: 2, allowOutOfBounds: false };
+		app.preferences = { ...app.preferences, noteSpeed: 2 };
+		delete app.preferences.allowOutOfBounds;
+		app.model.editor.allowOutOfBound = false;
 		app.model.editor.allowOutOfBounds = false;
 		app.model.snappees = [];
 		localStorage.setItem("sviber.preferences", JSON.stringify(app.preferences));
@@ -561,25 +563,30 @@ try {
 	await page.locator('.menu-command[data-command="file.preferences"]').click();
 	await page.getByRole("spinbutton", { name: "音符速度" }).fill("3");
 	assert.equal(await page.getByRole("spinbutton", { name: "自动保存间隔（秒）" }).inputValue(), "120");
-	await page.locator('.dialog-field input[type="checkbox"]').check();
+	assert.equal(await page.locator('.dialog-field input[type="checkbox"]').count(), 0,
+		"out-of-bound state must not be exposed as a global preference");
 	await page.locator('.dialog-button[data-dialog-action="ok"]').click();
-	await page.waitForFunction(() => globalThis.sviber.model.editor.allowOutOfBounds === true);
-	assert.equal(await page.evaluate(() => globalThis.sviber.history.length), historyBeforeOutOfBoundsToggle);
+	await page.waitForFunction(() => globalThis.sviber.preferences.noteSpeed === 3);
+	await page.locator('.status-option:has(#allow-out-of-bound) img').click();
+	await page.waitForFunction(() => globalThis.sviber.model.editor.allowOutOfBound === true);
+	assert.equal(await page.evaluate(() => globalThis.sviber.history.length), historyBeforeOutOfBoundsToggle + 1);
 	const persistedOutOfBoundsSetting = await page.evaluate(() => {
 		const app = globalThis.sviber;
+		const serializedEditor = app.model.toJSON().sviber.editor;
+		const preferences = JSON.parse(localStorage.getItem("sviber.preferences"));
 		return {
-			model: app.model.editor.allowOutOfBounds,
-			preferences: JSON.parse(localStorage.getItem("sviber.preferences")),
+			model: app.model.editor.allowOutOfBound,
+			legacyModel: app.model.editor.allowOutOfBounds,
+			serialized: serializedEditor,
+			preferences,
 		};
 	});
-	assert.deepEqual(persistedOutOfBoundsSetting, {
-		model: true,
-		preferences: {
-			theme: "system", language: "system", noteSpeed: 3,
-			seVolume: 1, musicVolume: 1, autoSaveInterval: 120, allowOutOfBounds: true,
-			liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
-		},
-	});
+	assert.equal(persistedOutOfBoundsSetting.model, true);
+	assert.equal(persistedOutOfBoundsSetting.legacyModel, true);
+	assert.equal(persistedOutOfBoundsSetting.serialized.allowOutOfBound, true);
+	assert.equal(Object.hasOwn(persistedOutOfBoundsSetting.serialized, "allowOutOfBounds"), false);
+	assert.equal(Object.hasOwn(persistedOutOfBoundsSetting.preferences, "allowOutOfBounds"), false);
+	assert.equal(persistedOutOfBoundsSetting.preferences.noteSpeed, 3);
 
 	await page.locator('.tool-button[data-command="events.tap"]').click();
 	const outsideCreationPoint = await stageChartPoint(page, 115, 0);
