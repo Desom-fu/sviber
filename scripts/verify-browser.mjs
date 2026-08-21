@@ -11,7 +11,9 @@ import { runMacroChecks } from "./verify-browser-macros.mjs";
 import { runProjectChecks } from "./verify-browser-project.mjs";
 import { runV8BrowserChecks } from "./verify-browser-v8.mjs";
 import { runPreferenceAndLicenseChecks } from "./verify-browser-preferences.mjs";
-import { measureLargeChartEditing, measureLargeChartPlayback } from "./browser-performance.mjs";
+import { measureLargeChartEditing, measureLargeChartPlayback, measureRealDrag } from "./browser-performance.mjs";
+import { runClipLayoutChecks } from "./verify-browser-clips.mjs";
+import { runKeyboardShortcutLayoutChecks } from "./verify-browser-shortcuts.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.resolve(scriptDirectory, "..");
@@ -265,6 +267,7 @@ await context.addInitScript(() => {
 const page = await context.newPage();
 let playbackBenchmark;
 let editingBenchmark;
+let dragBenchmark;
 let macroChecks;
 const pageErrors = [];
 const resourceErrors = [];
@@ -312,6 +315,14 @@ try {
 		`100k-event editing p95 exceeded 60 Hz frame pacing: ${editingBenchmark.percentile95Milliseconds} ms`);
 	assert.ok(editingBenchmark.droppedFrames <= 2,
 		`100k-event editing dropped ${editingBenchmark.droppedFrames} of ${editingBenchmark.frames} frames`);
+	dragBenchmark = await measureRealDrag(page);
+	for (const [view, result] of Object.entries(dragBenchmark)) {
+		assert.ok(result.frames >= 8, `${view} drag did not produce enough animation frames: ${JSON.stringify(result)}`);
+		assert.ok(result.percentile95Milliseconds < 25,
+			`${view} drag p95 exceeded interactive 60 Hz pacing: ${JSON.stringify(result)}`);
+		assert.ok(result.droppedFrames <= 2,
+			`${view} drag dropped too many frames: ${JSON.stringify(result)}`);
+	}
 	assert.ok(await page.evaluate(timestamp => Number(localStorage.getItem("sviber.manualSaveTime")) > timestamp,
 		startupAutosaveTimestamp), "discarding startup recovery did not suppress the same autosave on reload");
 	assert.equal(await page.locator("#inspector-tab").textContent(), "检查器");
@@ -853,6 +864,8 @@ try {
 	await runProjectChecks(page, outputDirectory);
 	await runV8BrowserChecks(page);
 	await runPreferenceAndLicenseChecks(browser, activeBaseUrl, outputDirectory);
+	await runClipLayoutChecks(page, outputDirectory);
+	await runKeyboardShortcutLayoutChecks(page, outputDirectory);
 	await page.setViewportSize({ width: 960, height: 620 });
 	await page.waitForTimeout(150);
 	const narrowTapMetric = await measureTapRadius(page);
@@ -959,7 +972,7 @@ try {
 	const unexpectedResources = resourceErrors.filter(message => !message.includes("/sviber/assets/fonts/"));
 	assert.deepEqual(unexpectedErrors, [], `browser errors: ${unexpectedErrors.join(" | ")}`);
 	assert.deepEqual(unexpectedResources, [], `resource errors: ${unexpectedResources.join(" | ")}`);
-	console.log(JSON.stringify({ baseUrl: activeBaseUrl, playbackBenchmark, editingBenchmark, macroChecks,
+	console.log(JSON.stringify({ baseUrl: activeBaseUrl, playbackBenchmark, editingBenchmark, dragBenchmark, macroChecks,
 		canvasSummaries, screenshots: outputDirectory }, null, 2));
 } finally {
 	await context.setOffline(false).catch(() => {});

@@ -58,14 +58,14 @@ export class ScrollView {
 		});
 	}
 
-	setState(state) {
+	setState(state, options = {}) {
 		this.state = state;
 		const project = projectState(state);
 		this.timing = timingFor(state);
 		this.renderIndex = state?.renderIndex || new ChartRenderIndex(project, this.timing, {
 			noteSpeed: state?.preferences?.noteSpeed,
 		});
-		this.render();
+		if (options.render !== false) this.render();
 	}
 
 	#mapping(width, height) {

@@ -54,7 +54,7 @@ const withEventEditingBase = Base => class extends Base {
 				for (const event of model.allEvents()) {
 					if (durations.has(event.id)) event.duration = deepClone(durations.get(event.id));
 				}
-			}, { scheduleDirty: true }),
+			}, { scheduleDirty: true, lightweight: true }),
 			onResizeEvents: changes => {
 				const ids = new Set(changes.map(change => change.id));
 				const durations = new Map(changes.map(change => [change.id, change.duration]));
@@ -100,7 +100,7 @@ const withEventEditingBase = Base => class extends Base {
 			onMovePosition: (id, point) => this.movePosition(id, point),
 			onPreviewGroupAnchor: (id, point) => this.previewGroupAnchor(id, point),
 			onMoveGroupAnchor: (id, point) => this.moveGroupAnchor(id, point),
-			onPreviewFlickAngle: (id, angle) => this.preview("Change flick direction", model => { const event = model.findEvent(id); if (event) event.angle = angle; }),
+			onPreviewFlickAngle: (id, angle) => this.preview("Change flick direction", model => { const event = model.findEvent(id); if (event) event.angle = angle; }, { lightweight: true, incremental: true }),
 			onFlickAngle: (id, angle) => {
 				this.lastFlickAngle = Number(angle);
 				this.commit(i18n.t("history.editEvent", { type: eventTypeLabel("flick") }), model => {
@@ -413,10 +413,10 @@ const withEventEditingBase = Base => class extends Base {
 		this.requestStatusUpdate();
 		this.audio.seek(nextSeconds);
 	}
-	previewMoveEvents(deltaBeat, channelDelta, copy) {
-		this.preview(i18n.t("history.moveEvents"),
-			model => this._applyEventMove(model, deltaBeat, channelDelta, copy),
-			{ scheduleDirty: true });
+	previewMoveEvents(deltaBeat, channelDelta, copy) { const label = i18n.t("history.moveEvents"), state = this.previewBase && this.previewLabel === label ? this.previewMoveState : (this.previewMoveState = { beat: new Rational(0), channel: 0, copied: false });
+		const totalBeat = Rational.from(deltaBeat), totalChannel = Math.round(Number(channelDelta) || 0), beatDelta = totalBeat.sub(state.beat);
+		const channelDeltaStep = totalChannel - state.channel, copyStep = Boolean(copy) && !state.copied;
+		this.preview(label, model => this._applyEventMove(model, beatDelta.toJSON(), channelDeltaStep, copyStep), { scheduleDirty: true, lightweight: true, incremental: true }); state.beat = totalBeat; state.channel = totalChannel; state.copied ||= copyStep;
 	}
 	moveEvents(deltaBeat, channelDelta, copy) {
 		this.commit(i18n.t("history.moveEvents"), model => this._applyEventMove(model, deltaBeat, channelDelta, copy));
@@ -452,7 +452,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewPosition(primaryId, point) {
-		this.preview(i18n.t("history.moveEvents"), model => this._applyPositionMove(model, primaryId, point));
+		this.preview(i18n.t("history.moveEvents"), model => this._applyPositionMove(model, primaryId, point), { lightweight: true, incremental: true });
 	}
 	movePosition(primaryId, point) {
 		const base = this.previewBase || this.model.snapshot();
@@ -466,7 +466,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewGroupAnchor(primaryId, point) {
-		this.preview(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point));
+		this.preview(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point), { lightweight: true, incremental: true });
 	}
 	moveGroupAnchor(primaryId, point) {
 		this.commit(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point));
@@ -608,7 +608,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewTipSpawn(id, point) {
-		this.preview(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point));
+		this.preview(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point), { lightweight: true, incremental: true });
 	}
 	setTipSpawn(id, point) {
 		this.commit(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point));
@@ -640,7 +640,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewSnappeeHandle(id, index, point) {
-		this.preview(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point));
+		this.preview(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point), { lightweight: true, incremental: true });
 	}
 	setSnappeeHandle(id, index, point) {
 		this.commit(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point));
@@ -651,7 +651,7 @@ const withEventEditingBase = Base => class extends Base {
 			return this._applyTransformMutation(model, [1, 0, 0, 1, movement.x, movement.y], {
 				snappeeId: id, onlySnappee: true,
 			});
-		});
+		}, { lightweight: true });
 	}
 	moveSnappee(id, delta) {
 		this.commit(i18n.t("history.editSnappee"), model => {
@@ -823,7 +823,7 @@ const withEventEditingBase = Base => class extends Base {
 			return false;
 		}
 		this.freeTransform.matrix = matrix;
-		this.refresh();
+		this.refreshInteractionPreview();
 		return true;
 	}
 	finishFreeTransform() {

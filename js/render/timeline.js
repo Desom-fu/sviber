@@ -62,7 +62,7 @@ export class TimelineView {
 		});
 	}
 
-	setState(state) {
+	setState(state, options = {}) {
 		this.state = state;
 		const project = projectState(state);
 		const maxOffset = Math.max(0, project.channels.length - 3);
@@ -72,7 +72,7 @@ export class TimelineView {
 			noteSpeed: state?.preferences?.noteSpeed,
 		});
 		this.timing = this.renderIndex.timing;
-		this.render();
+		if (options.render !== false) this.render();
 	}
 
 	render() {

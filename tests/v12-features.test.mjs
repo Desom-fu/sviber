@@ -47,7 +47,7 @@ test("clip thumbnails resolve attached content and use the dedicated five-action
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 	]);
 	assert.match(panels, /drawClipThumbnail[\s\S]*resolveAttachedPosition\(event, data\?\.snappees/);
-	assert.match(styles, /\.clip-item\s*\{[\s\S]*grid-template-columns:\s*42px minmax\(0, 1fr\) repeat\(5, 25px\)/);
+	assert.match(styles, /\.snappee-item\.clip-item\s*\{[\s\S]*grid-template-columns:\s*42px minmax\(0, 1fr\) repeat\(5, 25px\)/);
 });
 
 test("live reload uses the sscharter WebSocket handshake contract", async () => {
@@ -114,16 +114,24 @@ test("v0.3.2 event tools toggle the active creation mode and groups keep shortcu
 	assert.equal(toggledCreationMode("tap", "hold"), "hold");
 	assert.equal(COMMAND_DEFINITIONS["events.group"].shortcut, "Ctrl+G");
 	assert.equal(COMMAND_DEFINITIONS["events.ungroup"].shortcut, "Ctrl+Shift+G");
-	const [english, chinese, css] = await Promise.all([
+	const [english, chinese, css, overlays] = await Promise.all([
 		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8"),
 		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../css/overlays.css", import.meta.url), "utf8"),
 	]);
+	const shortcutStyles = `${css}\n${overlays}`;
 	assert.equal(JSON.parse(english)["event.group"], "Group");
 	assert.equal(JSON.parse(chinese)["event.group"], "分组");
-	assert.match(css, /\.shortcut-grid\s*\{[^}]*min-width:\s*0/);
-	assert.match(css, /grid-template-columns:\s*repeat\(auto-fit/);
-	assert.match(css, /\.shortcut-item\s*\{/);
+	assert.match(shortcutStyles, /\.dialog\.keyboard-shortcuts-dialog\s*\{[^}]*width:\s*min\(980px/);
+	assert.match(shortcutStyles, /\.shortcut-columns\s*\{[^}]*grid-template-columns:\s*repeat\(2/);
+	assert.match(shortcutStyles, /@media\s*\(max-width:\s*760px\)[\s\S]*\.shortcut-columns\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/);
+	assert.match(shortcutStyles, /\.shortcut-item\s*\{/);
+	assert.match(shortcutStyles, /\.shortcut-group-list\s*\{[^}]*grid-template-columns:\s*max-content\s+minmax\(0,\s*1fr\)/);
+	assert.match(shortcutStyles, /\.shortcut-item\s*\{[^}]*grid-template-columns:\s*subgrid/);
+	assert.match(shortcutStyles, /\.shortcut-columns kbd\s*\{[^}]*border:\s*1px solid/);
+	assert.equal(JSON.parse(english)["command.snappee.bezierCurve"], "Bézier curve");
+	assert.equal(JSON.parse(chinese)["command.snappee.bezierCurve"], "Bézier 曲线");
 	assert.equal(MENU_DEFINITION.find(menu => menu.id === "timing").mnemonic, "t");
 	assert.equal(MENU_DEFINITION.find(menu => menu.id === "transform").mnemonic, "r");
 });
@@ -134,6 +142,7 @@ test("v0.3.2 keyboard shortcut dialog lists group and ungroup", async () => {
 	const makeNode = tag => ({
 		tag,
 		children: [],
+		dataset: {},
 		className: "",
 		textContent: "",
 		append(...children) { this.children.push(...children); },
@@ -148,12 +157,15 @@ test("v0.3.2 keyboard shortcut dialog lists group and ungroup", async () => {
 			tooltip: { register: (_element, key) => { tooltipKeys.push(key); return () => {}; } },
 		});
 		await help.showKeyboardShortcuts(COMMAND_DEFINITIONS);
-		const rows = dialog.content.children.flatMap(node => node.children.map(child => child.textContent));
+		const groups = dialog.content.children.flatMap(column => column.children);
+		const rows = groups.flatMap(group => group.children[1].children.flatMap(row => row.children.map(child => child.textContent)));
 		assert.ok(rows.includes("command.events.group"));
 		assert.ok(rows.includes("command.events.ungroup"));
 		assert.ok(rows.includes("Ctrl+G"));
 		assert.ok(rows.includes("Ctrl+Shift+G"));
 		assert.ok(tooltipKeys.includes("command.events.group.hint"));
+		assert.equal(dialog.dialogClass, "keyboard-shortcuts-dialog");
+		assert.ok(groups.some(group => group.children[0].textContent === "menu.events"));
 	} finally {
 		if (hadDocument) globalThis.document = previousDocument;
 		else delete globalThis.document;

@@ -1,4 +1,9 @@
-import { COMMAND_DEFINITIONS } from "./commands.js";
+import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "./commands.js";
+
+const SHORTCUT_COLUMN_GROUPS = Object.freeze([
+	Object.freeze(["file", "edit", "timing", "events", "channel"]),
+	Object.freeze(["snappee", "transform", "music", "macros", "help", "timeline"]),
+]);
 
 function browserVersions() {
 	const userAgent = String(navigator.userAgent || "");
@@ -165,22 +170,55 @@ export class HelpController {
 
 	async showKeyboardShortcuts(definitions = COMMAND_DEFINITIONS) {
 		const content = document.createElement("div");
-		content.className = "shortcut-grid";
+		content.className = "shortcut-columns";
 		const cleanup = [];
+		const grouped = new Map();
 		for (const definition of Object.values(definitions)) {
 			if (!definition.shortcut) continue;
-			const item = document.createElement("div");
-			item.className = "shortcut-item";
-			const command = document.createElement("span");
-			command.textContent = this.i18n.t(definition.labelKey);
-			const shortcut = document.createElement("kbd");
-			shortcut.textContent = this.i18n.shortcut(definition.shortcut);
-			item.append(command, shortcut);
-			content.append(item);
-			cleanup.push(this.tooltip?.register(item, definition.hintKey));
+			const groupId = String(definition.id || "other").split(".")[0] || "other";
+			if (!grouped.has(groupId)) grouped.set(groupId, []);
+			grouped.get(groupId).push(definition);
+		}
+		const menuOrder = MENU_DEFINITION.map(menu => menu.id);
+		const groupOrder = [...menuOrder, ...[...grouped.keys()].filter(id => !menuOrder.includes(id))];
+		const columns = SHORTCUT_COLUMN_GROUPS.map(() => document.createElement("div"));
+		columns.forEach(column => {
+			column.className = "shortcut-column";
+			content.append(column);
+		});
+		const columnByGroup = new Map();
+		SHORTCUT_COLUMN_GROUPS.forEach((groups, columnIndex) => groups.forEach(groupId => columnByGroup.set(groupId, columnIndex)));
+		let fallbackColumn = 0;
+		for (const groupId of groupOrder) {
+			const groupDefinitions = grouped.get(groupId);
+			if (!groupDefinitions?.length) continue;
+			const group = document.createElement("section");
+			group.className = "shortcut-group";
+			const heading = document.createElement("h3");
+			heading.className = "shortcut-group-title";
+			const headingKey = groupId === "timeline" ? "shortcutGroup.timeline" : `menu.${groupId}`;
+			heading.textContent = this.i18n.t(headingKey);
+			const list = document.createElement("div");
+			list.className = "shortcut-group-list";
+			for (const definition of groupDefinitions) {
+				const item = document.createElement("div");
+				item.className = "shortcut-item";
+				item.dataset.command = definition.id;
+				const shortcut = document.createElement("kbd");
+				shortcut.textContent = this.i18n.shortcut(definition.shortcut);
+				const command = document.createElement("span");
+				command.textContent = this.i18n.t(definition.labelKey);
+				item.append(shortcut, command);
+				list.append(item);
+				cleanup.push(this.tooltip?.register(item, definition.hintKey));
+			}
+			group.append(heading, list);
+			const columnIndex = columnByGroup.has(groupId) ? columnByGroup.get(groupId) : fallbackColumn++ % columns.length;
+			columns[columnIndex].append(group);
 		}
 		try {
 			await this.dialogs.open({ titleKey: "dialog.keyboardShortcuts", content,
+				dialogClass: "keyboard-shortcuts-dialog",
 				buttons: [{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false }] });
 		} finally {
 			cleanup.forEach(dispose => dispose?.());

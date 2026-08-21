@@ -50,14 +50,14 @@ export class StageViewCore {
 		});
 	}
 
-	setState(state) {
+	setState(state, options = {}) {
 		this.state = state;
 		const project = projectState(state);
 		this.renderIndex = state?.renderIndex || new ChartRenderIndex(project, timingFor(state), {
 			noteSpeed: state?.preferences?.noteSpeed,
 		});
 		this.timing = this.renderIndex.timing;
-		this.render();
+		if (options.render !== false) this.render();
 	}
 
 	setBackground(image) {

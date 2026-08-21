@@ -1,6 +1,18 @@
 import { resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
 
 export const withFreeTransform = Base => class extends Base {
+	refreshInteractionPreview(options = {}) {
+		if (typeof this._rebuildRenderIndex !== "function" || !this.timeline) return this.refresh?.();
+		if (options.rebuildIndex !== false) this._rebuildRenderIndex();
+		const view = this.viewState();
+		this.timeline.setState(view, { render: false });
+		this.stage.setState(view, { render: false });
+		this.scrollView?.setState(view, { render: false });
+		this.timeline.requestRender();
+		this.stage.requestRender();
+		this.scrollView?.requestRender();
+		this.requestStatusUpdate();
+	}
 	startFreeTransform() {
 		if (this.freeTransform) { this.finishFreeTransform(); return true; }
 		this.exitModes();
@@ -39,7 +51,7 @@ export const withFreeTransform = Base => class extends Base {
 		if (this.freeTransform.anchorFollows && anchor.local) {
 			this.freeTransform.anchorLocal = { x: Number(anchor.local.x), y: Number(anchor.local.y) };
 		}
-		this.refresh();
+		this.refreshInteractionPreview({ rebuildIndex: false });
 		return true;
 	}
 };

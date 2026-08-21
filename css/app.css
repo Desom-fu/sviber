@@ -537,11 +537,10 @@ textarea:focus-visible,
 	background: var(--panel);
 }
 
-.shortcut-grid { display: grid; width: min(760px, calc(100vw - 72px)); min-width: 0; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 5px 22px; overflow-x: hidden; }
-.shortcut-item { display: grid; min-width: 0; grid-template-columns: minmax(0, 1fr) max-content; gap: 14px; align-items: center; } .shortcut-item > span { min-width: 0; overflow-wrap: anywhere; } .shortcut-grid kbd { color: var(--text-muted); font-family: "Cascadia Mono", Consolas, monospace; }
+
 .clip-thumbnail { flex: 0 0 42px; width: 42px; height: 42px; border: 1px solid var(--border); }
-.clip-item { grid-template-columns: 42px minmax(0, 1fr) repeat(5, 25px); min-height: 46px; }
-.clip-item .clip-thumbnail { display: block; }
+.snappee-item.clip-item { grid-template-columns: 42px minmax(0, 1fr) repeat(5, 25px); min-height: 46px; }
+.snappee-item.clip-item .clip-thumbnail { display: block; }
 .empty-panel {
 	display: grid;
 	height: 100%;

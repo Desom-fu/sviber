@@ -14,12 +14,12 @@ function summarize(eventCount, samples, cpuTasks) {
 	};
 }
 
-async function installLargeChart(page) {
-	return page.evaluate(() => {
+async function installLargeChart(page, requestedEventCount = 100_000) {
+	return page.evaluate(requestedCount => {
 		const app = globalThis.sviber;
 		const snapshot = app.model.snapshot();
 		const channelCount = 4;
-		const eventCount = 100_000;
+		const eventCount = Number(requestedCount) || 100_000;
 		app.model.channels = Array.from({ length: channelCount }, (_, id) => ({ id }));
 		app.model.snappees = [];
 		app.model.events = Array.from({ length: eventCount }, (_, id) => ({
@@ -41,7 +41,95 @@ async function installLargeChart(page) {
 		app.model.editor.visibleRangeEnd = 105;
 		app.refreshNow();
 		return { snapshot, eventCount };
+	}, requestedEventCount);
+}
+
+function summarizeDrag(samples) {
+	samples.sort((left, right) => left - right);
+	return {
+		frames: samples.length,
+		medianMilliseconds: samples[Math.floor(samples.length * 0.5)] || 0,
+		percentile95Milliseconds: samples[Math.floor(samples.length * 0.95)] || 0,
+		maximumMilliseconds: samples.at(-1) || 0,
+		droppedFrames: samples.filter(delta => delta > 25).length,
+	};
+}
+
+async function measurePointerDrag(page, viewName) {
+	const point = await page.evaluate(view => {
+		const app = globalThis.sviber;
+		const target = app.model.events.find(event => event.type === "tap");
+		if (!target) return null;
+		target.selected = true;
+		const seconds = app.timing().beatToSeconds(target.time);
+		app.model.editor.timeSnapped = false;
+		app.model.editor.currentTime = seconds;
+		app.model.editor.visibleRangeBeginning = seconds - 5;
+		app.model.editor.visibleRangeEnd = seconds + 5;
+		app.refreshNow();
+		const renderer = app[view];
+		const record = view === "stage"
+			? renderer.visibleEvents.find(item => item.event.id === target.id)
+			: renderer.eventCenters.find(item => item.event.id === target.id);
+		if (!record) return null;
+		const rectangle = renderer.surface.canvas.getBoundingClientRect();
+		const x = view === "stage" ? record.screen.x : record.x;
+		const y = view === "stage" ? record.screen.y : record.y;
+		return { x: rectangle.left + x * rectangle.width / renderer.surface.width,
+			y: rectangle.top + y * rectangle.height / renderer.surface.height };
+	}, viewName);
+	if (!point) return { frames: 0, medianMilliseconds: 0, percentile95Milliseconds: 0, maximumMilliseconds: 0, droppedFrames: 0 };
+	await page.evaluate(() => {
+		const probe = { active: false, previous: null, samples: [] };
+		const tick = timestamp => {
+			if (probe.active && probe.previous != null) probe.samples.push(timestamp - probe.previous);
+			if (probe.active) probe.previous = timestamp;
+			requestAnimationFrame(tick);
+		};
+		globalThis.__sviberDragProbe = probe;
+		requestAnimationFrame(tick);
 	});
+	await page.mouse.move(point.x, point.y);
+	await page.mouse.down();
+	await page.evaluate(() => { globalThis.__sviberDragProbe.active = true; });
+	const rectangle = await page.evaluate(view => {
+		const canvas = globalThis.sviber[view].surface.canvas;
+		const value = canvas.getBoundingClientRect();
+		return { left: value.left, top: value.top, width: value.width, height: value.height };
+	}, viewName);
+	for (let index = 1; index <= 60; index += 1) {
+		const progress = index / 60;
+		await page.mouse.move(
+			point.x + rectangle.width * 0.12 * Math.sin(progress * Math.PI),
+			point.y - rectangle.height * 0.08 * Math.sin(progress * Math.PI),
+		);
+		await page.waitForTimeout(5);
+	}
+	await page.mouse.up();
+	await page.waitForTimeout(40);
+	const samples = await page.evaluate(() => {
+		const probe = globalThis.__sviberDragProbe;
+		probe.active = false;
+		return probe.samples;
+	});
+	return summarizeDrag(samples);
+}
+
+export async function measureRealDrag(page) {
+	const results = {};
+	for (const viewName of ["stage", "timeline"]) {
+		const fixture = await installLargeChart(page, 5_000);
+		try { results[viewName] = await measurePointerDrag(page, viewName); }
+		finally {
+			await page.evaluate(snapshot => {
+				const app = globalThis.sviber;
+				app.cancelPreview();
+				app.model.restore(snapshot);
+				app.refreshNow();
+			}, fixture.snapshot);
+		}
+	}
+	return results;
 }
 
 export async function measureLargeChartPlayback(page) {

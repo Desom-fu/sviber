@@ -47,6 +47,8 @@ The timeline supports rectangular selection, a second ordinary click on a select
 
 The visible timeline range is part of the editable chart state and is restored when a saved chart is opened. `Ctrl`+wheel zooms the range, `Shift`+wheel scrolls channel lanes, and `PageUp`/`PageDown` pages the range. With **Lock visible range** enabled, playback and ordinary seeking do not move it, while the scrollbar, `Ctrl`+wheel, and range keyboard commands remain available. Holding `Shift` while dragging an event keeps the last selected event as the move context and does not retarget another event under the pointer.
 
+Stage and timeline pointer dragging are coalesced to animation frames. Drag previews update only the render surfaces and status, use incremental position/time deltas where possible, and defer panels, history, and other full-document work until the gesture ends. The browser regression covers real stage and timeline drags and checks 60 Hz frame pacing.
+
 To connect multiple notes with one Sunniesnow tip point, select at least two consecutive notes in the same channel and choose **Chain** in the Inspector. Sviber marks the first note as the chain start, makes the remaining selected notes inherit that path, and stops the path before the next unselected note.
 
 ## v12 editing workflows
@@ -72,14 +74,14 @@ The **Timing** menu edits the offset and initial BPM, and copies or pastes the c
 | Select all / channel / none / by filter | `Ctrl+A` / `Ctrl+Shift+A` / `Ctrl+D` / `Ctrl+F` |
 | Tap / Hold / Drag / Flick / Bg note / Bg pattern | `T` / `H` / `D` / `F` / `B` / `P` |
 | Create channel above / below | `Insert` / `Shift+Insert` |
-| Bezier curve / Pen | `Ctrl+B` / `Ctrl+P` |
+| Bézier curve / Pen | `Ctrl+B` / `Ctrl+P` |
 | Attach / Detach | `S` / `Shift+S` |
 | Free transform | `Ctrl+T`, then `Enter` to apply or `Esc` to cancel |
 | Play or pause / Seek to start | `Space` / `Home` |
 | Subdivision | `1`, `2`, `3`, `4`, `6`, or `8` |
 | Move selected events | Arrow keys; hold `Shift` for 12.5 units |
 
-Every menu mnemonic and command shortcut is also shown in the interface. Timing uses `Alt+T` and Transform uses `Alt+R`. The Keyboard shortcuts dialog uses responsive columns and shows the command description in the tooltip bar on hover. `Esc` exits event, curve, snappee-handle, or transform modes as appropriate.
+Every menu mnemonic and command shortcut is also shown in the interface. Timing uses `Alt+T` and Transform uses `Alt+R`. The Keyboard shortcuts dialog groups commands by menu, places the key on the left of each row, uses two independent columns on wide windows, and switches to one vertically scrolling column on narrow windows. Hovering a row shows its full command description in the tooltip bar. `Esc` exits event, curve, snappee-handle, or transform modes as appropriate.
 
 Free transform cannot start with zero-width or zero-height bounds for an ordinary event selection. A selected group uses a one-unit minimum fallback for a zero-width or zero-height axis, so a line-shaped group can still rotate, scale, and translate. Its crosshair anchor starts at the bounds center and can snap to transformed events, bounds corners or edge centers, the bounds center, active snappee points, or a free position. Content anchors follow transforms; free and snappee anchors stay fixed. Hold `Ctrl` while corner-scaling to preserve aspect ratio, `Shift` while scaling from a corner or edge to use the anchor as the fixed point, or `Ctrl` while rotating to snap to integer multiples of `pi/4`. Four edge handles complement the corner handles.
 

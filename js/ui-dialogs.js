@@ -26,7 +26,7 @@ export class DialogManager {
 			return Promise.reject(new Error('A dialog is already open'));
 		}
 		const dialog = this.document.createElement('form');
-		dialog.className = 'dialog';
+		dialog.className = ['dialog', options.dialogClass].filter(Boolean).join(' ');
 		dialog.setAttribute('role', 'dialog');
 		dialog.setAttribute('aria-modal', 'true');
 		dialog.noValidate = true;
