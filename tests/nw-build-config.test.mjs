@@ -41,6 +41,8 @@ test("NW.js builds pass an explicit target platform and architecture", async () 
 	const source = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
 	assert.match(source, /SVIBER_NW_PLATFORM/);
 	assert.match(source, /SVIBER_NW_ARCH/);
+	assert.match(source, /SVIBER_BUILD_DIRECTORY/);
+	assert.match(source, /effectiveBuildDirectory/);
 	assert.match(source, /platform: TARGET_PLATFORM/);
 	assert.match(source, /arch: TARGET_ARCH/);
 	assert.match(source, /win: new Set\(\["ia32", "x64", "arm64"\]\)/);

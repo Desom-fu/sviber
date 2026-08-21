@@ -182,6 +182,9 @@ test("v11 Scroll View, manual, and release notes describe the implemented behavi
 	assert.match(manual, /纵向每秒像素比例与时间轴/);
 	assert.match(manual, /id="manual-search-input"/);
 	assert.match(manualScript, /function applySearch/);
+	assert.match(manualScript, /focusSearchMatch/);
+	assert.match(manualScript, /event\.shiftKey \? -1 : 1/);
+	assert.match(manualScript, /target\.scrollIntoView/);
 	assert.match(manualScript, /searchLabels/);
 	assert.match(manualStyles, /#manual-search-input/);
 	assert.match(readme, /macOS provides x86_64 and aarch64 ZIP archives/);

@@ -18,6 +18,40 @@ export async function runInteractionChecks(page, outputDirectory) {
 		return { snapshot, historyLabel, savedSignature };
 	});
 	await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+	const groupTransformFixture = await page.evaluate(() => {
+		const app = globalThis.sviber;
+		const snapshot = app.model.snapshot();
+		const historyLabel = app.history.currentEntry.label;
+		const savedSignature = app.savedSignature;
+		app.model.events = [{ id: 700, type: "group", channel: app.model.channels[0].id,
+			time: [0, 0, 1], x: 0, y: 0, selected: true, events: [
+			{ id: 701, type: "tap", channel: app.model.channels[0].id, time: [0, 0, 1], x: 0, y: -20 },
+			{ id: 702, type: "tap", channel: app.model.channels[0].id, time: [1, 0, 1], x: 0, y: 20 },
+		] }];
+		app.groupSelectionScope = null;
+		app.model.editor.currentTime = [0, 0, 1];
+		app.model.editor.visibleRangeBeginning = 0;
+		app.model.editor.visibleRangeEnd = 4;
+		app.refreshNow();
+		return { snapshot, historyLabel, savedSignature };
+	});
+	await page.keyboard.press("Control+T");
+	await page.waitForTimeout(50);
+	const groupTransformState = await page.evaluate(() => ({
+		free: Boolean(globalThis.sviber.freeTransform),
+		corners: globalThis.sviber.stage.hitRegions.filter(region => region.type === "free-scale").length,
+	}));
+	assert.equal(groupTransformState.free, true, "Ctrl+T did not start free transform for a line-shaped group");
+	assert.equal(groupTransformState.corners, 4, "group free transform did not render four corner handles");
+	await page.evaluate(({ snapshot, historyLabel, savedSignature }) => {
+		const app = globalThis.sviber;
+		app.cancelFreeTransform();
+		app.model.restore(snapshot);
+		app.history.reset(snapshot, historyLabel);
+		app.savedSignature = savedSignature;
+		app.updateDirty();
+		app.refreshNow();
+	}, groupTransformFixture);
 
 	const canvasPoint = async (viewName, collectionName) => page.evaluate(({ viewName, collectionName }) => {
 		const view = globalThis.sviber[viewName];

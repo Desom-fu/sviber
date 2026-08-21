@@ -9,7 +9,9 @@ export const withFreeTransform = Base => class extends Base {
 		const rawPoints = this._freeTransformAnchorPoints();
 		const xs = rawPoints.map(point => point.x);
 		const ys = rawPoints.map(point => point.y);
-		if (!rawPoints.length || Math.max(...xs) - Math.min(...xs) <= 1e-9 || Math.max(...ys) - Math.min(...ys) <= 1e-9) return false;
+		const hasSelectedGroup = this.model.allEvents().some(event => event.selected && event.type === "group");
+		if (!rawPoints.length || !hasSelectedGroup && (Math.max(...xs) - Math.min(...xs) <= 1e-9
+			|| Math.max(...ys) - Math.min(...ys) <= 1e-9)) return false;
 		const anchorLocal = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
 		this.freeTransform = {
 			base: this.model.snapshot(), bounds, anchor: { ...anchorLocal }, anchorLocal,

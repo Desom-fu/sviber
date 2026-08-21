@@ -149,6 +149,11 @@ textarea {
 	white-space: nowrap;
 }
 
+.search-match-current {
+	outline: 2px solid var(--focus);
+	outline-offset: 3px;
+}
+
 select {
 	min-height: 30px;
 	padding: 3px 28px 3px 8px;

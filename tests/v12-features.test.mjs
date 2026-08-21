@@ -326,3 +326,25 @@ test("free transform recursively includes attached descendants of a selected gro
 	assert.equal(app.model.findEvent(12).y, -3);
 	assert.notDeepEqual(app.model.snappees[0].transformation, before);
 });
+
+test("selected groups can free-transform a line of events while ordinary degenerate selections stay blocked", () => {
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	app.refresh = () => {};
+	app.exitModes = () => {};
+	app.model = ChartModel.createDefault({ events: [{
+		id: 10, type: "group", channel: 0, time: [0, 0, 1], x: 0, y: 0, selected: true,
+		events: [
+			{ id: 11, type: "tap", channel: 0, time: [0, 0, 1], x: 0, y: -20 },
+			{ id: 12, type: "tap", channel: 0, time: [1, 0, 1], x: 0, y: 20 },
+		],
+	}] });
+	assert.equal(app.startFreeTransform(), true);
+	assert.deepEqual(app.freeTransform.bounds, { minX: -0.5, maxX: 0.5, minY: -20, maxY: 20 });
+	app.cancelFreeTransform();
+	app.model = ChartModel.createDefault({ events: [
+		{ id: 20, type: "tap", channel: 0, time: [0, 0, 1], x: 0, y: -20, selected: true },
+		{ id: 21, type: "tap", channel: 0, time: [1, 0, 1], x: 0, y: 20, selected: true },
+	] });
+	assert.equal(app.startFreeTransform(), false);
+});

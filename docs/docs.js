@@ -6,14 +6,16 @@ const languageLabels = Object.freeze({
 	"zh-CN": { en: "英文", "zh-CN": "简体中文" },
 });
 const searchLabels = Object.freeze({
-	en: { label: "Search", placeholder: "Search manual", clear: "Clear search", matches: count => `${count} matches`, none: "No matches" },
-	"zh-CN": { label: "搜索", placeholder: "搜索手册", clear: "清除搜索", matches: count => `匹配 ${count} 项`, none: "没有匹配内容" },
+	en: { label: "Search", placeholder: "Search manual", clear: "Clear search", matches: (index, count) => `${index}/${count} matches`, none: "No matches" },
+	"zh-CN": { label: "搜索", placeholder: "搜索手册", clear: "清除搜索", matches: (index, count) => `${index}/${count} 项匹配`, none: "没有匹配内容" },
 });
 const searchInput = document.getElementById("manual-search-input");
 const searchClear = document.getElementById("manual-search-clear");
 const searchStatus = document.getElementById("manual-search-status");
 let activeArticle = null;
 let activeLanguage = "en";
+let searchMatches = [];
+let searchMatchIndex = -1;
 
 function normalizeLanguage(value) {
 	const language = String(value || "").toLowerCase();
@@ -61,12 +63,24 @@ function syncContents() {
 	}
 }
 
+function focusSearchMatch(index, behavior = "smooth") {
+	if (!searchMatches.length) return;
+	searchMatchIndex = (index + searchMatches.length) % searchMatches.length;
+	const target = searchMatches[searchMatchIndex];
+	for (const node of searchMatches) node.classList.toggle("search-match-current", node === target);
+	target.scrollIntoView({ behavior, block: "center" });
+	searchStatus.textContent = searchLabels[activeLanguage].matches(searchMatchIndex + 1, searchMatches.length);
+}
+
 function applySearch(value = "") {
 	if (!activeArticle) return;
 	const query = String(value).trim().toLocaleLowerCase();
 	const tokens = query ? query.split(/\s+/).filter(Boolean) : [];
+	searchMatches = [];
+	searchMatchIndex = -1;
 	const searchable = [...activeArticle.querySelectorAll("h2, h3, p, li, tr")];
 	for (const node of searchable) node.hidden = false;
+	for (const node of searchable) node.classList.remove("search-match-current");
 	for (const node of activeArticle.querySelectorAll("table, ul, ol")) node.hidden = false;
 	if (!tokens.length) {
 		searchClear.hidden = true;
@@ -78,6 +92,7 @@ function applySearch(value = "") {
 	let currentH2 = null;
 	let currentH3 = null;
 	let matches = 0;
+	const matchedNodes = [];
 	for (const node of searchable) {
 		if (node.matches("h2")) { currentH2 = node; currentH3 = null; }
 		if (node.matches("h3")) currentH3 = node;
@@ -86,6 +101,7 @@ function applySearch(value = "") {
 		node.hidden = !matched;
 		if (!matched) continue;
 		matches += 1;
+		matchedNodes.push(node);
 		if (currentH2) currentH2.hidden = false;
 		if (currentH3) currentH3.hidden = false;
 	}
@@ -96,7 +112,9 @@ function applySearch(value = "") {
 		list.hidden = !list.querySelector("li:not([hidden])");
 	}
 	searchClear.hidden = false;
-	searchStatus.textContent = matches ? searchLabels[activeLanguage].matches(matches) : searchLabels[activeLanguage].none;
+	searchMatches = matchedNodes;
+	if (searchMatches.length) focusSearchMatch(0, "auto");
+	else searchStatus.textContent = matches ? searchLabels[activeLanguage].matches(0, matches) : searchLabels[activeLanguage].none;
 	syncContents();
 }
 
@@ -127,8 +145,15 @@ function setLanguage(language) {
 languageSelect.addEventListener("change", () => setLanguage(languageSelect.value));
 document.getElementById("manual-search").addEventListener("submit", event => event.preventDefault());
 searchInput.addEventListener("input", () => applySearch(searchInput.value));
+searchInput.addEventListener("keydown", event => {
+	if (event.key !== "Enter" || !searchMatches.length) return;
+	event.preventDefault();
+	focusSearchMatch(searchMatchIndex + (event.shiftKey ? -1 : 1));
+});
 searchClear.addEventListener("click", () => {
 	searchInput.value = "";
+	searchMatches = [];
+	searchMatchIndex = -1;
 	applySearch();
 	searchInput.focus();
 });

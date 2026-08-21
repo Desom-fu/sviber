@@ -17,8 +17,12 @@ const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const sviberDirectory = path.resolve(scriptDirectory, "..");
 const repositoryDirectory = path.resolve(sviberDirectory, "..");
 const buildDirectory = path.join(sviberDirectory, "build");
-const stageDirectory = path.join(buildDirectory, "stage");
-const outputDirectory = path.join(buildDirectory, "nw");
+const configuredBuildDirectory = String(process.env.SVIBER_BUILD_DIRECTORY || "").trim();
+const effectiveBuildDirectory = configuredBuildDirectory
+	? path.resolve(configuredBuildDirectory)
+	: buildDirectory;
+const stageDirectory = path.join(effectiveBuildDirectory, "stage");
+const outputDirectory = path.join(effectiveBuildDirectory, "nw");
 const fontCacheDirectory = path.join(sviberDirectory, "node_modules", ".cache", "sviber", "fonts");
 
 const HOST_PLATFORM = process.platform === "win32" ? "win" : process.platform === "darwin" ? "osx" : "linux";
@@ -343,7 +347,7 @@ async function generatePackagedIcons(applicationDirectory, targetPlatform) {
 }
 
 async function copyApplication() {
-	await rm(buildDirectory, { recursive: true, force: true });
+	await rm(effectiveBuildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
 	await mkdir(applicationDirectory, { recursive: true });
 	const excludedEntries = new Set([
@@ -416,7 +420,7 @@ async function addDirectoryToZip(zip, directory, prefix = "") {
 
 async function createNwPackage() {
 	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
-	const destination = path.join(buildDirectory, `sviber-${sourcePackage.version}.nw`);
+	const destination = path.join(effectiveBuildDirectory, `sviber-${sourcePackage.version}.nw`);
 	const zip = new JSZip();
 	await addDirectoryToZip(zip, stageDirectory);
 	await pipeline(zip.generateNodeStream({
