@@ -292,3 +292,37 @@ test("free transform follows v12 degenerate-box and modifier rules", () => {
 	assert.equal(scale[0], 1.5);
 	assert.equal(scale[3], 1.5);
 });
+
+test("free transform recursively includes attached descendants of a selected group", () => {
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	app.refresh = () => {};
+	app.exitModes = () => {};
+	app.model = ChartModel.createDefault({
+		snappees: [{
+			id: 0, type: "rectangularMesh", name: "Attached group mesh", color: "#00e0ad",
+			transformation: [1, 0, 0, 1, 0, 0], active: true,
+			topLeftX: -20, topLeftY: 20, bottomRightX: 20, bottomRightY: -20,
+			horizontalTiles: 2, verticalTiles: 2,
+		}],
+		events: [{
+			id: 10, type: "group", channel: 0, time: [0, 0, 1], x: 0, y: 0, selected: true,
+			events: [
+				{ id: 11, type: "tap", channel: 0, time: [0, 0, 1], attached: true, snappee: 0, snapPoint: [0, 0] },
+				{ id: 12, type: "tap", channel: 0, time: [1, 0, 1], x: 10, y: -10 },
+			],
+		}],
+	});
+	assert.deepEqual([...app.attachedSnappeeIds()], [0]);
+	assert.equal(app.transformationAvailable(), true);
+	assert.equal(app.startFreeTransform(), true);
+	const before = app.model.snappees[0].transformation;
+	assert.equal(app._applyTransformMutation(app.model, [1, 0, 0, 1, 5, 7]), true);
+	assert.deepEqual(app.model.snappees[0].transformation, [1, 0, 0, 1, 5, 7]);
+	assert.equal(app.model.findEvent(10).x, 5);
+	assert.equal(app.model.findEvent(10).y, 7);
+	assert.deepEqual(app.model.findEvent(11).snapPoint, [0, 0]);
+	assert.equal(app.model.findEvent(12).x, 15);
+	assert.equal(app.model.findEvent(12).y, -3);
+	assert.notDeepEqual(app.model.snappees[0].transformation, before);
+});

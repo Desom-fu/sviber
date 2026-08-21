@@ -691,8 +691,10 @@ const withEventEditingBase = Base => class extends Base {
 	}
 	attachedSnappeeIds(model = this.model) {
 		const available = new Set(model.snappees.map(snappee => snappee.id));
+		const selectedEvents = new Set(model.allEvents().filter(event => event.selected).flatMap(event =>
+			event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event]));
 		return new Set(model.allEvents()
-			.filter(event => event.selected && event.attached && available.has(event.snappee))
+			.filter(event => selectedEvents.has(event) && event.attached && available.has(event.snappee))
 			.map(event => event.snappee));
 	}
 	transformationTargets(model = this.model, options = {}) {
