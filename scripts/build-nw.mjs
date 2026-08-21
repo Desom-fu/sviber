@@ -346,6 +346,14 @@ async function generatePackagedIcons(applicationDirectory, targetPlatform) {
 	await Promise.all(tasks);
 }
 
+async function generateSourceIcons() {
+	const source = path.join(sviberDirectory, "svg", "icon.svg");
+	await Promise.all([
+		generateWindowsIcon(source, path.join(sviberDirectory, "icon.ico")),
+		sharp(source).resize(512, 512, { fit: "contain" }).png().toFile(path.join(sviberDirectory, "icon.png")),
+	]);
+}
+
 async function copyApplication() {
 	await rm(effectiveBuildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
@@ -433,6 +441,7 @@ if (!existsSync(path.join(sviberDirectory, "node_modules"))) {
 	throw new Error("Run npm install before building the NW.js application.");
 }
 
+await generateSourceIcons();
 await copyApplication();
 await downloadFonts();
 await createNwPackage();

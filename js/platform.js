@@ -169,6 +169,27 @@ export class FileManager {
 		this.clearChartTarget();
 	}
 
+	localSourceContext() {
+		return {
+			projectPath: this.projectPath,
+			projectName: this.projectName,
+			chartPath: this.chartPath,
+			chartFilename: this.chartFilename,
+		};
+	}
+
+	restoreLocalSourceContext(source = {}) {
+		this.clearProjectTarget();
+		const modules = nwModules();
+		if (!modules) return false;
+		this.projectPath = source.projectPath ? modules.path.resolve(String(source.projectPath)) : "";
+		this.projectName = String(source.projectName || "");
+		this.chartPath = source.chartPath ? modules.path.resolve(String(source.chartPath)) : "";
+		this.chartFilename = String(source.chartFilename
+			|| (this.chartPath ? modules.path.basename(this.chartPath) : ""));
+		return Boolean(this.projectPath || this.chartPath);
+	}
+
 	adoptChartSource(source) {
 		this.fileHandle = source?.fileHandle || null;
 		this.chartFilename = String(source?.chartFilename || "");
@@ -709,13 +730,14 @@ export class AutosaveManager {
 		this.timer = 0;
 	}
 
-	save(model) {
+	save(model, source = {}) {
 		let entries = this.index;
 		let timestamp = Date.now();
 		while (entries.includes(timestamp)) timestamp += 1;
 		const key = `${AUTOSAVE_PREFIX}${timestamp}`;
-		const value = model instanceof ChartModel
-			? model.serialize(0, { includeGeneratedEvents: false }) : JSON.stringify(model);
+		const document = model instanceof ChartModel
+			? JSON.parse(model.serialize(0, { includeGeneratedEvents: false })) : model;
+		const value = JSON.stringify({ version: 1, document, source: { ...source } });
 		const removeOldest = () => {
 			const oldest = entries.shift();
 			if (oldest != null) this.storage.removeItem(`${AUTOSAVE_PREFIX}${oldest}`);
@@ -765,7 +787,12 @@ export class AutosaveManager {
 		for (const timestamp of this.index.filter(value => value > manualSave).toSorted((left, right) => right - left)) {
 			try {
 				const value = this.storage.getItem(`${AUTOSAVE_PREFIX}${timestamp}`);
-				if (value) result.push({ timestamp, model: ChartModel.import(value) });
+				const recovery = value && JSON.parse(value);
+				if (recovery?.version === 1 && recovery.document) result.push({
+					timestamp,
+					model: ChartModel.import(recovery.document),
+					source: recovery.source && typeof recovery.source === "object" ? recovery.source : {},
+				});
 			} catch {
 				// Keep other valid recovery entries available.
 			}

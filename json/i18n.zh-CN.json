@@ -667,5 +667,6 @@
   "macro.message.delete": "删除宏“{name}”吗？此操作无法撤销。",
   "macro.message.deleted": "宏已删除。",
 	"macro.error.rubyLoad": "无法加载 ruby.wasm。",
-	"macro.error.readOnly": "谱面处于只读模式时不能运行宏，也不能编辑工程宏。"
+	"macro.error.readOnly": "谱面处于只读模式时不能运行宏，也不能编辑工程宏。",
+	"footer.javascriptLicense": "JavaScript 许可信息"
 }

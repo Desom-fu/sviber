@@ -55,11 +55,10 @@ function buildContents(article) {
 
 function syncContents() {
 	for (const link of contents.querySelectorAll("a")) {
-		const heading = document.getElementById(link.hash.slice(1));
-		link.hidden = Boolean(searchInput?.value.trim() && heading?.hidden);
+		link.hidden = false;
 	}
 	for (const group of contents.querySelectorAll(".contents-group")) {
-		group.hidden = !group.querySelector("a:not([hidden])");
+		group.hidden = false;
 	}
 }
 
@@ -89,32 +88,17 @@ function applySearch(value = "") {
 		return;
 	}
 
-	let currentH2 = null;
-	let currentH3 = null;
-	let matches = 0;
 	const matchedNodes = [];
 	for (const node of searchable) {
-		if (node.matches("h2")) { currentH2 = node; currentH3 = null; }
-		if (node.matches("h3")) currentH3 = node;
 		const text = node.textContent.toLocaleLowerCase();
 		const matched = tokens.every(token => text.includes(token));
-		node.hidden = !matched;
 		if (!matched) continue;
-		matches += 1;
 		matchedNodes.push(node);
-		if (currentH2) currentH2.hidden = false;
-		if (currentH3) currentH3.hidden = false;
-	}
-	for (const table of activeArticle.querySelectorAll("table")) {
-		table.hidden = !table.querySelector("tr:not([hidden])");
-	}
-	for (const list of activeArticle.querySelectorAll("ul, ol")) {
-		list.hidden = !list.querySelector("li:not([hidden])");
 	}
 	searchClear.hidden = false;
 	searchMatches = matchedNodes;
 	if (searchMatches.length) focusSearchMatch(0, "auto");
-	else searchStatus.textContent = matches ? searchLabels[activeLanguage].matches(0, matches) : searchLabels[activeLanguage].none;
+	else searchStatus.textContent = searchLabels[activeLanguage].none;
 	syncContents();
 }
 

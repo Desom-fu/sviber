@@ -14,6 +14,7 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { eventUsesChannel } from "./core/grouping.js";
 
 export function toggledCreationMode(current, type) {
 	return current === type ? null : type;
@@ -73,7 +74,8 @@ export const withHistoryCommands = Base => class extends Base {
 		command("edit.paste", () => void this.pasteEvents(false));
 		command("edit.pasteOptions", () => void this.showPasteOptions());
 		command("edit.selectAll", () => this.selectEvents(this.model.allEvents().map(event => event.id), "replace"), () => this.model.allEvents().length > 0);
-		command("edit.selectChannel", () => this.selectEvents(this.model.allEvents().filter(event => event.channel === this.model.editor.currentChannel).map(event => event.id), "replace"));
+		command("edit.selectChannel", () => this.selectEvents(this.model.allEvents().filter(event =>
+			eventUsesChannel(event, [this.model.editor.currentChannel])).map(event => event.id), "replace"));
 		command("edit.selectNone", () => this.selectEvents([], "replace"), () => selected(this.model).length > 0);
 		command("edit.selectAttached", () => {
 			const snappee = this.model.snappees.find(candidate => candidate.selected);
@@ -81,7 +83,7 @@ export const withHistoryCommands = Base => class extends Base {
 			const activeChannels = new Set(this.model.channels
 				.filter(channel => channel.active !== false).map(channel => channel.id));
 			this.selectEvents(this.model.allEvents().filter(event => event.attached && event.snappee === snappee.id
-				&& activeChannels.has(event.channel)).map(event => event.id), "replace");
+				&& eventUsesChannel(event, activeChannels)).map(event => event.id), "replace");
 		}, () => this.model.snappees.some(snappee => snappee.selected));
 		command("edit.selectFilter", () => void this.showSelectionFilter(), () => this.model.allEvents().length > 0);
 		command("edit.delete", () => this.deleteSelected(), () => selected(this.model).length > 0);
@@ -221,7 +223,7 @@ export const withHistoryCommands = Base => class extends Base {
 		this.curveDraft = null;
 		this.cancelFreeTransform();
 		this.cancelPreview();
-		const chosen = selected(this.model).filter(event => !PATTERN_TYPES.has(event.type));
+		const chosen = selected(this.model).filter(event => event.type !== "group" && !PATTERN_TYPES.has(event.type));
 		if (!alreadyCreating && chosen.length) {
 			this.commit(i18n.t("history.editEvent", { type: eventTypeLabel(type) }), model => {
 				for (const event of model.allEvents().filter(item => item.selected && !PATTERN_TYPES.has(item.type))) {
@@ -286,7 +288,8 @@ export const withHistoryCommands = Base => class extends Base {
 	canMoveSelectedChannel(direction) {
 		const chosen = selected(this.model);
 		if (!chosen.length) return false;
-		const moved = [...new Set(chosen.flatMap(event => event.type === "group" ? [event, ...this.model.groupDescendants(event.id)] : [event]))];
+		const moved = [...new Set(chosen.flatMap(event => event.type === "group"
+			? this.model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
 		return moved.every(event => {
 			const index = this.model.channels.findIndex(channel => channel.id === event.channel);
 			const target = this.model.channels[index + direction];
@@ -297,7 +300,8 @@ export const withHistoryCommands = Base => class extends Base {
 	moveSelectedChannel(direction) {
 		this.commit(i18n.t("history.moveEvents"), model => {
 			const chosen = model.allEvents().filter(item => item.selected);
-			const moved = [...new Set(chosen.flatMap(event => event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event]))];
+			const moved = [...new Set(chosen.flatMap(event => event.type === "group"
+				? model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
 			for (const event of moved) {
 				const index = model.channels.findIndex(channel => channel.id === event.channel);
 				const target = model.channels[index + direction];
@@ -310,10 +314,11 @@ export const withHistoryCommands = Base => class extends Base {
 		this.commit(i18n.t("history.moveEvents"), model => {
 			const chosen = model.allEvents().filter(event => event.selected);
 			if (!chosen.length) return;
-			const beats = chosen.map(event => Rational.from(event.time));
+			const moved = [...new Set(chosen.flatMap(event => event.type === "group"
+				? model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
+			const beats = moved.map(event => Rational.from(event.time));
 			const minimum = beats.reduce((left, right) => left.compare(right) <= 0 ? left : right);
 			const maximum = beats.reduce((left, right) => left.compare(right) >= 0 ? left : right);
-			const moved = [...new Set(chosen.flatMap(event => event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event]))];
 			for (const event of moved) event.time = minimum.add(maximum).sub(event.time).toJSON();
 		});
 	}
@@ -391,6 +396,10 @@ export const withHistoryCommands = Base => class extends Base {
 			for (const event of model.allEvents()) {
 				if (event.channel === id) event.selected = false;
 			}
+			const activeChannels = new Set(model.channels.filter(candidate => candidate.active !== false).map(candidate => candidate.id));
+			for (const event of model.allEvents().filter(candidate => candidate.type === "group")) {
+				if (!eventUsesChannel(event, activeChannels)) event.selected = false;
+			}
 			if (model.channels.length <= 1) return;
 			const above = model.channels.slice(0, index).reverse().find(candidate => candidate.active !== false);
 			const below = model.channels.slice(index + 1).find(candidate => candidate.active !== false);
@@ -408,7 +417,8 @@ export const withHistoryCommands = Base => class extends Base {
 				name: this.uniqueChannelName(source.name),
 				active: source.active !== false,
 			});
-			const sourceEvents = model.allEvents().filter(event => event.channel === id && !model.ancestorsOf(event.id).length);
+			const sourceEvents = model.allEvents({ includeGroups: false }).filter(event =>
+				event.channel === id && !model.ancestorsOf(event.id).length);
 			for (const event of sourceEvents) model.addEvent({ ...deepClone(event), id: null, channel: duplicate.id, selected: false });
 			if (duplicate.active === false) model.editor.currentChannel = previousCurrent;
 		});

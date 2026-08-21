@@ -16,6 +16,24 @@ function interpolate(message, params) {
 		Object.hasOwn(params, key) ? String(params[key]) : match);
 }
 
+function escapeRegExp(value) {
+	return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function matchTemplate(template, message) {
+	const keys = [];
+	let pattern = "^";
+	let position = 0;
+	for (const match of String(template).matchAll(/\{([\w.-]+)\}/g)) {
+		pattern += `${escapeRegExp(String(template).slice(position, match.index))}(.*?)`;
+		keys.push(match[1]);
+		position = match.index + match[0].length;
+	}
+	pattern += `${escapeRegExp(String(template).slice(position))}$`;
+	const values = new RegExp(pattern).exec(String(message));
+	return values ? Object.fromEntries(keys.map((key, index) => [key, values[index + 1]])) : null;
+}
+
 function translatedNodes(root, selector) {
 	const result = [];
 	if (root?.matches?.(selector)) result.push(root);
@@ -33,6 +51,22 @@ export class I18n {
 	t(key, params = {}) {
 		const sheet = MESSAGES[this.language] || MESSAGES["en-US"];
 		return interpolate(sheet[key] ?? MESSAGES["en-US"][key] ?? key, params);
+	}
+
+	localize(message) {
+		for (const sheet of Object.values(MESSAGES)) {
+			for (const [key, template] of Object.entries(sheet)) {
+				const params = matchTemplate(template, message);
+				if (!params) continue;
+				for (const [name, value] of Object.entries(params)) {
+					const localizedKey = Object.entries(sheet).find(([candidate, text]) =>
+						candidate.startsWith("event.") && text === value)?.[0];
+					if (localizedKey) params[name] = this.t(localizedKey);
+				}
+				return this.t(key, params);
+			}
+		}
+		return String(message ?? "");
 	}
 
 	shortcut(shortcut) {

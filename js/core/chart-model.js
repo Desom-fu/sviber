@@ -6,7 +6,7 @@ import {
 	normalizeTransform,
 	resolveAttachedPosition,
 } from "./geometry.js";
-import { descendants, eventAncestors, findEvent, flattenEvents, groupBounds, groupSiblingEvents, removeEvent, replaceEvent, ungroupEvent, walkEvents } from "./grouping.js";
+import { descendants, eventAncestors, eventUsesChannel, findEvent, flattenEvents, groupBounds, groupSiblingEvents, removeEvent, replaceEvent, ungroupEvent, walkEvents } from "./grouping.js";
 
 export const SUNNIESNOW_SCHEMA = "https://sunniesnow.github.io/schema/chart-1.0.json";
 
@@ -133,12 +133,8 @@ function normalizeEventTree(items, channels) {
 		const event = createEvent(raw.type, { ...raw, id });
 		if (event.type === "group") {
 			event.events = (raw.events || []).map(visit);
-			if (event.events.length) {
-				event.time = event.events.map(child => Rational.from(child.time)).reduce((a, b) => a.compare(b) <= 0 ? a : b).toJSON();
-				event.channel = event.events[0].channel;
-			}
 		}
-		if (!channels.some(channel => channel.id === event.channel)) event.channel = channels[0].id;
+		else if (!channels.some(channel => channel.id === event.channel)) event.channel = channels[0].id;
 		return event;
 	};
 	return (Array.isArray(items) ? items : []).map(visit);
@@ -271,8 +267,8 @@ export function createEvent(type, overrides = {}) {
 	if (type === "group") {
 		event.color = normalizeColor(overrides.color, "#ff9d3d");
 		event.events = (Array.isArray(overrides.events) ? overrides.events : []).map(child => createEvent(child.type, child));
-		if (overrides.time == null && event.events.length) event.time = event.events
-			.map(child => Rational.from(child.time)).reduce((a, b) => a.compare(b) <= 0 ? a : b).toJSON();
+		delete event.time;
+		delete event.channel;
 	} else {
 		delete event.events;
 		delete event.color;
@@ -467,7 +463,11 @@ export class ChartModel {
 		const activeChannels = new Set(this.channels
 			.filter(channel => channel.active !== false).map(channel => channel.id));
 		this.events = normalizeEventTree(state.events, this.channels);
-		walkEvents(this.events, event => { if (!activeChannels.has(event.channel)) event.selected = false; });
+		walkEvents(this.events, event => {
+			if (event.type === "group" ? !eventUsesChannel(event, activeChannels) : !activeChannels.has(event.channel)) {
+				event.selected = false;
+			}
+		});
 		this.clips = (Array.isArray(state.clips) ? state.clips : []).map((clip, index) => ({
 			name: String(clip?.name ?? `Clip ${index + 1}`), data: clone(clip?.data ?? { events: [], snappees: [] }),
 		}));
@@ -676,15 +676,17 @@ export class ChartModel {
 			if (item.type === "group") for (const child of item.events || []) assignChildIds(child);
 		};
 		if (event.type === "group") for (const child of event.events || []) assignChildIds(child);
-		if (!this.channels.some(({ id }) => id === event.channel)) event.channel = this.editor.currentChannel;
-		if (this.channels.find(channel => channel.id === event.channel)?.active === false) event.selected = false;
+		if (event.type !== "group") {
+			if (!this.channels.some(({ id }) => id === event.channel)) event.channel = this.editor.currentChannel;
+			if (this.channels.find(channel => channel.id === event.channel)?.active === false) event.selected = false;
+		} else if (!eventUsesChannel(event, new Set(this.channels.filter(channel => channel.active !== false).map(channel => channel.id)))) {
+			event.selected = false;
+		}
 		this.events.push(event);
 		return event;
 	}
 
-	removeEvent(id) {
-		return removeEvent(this.events, id);
-	}
+	removeEvent(id) { return removeEvent(this.events, id); }
 	allEvents(options = {}) { return flattenEvents(this.events, options.includeGroups !== false); }
 	findEvent(id) { return findEvent(this.events, id); }
 	replaceEvent(id, replacement) { return replaceEvent(this.events, id, replacement); }
@@ -714,7 +716,7 @@ export class ChartModel {
 					if (item.type === "group") for (const child of item.events || []) detach(child);
 				};
 				detach(copy); return copy;
-			}), x, y, color, channel: selected[0].channel, time: selected[0].time, selected: true,
+			}), x, y, color, selected: true,
 		}));
 		return group;
 	}

@@ -391,10 +391,11 @@ test("AutosaveManager lists every recovery newer than the last manual save", () 
 	const firstModel = ChartModel.createDefault({ metadata: { title: "First" } });
 	const secondModel = ChartModel.createDefault({ metadata: { title: "Second" } });
 	const first = manager.save(firstModel);
-	const second = manager.save(secondModel);
+	const second = manager.save(secondModel, { projectPath: "C:/charts/demo", projectName: "Demo" });
 	const recoveries = manager.recoverable();
 	assert.deepEqual(recoveries.map(entry => entry.timestamp), [second, first]);
 	assert.deepEqual(recoveries.map(entry => entry.model.metadata.title), ["Second", "First"]);
+	assert.deepEqual(recoveries[0].source, { projectPath: "C:/charts/demo", projectName: "Demo" });
 	assert.equal(manager.latestRecoverable().timestamp, second);
 });
 

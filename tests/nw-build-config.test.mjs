@@ -6,11 +6,20 @@ import { builderApplicationOptions, PACKAGED_WINDOW_ICON } from "../scripts/nw-b
 
 const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 
-test("source keeps only the SVG icon and builds runtime icons", async () => {
-	assert.equal(packageJson.window.icon, "svg/icon.svg");
+test("source icons are generated from SVG for direct NW.js launches", async () => {
+	assert.equal(packageJson.window.icon, "icon.png");
 	assert.equal(PACKAGED_WINDOW_ICON, "sviber/icon.png");
 	const svg = await readFile(new URL("../svg/icon.svg", import.meta.url), "utf8");
+	const [build, gitignore] = await Promise.all([
+		readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8"),
+		readFile(new URL("../.gitignore", import.meta.url), "utf8"),
+	]);
 	assert.match(svg, /<svg\b/);
+	assert.match(build, /generateSourceIcons/);
+	assert.match(build, /path\.join\(sviberDirectory, "icon\.ico"\)/);
+	assert.match(build, /path\.join\(sviberDirectory, "icon\.png"\)/);
+	assert.match(gitignore, /^\/icon\.ico$/m);
+	assert.match(gitignore, /^\/icon\.png$/m);
 });
 
 test("NW.js builder selects native icon formats for each desktop platform", () => {

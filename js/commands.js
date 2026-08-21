@@ -175,7 +175,7 @@ export const MENU_DEFINITION = Object.freeze([
 		])
 	}),
 	Object.freeze({
-		id: 'timing', labelKey: 'menu.timing', mnemonic: 'i', items: Object.freeze([
+		id: 'timing', labelKey: 'menu.timing', mnemonic: 't', items: Object.freeze([
 			item('timing.offsetAndBpm'), item('events.bpmChange'), item('timing.copy'), item('timing.paste')
 		])
 	}),
@@ -204,7 +204,7 @@ export const MENU_DEFINITION = Object.freeze([
 		])
 	}),
 	Object.freeze({
-		id: 'transform', labelKey: 'menu.transform', mnemonic: 't', items: Object.freeze([
+		id: 'transform', labelKey: 'menu.transform', mnemonic: 'r', items: Object.freeze([
 			item('transform.moveLeft'), item('transform.moveDown'), item('transform.moveUp'),
 			item('transform.moveRight'), item('transform.moveLeftLarge'),
 			item('transform.moveDownLarge'), item('transform.moveUpLarge'),

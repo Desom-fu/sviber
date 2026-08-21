@@ -15,14 +15,15 @@ import { withHistoryCommands } from "../js/app-history-commands.js";
 import { withStageInteractions } from "../js/render/stage-interactions.js";
 import { toggledCreationMode } from "../js/app-history-commands.js";
 import { eventClickSelectionMode } from "../js/render/selection.js";
-import { COMMAND_DEFINITIONS } from "../js/commands.js";
+import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../js/commands.js";
 import { HelpController } from "../js/help.js";
+import { I18n } from "../js/i18n.js";
 
 test("nested groups keep recursive IDs, bounds, clips, and Sunniesnow export flat", () => {
 	const model = ChartModel.createDefault({
 		channels: [{ id: 0, name: "One" }, { id: 1, name: "Two" }],
 		events: [{
-			id: 4, type: "group", channel: 0, x: 0, y: 0, color: "#ff9d3d", selected: true,
+		id: 4, type: "group", channel: 0, x: 200, y: 200, color: "#ff9d3d", selected: true,
 			events: [{ id: 7, type: "tap", channel: 0, time: [1, 0, 1], x: -20, y: 10 }, {
 				id: 8, type: "group", channel: 1, x: 0, y: 0, events: [{ id: 9, type: "flick", channel: 1, time: [2, 0, 1], x: 30, y: -10 }],
 			}],
@@ -38,6 +39,15 @@ test("nested groups keep recursive IDs, bounds, clips, and Sunniesnow export fla
 	assert.equal(exported.sscharter.version, "0.10.1");
 	assert.equal(exported.events.filter(event => event.type === "tap").length, 1);
 	assert.equal(exported.events.filter(event => event.type === "flick").length, 1);
+});
+
+test("clip thumbnails resolve attached content and use the dedicated five-action layout", async () => {
+	const [panels, styles] = await Promise.all([
+		readFile(new URL("../js/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+	]);
+	assert.match(panels, /drawClipThumbnail[\s\S]*resolveAttachedPosition\(event, data\?\.snappees/);
+	assert.match(styles, /\.clip-item\s*\{[\s\S]*grid-template-columns:\s*42px minmax\(0, 1fr\) repeat\(5, 25px\)/);
 });
 
 test("live reload uses the sscharter WebSocket handshake contract", async () => {
@@ -112,7 +122,10 @@ test("v0.3.2 event tools toggle the active creation mode and groups keep shortcu
 	assert.equal(JSON.parse(english)["event.group"], "Group");
 	assert.equal(JSON.parse(chinese)["event.group"], "分组");
 	assert.match(css, /\.shortcut-grid\s*\{[^}]*min-width:\s*0/);
-	assert.match(css, /\.shortcut-grid\s*>\s*span/);
+	assert.match(css, /grid-template-columns:\s*repeat\(auto-fit/);
+	assert.match(css, /\.shortcut-item\s*\{/);
+	assert.equal(MENU_DEFINITION.find(menu => menu.id === "timing").mnemonic, "t");
+	assert.equal(MENU_DEFINITION.find(menu => menu.id === "transform").mnemonic, "r");
 });
 
 test("v0.3.2 keyboard shortcut dialog lists group and ungroup", async () => {
@@ -127,31 +140,77 @@ test("v0.3.2 keyboard shortcut dialog lists group and ungroup", async () => {
 	});
 	globalThis.document = { createElement: tag => makeNode(tag) };
 	let dialog;
+	const tooltipKeys = [];
 	try {
 		const help = new HelpController({
 			i18n: { t: key => key, shortcut: shortcut => shortcut },
 			dialogs: { open: async options => { dialog = options; } },
+			tooltip: { register: (_element, key) => { tooltipKeys.push(key); return () => {}; } },
 		});
 		await help.showKeyboardShortcuts(COMMAND_DEFINITIONS);
-		const rows = dialog.content.children.map(node => node.textContent);
+		const rows = dialog.content.children.flatMap(node => node.children.map(child => child.textContent));
 		assert.ok(rows.includes("command.events.group"));
 		assert.ok(rows.includes("command.events.ungroup"));
 		assert.ok(rows.includes("Ctrl+G"));
 		assert.ok(rows.includes("Ctrl+Shift+G"));
+		assert.ok(tooltipKeys.includes("command.events.group.hint"));
 	} finally {
 		if (hadDocument) globalThis.document = previousDocument;
 		else delete globalThis.document;
 	}
 });
 
-test("v0.3.2 group records remain visible in the scroll index", () => {
+test("group anchors stay in the main-field index and out of timeline and scroll indexes", () => {
 	const model = ChartModel.createDefault({ events: [{
 		id: 10, type: "group", channel: 0, time: [2, 0, 1], x: 0, y: 0, color: "#123456",
 		events: [{ id: 11, type: "tap", channel: 0, time: [2, 0, 1], x: 10, y: 5 }],
 	}] });
 	const index = new ChartRenderIndex(model, new TimingMap({ initialBpm: 60 }));
-	assert.deepEqual(index.scrollEventRecords(1, 3).map(record => record.event.id), [10, 11]);
+	assert.deepEqual(index.scrollEventRecords(1, 3).map(record => record.event.id), [11]);
+	assert.deepEqual(index.timelineRecords(1, 3).map(record => record.event.id), [11]);
 	assert.equal(index.groupRecords[0].event.color, "#123456");
+	assert.equal(index.groupRecords[0].start, 2);
+	assert.equal("time" in index.groupRecords[0].event, false);
+	assert.equal("channel" in index.groupRecords[0].event, false);
+});
+
+test("only top-level selected groups draw their own bounds", () => {
+	const model = ChartModel.createDefault({ events: [{
+		id: 10, type: "group", selected: true, x: 0, y: 0, events: [{
+			id: 11, type: "group", selected: true, x: 0, y: 0,
+			events: [{ id: 12, type: "tap", channel: 0, time: [1, 0, 1], x: 5, y: 5 }],
+		}],
+	}] });
+	const index = new ChartRenderIndex(model, new TimingMap({ initialBpm: 60 }));
+	assert.equal(index.isRootSelectedGroup(model.findEvent(10)), true);
+	assert.equal(index.isRootSelectedGroup(model.findEvent(11)), false);
+});
+
+test("Scroll view places current time exactly one quarter of its height from the bottom", async () => {
+	const scrollSource = await readFile(new URL("../js/render/scroll-view.js", import.meta.url), "utf8");
+	assert.match(scrollSource, /const baseline = height \* 0\.75/);
+});
+
+test("an attached selected group moves together with all descendants", () => {
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	app.model = ChartModel.createDefault({ events: [{
+		id: 10, type: "group", selected: true, attached: true, snappee: 0, snapPoint: [8, 4],
+		events: [{ id: 11, type: "tap", channel: 0, time: [3, 0, 1], x: 10, y: 0 }],
+	}] });
+	app._applyPositionMove(app.model, 10, { x: 5, y: 7 });
+	assert.deepEqual({ x: app.model.findEvent(10).x, y: app.model.findEvent(10).y }, { x: 5, y: 7 });
+	assert.deepEqual({ x: app.model.findEvent(11).x, y: app.model.findEvent(11).y }, { x: 15, y: 7 });
+	assert.deepEqual(app.model.findEvent(10).time, undefined);
+	assert.deepEqual(app.model.findEvent(10).channel, undefined);
+});
+
+test("history labels are translated again after the interface language changes", () => {
+	const translations = new I18n("en-US");
+	const english = translations.t("history.createEvent", { type: translations.t("event.tap") });
+	translations.setLanguage("zh-CN", null);
+	assert.equal(translations.localize(english), "创建 Tap");
+	assert.equal(translations.localize("Ungroup events"), "解组事件");
 });
 
 test("v12 editor fields use the file-format spelling and preserve legacy imports", () => {

@@ -17,7 +17,7 @@
 | --- | --- | --- |
 | 递归 Group 事件 | 新增独立事件树遍历、查找、祖先、后代、边界、同层分组、解组和递归 ID 管理；导出时递归 flatten | `js/core/grouping.js`, `js/core/chart-model.js` |
 | Group 操作 | Group/ungroup、删除空 group、通道删除清理空树、移动/复制/变换/删除/时间反转/通道移动递归处理 | `js/app-history-commands.js`, `js/app-event-editing.js`, `js/app-file-workflows.js` |
-| Group 视觉 | Timeline、Stage、Scroll view 显示嵌套分组圈；选中 group 显示颜色边界框和 anchor | `js/render/timeline.js`, `js/render/stage-notes.js`, `js/render/scroll-view.js` |
+| Group 视觉 | Timeline、Stage、Scroll view 显示嵌套分组圈与所选 group 的颜色边界框；group anchor 只显示在主编辑区 | `js/render/timeline.js`, `js/render/stage-notes.js`, `js/render/scroll-view.js` |
 | Group 选择 | 普通点击选择最近 group；双击按一层一层进入临时 scope；scope 无选中后代时退出；inactive channel 不可交互 | `js/render/chart-index.js`, `js/render/stage-interactions.js`, `js/render/timeline.js`, `js/app-event-editing.js` |
 | Group anchor | Anchor 独立于普通事件位置移动，子事件保持位置；anchor 可吸附直接子事件或 active snappee | `js/render/stage-interactions.js`, `js/render/stage-notes.js`, `js/app-event-editing.js` |
 | Clips | Clips 面板展示缩略图，支持粘贴、重命名、上下排序和删除；片段随 editable JSON 保存 | `js/panels.js`, `js/app-file-workflows.js`, `js/core/chart-model.js`, `index.html` |
@@ -33,7 +33,7 @@
 
 ### 3.1 Group 数据模型
 
-Group 与普通可移动事件共享 `time`、`channel` 和位置字段，并增加 `color`、`events`。事件树中的每个 group child 都有稳定且全局唯一的 ID。`ChartModel.allEvents()` 默认包括 group，`allEvents({ includeGroups: false })` 只返回叶事件；渲染索引同时维护平面事件记录和祖先表。`ChartModel.exportSunniesnow()` 只导出叶事件和生成的 Tip point placeholder，因此 Sunniesnow 仍接收扁平事件列表。
+Group 保存位置/附着字段、`color` 和递归 `events`，但不保存 `time` 或 `channel`。它的显示时间由最早的后代事件递归推导，所属通道也按后代事件判断。事件树中的每个 group child 都有稳定且全局唯一的 ID。`ChartModel.allEvents()` 默认包括 group，`allEvents({ includeGroups: false })` 只返回叶事件；渲染索引维护叶事件记录、主编辑区专用的 group anchor 记录和祖先表。`ChartModel.exportSunniesnow()` 只导出叶事件和生成的 Tip point placeholder，因此 Sunniesnow 仍接收扁平事件列表。
 
 ### 3.2 选择和临时进入
 
@@ -41,7 +41,7 @@ Group 与普通可移动事件共享 `time`、`channel` 和位置字段，并增
 
 ### 3.3 Anchor 与普通移动
 
-Group anchor 使用独立 hit region 和 drag 类型。普通 group 拖动会递归移动 group 与后代；anchor drag 只移动 selected group 的 anchor，不改变 descendants 的解析位置。主交互在当前 group 的直接 movable children 中优先寻找可吸附目标，然后才查询 active snappee；提交时只把直接交互的 anchor 附着到 snappee。
+Group anchor 只在主编辑区使用独立 hit region 和 drag 类型，时间轴与 Scroll view 不绘制或命中 anchor。普通 group 拖动会递归移动 group 与后代；即使 attached group 是唯一选中的根对象也可继续移动。Anchor drag 只移动 selected group 的 anchor，不改变 descendants 的解析位置。主交互在当前 group 的直接 movable children 中优先寻找可吸附目标，然后才查询 active snappee；提交时只把直接交互的 anchor 附着到 snappee。
 
 ### 3.4 剪贴板和 Clips
 

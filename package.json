@@ -1,6 +1,6 @@
 {
 	"name": "sviber",
-	"version": "0.3.4",
+	"version": "0.3.5",
 	"private": true,
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",
@@ -21,7 +21,7 @@
 		"min_width": 960,
 		"min_height": 620,
 		"position": "center",
-		"icon": "svg/icon.svg"
+		"icon": "icon.png"
 	},
 	"scripts": {
 		"start": "http-server .. -p 4173 -c-1",

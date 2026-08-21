@@ -526,10 +526,9 @@ export const withStageNotes = Base => class extends Base {
 				context.restore();
 			});
 		}
-		for (const record of (this.renderIndex.groupRecords || []).filter(record =>
-			(record.visibleStart <= now && record.visibleEnd >= now) || this.renderIndex.isEventSelected(record.event))) {
+		for (const record of (this.renderIndex.groupRecords || []).filter(record => record.event.selected)) {
 			const group = record.event;
-			if (!this.renderIndex.activeChannelIds.has(group.channel)) continue;
+			if (!this.renderIndex.isEventActive(group)) continue;
 			const position = this.renderIndex.positionFor(group) || group;
 			const screen = mapping.toScreen(position);
 			context.save();
@@ -554,7 +553,7 @@ export const withStageNotes = Base => class extends Base {
 					width: 16, height: 16, centerX: screen.x, centerY: screen.y, radius: 8 });
 			}
 			const bounds = this._groupBounds(group);
-			if (bounds && this.renderIndex.isEventSelected(group)) {
+			if (bounds && this.renderIndex.isRootSelectedGroup(group)) {
 				context.setLineDash([5, 3]);
 				context.strokeStyle = group.color || "#ff9d3d";
 				context.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
@@ -564,7 +563,8 @@ export const withStageNotes = Base => class extends Base {
 	}
 
 	_groupBounds(group) {
-		const points = descendants(group, true).map(event => this.renderIndex.positionFor(event)).filter(Boolean);
+		const points = descendants(group).filter(event => event.type !== "group")
+			.map(event => this.renderIndex.positionFor(event)).filter(Boolean);
 		if (!points.length) return null;
 		const xs = points.map(point => point.x);
 		const ys = points.map(point => point.y);

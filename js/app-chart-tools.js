@@ -14,6 +14,7 @@ import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 import { SNAPPEE_PRESETS, createPresetSnappee } from "./core/snappee-presets.js";
+import { eventTime, eventUsesChannel } from "./core/grouping.js";
 
 export const withChartTools = Base => class extends Base {
 	async showSelectionFilter() {
@@ -44,19 +45,19 @@ export const withChartTools = Base => class extends Base {
 		if (!values) return;
 		const activeChannels = new Set(this.model.channels
 			.filter(channel => channel.active !== false).map(channel => channel.id));
-		const candidates = this.model.events.filter(event => activeChannels.has(event.channel));
+		const candidates = this.model.allEvents().filter(event => eventUsesChannel(event, activeChannels));
 		const simultaneousCounts = new Map();
 		if (values.enableSimultaneous) {
 			for (const event of candidates) {
 				if (!values[`simultaneous_${event.type}`]) continue;
-				const key = Rational.from(event.time).toString();
+				const key = Rational.from(eventTime(event)).toString();
 				simultaneousCounts.set(key, (simultaneousCounts.get(key) || 0) + 1);
 			}
 		}
 		const ids = candidates.filter(event => {
 			if (values.enableTypes && !values[`type_${event.type}`]) return false;
 			if (values.enableTime) {
-				const beat = Rational.from(event.time);
+				const beat = Rational.from(eventTime(event));
 				if (beat.compare(values.timeStart) < 0 || beat.compare(values.timeEnd) > 0) return false;
 			}
 			if (values.enableText && !String(event.text || "").toLocaleLowerCase().includes(String(values.text).toLocaleLowerCase())) return false;
@@ -66,7 +67,7 @@ export const withChartTools = Base => class extends Base {
 				if (duration.compare(values.durationStart) < 0 || duration.compare(values.durationEnd) > 0) return false;
 			}
 			if (values.enableSimultaneous) {
-				const key = Rational.from(event.time).toString();
+				const key = Rational.from(eventTime(event)).toString();
 				const matching = (simultaneousCounts.get(key) || 0)
 					- (values[`simultaneous_${event.type}`] ? 1 : 0);
 				if (matching <= 0) return false;

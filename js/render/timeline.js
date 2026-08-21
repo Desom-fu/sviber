@@ -1,6 +1,6 @@
 import { Rational } from "../core/rational.js";
 import { resolveAttachedPosition } from "../core/geometry.js";
-import { flattenEvents } from "../core/grouping.js";
+import { descendants, eventTime, flattenEvents } from "../core/grouping.js";
 import { eventClickSelectionMode } from "./selection.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
@@ -335,6 +335,7 @@ export class TimelineView {
 		const ending = project.editor.visibleRangeEnd;
 		const records = this.renderIndex?.timelineRecords(beginning, ending)
 			|| flattenEvents(project.events || [], false).map(event => ({ event }));
+		this.#drawSelectedGroupBounds(context, layout, project, offsets);
 		records.sort((left, right) => eventDrawLayer(left.event) - eventDrawLayer(right.event)
 			|| (left.start ?? this.timing.beatToSeconds(left.event.time))
 			- (right.start ?? this.timing.beatToSeconds(right.event.time))
@@ -362,18 +363,6 @@ export class TimelineView {
 					context.arc(position.x, position.y, 9 + index * 4, 0, Math.PI * 2);
 					context.stroke();
 				});
-			}
-			if (event.type === "group") {
-				context.strokeStyle = event.color || "#ff9d3d";
-				context.fillStyle = selected ? "#ff3158" : "#f7f8f9";
-				context.lineWidth = 1.5;
-				context.beginPath();
-				context.arc(position.x, position.y, 6, 0, Math.PI * 2);
-				context.stroke();
-				context.fill();
-				context.restore();
-				this.hitRegions.push({ type: "event", event, x: position.x - 10, y: position.y - 10, width: 20, height: 20 });
-				continue;
 			}
 			if (!interactive) context.globalAlpha = 0.28;
 			if (DURATION_TYPES.has(event.type)) {
@@ -409,6 +398,26 @@ export class TimelineView {
 				this.#drawDiamond(context, endX, position.y, 7);
 				this.hitRegions.push({ type: "duration", event, x: endX - 7, y: position.y - 7, width: 14, height: 14 });
 			}
+			context.restore();
+		}
+	}
+
+	#drawSelectedGroupBounds(context, layout, project, offsets) {
+		if (project.editor?.showGroupingInTimeline === false) return;
+		for (const group of flattenEvents(project.events || [], true).filter(event =>
+			this.renderIndex?.isRootSelectedGroup(event) ?? (event.type === "group" && event.selected))) {
+			const points = descendants(group).filter(event => event.type !== "group").map(event => {
+				const record = this.renderIndex?.recordFor(event);
+				return this.#eventPosition(event, layout, project, offsets, record);
+			}).filter(Boolean);
+			if (!points.length) continue;
+			const xs = points.map(point => point.x);
+			const ys = points.map(point => point.y);
+			context.save();
+			context.strokeStyle = group.color || "#ff9d3d";
+			context.setLineDash([5, 3]);
+			context.strokeRect(Math.min(...xs) - 14, Math.min(...ys) - 12,
+				Math.max(...xs) - Math.min(...xs) + 28, Math.max(...ys) - Math.min(...ys) + 24);
 			context.restore();
 		}
 	}
@@ -576,7 +585,7 @@ export class TimelineView {
 			return [Math.min(0, this.timing.beatToSeconds([0, 0, 1])), this.renderIndex.maximumTime];
 		}
 		let maximum = 10;
-		for (const event of project.events) {
+		for (const event of flattenEvents(project.events || [], false)) {
 			let endBeat = Rational.from(event.time);
 			if (DURATION_TYPES.has(event.type)) endBeat = endBeat.add(event.duration || [0, 1, 1]);
 			maximum = Math.max(maximum, this.timing.beatToSeconds(endBeat) + 10);
@@ -706,9 +715,12 @@ export class TimelineView {
 				return;
 			}
 			if (!selected) this.callbacks.onSelectEvents?.([selectionEvent.id], selectionMode);
-			const selectedEvents = flattenEvents(project.events || [], true).filter(candidate => candidate.selected);
+			const selectedRoots = flattenEvents(project.events || [], true).filter(candidate => candidate.selected
+				&& !(this.renderIndex?.ancestorsById.get(candidate.id) || []).some(ancestor => ancestor.selected));
+			const selectedEvents = [...new Set(selectedRoots.flatMap(candidate => candidate.type === "group"
+				? descendants(candidate).filter(item => item.type !== "group") : [candidate]))];
 			const simultaneous = selectedEvents.length > 0
-				&& selectedEvents.every(candidate => Rational.from(candidate.time).equals(hit.event.time));
+				&& selectedEvents.every(candidate => Rational.from(eventTime(candidate)).equals(hit.event.time));
 			this.drag = {
 				type: "event", event: hit.event, selectionId: selectionEvent.id, start: point,
 				startBeat: Rational.from(hit.event.time), copy: event.ctrlKey,

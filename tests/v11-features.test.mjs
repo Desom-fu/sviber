@@ -23,10 +23,11 @@ function keyboardEvent(key, target) {
 }
 
 test("v11 localization is loaded from matching JSON dictionaries", async () => {
-	const [source, english, chinese] = await Promise.all([
+	const [source, english, chinese, index] = await Promise.all([
 		readFile(new URL("../js/i18n.js", import.meta.url), "utf8"),
 		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8").then(JSON.parse),
 		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8").then(JSON.parse),
+		readFile(new URL("../index.html", import.meta.url), "utf8"),
 	]);
 	assert.match(source, /i18n\.en-US\.json/);
 	assert.match(source, /i18n\.zh-CN\.json/);
@@ -34,6 +35,9 @@ test("v11 localization is loaded from matching JSON dictionaries", async () => {
 	assert.equal(english["option.language.chinese"], "Simplified Chinese");
 	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "Simplified Chinese");
 	assert.equal(chinese["option.language.english"], "英文");
+	assert.equal(english["footer.javascriptLicense"], "JavaScript license information");
+	assert.equal(chinese["footer.javascriptLicense"], "JavaScript 许可信息");
+	assert.match(index, /data-i18n="footer\.javascriptLicense"/);
 });
 
 test("layout toggles preserve the stage grid slot when hiding a side", async () => {
@@ -185,6 +189,7 @@ test("v11 Scroll View, manual, and release notes describe the implemented behavi
 	assert.match(manualScript, /focusSearchMatch/);
 	assert.match(manualScript, /event\.shiftKey \? -1 : 1/);
 	assert.match(manualScript, /target\.scrollIntoView/);
+	assert.doesNotMatch(manualScript, /node\.hidden = !matched/);
 	assert.match(manualScript, /searchLabels/);
 	assert.match(manualStyles, /#manual-search-input/);
 	assert.match(readme, /macOS provides x86_64 and aarch64 ZIP archives/);

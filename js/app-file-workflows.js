@@ -1,4 +1,5 @@
 import { i18n } from "./i18n.js";
+import { eventTime } from "./core/grouping.js";
 import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js";
 import { ChartModel, DIFFICULTY_COLORS, EVENT_TYPES, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
@@ -330,7 +331,7 @@ export const withFileWorkflows = Base => class extends Base {
 		this.autosave.start(() => {
 			if (this.modelSignature() === this.savedSignature) return;
 			try {
-				const timestamp = this.autosave.save(this.model);
+				const timestamp = this.autosave.save(this.model, this.files.localSourceContext());
 				this.history.markCurrent("autosave", timestamp);
 				this.historyPanel.render(this.history);
 				this.toast.show("toast.autosaved", {}, { duration: 1400 });
@@ -673,8 +674,9 @@ export const withFileWorkflows = Base => class extends Base {
 	async copyEvents() {
 		const chosen = selected(this.model).filter(event => !this.model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
 		if (!chosen.length) return;
-		const minimumBeat = chosen.map(event => Rational.from(event.time)).reduce((left, right) => left.compare(right) <= 0 ? left : right);
-		const channelEvents = chosen.flatMap(event => event.type === "group" ? this.model.groupDescendants(event.id, true) : [event]);
+		const minimumBeat = chosen.map(event => Rational.from(eventTime(event))).reduce((left, right) => left.compare(right) <= 0 ? left : right);
+		const channelEvents = chosen.flatMap(event => event.type === "group"
+			? this.model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]);
 		const channelIndices = channelEvents.map(event => this.model.channels.findIndex(channel => channel.id === event.channel));
 		const minimumChannel = Math.min(...channelIndices);
 		const snappeeIds = new Set(channelEvents.flatMap(event => [event.snappee, event.tipPointSpawnSnappee]).filter(value => value != null));
@@ -688,9 +690,12 @@ export const withFileWorkflows = Base => class extends Base {
 			};
 			clearIds(copy);
 			const normalizeTree = item => {
+				if (item.type === "group") {
+					for (const child of item.events || []) normalizeTree(child);
+					return;
+				}
 				item.time = Rational.from(item.time).sub(minimumBeat).toJSON();
 				item.channel = this.model.channels.findIndex(channel => channel.id === item.channel) - minimumChannel;
-				if (item.type === "group") for (const child of item.events || []) normalizeTree(child);
 			};
 			normalizeTree(copy);
 			return copy;
@@ -815,7 +820,10 @@ export const withFileWorkflows = Base => class extends Base {
 			const channelOffset = event => Math.max(0, Math.round(Number(event.channelOffset ?? event.channel) || 0));
 			const maximumOffset = Math.max(...data.events.flatMap(event => {
 				const offsets = [];
-				const visit = item => { offsets.push(channelOffset(item)); if (item.type === "group") for (const child of item.events || []) visit(child); };
+				const visit = item => {
+					if (item.type === "group") for (const child of item.events || []) visit(child);
+					else offsets.push(channelOffset(item));
+				};
 				visit(event); return offsets;
 			}));
 			const channelMap = new Map();
@@ -840,12 +848,15 @@ export const withFileWorkflows = Base => class extends Base {
 				const copy = deepClone(source);
 				copy.id = null;
 				const pasteTree = item => {
-					item.time = this.currentBeat().add(item.time ?? item.beat ?? 0).toJSON();
-					item.channel = channelMap.get(channelOffset(item)) ?? model.channels[currentChannel + channelOffset(item)].id;
 					item.selected = true;
 					if (shouldDuplicateSnappees && snappeeMap.has(item.snappee)) item.snappee = snappeeMap.get(item.snappee);
 					if (shouldDuplicateSnappees && snappeeMap.has(item.tipPointSpawnSnappee)) item.tipPointSpawnSnappee = snappeeMap.get(item.tipPointSpawnSnappee);
-					if (item.type === "group") for (const child of item.events || []) pasteTree(child);
+					if (item.type === "group") {
+						for (const child of item.events || []) pasteTree(child);
+						return;
+					}
+					item.time = this.currentBeat().add(item.time ?? item.beat ?? 0).toJSON();
+					item.channel = channelMap.get(channelOffset(item)) ?? model.channels[currentChannel + channelOffset(item)].id;
 				};
 				pasteTree(copy);
 				delete copy.beat;

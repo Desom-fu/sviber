@@ -667,5 +667,6 @@
   "macro.message.delete": "Delete macro {name}? This cannot be undone.",
   "macro.message.deleted": "Macro deleted.",
 	"macro.error.rubyLoad": "Unable to load ruby.wasm.",
-	"macro.error.readOnly": "Macros cannot run, and project macros cannot be edited, while the chart is read-only."
+	"macro.error.readOnly": "Macros cannot run, and project macros cannot be edited, while the chart is read-only.",
+	"footer.javascriptLicense": "JavaScript license information"
 }

@@ -1,4 +1,5 @@
 import { Rational } from "./core/rational.js";
+import { eventTime } from "./core/grouping.js";
 import { resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
 
 const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
@@ -261,16 +262,26 @@ function drawClipThumbnail(canvas, data, size = 42) {
 	const events = [];
 	const visit = items => (items || []).forEach(event => {
 		if (event.type === "group") visit(event.events);
-		else if (Number.isFinite(Number(event.x)) && Number.isFinite(Number(event.y))) events.push(event);
+		else {
+			const position = resolveAttachedPosition(event, data?.snappees || []);
+			if (position) events.push({ event, position });
+		}
 	});
 	visit(data?.events);
 	if (!events.length) return;
+	const minX = Math.min(...events.map(({ position }) => position.x));
+	const maxX = Math.max(...events.map(({ position }) => position.x));
+	const minY = Math.min(...events.map(({ position }) => position.y));
+	const maxY = Math.max(...events.map(({ position }) => position.y));
+	const span = Math.max(maxX - minX, maxY - minY, 1);
+	const centerX = (minX + maxX) / 2;
+	const centerY = (minY + maxY) / 2;
 	context.strokeStyle = "#d5dade";
 	context.fillStyle = "#50c8bd";
 	context.lineWidth = 1;
-	for (const event of events) {
-		const x = 4 + (Number(event.x) + 100) / 200 * (size - 8);
-		const y = 4 + (50 - Number(event.y)) / 100 * (size - 8);
+	for (const { event, position } of events) {
+		const x = size / 2 + (position.x - centerX) / span * (size - 10);
+		const y = size / 2 - (position.y - centerY) / span * (size - 10);
 		context.beginPath();
 		context.arc(x, y, Math.max(1.5, size / 14), 0, Math.PI * 2);
 		context.fill();
@@ -396,9 +407,11 @@ export class InspectorPanel {
 			group.append(this.#row("field.type", typeControl));
 		}
 
-		const time = commonValue(selected, event => event.time);
-		group.append(this.#row("field.time", makeRationalControl(document, time,
-			value => this.onChange("time", value))));
+		const time = commonValue(selected, event => eventTime(event));
+		const timeControl = makeRationalControl(document, time,
+			value => this.onChange("time", value));
+		if (groupsOnly) setControlDisabled(timeControl, true);
+		group.append(this.#row("field.time", timeControl));
 		if (groupsOnly) {
 			const color = commonValue(selected, event => event.color);
 			group.append(this.#row("field.color", makeInput(document, "color",
@@ -815,7 +828,7 @@ export class HistoryPanel {
 			index.className = "history-index";
 			index.textContent = entry.active ? "›" : "";
 			const label = document.createElement("span");
-			label.textContent = entry.label;
+			label.textContent = this.i18n.localize(entry.label);
 			const markers = document.createElement("span");
 			markers.className = "history-markers";
 			for (const kind of ["save", "autosave"]) {

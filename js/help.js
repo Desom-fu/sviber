@@ -70,6 +70,7 @@ export class HelpController {
 	constructor(options = {}) {
 		this.dialogs = options.dialogs;
 		this.i18n = options.i18n;
+		this.tooltip = options.tooltip;
 		this.packageInformation = null;
 	}
 
@@ -165,15 +166,24 @@ export class HelpController {
 	async showKeyboardShortcuts(definitions = COMMAND_DEFINITIONS) {
 		const content = document.createElement("div");
 		content.className = "shortcut-grid";
+		const cleanup = [];
 		for (const definition of Object.values(definitions)) {
 			if (!definition.shortcut) continue;
+			const item = document.createElement("div");
+			item.className = "shortcut-item";
 			const command = document.createElement("span");
 			command.textContent = this.i18n.t(definition.labelKey);
 			const shortcut = document.createElement("kbd");
 			shortcut.textContent = this.i18n.shortcut(definition.shortcut);
-			content.append(command, shortcut);
+			item.append(command, shortcut);
+			content.append(item);
+			cleanup.push(this.tooltip?.register(item, definition.hintKey));
 		}
-		await this.dialogs.open({ titleKey: "dialog.keyboardShortcuts", content,
-			buttons: [{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false }] });
+		try {
+			await this.dialogs.open({ titleKey: "dialog.keyboardShortcuts", content,
+				buttons: [{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false }] });
+		} finally {
+			cleanup.forEach(dispose => dispose?.());
+		}
 	}
 }

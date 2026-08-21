@@ -78,7 +78,7 @@ export class SviberAppCore {
 		this.toast = new ToastManager({ i18n });
 		this.dialogs = new DialogManager({ i18n, tooltip: this.tooltip });
 		this.files = new FileManager({ dialogs: this.dialogs, toast: this.toast, i18n });
-		this.help = new HelpController({ dialogs: this.dialogs, i18n });
+		this.help = new HelpController({ dialogs: this.dialogs, i18n, tooltip: this.tooltip });
 		this.registry = new CommandRegistry(undefined, {
 			blocked: () => Boolean(this.freeTransform),
 			playbackBlocked: () => this.audio.playing,
@@ -274,7 +274,7 @@ export class SviberAppCore {
 			return [minimum, this.audio.syntheticEnd];
 		}
 		let maximum = Math.max(10, minimum + 10);
-		for (const event of this.model.allEvents()) {
+		for (const event of this.model.allEvents({ includeGroups: false })) {
 			let beat = Rational.from(event.time);
 			if (DURATION_TYPES.has(event.type)) beat = beat.add(event.duration || 0);
 			maximum = Math.max(maximum, this.timing().beatToSeconds(beat) + 10);
@@ -965,14 +965,14 @@ export class SviberAppCore {
 			],
 		});
 		if (values) {
-			const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0];
+			const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0]; await this.clearRuntimeMedia(); this.files.restoreLocalSourceContext(recovery.source);
 			this.installProject([{
 				id: "difficulty-0",
-				file: uniqueChartFilename(recovery.model.metadata.difficultyName),
+				file: recovery.source?.chartFilename || uniqueChartFilename(recovery.model.metadata.difficultyName),
 				model: recovery.model,
-			}], { activeChart: "difficulty-0", name: recovery.model.metadata.title, saved: false });
-		} else this.autosave.markManualSave();
-		return true;
+			}], { activeChart: "difficulty-0", name: recovery.source?.projectName || recovery.model.metadata.title, saved: false });
+			if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
+		} else this.autosave.markManualSave(); return true;
 	}
 	exitModes() {
 		this.creationMode = null;

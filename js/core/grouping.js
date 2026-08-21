@@ -1,3 +1,5 @@
+import { Rational } from "./rational.js";
+
 // Tree helpers are kept independent from ChartModel so renderers and commands
 // can use the same traversal rules without creating a model import cycle.
 export function walkEvents(events, visitor, ancestors = []) {
@@ -81,13 +83,32 @@ export function descendants(event, includeSelf = false) {
 	return result;
 }
 
+export function eventTime(event) {
+	if (event?.type !== "group") return event?.time;
+	const times = descendants(event)
+		.filter(item => item.type !== "group" && item.time != null)
+		.map(item => Rational.from(item.time));
+	if (!times.length) return [0, 0, 1];
+	return times.reduce((left, right) => left.compare(right) <= 0 ? left : right).toJSON();
+}
+
+export function eventChannels(event) {
+	if (event?.type !== "group") return event?.channel == null ? [] : [event.channel];
+	return [...new Set(descendants(event)
+		.filter(item => item.type !== "group" && item.channel != null)
+		.map(item => item.channel))];
+}
+
+export function eventUsesChannel(event, channelIds) {
+	const channels = channelIds instanceof Set ? channelIds : new Set(channelIds || []);
+	return eventChannels(event).some(channel => channels.has(channel));
+}
+
 export function groupBounds(event, resolvePosition = item => item) {
 	const points = descendants(event)
 		.filter(item => item.type !== "group")
 		.map(item => resolvePosition(item))
 		.filter(point => point && Number.isFinite(Number(point.x)) && Number.isFinite(Number(point.y)));
-	const anchor = resolvePosition(event);
-	if (anchor && Number.isFinite(Number(anchor.x)) && Number.isFinite(Number(anchor.y))) points.push(anchor);
 	if (!points.length) return null;
 	return {
 		minX: Math.min(...points.map(point => Number(point.x))),

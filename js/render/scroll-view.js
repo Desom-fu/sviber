@@ -13,7 +13,7 @@ import {
 	timingFor,
 } from "./timeline-helpers.js";
 import { MOVABLE_TYPES, buildTipPointGuides, tipPointSpawnPosition } from "./stage-helpers.js";
-import { flattenEvents } from "../core/grouping.js";
+import { descendants, flattenEvents } from "../core/grouping.js";
 import { eventClickSelectionMode } from "./selection.js";
 
 const DURATION_TYPES = TIMELINE_DURATION_TYPES;
@@ -76,7 +76,7 @@ export class ScrollView {
 		const xScale = Math.max(0.1, width / (CHART_BOUNDS.maxX - CHART_BOUNDS.minX));
 		const timeScale = Math.max(0.1, timelineWidth / visibleSpan);
 		const current = this.#currentSeconds();
-		const baseline = height - Math.min(36, Math.max(20, height * 0.12));
+		const baseline = height * 0.75;
 		const timeSpan = height / timeScale;
 		return {
 			xScale, timeScale, baseline, timeSpan,
@@ -256,28 +256,22 @@ export class ScrollView {
 		if (dense) records.push(...buckets.values());
 		records.sort((left, right) => eventDrawLayer(left.event) - eventDrawLayer(right.event)
 			|| left.start - right.start);
+		this.#drawSelectedGroupBounds(context, mapping);
 		for (const record of records) {
 			const { event, point } = record;
 			const screen = mapping.toScreen(point.x, record.start);
 			const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
 			const color = selected ? "#ff3158" : TIMELINE_EVENT_COLORS[event.type] || "#d5dade";
-			if (event.type === "group") {
+			const ancestors = this.renderIndex?.ancestorsById.get(event.id) || [];
+			ancestors.slice().reverse().forEach((group, index) => {
 				context.save();
-				context.strokeStyle = event.color || "#ff9d3d";
-				context.fillStyle = selected ? "#ff3158" : "#f7f8f9";
-				context.lineWidth = 1.5;
+				context.strokeStyle = group.color || "#ff9d3d";
+				context.lineWidth = 1.4;
 				context.beginPath();
-				context.arc(screen.x, screen.y, 6, 0, Math.PI * 2);
-				context.moveTo(screen.x - 9, screen.y);
-				context.lineTo(screen.x + 9, screen.y);
-				context.moveTo(screen.x, screen.y - 9);
-				context.lineTo(screen.x, screen.y + 9);
+				context.arc(screen.x, screen.y, 9 + index * 4, 0, Math.PI * 2);
 				context.stroke();
-				context.fill();
 				context.restore();
-				this.hitRegions.push({ event, x: screen.x, y: screen.y, radius: 10 });
-				continue;
-			}
+			});
 			if (DURATION_TYPES.has(event.type) && record.end > record.start) {
 				const end = mapping.toScreen(point.x, record.end);
 				context.save();
@@ -295,6 +289,28 @@ export class ScrollView {
 		}
 	}
 
+	#drawSelectedGroupBounds(context, mapping) {
+		if (!this.renderIndex) return;
+		for (const group of this.renderIndex.groupRecords.map(record => record.event)
+			.filter(event => this.renderIndex.isRootSelectedGroup(event))) {
+			const points = descendants(group).filter(event => event.type !== "group" && MOVABLE_TYPES.has(event.type))
+				.map(event => {
+					const record = this.renderIndex.recordFor(event);
+					const position = record?.position || this.#position(event);
+					return record && position ? mapping.toScreen(position.x, record.start) : null;
+				}).filter(Boolean);
+			if (!points.length) continue;
+			const xs = points.map(point => point.x);
+			const ys = points.map(point => point.y);
+			context.save();
+			context.strokeStyle = group.color || "#ff9d3d";
+			context.setLineDash([5, 3]);
+			context.strokeRect(Math.min(...xs) - 14, Math.min(...ys) - 14,
+				Math.max(...xs) - Math.min(...xs) + 28, Math.max(...ys) - Math.min(...ys) + 28);
+			context.restore();
+		}
+	}
+
 	#eventsInBox(x1, y1, x2, y2) {
 		const mapping = this.#mapping(this.surface.width, this.surface.height);
 		const beginning = mapping.fromScreen(0, Math.max(y1, y2)).time;
@@ -305,7 +321,8 @@ export class ScrollView {
 			const center = mapping.toScreen(position.x, record.start);
 			return center.x >= Math.min(x1, x2) && center.x <= Math.max(x1, x2)
 				&& center.y >= Math.min(y1, y2) && center.y <= Math.max(y1, y2);
-		}).map(record => record.event.id);
+		}).map(record => this.renderIndex?.selectionTarget(record.event)?.id || record.event.id)
+			.filter((id, index, ids) => ids.indexOf(id) === index);
 	}
 
 	#draw(context, width, height) {

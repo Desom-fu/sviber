@@ -1,6 +1,6 @@
 import { Rational } from "../core/rational.js";
 import { resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
-import { flattenEvents, walkEvents } from "../core/grouping.js";
+import { eventTime, eventUsesChannel, flattenEvents, walkEvents } from "../core/grouping.js";
 import {
 	DURATION_TYPES,
 	MOVABLE_TYPES,
@@ -99,6 +99,7 @@ export class ChartRenderIndex {
 		this.project = project;
 		this.eventSource = project.events;
 		this.flatEvents = flattenEvents(project.events || [], true);
+		this.leafEvents = this.flatEvents.filter(event => event.type !== "group");
 		this.ancestorsById = new Map();
 		walkEvents(project.events || [], (event, ancestors) => this.ancestorsById.set(event.id, ancestors));
 		this.timing = timing;
@@ -119,7 +120,7 @@ export class ChartRenderIndex {
 		this.selectedEvents = this.selectedRecords.map(record => record.event);
 		this.selectedEventIds = new Set(this.selectedEvents.map(event => event.id));
 		this.activeEventRecords = this.eventRecords.filter(record =>
-			this.activeChannelIds.has(record.event.channel) && record.event.type !== "comment");
+			this.#isActive(record.event) && record.event.type !== "comment");
 		this.stageSelectedEvents = new Set(this.activeEventRecords
 			.filter(record => this.isEventSelected(record.event))
 			.map(record => record.event));
@@ -128,7 +129,7 @@ export class ChartRenderIndex {
 		this.movableRecords = this.activeEventRecords.filter(record => MOVABLE_TYPES.has(record.event.type)
 			&& record.event.type !== "group");
 		this.groupRecords = this.activeEventRecords.filter(record => record.event.type === "group");
-		this.scrollRecords = [...this.movableRecords, ...this.groupRecords]
+		this.scrollRecords = [...this.movableRecords]
 			.sort((left, right) => left.start - right.start || left.sequence - right.sequence);
 		this.movableIndex = new IntervalIndex(this.movableRecords, "visibleStart", "visibleEnd");
 		this.scrollIndex = new IntervalIndex(this.scrollRecords, "start", "end");
@@ -136,13 +137,13 @@ export class ChartRenderIndex {
 			this.movableRecords.filter(record => record.end > record.start), "start", "end",
 		);
 		this.creationEchoIndex = new IntervalIndex(this.movableRecords, "echoStart", "echoEnd");
-		this.timelineIndex = new IntervalIndex(this.eventRecords, "start", "end");
+		this.timelineIndex = new IntervalIndex(this.eventRecords.filter(record => record.event.type !== "group"), "start", "end");
 		this.patternRecords = this.activeEventRecords.filter(record => PATTERN_TYPES.has(record.event.type))
 			.sort((left, right) => left.start - right.start || left.sequence - right.sequence);
 		const activeProject = {
 			...project,
 			channels: (project.channels || []).filter(channel => this.activeChannelIds.has(channel.id)),
-			events: this.flatEvents.filter(event => this.activeChannelIds.has(event.channel)),
+			events: this.leafEvents.filter(event => this.activeChannelIds.has(event.channel)),
 		};
 		this.allTipGuides = buildTipPointGuides({ ...project, events: this.flatEvents.filter(event => event.type !== "group") }, timing).map((guide, sequence) => ({
 			...guide,
@@ -157,7 +158,7 @@ export class ChartRenderIndex {
 		this.doubleTapPairs = this.#doubleTapPairs(activeProject.events);
 		this.doubleTapIds = new Set(this.doubleTapPairs.flatMap(record => [record.event1.id, record.event2.id]));
 		this.doubleTapIndex = new IntervalIndex(this.doubleTapPairs);
-		this.eventLaneOffsets = this.#eventLaneOffsets(this.flatEvents);
+		this.eventLaneOffsets = this.#eventLaneOffsets(this.leafEvents);
 		this.hitRecords = this.activeEventRecords.filter(record => NOTE_TYPES.has(record.event.type))
 			.sort((left, right) => left.start - right.start || left.event.id - right.event.id);
 		this.hudHitRecords = this.hitRecords.map(record => ({
@@ -172,6 +173,21 @@ export class ChartRenderIndex {
 
 	isEventSelected(event) {
 		return Boolean(event?.selected || this.ancestorsById.get(event?.id)?.some(ancestor => ancestor.selected));
+	}
+
+	isRootSelectedGroup(event) {
+		return Boolean(event?.type === "group" && event.selected
+			&& !this.ancestorsById.get(event.id)?.some(ancestor => ancestor.selected));
+	}
+
+	isEventActive(event) {
+		return this.#isActive(event);
+	}
+
+	#isActive(event) {
+		return event.type === "group"
+			? eventUsesChannel(event, this.activeChannelIds)
+			: this.activeChannelIds.has(event.channel);
 	}
 
 	selectionTarget(event) {
@@ -208,7 +224,7 @@ export class ChartRenderIndex {
 
 	#eventRecord(event, sequence) {
 		let start;
-		try { start = this.timing.beatToSeconds(event.time); } catch { start = 0; }
+		try { start = this.timing.beatToSeconds(eventTime(event)); } catch { start = 0; }
 		const end = safeDurationEnd(event, this.timing, start);
 		const record = {
 			event,
@@ -266,7 +282,7 @@ export class ChartRenderIndex {
 		if (!this.eventRecordMap.has(event)) return;
 		if (selected) this.selectedEventIds.add(event.id);
 		else this.selectedEventIds.delete(event.id);
-		if (selected && this.activeChannelIds.has(event.channel) && event.type !== "comment") {
+		if (selected && this.#isActive(event) && event.type !== "comment") {
 			this.stageSelectedEvents.add(event);
 		} else {
 			this.stageSelectedEvents.delete(event);
@@ -314,7 +330,7 @@ export class ChartRenderIndex {
 		for (const id of this.selectedEventIds) {
 			const event = this.eventById.get(id);
 			const record = event && this.eventRecordMap.get(event);
-			if (record && this.activeChannelIds.has(event.channel) && MOVABLE_TYPES.has(event.type)
+			if (record && event.type !== "group" && this.activeChannelIds.has(event.channel) && MOVABLE_TYPES.has(event.type)
 				&& record.start <= ending && record.end >= beginning) append(record);
 		}
 		Object.defineProperty(result, "sampled", { value: count > maximum });

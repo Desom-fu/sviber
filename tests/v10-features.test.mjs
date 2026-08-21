@@ -68,8 +68,8 @@ test("autosaves omit generated top-level events while ordinary saves retain them
 	});
 	const timestamp = manager.save(model);
 	const saved = JSON.parse(storage.getItem(`sviber.autosave.${timestamp}`));
-	assert.equal(Object.hasOwn(saved, "events"), false);
-	assert.equal(saved.sviber.events.length, 1);
+	assert.equal(Object.hasOwn(saved.document, "events"), false);
+	assert.equal(saved.document.sviber.events.length, 1);
 	assert.equal(Object.hasOwn(JSON.parse(model.serialize()), "events"), true);
 });
 
@@ -90,6 +90,6 @@ test("documentation and release metadata describe the current v10 behavior", asy
 	assert.match(rubyApi, /\$stdout = SviberMacroOutput/);
 	assert.match(rubyApi, /def puts\(\*values\)/);
 	assert.match(sandbox, /consolePrint: false/);
-	assert.equal(JSON.parse(packageJson).version, "0.3.4");
-	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v40"/);
+	assert.equal(JSON.parse(packageJson).version, "0.3.5");
+	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v41"/);
 });

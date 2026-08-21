@@ -13,6 +13,7 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainSnappeeTranslation, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { eventUsesChannel } from "./core/grouping.js";
 import { withFreeTransform } from "./app-free-transform.js";
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 const withEventEditingBase = Base => class extends Base {
@@ -120,7 +121,7 @@ const withEventEditingBase = Base => class extends Base {
 				const activeChannels = this.renderIndex?.activeChannelIds
 					|| new Set(this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 				this.selectEvents(this.model.allEvents().filter(event => event.attached && event.snappee === id
-					&& activeChannels.has(event.channel)).map(event => event.id), mode);
+					&& eventUsesChannel(event, activeChannels)).map(event => event.id), mode);
 			},
 			onPreviewFreeTransform: matrix => this.previewFreeTransform(matrix),
 			onPreviewFreeTransformAnchor: anchor => this.previewFreeTransformAnchor(anchor),
@@ -135,7 +136,7 @@ const withEventEditingBase = Base => class extends Base {
 		const eventById = indexIsCurrent ? this.renderIndex.eventById
 			: new Map(this.model.allEvents().map(event => [event.id, event]));
 		const targets = new Set([...ids].filter(id => mode === "remove"
-			|| activeChannels.has(eventById.get(id)?.channel)));
+			|| eventUsesChannel(eventById.get(id), activeChannels)));
 		this.commit(i18n.t("history.selection"), model => {
 			for (const event of model.allEvents()) {
 				if (mode === "replace") event.selected = targets.has(event.id);
@@ -279,9 +280,11 @@ const withEventEditingBase = Base => class extends Base {
 			.slice(Math.min(beginningChannel, endingChannel), Math.max(beginningChannel, endingChannel) + 1)
 			.filter(channel => channel.active !== false)
 			.map(channel => channel.id));
-			const ids = this.model.allEvents().filter(event => channelIds.has(event.channel)
+		const ids = this.model.allEvents({ includeGroups: false }).filter(event => channelIds.has(event.channel)
 			&& Rational.from(event.time).compare(minimumBeat) >= 0
-			&& Rational.from(event.time).compare(maximumBeat) < 0).map(event => event.id);
+			&& Rational.from(event.time).compare(maximumBeat) < 0)
+			.map(event => this.renderIndex?.selectionTarget(event)?.id || event.id)
+			.filter((id, index, values) => values.indexOf(id) === index);
 		this.commit(i18n.t("history.selection"), model => {
 			model.editor.currentTime = endingBeat.toJSON();
 			model.editor.currentChannel = targetChannel;
@@ -422,7 +425,9 @@ const withEventEditingBase = Base => class extends Base {
 		let events = model.allEvents().filter(event => event.selected
 			&& !model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
 		if (!events.length) return;
-		const channelIndices = events.flatMap(event => event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event])
+		const movedEvents = [...new Set(events.flatMap(event => event.type === "group"
+			? model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
+		const channelIndices = movedEvents
 			.map(event => model.channels.findIndex(channel => channel.id === event.channel))
 			.filter(index => index >= 0);
 		if (!channelIndices.length) return;
@@ -438,7 +443,9 @@ const withEventEditingBase = Base => class extends Base {
 			events = events.map(event => model.addEvent({ ...deepClone(event), id: null, selected: true }));
 		}
 		const delta = Rational.from(deltaBeat);
-		for (const event of events) {
+		const moved = [...new Set(events.flatMap(event => event.type === "group"
+			? model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
+		for (const event of moved) {
 			event.time = Rational.from(event.time).add(delta).toJSON();
 			const index = model.channels.findIndex(channel => channel.id === event.channel);
 			if (index >= 0) event.channel = model.channels[index + boundedChannelDelta].id;
@@ -573,7 +580,8 @@ const withEventEditingBase = Base => class extends Base {
 			return;
 		}
 		if (movable.length > 1 && attached.length === movable.length) return;
-		if (movable.length > 1 && attached.length && !this._canUseStageMoveAttachmentException(model)) return;
+		const selectedGroupRoot = roots.length === 1 && roots[0].type === "group" && roots[0].id === primary.id;
+		if (movable.length > 1 && attached.length && !selectedGroupRoot && !this._canUseStageMoveAttachmentException(model)) return;
 		const original = resolveAttachedPosition(primary, model.snappees) || primary;
 		const target = { x: Number(point.x), y: Number(point.y) };
 		const positions = movable.map(event => resolveAttachedPosition(event, model.snappees) || event);
@@ -899,8 +907,12 @@ const withEventEditingBase = Base => class extends Base {
 		if (!step) return;
 		const delta = new Rational(step, this.model.editor.subdivision);
 		this.commit(i18n.t("history.moveEvents"), model => {
-			for (const event of model.allEvents()) {
-				if (event.selected) event.time = Rational.from(event.time).add(delta).toJSON();
+			const roots = model.allEvents().filter(event => event.selected
+				&& !model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
+			const moved = [...new Set(roots.flatMap(event => event.type === "group"
+				? model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
+			for (const event of moved) {
+				event.time = Rational.from(event.time).add(delta).toJSON();
 			}
 		});
 	}

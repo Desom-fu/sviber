@@ -252,7 +252,11 @@ await context.addInitScript(({ timestamp }) => {
 		events: [{ type: "tap", time: 0, properties: { x: 0, y: 0 } }],
 	};
 	localStorage.setItem("sviber.autosaves", JSON.stringify([timestamp]));
-	localStorage.setItem(`sviber.autosave.${timestamp}`, JSON.stringify(chart));
+	localStorage.setItem(`sviber.autosave.${timestamp}`, JSON.stringify({
+		version: 1,
+		document: chart,
+		source: { projectPath: "", projectName: "", chartPath: "", chartFilename: "recovery.json" },
+	}));
 	localStorage.removeItem("sviber.manualSaveTime");
 }, { timestamp: startupAutosaveTimestamp });
 await context.addInitScript(() => {
