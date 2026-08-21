@@ -48,6 +48,7 @@ test("clip thumbnails resolve attached content and use the dedicated five-action
 	]);
 	assert.match(panels, /drawClipThumbnail[\s\S]*resolveAttachedPosition\(event, data\?\.snappees/);
 	assert.match(styles, /\.snappee-item\.clip-item\s*\{[\s\S]*grid-template-columns:\s*42px minmax\(0, 1fr\) repeat\(5, 25px\)/);
+	assert.match(styles, /\.snappee-item\.clip-item \.snappee-name\s*\{[^}]*padding-inline-start:\s*8px/);
 });
 
 test("live reload uses the sscharter WebSocket handshake contract", async () => {

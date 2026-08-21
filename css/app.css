@@ -541,6 +541,7 @@ textarea:focus-visible,
 .clip-thumbnail { flex: 0 0 42px; width: 42px; height: 42px; border: 1px solid var(--border); }
 .snappee-item.clip-item { grid-template-columns: 42px minmax(0, 1fr) repeat(5, 25px); min-height: 46px; }
 .snappee-item.clip-item .clip-thumbnail { display: block; }
+.snappee-item.clip-item .snappee-name { box-sizing: border-box; padding-inline-start: 8px; }
 .empty-panel {
 	display: grid;
 	height: 100%;
