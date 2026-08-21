@@ -57,7 +57,7 @@ The timeline, stage, and Scroll view draw grouping rings; selected groups draw a
 
 Copying selected events stores relative beat/channel data, channel attributes, referenced snappees, and nested group trees. **Edit > Save to clips** stores the same data in the chart's Clips panel. A clip can be renamed, reordered, deleted, or pasted at the current beat and channel. **Edit > Paste with options...** can duplicate the referenced channels and/or snappees; nested group references are remapped recursively. Ordinary paste keeps existing channel and snappee references when possible.
 
-The **Timing** menu edits the offset and initial BPM, and copies or pastes the complete timing map as JSON. Timing changes remain separate from event clipboard data. When live hosting is enabled in NW.js, `http://host:port/sviber.ssc` serves an in-memory level archive and the optional sscharter WebSocket port sends `connect`, `update`, and `chartUpdate` messages. Live exports include `sscharter.version = "0.10.1"`; browser builds disable the server controls.
+The **Timing** menu edits the offset and initial BPM, and copies or pastes the complete timing map as JSON. Timing changes remain separate from event clipboard data. The timeline channel scrollbar position is stored in `sviber.editor.timelineChannelOffset` and restored when the chart is loaded. When live hosting is enabled in NW.js, `http://host:port/sviber.ssc` serves an in-memory level archive and the optional sscharter WebSocket port sends `connect`, `update`, and `chartUpdate` messages. Live exports include `sscharter.version = "0.10.1"`; browser builds disable the server controls.
 
 ## Useful shortcuts
 

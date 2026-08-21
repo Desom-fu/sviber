@@ -26,7 +26,7 @@ export const withEventEditing = Base => class extends Base {
 		return {
 			getWaveform: () => this.audio.waveform,
 			getTimeBounds: () => this.timeBounds(true),
-			onTimelineResize: () => this.scrollView?.requestRender(),
+			onTimelineResize: () => this.scrollView?.requestRender(), onChannelOffset: offset => { this.model.editor.timelineChannelOffset = offset; },
 			isPlaying: () => this.audio.playing,
 			onSeekStart: () => {
 				this.resumePlaybackAfterSeek = this.audio.playing ? this.audio.direction : false;

@@ -64,6 +64,9 @@ export class TimelineView {
 	setState(state) {
 		this.state = state;
 		const project = projectState(state);
+		const maxOffset = Math.max(0, project.channels.length - 3);
+		const savedOffset = Number(project.editor?.timelineChannelOffset);
+		this.channelOffset = Number.isFinite(savedOffset) ? Math.max(0, Math.min(maxOffset, Math.round(savedOffset))) : 0;
 		this.renderIndex = state?.renderIndex || new ChartRenderIndex(project, timingFor(state), {
 			noteSpeed: state?.preferences?.noteSpeed,
 		});
@@ -93,8 +96,12 @@ export class TimelineView {
 		const project = projectState(this.state);
 		const index = project.channels.findIndex(channel => channel.id === channelId);
 		if (index < 0) return;
-		if (index < this.channelOffset) this.channelOffset = index;
-		else if (index >= this.channelOffset + 3) this.channelOffset = index - 2;
+		const nextOffset = index < this.channelOffset ? index
+			: index >= this.channelOffset + 3 ? index - 2 : this.channelOffset;
+		if (nextOffset !== this.channelOffset) {
+			this.channelOffset = nextOffset;
+			this.callbacks.onChannelOffset?.(nextOffset);
+		}
 		this.requestRender();
 	}
 
@@ -812,8 +819,12 @@ export class TimelineView {
 				break;
 			case "channel-scroll": {
 				const available = this.drag.hit.height - this.drag.hit.thumbHeight;
-				this.channelOffset = Math.round(Math.max(0, Math.min(1,
+				const nextOffset = Math.round(Math.max(0, Math.min(1,
 					(point.y - layout.channels.y - this.drag.hit.thumbHeight / 2) / Math.max(1, available))) * this.drag.hit.maxOffset);
+				if (nextOffset !== this.channelOffset) {
+					this.channelOffset = nextOffset;
+					this.callbacks.onChannelOffset?.(nextOffset);
+				}
 				this.requestRender();
 				break;
 			}
@@ -919,8 +930,12 @@ export class TimelineView {
 		event.preventDefault();
 		const project = projectState(this.state);
 		if (project.channels.length > 3 && event.shiftKey) {
-			this.channelOffset = Math.max(0, Math.min(project.channels.length - 3,
+			const nextOffset = Math.max(0, Math.min(project.channels.length - 3,
 				this.channelOffset + Math.sign(event.deltaY)));
+			if (nextOffset !== this.channelOffset) {
+				this.channelOffset = nextOffset;
+				this.callbacks.onChannelOffset?.(nextOffset);
+			}
 			this.requestRender();
 			return;
 		}

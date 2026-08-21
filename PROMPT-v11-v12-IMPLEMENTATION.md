@@ -24,6 +24,7 @@
 | Paste options | 支持复制引用的 channels/snappees，递归重映射嵌套 group 内引用和 ID | `js/app-file-workflows.js` |
 | Timing | 新增 Offset/initial BPM 对话框，以及完整 timing JSON copy/paste | `js/commands.js`, `js/app-event-editing.js`, `js/app-file-workflows.js` |
 | Editor toggles | 新增 timeline grouping、main-field grouping、tip points、out-of-bound 开关，并同步双语 tooltip | `js/app-core.js`, `js/core/chart-model.js`, `json/i18n.en-US.json`, `json/i18n.zh-CN.json` |
+| Timeline channel scroll persistence | `timelineChannelOffset` 在时间轴滚动、自动显示当前通道和 Shift+滚轮时写回 `sviber.editor`，加载时按通道数量恢复并限制到合法范围 | `js/render/timeline.js`, `js/app-event-editing.js`, `js/core/chart-model.js` |
 | Live hosting | NW.js HTTP `/sviber.ssc`、WebSocket handshake、文本/控制帧、ping/pong、close、分片帧、`connect`/`update`/`chartUpdate`；忽略 `eventInfoTip` | `js/live-hosting.js`, `js/app-core.js`, `js/app-file-workflows.js` |
 | sscharter 版本 | Live reload 导出的 chart 写入 `sscharter: { version: "0.10.1" }`，非 live 导出不写入 | `js/core/chart-model.js`, `js/core/project.js` |
 | 帮助和文档 | README 中英文、HTML 手册中英文、快捷键/Group/Clips/Timing/Live hosting/file format 说明 | `README.md`, `README.zh-CN.md`, `docs/index.html` |

@@ -63,3 +63,17 @@ test("removing a channel prunes empty nested groups", () => {
 	model.removeChannel(1);
 	assert.equal(model.findEvent(4), null);
 });
+
+test("timeline channel offset round-trips and clamps to visible channels", () => {
+	const model = ChartModel.createDefault({
+		channels: Array.from({ length: 8 }, (_, id) => ({ id, name: `Channel ${id + 1}` })),
+		editor: { timelineChannelOffset: 5 },
+	});
+	assert.equal(model.editor.timelineChannelOffset, 5);
+	const reopened = ChartModel.import(model.toJSON());
+	assert.equal(reopened.editor.timelineChannelOffset, 5);
+	const clamped = ChartModel.createDefault({
+		channels: [{ id: 0 }, { id: 1 }], editor: { timelineChannelOffset: 5 },
+	});
+	assert.equal(clamped.editor.timelineChannelOffset, 0);
+});

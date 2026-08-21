@@ -433,7 +433,7 @@ function normalizeEditor(editor, channels) {
 		currentChannel: requested?.active !== false || !activeFallback ? requestedChannel : activeFallback.id,
 		allowOutOfBounds: Boolean(source.allowOutOfBounds ?? source.allowOutOfBound),
 		allowOutOfBound: Boolean(source.allowOutOfBound ?? source.allowOutOfBounds),
-		timelineChannelOffset: finiteNumber(source.timelineChannelOffset, 0),
+		timelineChannelOffset: Math.max(0, Math.min(Math.max(0, channels.length - 3), Math.round(finiteNumber(source.timelineChannelOffset, 0)))),
 		showGroupingInTimeline: source.showGroupingInTimeline !== false,
 		showGroupingInMainField: source.showGroupingInMainField !== false,
 		showTipPoints: source.showTipPoints !== false,

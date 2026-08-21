@@ -57,7 +57,7 @@ Windows 下运行 `build/nw/sviber.exe`。首次构建需要联网下载 NW.js �
 
 复制选中事件时会保存相对拍位/通道、通道属性、引用的吸附器和嵌套 group 树。“**编辑 > 保存到片段**”会把相同数据保存到谱面的片段面板。片段可重命名、排序、删除，并在当前拍位和通道粘贴。“**编辑 > 带选项粘贴...**”可以复制引用的通道和/或吸附器，嵌套 group 内的引用也会递归映射；普通粘贴会尽可能复用现有通道和吸附器。
 
-“**定时**”菜单可以编辑偏移和初始 BPM，也可以把完整定时表复制为 JSON 或从 JSON 粘贴。定时数据与事件剪贴板相互独立。在 NW.js 中启用实时托管后，`http://主机:端口/sviber.ssc` 会提供内存中的关卡包，可选的 sscharter WebSocket 端口会发送 `connect`、`update` 和 `chartUpdate` 消息。实时导出包含 `sscharter.version = "0.10.1"`；浏览器版本会禁用服务器控件。
+“**定时**”菜单可以编辑偏移和初始 BPM，也可以把完整定时表复制为 JSON 或从 JSON 粘贴。定时数据与事件剪贴板相互独立。时间轴通道滚动条位置会保存到 `sviber.editor.timelineChannelOffset`，重新加载谱面时恢复显示。在 NW.js 中启用实时托管后，`http://主机:端口/sviber.ssc` 会提供内存中的关卡包，可选的 sscharter WebSocket 端口会发送 `connect`、`update` 和 `chartUpdate` 消息。实时导出包含 `sscharter.version = "0.10.1"`；浏览器版本会禁用服务器控件。
 
 ## 常用快捷键
 
