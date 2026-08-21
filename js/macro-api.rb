@@ -551,6 +551,8 @@ class Snappee
   def nearest_point(x, y)
     points = if @raw["type"] == "rectangularMesh"
                (0..@raw.fetch("horizontalTiles", 1).to_i).flat_map { |i| (0..@raw.fetch("verticalTiles", 1).to_i).map { |j| [i, j] } }
+             elsif @raw["type"] == "radialMesh"
+               (0...@raw.fetch("azimuthalTiles", 1).to_i).flat_map { |i| (0..@raw.fetch("radialTiles", 1).to_i).map { |j| [i, j] } }
              else (0..[@raw.fetch("segments", @raw.fetch("segmentsPerSide", 16)).to_i, 1].max).map { |i| [i, 0] }
              end
     points.map { |point| p = pos(*point); { snap_point: point.length == 1 ? point[0] : point, x: p.x, y: p.y, distance: Math.hypot(p.x - x.to_f, p.y - y.to_f) } }.min_by { |hit| hit[:distance] }
@@ -714,14 +716,19 @@ def sviber = $sviber
 def state = $sviber.state
 def chart = $sviber.state
 def tap(...) = $sviber.tap(...)
-def t(location = nil, text = "") = location.is_a?(Hash) ? $sviber.tap(location) : $sviber.tap("x" => location&.x, "y" => location&.y, "text" => text)
-def hold(location = nil, duration = nil, text = "") = location.is_a?(Hash) ? $sviber.hold(location) : $sviber.hold("x" => location&.x, "y" => location&.y, "duration" => duration, "text" => text)
+def t(location = nil, text = "") = Event.wrap(location.is_a?(Hash) ? $sviber.tap(location) : $sviber.tap("x" => location&.x, "y" => location&.y, "text" => text))
+def hold(location = nil, duration = nil, text = "") = Event.wrap(location.is_a?(Hash) ? $sviber.hold(location) : $sviber.hold("x" => location&.x, "y" => location&.y, "duration" => duration, "text" => text))
 def h(...) = hold(...)
-def drag(location = nil) = location.is_a?(Hash) ? $sviber.drag(location) : $sviber.drag("x" => location&.x, "y" => location&.y)
+def drag(location = nil) = Event.wrap(location.is_a?(Hash) ? $sviber.drag(location) : $sviber.drag("x" => location&.x, "y" => location&.y))
 def d(...) = drag(...)
-def flick(location = nil, angle = 0, text = "") = location.is_a?(Hash) ? $sviber.flick(location) : $sviber.flick("x" => location&.x, "y" => location&.y, "angle" => SviberMacroHelpers.angle(angle), "text" => text)
+def flick(location = nil, angle = 0, text = "") = Event.wrap(location.is_a?(Hash) ? $sviber.flick(location) : $sviber.flick("x" => location&.x, "y" => location&.y, "angle" => SviberMacroHelpers.angle(angle), "text" => text))
 def f(...) = flick(...)
-def bg_note(location = nil, angle = 0, duration = 0, text = "") = location.is_a?(Hash) ? $sviber.bg_note(location) : $sviber.bg_note("x" => location&.x, "y" => location&.y, "angle" => SviberMacroHelpers.angle(angle), "duration" => duration, "text" => text)
+def bg_note(location = nil, angle = 0, duration = 0, text = "")
+  if duration.is_a?(String) && text == ""
+    text = duration; duration = 0
+  end
+  Event.wrap(location.is_a?(Hash) ? $sviber.bg_note(location) : $sviber.bg_note("x" => location&.x, "y" => location&.y, "angle" => SviberMacroHelpers.angle(angle), "duration" => duration, "text" => text))
+end
 def bg(...) = bg_note(...)
 def channel(...) = $sviber.channel(...)
 def add_channel(...) = $sviber.channel(...)
@@ -753,6 +760,7 @@ def b!(value = nil) = value.nil? ? $sviber.current_time : $sviber.set_time(value
 def bpm(value) = (existing = $sviber.timing["bpmChanges"].find { |item| item["time"] == $sviber.current_time }; existing ? existing["bpm"] = value.to_f : $sviber.timing["bpmChanges"] << { "time" => $sviber.current_time, "bpm" => value.to_f }; value)
 def g(values = nil, color = nil, &block)
   if block
+    color = values if color.nil? && !values.nil? && !values.is_a?(Array)
     before = $sviber.raw_events.map { |item| item["id"] }
     block.call
     added = $sviber.raw_events.reject { |item| before.include?(item["id"]) }
@@ -772,7 +780,7 @@ end
 def tpd(distance_or_location, angle_or_time = nil, time = nil)
   distance_or_location.is_a?(Location) ? TipPoint.drop(location: distance_or_location, **(angle_or_time.is_a?(Float) ? { time_seconds: angle_or_time } : { time_beats: angle_or_time })) : TipPoint.drop(distance: distance_or_location, angle: angle_or_time, **(time.is_a?(Float) ? { time_seconds: time } : { time_beats: time }))
 end
-def big_text(duration, text = "") = $sviber.event("bigText", "duration" => duration, "text" => text)
-def grid(duration) = $sviber.event("grid", "duration" => duration)
-def diamond_grid(duration) = $sviber.event("diamondGrid", "duration" => duration)
-def hexagon(duration) = $sviber.event("hexagon", "duration" => duration)
+def big_text(duration, text = "") = Event.wrap($sviber.event("bigText", "duration" => duration, "text" => text))
+def grid(duration) = Event.wrap($sviber.event("grid", "duration" => duration))
+def diamond_grid(duration) = Event.wrap($sviber.event("diamondGrid", "duration" => duration))
+def hexagon(duration) = Event.wrap($sviber.event("hexagon", "duration" => duration))

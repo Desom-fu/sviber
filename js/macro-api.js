@@ -288,7 +288,7 @@
 			attach(snappee = null, ...point) {
 				const target = snappee instanceof Snappee ? snappee : snappee ? new Snappee(snappee) : null;
 				if (target) { this._snappee = target; this.snapPoint = point.length > 1 ? point : (point[0] ?? 0); }
-				else { const nearest = Snappee.list.filter(item => item.active).map(item => { const p = snapPointPosition(item.raw, this.pos.toArray()); return { item, p, distance: Math.hypot(p.x - this.x, p.y - this.y) }; }).sort((a, b) => a.distance - b.distance)[0]; if (nearest) { this._snappee = nearest.item; this.snapPoint = nearest.item.nearestPoint(this.x, this.y).snapPoint; } }
+				else { const nearest = Snappee.list.filter(item => item.active).map(item => ({ item, hit: item.nearestPoint(this.x, this.y) })).sort((a, b) => a.hit.distance - b.hit.distance)[0]; if (nearest) { this._snappee = nearest.item; this.snapPoint = clone(nearest.hit.snapPoint); } }
 				return this;
 			}
 			detach() { const point = this.pos; this._snappee = null; this.snapPoint = null; this._x = point.x; this._y = point.y; return this; }
@@ -350,7 +350,14 @@
 			selectedQ() { return Boolean(this.raw.selected); } select() { ensureAlive(this.raw, "Snappee"); for (const item of state.snappees) item.selected = false; this.raw.selected = true; return this; } static deselect() { for (const item of state.snappees) item.selected = false; }
 			pos(...args) { ensureAlive(this.raw, "Snappee"); const point = snapPointPosition(this.raw, args.length > 1 ? args : args[0]); return new Vector2D(point.x, point.y); }
 			position(...args) { return this.pos(...args); }
-			points() { const count = this.raw.type === "rectangularMesh" ? (Number(this.raw.horizontalTiles ?? 1) + 1) * (Number(this.raw.verticalTiles ?? 1) + 1) : Number(this.raw.segments ?? this.raw.segmentsPerSide ?? 16) + 1; return Array.from({ length: Math.max(1, count) }, (_, index) => ({ snapPoint: index, ...snapPointPosition(this.raw, index) })); }
+			points() {
+				const points = [];
+				if (this.raw.type === "rectangularMesh") for (let i = 0; i <= Number(this.raw.horizontalTiles ?? 1); i += 1) for (let j = 0; j <= Number(this.raw.verticalTiles ?? 1); j += 1) points.push([i, j]);
+				else if (this.raw.type === "radialMesh") for (let i = 0; i < Number(this.raw.azimuthalTiles ?? 1); i += 1) for (let j = 0; j <= Number(this.raw.radialTiles ?? 1); j += 1) points.push([i, j]);
+				else if (this.raw.type === "parametricMesh") { const ir = this.raw.iRange || [0, 1], jr = this.raw.jRange || [0, 1]; for (let i = Number(ir[0]); i < Number(ir[1]) + (this.raw.iRangeExclusive ? 0 : 1); i += 1) for (let j = Number(jr[0]); j < Number(jr[1]) + (this.raw.jRangeExclusive ? 0 : 1); j += 1) points.push([i, j]); }
+				else { const count = this.raw.type === "regularPolygonCurve" ? Number(this.raw.sides ?? 3) * Number(this.raw.segmentsPerSide ?? 1) : Number(this.raw.segments ?? 16); for (let i = 0; i <= Math.max(1, count); i += 1) points.push(i); }
+				return points.map(snapPoint => ({ snapPoint, ...snapPointPosition(this.raw, snapPoint) }));
+			}
 			nearestPoint(x, y) { return this.points().map(point => ({ ...point, distance: Math.hypot(point.x - x, point.y - y) })).sort((a, b) => a.distance - b.distance)[0] || { snapPoint: 0, x: this.pos(0).x, y: this.pos(0).y }; }
 			moveUp() { const index = state.snappees.indexOf(this.raw); if (index > 0) [state.snappees[index - 1], state.snappees[index]] = [state.snappees[index], state.snappees[index - 1]]; return this; }
 			moveDown() { const index = state.snappees.indexOf(this.raw); if (index >= 0 && index < state.snappees.length - 1) [state.snappees[index], state.snappees[index + 1]] = [state.snappees[index + 1], state.snappees[index]]; return this; }
