@@ -2,8 +2,9 @@ import { Rational } from "../core/rational.js";
 import { TimingMap } from "../core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
+import { flattenEvents } from "../core/grouping.js";
 
-export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
+export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote", "group"]);
 export const NOTE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 export const PATTERN_TYPES = new Set(["bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"]);
 export const DURATION_TYPES = new Set(["hold", "bgNote", "comment", ...PATTERN_TYPES]);
@@ -588,7 +589,7 @@ export function polygonPath(context, centerX, centerY, radius, sides, rotation =
 }
 
 export function selectedEvents(project) {
-	return project.events.filter(event => event.selected);
+	return flattenEvents(project.events || []).filter(event => event.selected);
 }
 
 export function pointInPolygon(point, polygon) {

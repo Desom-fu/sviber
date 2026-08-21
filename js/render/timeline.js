@@ -1,5 +1,6 @@
 import { Rational } from "../core/rational.js";
 import { resolveAttachedPosition } from "../core/geometry.js";
+import { flattenEvents } from "../core/grouping.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
 import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointSpawnPosition, tipPointVisualState } from "./stage.js";
@@ -319,13 +320,13 @@ export class TimelineView {
 	}
 
 	#drawEvents(context, layout, project) {
-		const offsets = this.#eventLaneOffsets(project.events);
+		const offsets = this.#eventLaneOffsets(flattenEvents(project.events || [], false));
 		const activeChannelIds = this.renderIndex?.activeChannelIds
 			|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 		const beginning = project.editor.visibleRangeBeginning;
 		const ending = project.editor.visibleRangeEnd;
 		const records = this.renderIndex?.timelineRecords(beginning, ending)
-			|| project.events.map(event => ({ event }));
+			|| flattenEvents(project.events || [], false).map(event => ({ event }));
 		records.sort((left, right) => eventDrawLayer(left.event) - eventDrawLayer(right.event)
 			|| (left.start ?? this.timing.beatToSeconds(left.event.time))
 			- (right.start ?? this.timing.beatToSeconds(right.event.time))
@@ -340,9 +341,32 @@ export class TimelineView {
 				: position.time);
 			const endX = this.#timeToX(endTime, layout.channels.width);
 			if (Math.max(position.x, endX) < -20 || Math.min(position.x, endX) > layout.channels.width + 20) continue;
-			const selected = Boolean(event.selected);
+			const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
 			const color = selected ? "#ff3158" : NOTE_COLORS[event.type] || "#d5dade";
 			context.save();
+			if (project.editor?.showGroupingInTimeline !== false) {
+				const ancestors = this.renderIndex?.ancestorsById.get(event.id) || [];
+				ancestors.slice().reverse().forEach((group, index) => {
+					context.strokeStyle = group.color || "#ff9d3d";
+					context.globalAlpha = interactive ? 0.86 : 0.24;
+					context.lineWidth = 1.4;
+					context.beginPath();
+					context.arc(position.x, position.y, 9 + index * 4, 0, Math.PI * 2);
+					context.stroke();
+				});
+			}
+			if (event.type === "group") {
+				context.strokeStyle = event.color || "#ff9d3d";
+				context.fillStyle = selected ? "#ff3158" : "#f7f8f9";
+				context.lineWidth = 1.5;
+				context.beginPath();
+				context.arc(position.x, position.y, 6, 0, Math.PI * 2);
+				context.stroke();
+				context.fill();
+				context.restore();
+				this.hitRegions.push({ type: "event", event, x: position.x - 10, y: position.y - 10, width: 20, height: 20 });
+				continue;
+			}
 			if (!interactive) context.globalAlpha = 0.28;
 			if (DURATION_TYPES.has(event.type)) {
 				context.strokeStyle = color;
@@ -360,7 +384,8 @@ export class TimelineView {
 			}
 			drawTimelineEventIcon(context, event, position.x, position.y, color);
 			if (interactive) {
-				this.eventCenters.push({ event, x: position.x, y: position.y });
+				const selectionEvent = this.renderIndex?.selectionTarget(event) || event;
+				this.eventCenters.push({ event: selectionEvent, x: position.x, y: position.y });
 				this.hitRegions.push({ type: "event", event, x: position.x - 12, y: position.y - 12, width: 24, height: 24 });
 			}
 			if ((event.type === "bigText" || event.type === "comment") && event.text) {
@@ -416,9 +441,10 @@ export class TimelineView {
 	}
 
 	#drawTipPointLines(context, layout, project, now) {
-		const offsets = this.#eventLaneOffsets(project.events);
+		const offsets = this.#eventLaneOffsets(flattenEvents(project.events || [], false));
 		const beginning = project.editor.visibleRangeBeginning;
 		const ending = project.editor.visibleRangeEnd;
+		if (project.editor?.showTipPoints === false) return;
 		const guides = this.renderIndex?.timelineTipGuides(beginning, ending)
 			|| buildTipPointGuides(project, this.timing);
 		const activeChannelIds = this.renderIndex?.activeChannelIds
@@ -658,6 +684,8 @@ export class TimelineView {
 		if (hit?.type === "bpm") {
 			this.drag = { type: "bpm-click", hit, start: point };
 		} else if (hit?.type === "event") {
+			const selectionEvent = this.renderIndex?.selectionTarget(hit.event) || hit.event;
+			const selected = this.renderIndex?.isEventSelected(selectionEvent) ?? Boolean(selectionEvent.selected);
 			if (event.shiftKey) {
 				if (playing) return;
 				this.callbacks.onRangeSelect?.(hit.event.time, hit.event.channel,
@@ -665,24 +693,24 @@ export class TimelineView {
 				return;
 			}
 			if (event.altKey) {
-				this.callbacks.onSelectEvents?.([hit.event.id], "remove");
+				this.callbacks.onSelectEvents?.([selectionEvent.id], "remove");
 				return;
 			}
-			if (event.ctrlKey && !hit.event.selected) this.callbacks.onSelectEvents?.([hit.event.id], "add");
-			else if (!event.ctrlKey && !hit.event.selected) this.callbacks.onSelectEvents?.([hit.event.id], "replace");
-			const selectedEvents = project.events.filter(candidate => candidate.selected);
+			if (event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([selectionEvent.id], "add");
+			else if (!event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([selectionEvent.id], "replace");
+			const selectedEvents = flattenEvents(project.events || [], true).filter(candidate => candidate.selected);
 			const simultaneous = selectedEvents.length > 0
 				&& selectedEvents.every(candidate => Rational.from(candidate.time).equals(hit.event.time));
 			this.drag = {
 				type: "event", event: hit.event, start: point,
 				startBeat: Rational.from(hit.event.time), copy: event.ctrlKey,
 				absoluteBeatSnap: simultaneous,
-				collapseSelectionOnClick: !event.ctrlKey && Boolean(hit.event.selected),
+				collapseSelectionOnClick: !event.ctrlKey && selected,
 			};
 		} else if (hit?.type === "duration") {
 			const activeChannelIds = this.renderIndex?.activeChannelIds
 				|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
-			const events = project.events.filter(candidate => candidate.selected
+			const events = flattenEvents(project.events || [], true).filter(candidate => candidate.selected
 				&& DURATION_TYPES.has(candidate.type) && activeChannelIds.has(candidate.channel));
 			const records = events.map(candidate => ({
 				event: candidate,
@@ -836,6 +864,7 @@ export class TimelineView {
 		if (this.callbacks.isPlaying?.()) return;
 		const hit = this.#hitTest(this.surface.toLocal(event));
 		if (hit?.type === "bpm") this.callbacks.onEditBpm?.(hit.index);
+		else if (hit?.type === "event" && hit.event.type !== "group") this.callbacks.onEnterGroupSelection?.(hit.event.id);
 	}
 
 	#seekAt(x) {

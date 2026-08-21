@@ -1,4 +1,5 @@
 import { i18n } from "./i18n.js";
+import { walkEvents } from "./core/grouping.js";
 import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js";
 import { ChartModel, DIFFICULTY_COLORS, EVENT_TYPES, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
@@ -13,7 +14,7 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 
-export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
+export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote", "group"]);
 export const DURATION_TYPES = new Set(["hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment"]);
 export const PATTERN_TYPES = new Set(["bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"]);
 export const SNAPPEE_COLORS = ["#00e0ad", "#3086ff", "#ff9d3d", "#d567ff", "#ff2e59", "#50a226"];
@@ -23,7 +24,7 @@ export const LAST_OPEN_KEY = "sviber.lastOpen";
 export const DEFAULT_PREFERENCES = Object.freeze({
 	theme: "system", language: "system", noteSpeed: 2,
 	seVolume: 1, musicVolume: 1, autoSaveInterval: 120,
-	allowOutOfBounds: false,
+	allowOutOfBounds: false, liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
 });
 
 function preferenceChoice(value, choices, fallback) {
@@ -44,6 +45,8 @@ function normalizePreferences(source = {}) {
 		autoSaveInterval: Number.isFinite(autoSaveInterval) && autoSaveInterval >= 0
 			? autoSaveInterval : DEFAULT_PREFERENCES.autoSaveInterval,
 		allowOutOfBounds: Boolean(source.allowOutOfBounds),
+		liveHostingAddress: String(source.liveHostingAddress || DEFAULT_PREFERENCES.liveHostingAddress),
+		liveReloadPort: Math.max(0, Math.floor(Number(source.liveReloadPort ?? DEFAULT_PREFERENCES.liveReloadPort) || 0)),
 	};
 }
 
@@ -109,7 +112,7 @@ export function evaluateExpression(value, fallback = 0) {
 }
 
 export function selected(model) {
-	return model.events.filter(event => event.selected);
+	return model.allEvents ? model.allEvents().filter(event => event.selected) : model.events.filter(event => event.selected);
 }
 
 export function allowsOutOfBounds(model) {
@@ -130,7 +133,7 @@ export function attachedMoveAllowed(model, snappee, events, snapPoints) {
 
 export function attachedNotesStayWithinBounds(model, snappeeId) {
 	if (allowsOutOfBounds(model)) return true;
-	return model.events.every(event => {
+	return (model.allEvents ? model.allEvents() : model.events).every(event => {
 		if (!MOVABLE_TYPES.has(event.type) || !event.attached || event.snappee !== snappeeId) return true;
 		try {
 			const position = resolveAttachedPosition(event, model.snappees);
@@ -170,7 +173,7 @@ export function constrainSnappeeTranslation(model, id, delta) {
 	} catch {
 		return requested;
 	}
-	for (const event of model.events) {
+	for (const event of model.allEvents ? model.allEvents() : model.events) {
 		if (!event.attached || event.snappee !== id || !MOVABLE_TYPES.has(event.type)) continue;
 		const position = resolveAttachedPosition(event, model.snappees);
 		if (position) includePoint(position);
@@ -182,6 +185,10 @@ export function constrainSnappeeTranslation(model, id, delta) {
 }
 
 export function constrainPastedEvent(model, event) {
+	if (event.type === "group") {
+		for (const child of event.events || []) constrainPastedEvent(model, child);
+		return;
+	}
 	if (!MOVABLE_TYPES.has(event.type)) return;
 	let position = event;
 	if (event.attached) {

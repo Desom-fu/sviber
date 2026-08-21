@@ -1,4 +1,5 @@
 import { Rational } from "../core/rational.js";
+import { descendants, flattenEvents } from "../core/grouping.js";
 import { TimingMap } from "../core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
@@ -7,7 +8,7 @@ import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPA
 export const withStageNotes = Base => class extends Base {
 	_drawNoteBody(context, event, screen, scale, visibility, doubleTap = false, preview = false) {
 		const radius = sunniesnowNoteRadius(event.type) * scale;
-		const selected = Boolean(event.selected);
+		const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
 		let noteScale = visibility.phase === "fadingIn" ? visibility.progress : 1;
 		let noteAlpha = Number.isFinite(visibility.alpha) ? visibility.alpha : 1;
 		if (event.type === "hold" && visibility.phase === "holding") {
@@ -204,7 +205,8 @@ export const withStageNotes = Base => class extends Base {
 		const speed = Number(this.state?.preferences?.noteSpeed) > 0
 			? Number(this.state.preferences.noteSpeed) : SUNNIESNOW_SKIN.approachSpeed;
 		const records = this.renderIndex?.creationEchoRecords(now)
-			|| project.events.filter(event => MOVABLE_TYPES.has(event.type)).map(event => ({
+			|| flattenEvents(project.events || [], false).filter(event => MOVABLE_TYPES.has(event.type)
+				&& event.type !== "group").map(event => ({
 				event,
 				end: this._eventTimes(event).end,
 				position: resolveAttachedPosition(event, project.snappees) || event,
@@ -234,7 +236,7 @@ export const withStageNotes = Base => class extends Base {
 		const displayedPattern = (this.renderIndex
 			? this.renderIndex.displayedPattern(now)
 			: sunniesnowDisplayedPattern(project.events, this.timing, now))?.event;
-		const selected = this.renderIndex?.stageSelectedEvents || project.events.filter(event => event.selected);
+		const selected = this.renderIndex?.stageSelectedEvents || flattenEvents(project.events || [], false).filter(event => event.selected);
 		for (const event of selected) {
 			if (MOVABLE_TYPES.has(event.type)) {
 				if (this._noteVisibility(event, now)) continue;
@@ -463,6 +465,7 @@ export const withStageNotes = Base => class extends Base {
 	}
 
 	_drawTipPoints(context, project, mapping, now) {
+		if (project.editor?.showTipPoints === false) return;
 		const guides = this.renderIndex?.activeTipGuides(now) || buildTipPointGuides(project, this.timing);
 		for (const guide of guides) {
 			const checkpoints = this._tipPointCheckpoints(guide, project, mapping);
@@ -475,6 +478,80 @@ export const withStageNotes = Base => class extends Base {
 			this._drawTipPointMarker(context, visual.head, markerRadius, visual.scale);
 			context.restore();
 		}
+	}
+
+	_drawGrouping(context, project, mapping, now) {
+		if (project.editor?.showGroupingInMainField === false || !this.renderIndex) return;
+		const visibleRecords = this.renderIndex.visibleMovableRecords(now)
+			.filter(record => record.event.type !== "group")
+			.concat(this.renderIndex.selectedRecords.filter(record => record.event.type !== "group"));
+		const seen = new Set();
+		for (const record of visibleRecords) {
+			const event = record.event;
+			if (seen.has(event.id)) continue;
+			seen.add(event.id);
+			if (event.type === "group") continue;
+			const ancestors = this.renderIndex.ancestorsById.get(event.id) || [];
+			if (!ancestors.length || !this.renderIndex.activeChannelIds.has(event.channel)) continue;
+			const position = this.renderIndex.positionFor(event) || event;
+			const screen = mapping.toScreen(position);
+			ancestors.slice().reverse().forEach((group, index) => {
+				context.save();
+				context.globalAlpha = 0.84;
+				context.strokeStyle = group.color || "#ff9d3d";
+				context.lineWidth = 1.5;
+				context.beginPath();
+				context.arc(screen.x, screen.y, (sunniesnowNoteRadius(event.type) + 5 + index * 4) * mapping.scale, 0, Math.PI * 2);
+				context.stroke();
+				context.restore();
+			});
+		}
+		for (const record of (this.renderIndex.groupRecords || []).filter(record =>
+			(record.visibleStart <= now && record.visibleEnd >= now) || this.renderIndex.isEventSelected(record.event))) {
+			const group = record.event;
+			if (!this.renderIndex.activeChannelIds.has(group.channel)) continue;
+			const position = this.renderIndex.positionFor(group) || group;
+			const screen = mapping.toScreen(position);
+			context.save();
+			context.strokeStyle = group.color || "#ff9d3d";
+			context.fillStyle = this.renderIndex.isEventSelected(group) ? "#ff3158" : "#f7f8f9";
+			context.lineWidth = 1.5;
+			context.beginPath();
+			context.arc(screen.x, screen.y, 6, 0, Math.PI * 2);
+			context.moveTo(screen.x - 9, screen.y);
+			context.lineTo(screen.x + 9, screen.y);
+			context.moveTo(screen.x, screen.y - 9);
+			context.lineTo(screen.x, screen.y + 9);
+			context.stroke();
+			context.fill();
+			this.hitRegions.push({ type: "event", event: group, position, x: screen.x - 10, y: screen.y - 10, width: 20, height: 20,
+				centerX: screen.x, centerY: screen.y, radius: 10 });
+			const selectedGroups = this.renderIndex.eventRecords.filter(record => record.event.type === "group" && record.event.selected)
+				.map(record => record.event);
+			const movableGroups = selectedGroups.length === 1 || selectedGroups.every(event => !event.attached);
+			if (movableGroups && group.selected) {
+				this.hitRegions.push({ type: "group-anchor", event: group, position, x: screen.x - 12, y: screen.y - 12,
+					width: 24, height: 24, centerX: screen.x, centerY: screen.y, radius: 12 });
+			}
+			const bounds = this._groupBounds(group);
+			if (bounds && this.renderIndex.isEventSelected(group)) {
+				context.setLineDash([5, 3]);
+				context.strokeStyle = group.color || "#ff9d3d";
+				context.strokeRect(bounds.x, bounds.y, bounds.width, bounds.height);
+			}
+			context.restore();
+		}
+	}
+
+	_groupBounds(group) {
+		const points = descendants(group, true).map(event => this.renderIndex.positionFor(event)).filter(Boolean);
+		if (!points.length) return null;
+		const xs = points.map(point => point.x);
+		const ys = points.map(point => point.y);
+		const padding = 18;
+		const topLeft = this._mapping(this.surface.width, this.surface.height).toScreen({ x: Math.min(...xs), y: Math.max(...ys) });
+		const bottomRight = this._mapping(this.surface.width, this.surface.height).toScreen({ x: Math.max(...xs), y: Math.min(...ys) });
+		return { x: topLeft.x - padding, y: topLeft.y - padding, width: bottomRight.x - topLeft.x + padding * 2, height: bottomRight.y - topLeft.y + padding * 2 };
 	}
 
 	_tipPointCheckpoints(guide, project, mapping) {

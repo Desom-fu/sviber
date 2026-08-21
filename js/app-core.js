@@ -23,11 +23,11 @@ import { ScrollView } from "./render/scroll-view.js";
 import { ChartRenderIndex } from "./render/chart-index.js";
 import { HelpController } from "./help.js";
 import { AutosaveManager, FileManager } from "./platform.js";
-import { ChannelsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
+import { ChannelsPanel, ClipsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 import { handleMacroMessage } from "./app-macro-bridge.js";
 import { bindEdgeToggleReveal } from "./ui-layout.js";
-
+import { LiveHosting } from "./live-hosting.js";
 export class SviberAppCore {
 	constructor() {
 		this.preferences = loadPreferences();
@@ -44,6 +44,7 @@ export class SviberAppCore {
 		this.previewLabel = "";
 		this.previewScheduleDirty = false;
 		this.selectionPreview = null;
+		this.groupSelectionScope = null;
 		this.lastHoldDuration = [1, 0, 1];
 		this.lastBgNoteDuration = [1, 0, 1];
 		this.lastFlickAngle = Math.PI / 2;
@@ -69,8 +70,11 @@ export class SviberAppCore {
 		this.macroWindow = null;
 		this.macroMessageHandler = event => void handleMacroMessage(this, event);
 		this.fullscreen = false;
+		this.liveHosting = new LiveHosting({ address: this.preferences.liveHostingAddress, reloadPort: this.preferences.liveReloadPort,
+			getLevel: () => this.hostedLevel(), onMessage: data => {
+				if (data.type === "connect") console.info(`Sunniesnow connected to sviber (${data.userAgent || "unknown client"}).`);
+			} });
 		this.boundFullscreenChange = () => this._syncFullscreenState();
-
 		this.tooltip = new TooltipManager({ i18n });
 		this.toast = new ToastManager({ i18n });
 		this.dialogs = new DialogManager({ i18n, tooltip: this.tooltip });
@@ -91,7 +95,6 @@ export class SviberAppCore {
 				|| change.id === "edit.undo" || change.id === "edit.redo") return;
 			this.exitCreationModes();
 		});
-
 		this.timeline = new TimelineView(document.getElementById("timeline-surface"), this._timelineCallbacks());
 		this.stage = new StageView(document.getElementById("stage-surface"), this._stageCallbacks());
 		this.scrollView = new ScrollView(document.getElementById("scroll-surface"), {
@@ -127,6 +130,12 @@ export class SviberAppCore {
 			onMove: (id, direction) => this.moveChannel(id, direction),
 		});
 		this.historyPanel = new HistoryPanel({ i18n, tooltip: this.tooltip, onGoTo: index => this.goToHistory(index) });
+		this.clipsPanel = new ClipsPanel({ i18n, tooltip: this.tooltip,
+			onPaste: index => void this.pasteClip(index),
+			onMove: (index, direction) => this.moveClip(index, direction),
+			onEdit: index => void this.editClip(index),
+			onDelete: index => void this.deleteClip(index),
+		});
 		this.savedSignature = this.modelSignature();
 		this.nextDifficultyId = 1;
 		this.activeDifficultyId = "difficulty-0";
@@ -145,7 +154,6 @@ export class SviberAppCore {
 		}];
 		this.difficultyUiSignature = "";
 	}
-
 	async initialize() {
 		await i18n.ready;
 		i18n.apply(document);
@@ -176,13 +184,11 @@ export class SviberAppCore {
 			navigator.serviceWorker.register("service-worker.js").catch(error => console.warn("Service worker registration failed", error));
 		}
 	}
-
 	readOnlyCommandAllowed(id) {
 		if (id !== "edit.delete" && id !== "edit.cut") return false;
 		const events = selected(this.model);
 		return events.length > 0 && events.every(event => event.type === "comment");
 	}
-
 	setReadOnly(value) {
 		const next = Boolean(value);
 		if (Boolean(this.model.editor.readOnly) === next) return next;
@@ -193,13 +199,11 @@ export class SviberAppCore {
 		this.refresh();
 		return next;
 	}
-
 	_isFullscreen() {
 		if (document.fullscreenElement) return true;
 		try { return Boolean(globalThis.nw && globalThis.nw.Window.get().isFullscreen); }
 		catch { return false; }
 	}
-
 	_syncFullscreenState() {
 		const next = this._isFullscreen();
 		const changed = next !== this.fullscreen;
@@ -208,7 +212,6 @@ export class SviberAppCore {
 		if (control) control.checked = this.fullscreen;
 		if (changed) this.requestStatusUpdate();
 	}
-
 	async setFullscreen(value) {
 		const requested = Boolean(value);
 		try {
@@ -225,9 +228,10 @@ export class SviberAppCore {
 			this.toast.error("error.fullscreen", { message: String(error?.message || error) });
 		}
 		this._syncFullscreenState();
+		const live = document.getElementById("live-hosting");
+		if (live) live.checked = Boolean(this.liveHosting.server);
 		return this.fullscreen;
 	}
-
 	viewState() {
 		return {
 			...this.model.metadata,
@@ -238,27 +242,25 @@ export class SviberAppCore {
 			channels: this.model.channels,
 			events: this.model.events,
 			snappees: this.model.snappees,
+			clips: this.model.clips,
+			selectionScope: this.groupSelectionScope,
 			preferences: this.preferences,
 			renderIndex: this.renderIndex,
 		};
 	}
-
 	timing() {
 		return this.model.timing instanceof TimingMap ? this.model.timing : new TimingMap(this.model.timing);
 	}
-
 	currentBeat() {
 		return this.model.editor.timeSnapped === false
 			? this.timing().secondsToBeat(this.model.editor.currentTime)
 			: Rational.from(this.model.editor.currentTime);
 	}
-
 	currentSeconds() {
 		return this.model.editor.timeSnapped === false
 			? Number(this.model.editor.currentTime)
 			: this.timing().beatToSeconds(this.model.editor.currentTime);
 	}
-
 	timeBounds(includeCurrent = false) {
 		const baseMinimum = Math.min(0, this.timing().beatToSeconds(0));
 		const current = includeCurrent && !this.audio.playing ? this.currentSeconds() : baseMinimum;
@@ -273,7 +275,7 @@ export class SviberAppCore {
 			return [minimum, this.audio.syntheticEnd];
 		}
 		let maximum = Math.max(10, minimum + 10);
-		for (const event of this.model.events) {
+		for (const event of this.model.allEvents()) {
 			let beat = Rational.from(event.time);
 			if (DURATION_TYPES.has(event.type)) beat = beat.add(event.duration || 0);
 			maximum = Math.max(maximum, this.timing().beatToSeconds(beat) + 10);
@@ -281,7 +283,6 @@ export class SviberAppCore {
 		this.audio.syntheticEnd = maximum;
 		return [minimum, maximum];
 	}
-
 	commit(label, mutation, options = {}) {
 		if (this.model.editor.readOnly && !options.allowReadOnly) return null;
 		this.cancelSelectionPreview?.();
@@ -293,9 +294,10 @@ export class SviberAppCore {
 			this.previewBase = null;
 			this.previewScheduleDirty = false;
 		}
-		const selectionBefore = new Set(this.model.events.filter(event => event.selected).map(event => event.id));
+		const selectionBefore = new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id));
 		const before = JSON.stringify(this.model.snapshot());
 		const result = mutation(this.model);
+		this._normalizeGroupSelectionScope();
 		if (JSON.stringify(this.model.snapshot()) === before) {
 			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
 			this.refresh();
@@ -305,10 +307,10 @@ export class SviberAppCore {
 		this.history.record(this.model.snapshot(), label, options.metadata ?? null);
 		if (options.dirty !== false) this.updateDirty();
 		if (options.scheduleDirty !== false || previewScheduleDirty) this._invalidatePlaybackSchedule();
+		this.broadcastLiveChartUpdate?.();
 		this.refresh();
 		return result;
 	}
-
 	_invalidatePlaybackSchedule() {
 		if (!this.audio.playing) return;
 		this.audio.cancelScheduledHitSounds();
@@ -317,7 +319,6 @@ export class SviberAppCore {
 		this.scheduledHoldReleaseIds.clear();
 		this.playbackScheduleInvalidated = true;
 	}
-
 	modelSignature(model = this.model) {
 		const snapshot = model.snapshot();
 		delete snapshot.editor;
@@ -325,11 +326,9 @@ export class SviberAppCore {
 		for (const snappee of snapshot.snappees || []) delete snappee.selected;
 		return JSON.stringify(snapshot);
 	}
-
 	activeDifficultyState() {
 		return this.difficulties.find(entry => entry.id === this.activeDifficultyId) || this.difficulties[0] || null;
 	}
-
 	syncActiveDifficultyState() {
 		const entry = this.activeDifficultyState();
 		if (!entry) return;
@@ -337,7 +336,6 @@ export class SviberAppCore {
 		entry.history = this.history;
 		entry.savedSignature = this.savedSignature;
 	}
-
 	projectSnapshot() {
 		this.syncActiveDifficultyState();
 		return {
@@ -348,7 +346,6 @@ export class SviberAppCore {
 			charts: this.difficulties.map(entry => ({ id: entry.id, file: entry.file, model: entry.model })),
 		};
 	}
-
 	syncProjectSharedFields() {
 		for (const entry of this.difficulties) {
 			entry.model.metadata.title = this.projectTitle;
@@ -361,7 +358,6 @@ export class SviberAppCore {
 		this.model.music = this.projectMusic;
 		this.model.image = this.projectImage;
 	}
-
 	syncProjectHistorySharedFields(options = {}) {
 		const excludeDifficultyId = options.excludeDifficultyId ?? null;
 		const metadata = options.metadata !== false;
@@ -381,12 +377,12 @@ export class SviberAppCore {
 			});
 		}
 	}
-
 	restoreHistorySnapshot(snapshot) {
 		const title = String(snapshot.metadata?.title ?? this.projectTitle);
 		const artist = String(snapshot.metadata?.artist ?? this.projectArtist);
 		const metadataChanged = title !== this.projectTitle || artist !== this.projectArtist;
 		this.model.restore(snapshot);
+		this._normalizeGroupSelectionScope();
 		this._invalidatePlaybackSchedule();
 		if (metadataChanged) {
 			this.projectTitle = title;
@@ -396,7 +392,6 @@ export class SviberAppCore {
 		}
 		this.syncProjectSharedFields();
 	}
-
 	markProjectSaved() {
 		this.syncActiveDifficultyState();
 		for (const entry of this.difficulties) entry.savedSignature = this.modelSignature(entry.model);
@@ -404,9 +399,9 @@ export class SviberAppCore {
 		this.projectDirty = false;
 		this.dirty = false;
 	}
-
 	installProject(charts, options = {}) {
 		if (!charts?.length) throw new Error("A project must contain at least one difficulty.");
+		this.groupSelectionScope = null;
 		this.nextDifficultyId = 1;
 		const knownFiles = charts.map(item => item.file).filter(Boolean);
 		this.difficulties = charts.map(chart => {
@@ -442,19 +437,16 @@ export class SviberAppCore {
 		this.difficultyUiSignature = "";
 		this.updateDirty();
 	}
-
 	markSaved() {
 		this.savedSignature = this.modelSignature();
 		this.syncActiveDifficultyState();
 		this.updateDirty();
 	}
-
 	updateDirty() {
 		this.syncActiveDifficultyState();
 		this.dirty = this.projectDirty || this.difficulties.some(entry => this.modelSignature(entry.model) !== entry.savedSignature);
 		return this.dirty;
 	}
-
 	preview(label, mutation, options = {}) {
 		if (this.model.editor.readOnly && !options.allowReadOnly) return;
 		if (!this.previewBase) {
@@ -468,7 +460,6 @@ export class SviberAppCore {
 		if (options.scheduleDirty) this._invalidatePlaybackSchedule();
 		this.refresh();
 	}
-
 	cancelPreview() {
 		if (!this.previewBase) return;
 		const scheduleDirty = this.previewScheduleDirty;
@@ -478,7 +469,6 @@ export class SviberAppCore {
 		if (scheduleDirty) this._invalidatePlaybackSchedule();
 		this.refresh();
 	}
-
 	refresh() {
 		if (this.renderQueued) return;
 		this.renderQueued = true;
@@ -487,7 +477,6 @@ export class SviberAppCore {
 			this.refreshNow();
 		});
 	}
-
 	refreshPlaybackFrame() {
 		const view = this.viewState();
 		this.timeline.setState(view);
@@ -496,14 +485,20 @@ export class SviberAppCore {
 		this._updateStatus();
 		this.playbackFrameCount = (this.playbackFrameCount || 0) + 1;
 	}
-
 	_rebuildRenderIndex() {
 		this.renderIndex = new ChartRenderIndex(this.model, this.timing(), {
 			noteSpeed: this.preferences.noteSpeed,
+			selectionScope: this.groupSelectionScope,
 		});
 		return this.renderIndex;
 	}
-
+	_normalizeGroupSelectionScope() {
+		if (this.groupSelectionScope == null) return;
+		const group = this.model.findEvent(this.groupSelectionScope);
+		if (group?.type !== "group" || !this.model.groupDescendants(group.id).some(event => event.selected)) {
+			this.groupSelectionScope = null;
+		}
+	}
 	_syncAudioLoop() {
 		const marks = Array.isArray(this.model.editor.abLoopMarks) ? this.model.editor.abLoopMarks : [];
 		const seconds = marks.length === 2
@@ -511,7 +506,6 @@ export class SviberAppCore {
 			: null;
 		this.audio.setLoopRange(seconds);
 	}
-
 	_refreshDifficultyUi() {
 		const select = document.getElementById("difficulty-select");
 		if (!select) return;
@@ -547,7 +541,6 @@ export class SviberAppCore {
 		const blocked = this.audio.playing || Boolean(this.freeTransform) || Boolean(this.model.editor.readOnly);
 		select.disabled = blocked;
 	}
-
 	refreshNow() {
 		const reschedulePlayback = this.playbackScheduleInvalidated;
 		this.playbackScheduleInvalidated = false;
@@ -564,13 +557,13 @@ export class SviberAppCore {
 		this.inspectorPanel.render(this.model, { transform: this.freeTransform?.matrix || null });
 		this.snappeesPanel.render(this.model, { readOnly: this.model.editor.readOnly });
 		this.channelsPanel.render(this.model, { readOnly: this.model.editor.readOnly });
+		this.clipsPanel.render(this.model, { readOnly: this.model.editor.readOnly });
 		this.historyPanel.render(this.history, { readOnly: this.model.editor.readOnly });
 		this._refreshDifficultyUi();
 		this.registry.notifyAll();
 		this._syncCheckedCommands();
 		document.title = `${this.dirty ? "* " : ""}${this.model.metadata.title} ${this.model.metadata.difficultyName} - sviber`;
 	}
-
 	_updateStatus() {
 		const seconds = this.currentSeconds();
 		const subdivision = this.model.editor.subdivision;
@@ -581,12 +574,14 @@ export class SviberAppCore {
 		document.getElementById("status-beat").textContent = formatBeat(beat, subdivision);
 		document.getElementById("status-speed").textContent = Number(this.model.editor.speed).toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
 		for (const [id, property] of [["lock-visible-range", "lockVisibleRange"], ["play-se", "playSe"],
-			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"], ["read-only", "readOnly"]]) {
+			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"],
+			["show-grouping-in-timeline", "showGroupingInTimeline"], ["show-grouping-in-main-field", "showGroupingInMainField"],
+			["show-tip-points", "showTipPoints"], ["allow-out-of-bound", "allowOutOfBounds"], ["read-only", "readOnly"]]) {
 			const control = document.getElementById(id);
 			if (control) control.checked = Boolean(this.model.editor[property]);
 		}
 		this._syncFullscreenState();
-		const comments = this.renderIndex?.activeComments(seconds) || this.model.events.filter(event => {
+		const comments = this.renderIndex?.activeComments(seconds) || this.model.allEvents().filter(event => {
 			if (event.type !== "comment") return false;
 			const start = this.timing().beatToSeconds(event.time);
 			const end = this.timing().beatToSeconds(Rational.from(event.time).add(event.duration || 0));
@@ -613,7 +608,6 @@ export class SviberAppCore {
 			operation.textContent = this.freeTransform.matrix.map(value => Number(value).toFixed(3)).join("  ");
 		} else operation.textContent = "";
 	}
-
 	requestStatusUpdate() {
 		if (this.statusUpdateFrame) return;
 		this.statusUpdateFrame = requestAnimationFrame(() => {
@@ -621,7 +615,6 @@ export class SviberAppCore {
 			this._updateStatus();
 		});
 	}
-
 	_syncCheckedCommands() {
 		for (const type of ["tap", "hold", "drag", "flick", "bgNote"]) {
 			this.registry.setChecked(`events.${type}`, this.creationMode === type);
@@ -637,9 +630,8 @@ export class SviberAppCore {
 			this.registry.setChecked(id, Math.abs(this.model.editor.speed - value) < 1e-8);
 		}
 	}
-
 	_bindTabs() {
-		const tabs = ["inspector", "channels", "snappees"].map(id => ({
+		const tabs = ["inspector", "channels", "snappees", "clips"].map(id => ({
 			id,
 			tab: document.getElementById(`${id}-tab`),
 			panel: document.getElementById(`${id}-panel`),
@@ -654,7 +646,6 @@ export class SviberAppCore {
 		};
 		for (const item of tabs) item.tab.addEventListener("click", () => setTab(item.id));
 	}
-
 	_bindInputs() {
 		document.getElementById("open-file-input").addEventListener("change", event => void this.openFile(event.target.files[0]).finally(() => { event.target.value = ""; }));
 		document.getElementById("chart-file-input").addEventListener("change", event => void this.openFile(event.target.files[0]).finally(() => { event.target.value = ""; }));
@@ -663,18 +654,23 @@ export class SviberAppCore {
 		document.getElementById("difficulty-select")?.addEventListener("change", event => void this.switchDifficulty(event.target.value));
 		document.getElementById("difficulty-add")?.addEventListener("click", () => void this.newDifficulty());
 		document.getElementById("difficulty-delete")?.addEventListener("click", () => void this.deleteDifficulty());
-		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome"]) {
+		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "allow-out-of-bound"]) {
 			document.getElementById(id)?.addEventListener("change", event => {
 				this.model.editor[id === "lock-visible-range" ? "lockVisibleRange"
 					: id === "play-se" ? "playSe"
-					: id === "seek-back-after-playing" ? "seekBackAfterPlaying" : "metronome"] = Boolean(event.target.checked);
+					: id === "seek-back-after-playing" ? "seekBackAfterPlaying"
+					: id === "show-grouping-in-timeline" ? "showGroupingInTimeline"
+					: id === "show-grouping-in-main-field" ? "showGroupingInMainField"
+					: id === "show-tip-points" ? "showTipPoints"
+					: id === "allow-out-of-bound" ? "allowOutOfBounds" : "metronome"] = Boolean(event.target.checked);
+				if (id === "allow-out-of-bound") this.preferences.allowOutOfBounds = Boolean(event.target.checked);
 				this.refresh();
 			});
 		}
 		document.getElementById("read-only")?.addEventListener("change", event => this.setReadOnly(event.target.checked));
 		document.getElementById("fullscreen")?.addEventListener("change", event => void this.setFullscreen(event.target.checked));
+		document.getElementById("live-hosting")?.addEventListener("change", event => void this.setLiveHosting(event.target.checked));
 	}
-
 	_bindAudio() {
 		this.audio.addEventListener("timeupdate", event => {
 			if (!this.audio.playing) return;
@@ -800,7 +796,6 @@ export class SviberAppCore {
 			this.scheduledMetronomeBeats.clear();
 		});
 	}
-
 	_scheduleHits(current, lateTolerance = 0.02) {
 		if (this.playbackScheduleInvalidated && lateTolerance !== 0) return;
 		const reverse = this.audio.direction < 0;
@@ -811,12 +806,12 @@ export class SviberAppCore {
 			? this.renderIndex
 				? collectIndexedReverseHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
 					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
-				: collectReverseHitSchedule(this.model.events, this.timing(), current, this.audio.rate,
+				: collectReverseHitSchedule(this.model.allEvents({ includeGroups: false }), this.timing(), current, this.audio.rate,
 					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
 			: this.renderIndex
 				? collectIndexedHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
 					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
-				: collectHitSchedule(this.model.events, this.timing(), current, this.audio.rate,
+				: collectHitSchedule(this.model.allEvents({ includeGroups: false }), this.timing(), current, this.audio.rate,
 					this.scheduledHitIds, undefined, lateTolerance, loopBoundary);
 		for (const { event, delay } of schedule) {
 			this.scheduledHitIds.add(event.id);
@@ -826,7 +821,7 @@ export class SviberAppCore {
 		const releases = reverse ? [] : this.renderIndex
 			? collectIndexedHoldReleaseSchedule(this.renderIndex.holdReleaseRecords,
 				current, this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance, loopBoundary)
-			: collectHoldReleaseSchedule(this.model.events, this.timing(), current,
+			: collectHoldReleaseSchedule(this.model.allEvents({ includeGroups: false }), this.timing(), current,
 				this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance, loopBoundary);
 		for (const { event, delay } of releases) {
 			this.scheduledHoldReleaseIds.add(event.id);
@@ -841,15 +836,17 @@ export class SviberAppCore {
 			}
 		}
 	}
-
 	_bindLayoutToggles() {
 		const row = document.querySelector(".editor-row");
+		const workspace = document.querySelector(".workspace");
 		const scrollButton = document.getElementById("scroll-view-toggle");
 		const sideButton = document.getElementById("side-panel-toggle");
+		const timelineButton = document.getElementById("timeline-toggle");
 		bindEdgeToggleReveal(document.getElementById("stage-surface"));
 		const update = () => {
 			const scrollHidden = row?.classList.contains("is-scroll-hidden");
 			const sideHidden = row?.classList.contains("is-side-hidden");
+			const timelineHidden = workspace?.classList.contains("is-timeline-hidden");
 			if (scrollButton) {
 				scrollButton.textContent = scrollHidden ? "›" : "‹";
 				scrollButton.title = i18n.t(scrollHidden ? "layout.showScrollView" : "layout.hideScrollView");
@@ -860,12 +857,17 @@ export class SviberAppCore {
 				sideButton.title = i18n.t(sideHidden ? "layout.showSidePanel" : "layout.hideSidePanel");
 				sideButton.setAttribute("aria-label", sideButton.title);
 			}
+			if (timelineButton) {
+				timelineButton.textContent = timelineHidden ? "▼" : "▲";
+				timelineButton.title = i18n.t(timelineHidden ? "layout.showTimeline" : "layout.hideTimeline");
+				timelineButton.setAttribute("aria-label", timelineButton.title);
+			}
 		};
 		scrollButton?.addEventListener("click", () => { row?.classList.toggle("is-scroll-hidden"); update(); });
 		sideButton?.addEventListener("click", () => { row?.classList.toggle("is-side-hidden"); update(); });
+		timelineButton?.addEventListener("click", () => { workspace?.classList.toggle("is-timeline-hidden"); update(); });
 		update();
 	}
-
 	_bindGlobalInteraction() {
 		const licenseLink = document.querySelector(".javascript-license-link");
 		licenseLink?.addEventListener("click", event => {
@@ -924,7 +926,6 @@ export class SviberAppCore {
 		});
 		i18n.subscribe(() => this.refresh());
 	}
-
 	openMacros() {
 		const urlObject = new URL("macros.html", location.href);
 		urlObject.searchParams.set("lang", i18n.language);
@@ -940,7 +941,6 @@ export class SviberAppCore {
 			}, popup => { this.macroWindow = popup?.window || null; });
 		}
 	}
-
 	async _offerAutosave() {
 		const recoveries = this.autosave.recoverable();
 		if (!recoveries.length) return false;
@@ -971,7 +971,6 @@ export class SviberAppCore {
 		} else this.autosave.markManualSave();
 		return true;
 	}
-
 	exitModes() {
 		this.creationMode = null;
 		this.curveDraft = null;
@@ -979,7 +978,6 @@ export class SviberAppCore {
 		this.cancelFreeTransform();
 		this.cancelPreview();
 	}
-
 	destroy() {
 		this.detachKeyboard?.();
 		this.autosave.stop();
@@ -996,5 +994,4 @@ export class SviberAppCore {
 		window.removeEventListener("message", this.macroMessageHandler);
 		cancelAnimationFrame(this.statusUpdateFrame);
 	}
-
 }

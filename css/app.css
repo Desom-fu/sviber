@@ -359,8 +359,14 @@ textarea:focus-visible,
 	opacity: 1; pointer-events: auto;
 }
 
+.stage-surface.is-hovering-top-edge .edge-toggle-top { opacity: 1; pointer-events: auto; }
+
 .edge-toggle-right { right: 0; }
 .edge-toggle-left { left: 0; }
+.edge-toggle-top { top: 0; left: 50%; transform: translateX(-50%); width: 44px; height: 18px; font-size: 12px; }
+
+.workspace.is-timeline-hidden { grid-template-rows: 0 minmax(0, 1fr); }
+.workspace.is-timeline-hidden .timeline-row { visibility: hidden; pointer-events: none; }
 
 .editor-row.is-scroll-hidden { grid-template-columns: 0 minmax(0, 1fr) clamp(260px, 24vw, 320px); }
 .editor-row.is-side-hidden { grid-template-columns: clamp(150px, 14vw, 220px) minmax(0, 1fr) 0; }
@@ -494,7 +500,7 @@ textarea:focus-visible,
 
 .side-tabs {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(4, minmax(0, 1fr));
 	background: var(--chrome-strong);
 	border-bottom: 1px solid var(--border-strong);
 }
@@ -531,6 +537,10 @@ textarea:focus-visible,
 	overflow: auto;
 	background: var(--panel);
 }
+
+.shortcut-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 28px; row-gap: 5px; min-width: min(520px, 80vw); }
+.shortcut-grid kbd { color: var(--text-muted); font-family: "Cascadia Mono", Consolas, monospace; }
+.clip-thumbnail { flex: 0 0 42px; width: 42px; height: 42px; border: 1px solid var(--border); }
 
 .empty-panel {
 	display: grid;
@@ -922,7 +932,6 @@ textarea:focus-visible,
 .validation-message.is-error {
 	color: var(--accent);
 }
-
 .dialog-actions {
 	display: flex;
 	justify-content: flex-end;
@@ -931,7 +940,6 @@ textarea:focus-visible,
 	border-top: 1px solid var(--border);
 	background: var(--chrome);
 }
-
 .dialog-button,
 .panel-button {
 	min-width: 78px;
@@ -946,12 +954,10 @@ textarea:focus-visible,
 .panel-button:hover {
 	background: var(--hover);
 }
-
 .dialog-button.is-primary {
 	border-color: color-mix(in srgb, var(--focus) 75%, var(--border));
 	background: color-mix(in srgb, var(--focus) 14%, var(--surface));
 }
-
 .checkbox-line,
 .radio-line {
 	display: flex;
@@ -959,18 +965,15 @@ textarea:focus-visible,
 	gap: 6px;
 	min-height: 26px;
 }
-
 .choice-grid {
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: 4px 10px;
 }
-
 .array-editor {
 	border: 1px solid var(--border);
 	background: var(--surface);
 }
-
 .array-row {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) auto;
@@ -978,16 +981,13 @@ textarea:focus-visible,
 	padding: 5px;
 	border-bottom: 1px solid var(--border);
 }
-
 .array-row:last-child {
 	border-bottom: 0;
 }
-
 .array-actions {
 	display: flex;
 	gap: 2px;
 }
-
 .icon-button {
 	display: grid;
 	width: 27px;

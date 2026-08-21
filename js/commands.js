@@ -36,7 +36,9 @@ const DEFINITIONS = [
 	define('edit.redo', 'Ctrl+Y'),
 	define('edit.cut', 'Ctrl+X'),
 	define('edit.copy', 'Ctrl+C'),
+	define('edit.saveClip', 'Ctrl+Shift+C', null, {blockDuringPlayback: true}),
 	define('edit.paste', 'Ctrl+V', null, {blockDuringPlayback: true}),
+	define('edit.pasteOptions', 'Ctrl+Shift+V', null, {blockDuringPlayback: true}),
 	define('edit.pasteDuplicateSnappees', 'Ctrl+Shift+V', null, {blockDuringPlayback: true}),
 	define('edit.selectAll', 'Ctrl+A'),
 	define('edit.selectChannel', 'Ctrl+Shift+A'),
@@ -53,10 +55,16 @@ const DEFINITIONS = [
 	define('events.bgPattern', 'P', 'create-bg-pattern', {blockDuringPlayback: true}),
 	define('events.bpmChange', 'M', 'bpm-change', {blockDuringPlayback: true}),
 	define('events.comment', 'Ctrl+M', null, {blockDuringPlayback: true}),
+	define('events.group', 'Ctrl+G', null, {blockDuringPlayback: true}),
+	define('events.ungroup', 'Ctrl+Shift+G', null, {blockDuringPlayback: true}),
 	define('events.moveChannelAbove', 'Ctrl+Shift+ArrowUp', 'move-to-channel-above'),
 	define('events.moveChannelBelow', 'Ctrl+Shift+ArrowDown', 'move-to-channel-below'),
 	define('events.reverseTime'),
 	define('events.fillCurveDrag', null, null, {blockDuringPlayback: true}),
+
+	define('timing.offsetAndBpm'),
+	define('timing.copy', null, null, {allowWhenBlocked: true}),
+	define('timing.paste', null, null, {blockDuringPlayback: true}),
 
 	define('channel.createAbove', 'Insert', 'create-channel-above'),
 	define('channel.createBelow', 'Shift+Insert', 'create-channel-below'),
@@ -133,6 +141,7 @@ const DEFINITIONS = [
 	define('macros.open', 'Ctrl+Alt+M', 'macros', {allowWhenBlocked: true}),
 
 	define('help.documentation', 'F1', null, {allowWhenBlocked: true}),
+	define('help.keyboardShortcuts', '?', null, {allowWhenBlocked: true}),
 	define('help.reportIssues'),
 	define('help.about', null, null, {blockDuringPlayback: true})
 ];
@@ -159,17 +168,22 @@ export const MENU_DEFINITION = Object.freeze([
 	}),
 	Object.freeze({
 		id: 'edit', labelKey: 'menu.edit', mnemonic: 'e', items: Object.freeze([
-			item('edit.undo'), item('edit.redo'), item('edit.cut'), item('edit.copy'),
-			item('edit.paste'), item('edit.pasteDuplicateSnappees'), separator,
+			item('edit.undo'), item('edit.redo'), item('edit.cut'), item('edit.copy'), item('edit.saveClip'),
+			item('edit.paste'), item('edit.pasteOptions'), separator,
 			item('edit.selectAll'), item('edit.selectChannel'), item('edit.selectNone'), item('edit.selectAttached'),
 			item('edit.selectFilter'), separator, item('edit.delete')
+		])
+	}),
+	Object.freeze({
+		id: 'timing', labelKey: 'menu.timing', mnemonic: 'i', items: Object.freeze([
+			item('timing.offsetAndBpm'), item('events.bpmChange'), item('timing.copy'), item('timing.paste')
 		])
 	}),
 	Object.freeze({
 		id: 'events', labelKey: 'menu.events', mnemonic: 'v', items: Object.freeze([
 			item('events.tap'), item('events.hold'), item('events.drag'), item('events.flick'),
 			separator, item('events.bgNote'), item('events.bgPattern'), separator,
-			item('events.bpmChange'), separator, item('events.comment'), separator, item('events.moveChannelAbove'),
+			item('events.comment'), separator, item('events.group'), item('events.ungroup'), separator, item('events.moveChannelAbove'),
 			item('events.moveChannelBelow'), separator, item('events.reverseTime'),
 			item('events.fillCurveDrag')
 		])
@@ -219,7 +233,7 @@ export const MENU_DEFINITION = Object.freeze([
 	}),
 	Object.freeze({
 		id: 'help', labelKey: 'menu.help', mnemonic: 'h', items: Object.freeze([
-			item('help.documentation'), item('help.reportIssues'), separator, item('help.about')
+			item('help.documentation'), item('help.keyboardShortcuts'), item('help.reportIssues'), separator, item('help.about')
 		])
 	})
 ]);

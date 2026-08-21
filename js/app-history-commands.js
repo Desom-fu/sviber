@@ -65,20 +65,21 @@ export const withHistoryCommands = Base => class extends Base {
 		command("edit.redo", () => this.redo(), () => this.history.canRedo);
 		command("edit.cut", () => void this.cutEvents(), () => selected(this.model).length > 0);
 		command("edit.copy", () => void this.copyEvents(), () => selected(this.model).length > 0);
+		command("edit.saveClip", () => void this.saveEventsToClip(), () => selected(this.model).length > 0);
 		command("edit.paste", () => void this.pasteEvents(false));
-		command("edit.pasteDuplicateSnappees", () => void this.pasteEvents(true));
-		command("edit.selectAll", () => this.selectEvents(this.model.events.map(event => event.id), "replace"), () => this.model.events.length > 0);
-		command("edit.selectChannel", () => this.selectEvents(this.model.events.filter(event => event.channel === this.model.editor.currentChannel).map(event => event.id), "replace"));
+		command("edit.pasteOptions", () => void this.showPasteOptions());
+		command("edit.selectAll", () => this.selectEvents(this.model.allEvents().map(event => event.id), "replace"), () => this.model.allEvents().length > 0);
+		command("edit.selectChannel", () => this.selectEvents(this.model.allEvents().filter(event => event.channel === this.model.editor.currentChannel).map(event => event.id), "replace"));
 		command("edit.selectNone", () => this.selectEvents([], "replace"), () => selected(this.model).length > 0);
 		command("edit.selectAttached", () => {
 			const snappee = this.model.snappees.find(candidate => candidate.selected);
 			if (!snappee) return;
 			const activeChannels = new Set(this.model.channels
 				.filter(channel => channel.active !== false).map(channel => channel.id));
-			this.selectEvents(this.model.events.filter(event => event.attached && event.snappee === snappee.id
+			this.selectEvents(this.model.allEvents().filter(event => event.attached && event.snappee === snappee.id
 				&& activeChannels.has(event.channel)).map(event => event.id), "replace");
 		}, () => this.model.snappees.some(snappee => snappee.selected));
-		command("edit.selectFilter", () => void this.showSelectionFilter(), () => this.model.events.length > 0);
+		command("edit.selectFilter", () => void this.showSelectionFilter(), () => this.model.allEvents().length > 0);
 		command("edit.delete", () => this.deleteSelected(), () => selected(this.model).length > 0);
 
 		for (const type of ["tap", "hold", "drag", "flick", "bgNote"]) {
@@ -87,10 +88,15 @@ export const withHistoryCommands = Base => class extends Base {
 		command("events.bgPattern", () => void this.showBackgroundPatternDialog(), () => this.currentChannelActive());
 		command("events.bpmChange", () => void this.showBpmDialog());
 		command("events.comment", () => void this.showCommentDialog());
+		command("events.group", () => this.groupSelected(), () => selected(this.model).length > 0);
+		command("events.ungroup", () => this.ungroupSelected(), () => selected(this.model).some(event => event.type === "group"));
 		command("events.moveChannelAbove", () => this.moveSelectedChannel(-1), () => this.canMoveSelectedChannel(-1));
 		command("events.moveChannelBelow", () => this.moveSelectedChannel(1), () => this.canMoveSelectedChannel(1));
 		command("events.reverseTime", () => this.reverseSelectedTime(), () => selected(this.model).length > 0);
 		command("events.fillCurveDrag", () => this.fillSelectedCurve(), () => this.model.snappees.some(snappee => snappee.selected && !snappee.type.endsWith("Mesh")));
+		command("timing.offsetAndBpm", () => void this.showTimingDialog());
+		command("timing.copy", () => void this.copyTiming());
+		command("timing.paste", () => void this.pasteTiming());
 
 		command("channel.createAbove", () => this.createChannel(0));
 		command("channel.createBelow", () => this.createChannel(1));
@@ -164,6 +170,7 @@ export const withHistoryCommands = Base => class extends Base {
 		command("timeline.pageBackward", () => this.pageVisibleRange(1));
 		command("macros.open", () => this.openMacros());
 		command("help.documentation", () => this.help.openDocumentation());
+		command("help.keyboardShortcuts", () => void this.help.showKeyboardShortcuts(this.registry.definitions));
 		command("help.reportIssues", () => void this.help.reportIssues());
 		command("help.about", () => void this.help.showAbout());
 	}
@@ -208,12 +215,12 @@ export const withHistoryCommands = Base => class extends Base {
 		const chosen = selected(this.model).filter(event => !PATTERN_TYPES.has(event.type));
 		if (!alreadyCreating && chosen.length) {
 			this.commit(i18n.t("history.editEvent", { type: eventTypeLabel(type) }), model => {
-				for (const event of model.events.filter(item => item.selected && !PATTERN_TYPES.has(item.type))) {
+				for (const event of model.allEvents().filter(item => item.selected && !PATTERN_TYPES.has(item.type))) {
 					const overrides = { ...event, id: event.id, selected: true };
 					if (type === "hold" && event.duration == null) overrides.duration = this.lastHoldDuration;
 					if (type === "bgNote" && event.duration == null) overrides.duration = this.lastBgNoteDuration;
 					if (type === "flick" && event.angle == null) overrides.angle = this.lastFlickAngle;
-					model.events[model.events.indexOf(event)] = createEvent(type, overrides);
+					model.replaceEvent(event.id, createEvent(type, overrides));
 				}
 			});
 			this.rememberCreationDefaults(selected(this.model));
@@ -241,7 +248,7 @@ export const withHistoryCommands = Base => class extends Base {
 			overrides.y = position.y;
 		}
 		this.commit(i18n.t("history.createEvent", { type: eventTypeLabel(type) }), model => {
-			for (const event of model.events) event.selected = false;
+			for (const event of model.allEvents()) event.selected = false;
 			model.addEvent(type, overrides);
 		}, { metadata: { creationMode: type } });
 		this.rememberCreationDefaults(selected(this.model));
@@ -249,14 +256,29 @@ export const withHistoryCommands = Base => class extends Base {
 
 	deleteSelected() {
 		this.commit(i18n.t("history.deleteEvents"), model => {
-			model.events = model.events.filter(event => !event.selected);
+		const removeSelected = items => (items || []).flatMap(event => {
+			if (event.type === "group") event.events = removeSelected(event.events);
+			return event.selected || event.type === "group" && !event.events.length ? [] : [event];
+		});
+		model.events = removeSelected(model.events);
 		}, { allowReadOnly: this.model.editor.readOnly && selected(this.model).every(event => event.type === "comment") });
+	}
+
+	groupSelected() {
+		const used = this.model.allEvents().filter(event => event.type === "group").map(event => event.color);
+		const color = SNAPPEE_COLORS.find(candidate => !used.includes(candidate)) || SNAPPEE_COLORS[used.length % SNAPPEE_COLORS.length];
+		this.commit(i18n.t("history.groupEvents"), model => model.groupSelected(color));
+	}
+
+	ungroupSelected() {
+		this.commit(i18n.t("history.ungroupEvents"), model => model.ungroupSelected());
 	}
 
 	canMoveSelectedChannel(direction) {
 		const chosen = selected(this.model);
 		if (!chosen.length) return false;
-		return chosen.every(event => {
+		const moved = [...new Set(chosen.flatMap(event => event.type === "group" ? [event, ...this.model.groupDescendants(event.id)] : [event]))];
+		return moved.every(event => {
 			const index = this.model.channels.findIndex(channel => channel.id === event.channel);
 			const target = this.model.channels[index + direction];
 			return Boolean(target && target.active !== false);
@@ -265,7 +287,9 @@ export const withHistoryCommands = Base => class extends Base {
 
 	moveSelectedChannel(direction) {
 		this.commit(i18n.t("history.moveEvents"), model => {
-			for (const event of model.events.filter(item => item.selected)) {
+			const chosen = model.allEvents().filter(item => item.selected);
+			const moved = [...new Set(chosen.flatMap(event => event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event]))];
+			for (const event of moved) {
 				const index = model.channels.findIndex(channel => channel.id === event.channel);
 				const target = model.channels[index + direction];
 				if (target?.active !== false) event.channel = target.id;
@@ -275,12 +299,13 @@ export const withHistoryCommands = Base => class extends Base {
 
 	reverseSelectedTime() {
 		this.commit(i18n.t("history.moveEvents"), model => {
-			const chosen = model.events.filter(event => event.selected);
+			const chosen = model.allEvents().filter(event => event.selected);
 			if (!chosen.length) return;
 			const beats = chosen.map(event => Rational.from(event.time));
 			const minimum = beats.reduce((left, right) => left.compare(right) <= 0 ? left : right);
 			const maximum = beats.reduce((left, right) => left.compare(right) >= 0 ? left : right);
-			for (const event of chosen) event.time = minimum.add(maximum).sub(event.time).toJSON();
+			const moved = [...new Set(chosen.flatMap(event => event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event]))];
+			for (const event of moved) event.time = minimum.add(maximum).sub(event.time).toJSON();
 		});
 	}
 
@@ -354,7 +379,7 @@ export const withHistoryCommands = Base => class extends Base {
 				}
 				return;
 			}
-			for (const event of model.events) {
+			for (const event of model.allEvents()) {
 				if (event.channel === id) event.selected = false;
 			}
 			if (model.channels.length <= 1) return;
@@ -374,10 +399,8 @@ export const withHistoryCommands = Base => class extends Base {
 				name: this.uniqueChannelName(source.name),
 				active: source.active !== false,
 			});
-			const sourceEvents = model.events.filter(event => event.channel === id);
-			for (const event of sourceEvents) {
-				model.addEvent({ ...deepClone(event), id: null, channel: duplicate.id, selected: false });
-			}
+			const sourceEvents = model.allEvents().filter(event => event.channel === id && !model.ancestorsOf(event.id).length);
+			for (const event of sourceEvents) model.addEvent({ ...deepClone(event), id: null, channel: duplicate.id, selected: false });
 			if (duplicate.active === false) model.editor.currentChannel = previousCurrent;
 		});
 	}

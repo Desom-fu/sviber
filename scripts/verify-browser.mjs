@@ -311,7 +311,7 @@ try {
 	assert.ok(await page.evaluate(timestamp => Number(localStorage.getItem("sviber.manualSaveTime")) > timestamp,
 		startupAutosaveTimestamp), "discarding startup recovery did not suppress the same autosave on reload");
 	assert.equal(await page.locator("#inspector-tab").textContent(), "检查器");
-	assert.equal(await page.locator(".menu-root-button").count(), 9);
+	assert.equal(await page.locator(".menu-root-button").count(), 10);
 	assert.equal(await page.locator('.menu-root[data-menu-id="macros"] .menu-root-button').count(), 1);
 	macroChecks = await runMacroChecks(browser, activeBaseUrl);
 	await page.locator('.menu-root[data-menu-id="file"] .menu-root-button').click();
@@ -577,6 +577,7 @@ try {
 		preferences: {
 			theme: "system", language: "system", noteSpeed: 3,
 			seVolume: 1, musicVolume: 1, autoSaveInterval: 120, allowOutOfBounds: true,
+			liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
 		},
 	});
 

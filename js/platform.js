@@ -586,7 +586,7 @@ export class FileManager {
 		return filename;
 	}
 
-	async createLevelArchive(project) {
+	async createLevelArchive(project, options = {}) {
 		await globalThis.sviberDependenciesReady;
 		if (!globalThis.JSZip) throw new Error("JSZip is unavailable.");
 		if (!Array.isArray(project?.charts) || !project.charts.length) throw new Error("A level must contain at least one difficulty.");
@@ -604,7 +604,7 @@ export class FileManager {
 				throw new Error(`Invalid Sunniesnow chart filename: ${filename || "(empty)"}.`);
 			}
 			reserveName(filename, "difficulty chart");
-			const chart = exportSunniesnowChartDocument(entry.model);
+			const chart = exportSunniesnowChartDocument(entry.model, options);
 			zip.file(filename, `${JSON.stringify(chart, null, 2)}\n`);
 		}
 		const musicName = sanitizeFilename(this.musicFile.name, "music");

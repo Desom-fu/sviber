@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v34";
+const CACHE_VERSION = "sviber-v35";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -43,14 +43,16 @@ const APP_SHELL = [
 	"./js/render/timeline-helpers.js",
 	"./svg/icon.svg",
 	"./js/vendor-loader.js",
-	"./js/app.js?v=24",
+	"./js/app.js?v=25",
 	"./js/macros.js",
 	"./js/commands.js",
 	"./js/i18n.js",
 	"./js/panels.js",
 	"./js/platform.js",
 	"./js/ui.js",
+	"./js/live-hosting.js",
 	"./js/core/chart-model.js",
+	"./js/core/grouping.js",
 	"./js/core/geometry.js",
 	"./js/core/history.js",
 	"./js/core/project.js",
@@ -93,6 +95,8 @@ const APP_SHELL = [
 		"flip-horizontally.svg", "flip-vertically.svg",
 		"fullscreen.svg", "lock-visible-range.svg", "macros.svg", "metronome.svg",
 		"read-only.svg", "se.svg", "seek-back-after-playing.svg",
+		"allow-out-of-bound.svg", "live-hosting.svg", "paste.svg",
+		"show-grouping-in-main-field.svg", "show-grouping-in-timeline.svg", "show-tip-points.svg",
 	].map(name => `svg/icons/${name}`),
 ];
 const CDN_ASSETS = [

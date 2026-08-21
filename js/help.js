@@ -1,3 +1,5 @@
+import { COMMAND_DEFINITIONS } from "./commands.js";
+
 function browserVersions() {
 	const userAgent = String(navigator.userAgent || "");
 	const chromium = userAgent.match(/(?:Chrome|Chromium)\/([\d.]+)/)?.[1];
@@ -158,5 +160,20 @@ export class HelpController {
 				} },
 			],
 		});
+	}
+
+	async showKeyboardShortcuts(definitions = COMMAND_DEFINITIONS) {
+		const content = document.createElement("div");
+		content.className = "shortcut-grid";
+		for (const definition of Object.values(definitions)) {
+			if (!definition.shortcut) continue;
+			const command = document.createElement("span");
+			command.textContent = this.i18n.t(definition.labelKey);
+			const shortcut = document.createElement("kbd");
+			shortcut.textContent = this.i18n.shortcut(definition.shortcut);
+			content.append(command, shortcut);
+		}
+		await this.dialogs.open({ titleKey: "dialog.keyboardShortcuts", content,
+			buttons: [{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false }] });
 	}
 }

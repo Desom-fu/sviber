@@ -13,6 +13,7 @@ import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
+import { SSCHARTER_VERSION } from "./live-hosting.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_CHARTER_KEY, LAST_OPEN_KEY, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
 export const withFileWorkflows = Base => class extends Base {
@@ -309,11 +310,16 @@ export const withFileWorkflows = Base => class extends Base {
 				{ id: "musicVolume", type: "slider", labelKey: "field.musicVolume", min: 0, max: 1, step: 0.01,
 					formatValue: value => value.toFixed(2) },
 				{ id: "allowOutOfBounds", type: "checkbox", labelKey: "field.allowOutOfBounds" },
+				{ id: "liveHostingAddress", type: "text", labelKey: "field.liveHostingAddress", disabled: () => !globalThis.nw },
+				{ id: "liveReloadPort", type: "integer", labelKey: "field.liveReloadPort", min: 0, disabled: () => !globalThis.nw },
 				{ id: "autoSaveInterval", type: "number", labelKey: "field.autoSaveInterval", min: 0, step: 1 },
 			],
 		});
 		if (!values) return null;
 		this.preferences = storePreferences(values);
+		this.liveHosting.address = this.preferences.liveHostingAddress;
+		this.liveHosting.reloadPort = this.preferences.liveReloadPort;
+		if (this.liveHosting.server) this.liveHosting.stop();
 		applyThemePreference(this.preferences.theme);
 		i18n.setLanguage(resolvePreferenceLanguage(this.preferences.language));
 		this.audio.setSeVolume(this.preferences.seVolume);
@@ -677,24 +683,97 @@ export const withFileWorkflows = Base => class extends Base {
 	}
 
 	async copyEvents() {
-		const chosen = selected(this.model);
+		const chosen = selected(this.model).filter(event => !this.model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
 		if (!chosen.length) return;
 		const minimumBeat = chosen.map(event => Rational.from(event.time)).reduce((left, right) => left.compare(right) <= 0 ? left : right);
-		const channelIndices = chosen.map(event => this.model.channels.findIndex(channel => channel.id === event.channel));
+		const channelEvents = chosen.flatMap(event => event.type === "group" ? this.model.groupDescendants(event.id, true) : [event]);
+		const channelIndices = channelEvents.map(event => this.model.channels.findIndex(channel => channel.id === event.channel));
 		const minimumChannel = Math.min(...channelIndices);
-		const snappeeIds = new Set(chosen.flatMap(event => [event.snappee, event.tipPointSpawnSnappee]).filter(value => value != null));
+		const snappeeIds = new Set(channelEvents.flatMap(event => [event.snappee, event.tipPointSpawnSnappee]).filter(value => value != null));
+		const maximumChannel = Math.max(...channelEvents.map(event => this.model.channels.findIndex(channel => channel.id === event.channel)));
+		const copiedChannelIndices = Array.from({ length: Math.max(0, maximumChannel - minimumChannel + 1) }, (_, offset) => minimumChannel + offset);
 		const events = chosen.map(event => {
 			const copy = deepClone(event);
-			copy.time = Rational.from(event.time).sub(minimumBeat).toJSON();
-			copy.channel = this.model.channels.findIndex(channel => channel.id === event.channel) - minimumChannel;
+			const clearIds = item => {
+				item.id = null;
+				if (item.type === "group") for (const child of item.events || []) clearIds(child);
+			};
+			clearIds(copy);
+			const normalizeTree = item => {
+				item.time = Rational.from(item.time).sub(minimumBeat).toJSON();
+				item.channel = this.model.channels.findIndex(channel => channel.id === item.channel) - minimumChannel;
+				if (item.type === "group") for (const child of item.events || []) normalizeTree(child);
+			};
+			normalizeTree(copy);
 			return copy;
 		});
 		this.internalClipboard = {
 			version: 1,
 			events,
+			channels: copiedChannelIndices.map(index => ({ ...deepClone(this.model.channels[index]), channelOffset: index - minimumChannel })),
 			snappees: this.model.snappees.filter(snappee => snappeeIds.has(snappee.id)).map(deepClone),
 		};
 		try { await navigator.clipboard.writeText(JSON.stringify(events)); } catch { /* Internal clipboard remains available. */ }
+	}
+
+	async hostedLevel() {
+		if (!this.files.musicFile) return null;
+		const project = this.projectSnapshot();
+		const blob = await this.files.createLevelArchive(project, {
+			sscharterVersion: this.liveHosting.reloadPort > 0 ? SSCHARTER_VERSION : null,
+		});
+		const BufferRef = this.liveHosting.Buffer || globalThis.Buffer;
+		if (!BufferRef) throw new Error("Node Buffer is unavailable.");
+		return BufferRef.from(await blob.arrayBuffer());
+	}
+
+	broadcastLiveChartUpdate() {
+		if (!this.liveHosting?.server || !(this.liveHosting.reloadPort > 0)) return;
+		const entry = this.activeDifficultyState?.();
+		if (!entry) return;
+		const name = String(entry.file || "chart.json").replace(/\.json$/i, "");
+		this.liveHosting.broadcast({
+			type: "chartUpdate",
+			name,
+			chart: entry.model.exportSunniesnow({ includeSchema: true, sscharterVersion: SSCHARTER_VERSION }),
+		});
+		this.liveHosting.broadcast({ type: "update", onlyCharts: true });
+	}
+
+	async setLiveHosting(enabled) {
+		if (!globalThis.nw) return false;
+		try {
+			if (enabled) await this.liveHosting.start();
+			else this.liveHosting.stop();
+			this.refresh();
+			return true;
+		} catch (error) {
+			this.liveHosting.stop();
+			this.toast.error("toast.liveHostingFailed", { message: String(error?.message || error) });
+			this.refresh();
+			return false;
+		}
+	}
+
+	async showTimingDialog() {
+		const values = await this.dialogs.form({ titleKey: "command.timing.offsetAndBpm",
+			values: { offset: this.model.timing.offset, initialBpm: this.model.timing.initialBpm },
+			fields: [
+				{ id: "offset", type: "number", labelKey: "field.offset", required: true, step: "any" },
+				{ id: "initialBpm", type: "number", labelKey: "field.initialBpm", positive: true, min: 0.001, step: "any" },
+			] });
+		if (!values) return;
+		this.commit(i18n.t("history.editTiming"), model => {
+			model.timing.setOffset(values.offset);
+			model.timing.setInitialBpm(values.initialBpm);
+		});
+	}
+
+	async saveEventsToClip() {
+		const chosen = selected(this.model).filter(event => !this.model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
+		if (!chosen.length) return;
+		await this.copyEvents();
+		this.commit(i18n.t("history.saveClip"), model => model.addClip(deepClone(this.internalClipboard)));
 	}
 
 	async cutEvents() {
@@ -702,7 +781,7 @@ export const withFileWorkflows = Base => class extends Base {
 		this.deleteSelected();
 	}
 
-	async pasteEvents(duplicateSnappees) {
+	async pasteEvents(duplicateSnappees = false, options = {}) {
 		const internalData = this.internalClipboard;
 		let data = internalData;
 		try {
@@ -717,11 +796,16 @@ export const withFileWorkflows = Base => class extends Base {
 		if (!data?.events?.length) return;
 		this.commit(i18n.t("toast.pasted"), model => {
 			const snappeeMap = new Map();
-			if (duplicateSnappees) {
+			if (duplicateSnappees || options.duplicateSnappees) {
 				const names = new Set(model.snappees.map(snappee => snappee.name));
-				const referencedSnappees = new Set(data.events
-					.flatMap(event => [event.snappee, event.tipPointSpawnSnappee])
-					.filter(value => value != null));
+				const referencedSnappees = new Set();
+				const collectSnappeeReferences = event => {
+					[event.snappee, event.tipPointSpawnSnappee].forEach(value => {
+						if (value != null) referencedSnappees.add(value);
+					});
+					if (event.type === "group") for (const child of event.events || []) collectSnappeeReferences(child);
+				};
+				data.events.forEach(collectSnappeeReferences);
 				const sourceSnappees = data.snappees?.length
 					? data.snappees
 					: model.snappees.filter(snappee => referencedSnappees.has(snappee.id));
@@ -737,26 +821,100 @@ export const withFileWorkflows = Base => class extends Base {
 					snappeeMap.set(snappee.id, copy.id);
 				}
 			}
-			for (const event of model.events) event.selected = false;
+			for (const event of model.allEvents()) event.selected = false;
 			const currentChannel = model.channels.findIndex(channel => channel.id === model.editor.currentChannel);
 			const channelOffset = event => Math.max(0, Math.round(Number(event.channelOffset ?? event.channel) || 0));
-			const maximumOffset = Math.max(...data.events.map(channelOffset));
+			const maximumOffset = Math.max(...data.events.flatMap(event => {
+				const offsets = [];
+				const visit = item => { offsets.push(channelOffset(item)); if (item.type === "group") for (const child of item.events || []) visit(child); };
+				visit(event); return offsets;
+			}));
+			const channelMap = new Map();
+			const sourceChannels = Array.isArray(data.channels) ? data.channels : [];
+			if (options.duplicateChannels && sourceChannels.length) {
+				const sourceOffsets = sourceChannels.map((sourceChannel, index) => ({
+					sourceChannel,
+					offset: Number.isFinite(Number(sourceChannel.channelOffset))
+						? Math.max(0, Math.round(Number(sourceChannel.channelOffset))) : index,
+				}));
+				for (const { sourceChannel, offset } of sourceOffsets) {
+					const { channelOffset, ...channelData } = deepClone(sourceChannel);
+					const duplicate = model.addChannel(currentChannel + offset, {
+						...channelData, id: null, name: this.uniqueChannelName(sourceChannel.name),
+					});
+					channelMap.set(offset, duplicate.id);
+				}
+			}
 			while (currentChannel + maximumOffset >= model.channels.length) model.addChannel(model.channels.length);
-			model.editor.currentChannel = model.channels[currentChannel].id;
+			model.editor.currentChannel = model.channels[currentChannel]?.id ?? model.channels[0].id;
 			for (const source of data.events) {
 				const copy = deepClone(source);
 				copy.id = null;
-				copy.time = this.currentBeat().add(copy.time ?? copy.beat ?? 0).toJSON();
-				copy.channel = model.channels[currentChannel + channelOffset(copy)].id;
-				copy.selected = true;
+				const pasteTree = item => {
+					item.time = this.currentBeat().add(item.time ?? item.beat ?? 0).toJSON();
+					item.channel = channelMap.get(channelOffset(item)) ?? model.channels[currentChannel + channelOffset(item)].id;
+					item.selected = true;
+					if (duplicateSnappees && snappeeMap.has(item.snappee)) item.snappee = snappeeMap.get(item.snappee);
+					if (duplicateSnappees && snappeeMap.has(item.tipPointSpawnSnappee)) item.tipPointSpawnSnappee = snappeeMap.get(item.tipPointSpawnSnappee);
+					if (item.type === "group") for (const child of item.events || []) pasteTree(child);
+				};
+				pasteTree(copy);
 				delete copy.beat;
 				delete copy.channelOffset;
-				if (duplicateSnappees && snappeeMap.has(copy.snappee)) copy.snappee = snappeeMap.get(copy.snappee);
-				if (duplicateSnappees && snappeeMap.has(copy.tipPointSpawnSnappee)) copy.tipPointSpawnSnappee = snappeeMap.get(copy.tipPointSpawnSnappee);
 				const pasted = model.addEvent(copy);
 				constrainPastedEvent(model, pasted);
 			}
 		});
+	}
+
+	async showPasteOptions() {
+		const values = await this.dialogs.form({ titleKey: "dialog.pasteOptions", values: { duplicateChannels: false, duplicateSnappees: false },
+			fields: [
+				{ id: "duplicateChannels", type: "checkbox", labelKey: "field.duplicateChannels" },
+				{ id: "duplicateSnappees", type: "checkbox", labelKey: "field.duplicateSnappees" },
+			] });
+		if (values) await this.pasteEvents(false, values);
+	}
+
+	async copyTiming() {
+		try { await navigator.clipboard.writeText(JSON.stringify(this.model.timing.toJSON())); }
+		catch (error) { this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) }); }
+	}
+
+	async pasteTiming() {
+		try {
+			const data = JSON.parse(await navigator.clipboard.readText());
+			this.commit(i18n.t("history.editTiming"), model => { model.timing = new TimingMap(data); });
+		} catch (error) { this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) }); }
+	}
+
+	async pasteClip(index) {
+		const clip = this.model.clips?.[index];
+		if (!clip?.data) return;
+		const previous = this.internalClipboard;
+		this.internalClipboard = deepClone(clip.data);
+		try { await this.pasteEvents(false); } finally { this.internalClipboard = previous; }
+	}
+
+	moveClip(index, direction) {
+		this.commit(i18n.t("history.editClip"), model => {
+			const target = index + direction;
+			if (index < 0 || target < 0 || target >= model.clips.length) return;
+			[model.clips[index], model.clips[target]] = [model.clips[target], model.clips[index]];
+		});
+	}
+
+	async editClip(index) {
+		const clip = this.model.clips?.[index];
+		if (!clip) return;
+		const values = await this.dialogs.form({ titleKey: "dialog.editClip", values: { name: clip.name },
+			fields: [{ id: "name", type: "text", labelKey: "field.name", required: true }] });
+		if (!values) return;
+		this.commit(i18n.t("history.editClip"), model => { if (model.clips[index]) model.clips[index].name = String(values.name); });
+	}
+
+	deleteClip(index) {
+		this.commit(i18n.t("history.deleteClip"), model => { if (index >= 0) model.clips.splice(index, 1); });
 	}
 
 };

@@ -3,6 +3,7 @@ import { TimingMap } from "../core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee, sampleSnappeePath } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
+import { flattenEvents } from "../core/grouping.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
 
 export class StageViewCore {
@@ -220,6 +221,7 @@ export class StageViewCore {
 		this._drawParticles(context, mapping);
 		this._drawSnappees(context, project, mapping);
 		this._drawNotes(context, project, mapping, now);
+		this._drawGrouping?.(context, project, mapping, now);
 		this._drawCreationEchoes(context, project, mapping, now);
 		this._drawTipPoints(context, project, mapping, now);
 		this._drawSelectedInvisible(context, project, mapping, now);
@@ -256,7 +258,7 @@ export class StageViewCore {
 	_drawBackgroundPatterns(context, project, mapping, now) {
 		const record = this.renderIndex
 			? this.renderIndex.displayedPattern(now)
-			: sunniesnowDisplayedPattern(project.events, this.timing, now);
+			: sunniesnowDisplayedPattern(flattenEvents(project.events || [], false), this.timing, now);
 		if (!record) return;
 		const { visual } = record;
 		context.save();
@@ -555,7 +557,8 @@ export class StageViewCore {
 		const backgroundRecords = [];
 		const noteRecords = [];
 		const candidates = this.renderIndex?.visibleMovableRecords(now)
-			|| project.events.filter(event => MOVABLE_TYPES.has(event.type)).map(event => ({ event }));
+			|| flattenEvents(project.events || [], false).filter(event => MOVABLE_TYPES.has(event.type)
+				&& event.type !== "group").map(event => ({ event }));
 		for (const indexed of candidates) {
 			const { event } = indexed;
 			const visibility = indexed.start == null

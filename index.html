@@ -48,8 +48,13 @@
 						<label class="status-option" data-tooltip-key="status.playSe"><input id="play-se" type="checkbox" aria-label="SE" data-i18n-aria-label="status.playSe"><img src="svg/icons/se.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.seekBackAfterPlaying"><input id="seek-back-after-playing" type="checkbox" aria-label="Seek back after playing" data-i18n-aria-label="status.seekBackAfterPlaying"><img src="svg/icons/seek-back-after-playing.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.metronome"><input id="metronome" type="checkbox" aria-label="Metronome" data-i18n-aria-label="status.metronome"><img src="svg/icons/metronome.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.showGroupingInTimeline"><input id="show-grouping-in-timeline" type="checkbox" aria-label="Show grouping in timeline" data-i18n-aria-label="status.showGroupingInTimeline"><img src="svg/icons/show-grouping-in-timeline.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.showGroupingInMainField"><input id="show-grouping-in-main-field" type="checkbox" aria-label="Show grouping in main field" data-i18n-aria-label="status.showGroupingInMainField"><img src="svg/icons/show-grouping-in-main-field.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.showTipPoints"><input id="show-tip-points" type="checkbox" aria-label="Show tip points" data-i18n-aria-label="status.showTipPoints"><img src="svg/icons/show-tip-points.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.allowOutOfBound"><input id="allow-out-of-bound" type="checkbox" aria-label="Allow out of bound" data-i18n-aria-label="status.allowOutOfBound"><img src="svg/icons/allow-out-of-bound.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.readOnly"><input id="read-only" type="checkbox" aria-label="Read-only" data-i18n-aria-label="status.readOnly"><img src="svg/icons/read-only.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.fullscreen"><input id="fullscreen" type="checkbox" aria-label="Fullscreen" data-i18n-aria-label="status.fullscreen"><img src="svg/icons/fullscreen.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.liveHosting"><input id="live-hosting" type="checkbox" aria-label="Live hosting" data-i18n-aria-label="status.liveHosting"><img src="svg/icons/live-hosting.svg" alt="" aria-hidden="true"></label>
 					</div>
 					<div id="status-comments" class="status-comments" aria-live="polite"></div>
 					<div id="operation-status" class="operation-status" aria-live="polite"></div>
@@ -62,6 +67,7 @@
 				</aside>
 				<div id="stage-surface" class="render-surface stage-surface" tabindex="0">
 					<button id="scroll-view-toggle" class="edge-toggle edge-toggle-left" type="button" aria-label="Hide scroll view" data-tooltip-key="layout.hideScrollView">&#8249;</button>
+					<button id="timeline-toggle" class="edge-toggle edge-toggle-top" type="button" aria-label="Hide timeline" data-tooltip-key="layout.hideTimeline">&#9650;</button>
 					<button id="side-panel-toggle" class="edge-toggle edge-toggle-right" type="button" aria-label="Hide side panels" data-tooltip-key="layout.hideSidePanel">&#8250;</button>
 				</div>
 				<aside class="side-panel">
@@ -69,10 +75,12 @@
 						<button id="inspector-tab" class="side-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="inspector-panel" data-i18n="panel.inspector">Inspector</button>
 						<button id="channels-tab" class="side-tab" type="button" role="tab" aria-selected="false" aria-controls="channels-panel" data-i18n="panel.channels">Channels</button>
 						<button id="snappees-tab" class="side-tab" type="button" role="tab" aria-selected="false" aria-controls="snappees-panel" data-i18n="panel.snappees">Snappees</button>
+						<button id="clips-tab" class="side-tab" type="button" role="tab" aria-selected="false" aria-controls="clips-panel" data-i18n="panel.clips">Clips</button>
 					</div>
 					<section id="inspector-panel" class="property-panel" role="tabpanel" aria-labelledby="inspector-tab"></section>
 					<section id="channels-panel" class="property-panel" role="tabpanel" aria-labelledby="channels-tab" hidden></section>
 					<section id="snappees-panel" class="property-panel" role="tabpanel" aria-labelledby="snappees-tab" hidden></section>
+					<section id="clips-panel" class="property-panel" role="tabpanel" aria-labelledby="clips-tab" hidden></section>
 					<section class="history-panel" aria-label="History" data-i18n-aria-label="aria.history">
 						<div class="panel-heading" data-i18n="panel.history">History</div>
 						<div id="history-list" class="history-list"></div>
@@ -103,6 +111,6 @@
 
 	<script src="js/nw-source-bootstrap.js"></script>
 	<script src="js/vendor-loader.js"></script>
-	<script type="module" src="js/app.js?v=24"></script>
+	<script type="module" src="js/app.js?v=25"></script>
 </body>
 </html>

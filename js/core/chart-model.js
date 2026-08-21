@@ -6,12 +6,14 @@ import {
 	normalizeTransform,
 	resolveAttachedPosition,
 } from "./geometry.js";
+import { descendants, eventAncestors, findEvent, flattenEvents, groupBounds, groupSiblingEvents, removeEvent, replaceEvent, ungroupEvent, walkEvents } from "./grouping.js";
 
 export const SUNNIESNOW_SCHEMA = "https://sunniesnow.github.io/schema/chart-1.0.json";
 
 export const EVENT_TYPES = Object.freeze([
 	"tap", "hold", "drag", "flick", "bgNote", "bigText",
 	"grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment",
+	"group",
 ]);
 
 export const DIFFICULTY_COLORS = Object.freeze({
@@ -24,7 +26,7 @@ export const DIFFICULTY_COLORS = Object.freeze({
 
 const EVENT_TYPE_SET = new Set(EVENT_TYPES);
 const SNAPPEE_TYPE_SET = new Set(SNAPPEE_TYPES);
-const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
+const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote", "group"]);
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 const DURATION_TYPES = new Set([
 	"hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard",
@@ -68,6 +70,11 @@ const DEFAULT_EDITOR = Object.freeze({
 	abLoopMarks: [],
 	currentChannel: 0,
 	allowOutOfBounds: false,
+	allowOutOfBound: false,
+	timelineChannelOffset: 0,
+	showGroupingInTimeline: true,
+	showGroupingInMainField: true,
+	showTipPoints: true,
 });
 
 function clone(value) {
@@ -113,6 +120,28 @@ function normalizeEventType(type) {
 		diamond_grid: "diamondGrid",
 	};
 	return aliases[type] ?? type;
+}
+
+function normalizeEventTree(items, channels) {
+	const used = new Set();
+	let next = 0;
+	const visit = source => {
+		const raw = source && typeof source === "object" ? source : {};
+		let id = validId(raw.id) && !used.has(raw.id) ? raw.id : next;
+		while (used.has(id)) id += 1;
+		used.add(id); next = Math.max(next, id + 1);
+		const event = createEvent(raw.type, { ...raw, id });
+		if (event.type === "group") {
+			event.events = (raw.events || []).map(visit);
+			if (event.events.length) {
+				event.time = event.events.map(child => Rational.from(child.time)).reduce((a, b) => a.compare(b) <= 0 ? a : b).toJSON();
+				event.channel = event.events[0].channel;
+			}
+		}
+		if (!channels.some(channel => channel.id === event.channel)) event.channel = channels[0].id;
+		return event;
+	};
+	return (Array.isArray(items) ? items : []).map(visit);
 }
 
 function normalizeMetadata(source = {}) {
@@ -238,6 +267,15 @@ export function createEvent(type, overrides = {}) {
 		for (const key of Object.keys(event)) {
 			if (key.startsWith("tipPoint")) delete event[key];
 		}
+	}
+	if (type === "group") {
+		event.color = normalizeColor(overrides.color, "#ff9d3d");
+		event.events = (Array.isArray(overrides.events) ? overrides.events : []).map(child => createEvent(child.type, child));
+		if (overrides.time == null && event.events.length) event.time = event.events
+			.map(child => Rational.from(child.time)).reduce((a, b) => a.compare(b) <= 0 ? a : b).toJSON();
+	} else {
+		delete event.events;
+		delete event.color;
 	}
 	return event;
 }
@@ -393,7 +431,12 @@ function normalizeEditor(editor, channels) {
 		readOnly: Boolean(source.readOnly),
 		abLoopMarks: normalizeLoopMarks(source.abLoopMarks),
 		currentChannel: requested?.active !== false || !activeFallback ? requestedChannel : activeFallback.id,
-		allowOutOfBounds: Boolean(source.allowOutOfBounds),
+		allowOutOfBounds: Boolean(source.allowOutOfBounds ?? source.allowOutOfBound),
+		allowOutOfBound: Boolean(source.allowOutOfBound ?? source.allowOutOfBounds),
+		timelineChannelOffset: finiteNumber(source.timelineChannelOffset, 0),
+		showGroupingInTimeline: source.showGroupingInTimeline !== false,
+		showGroupingInMainField: source.showGroupingInMainField !== false,
+		showTipPoints: source.showTipPoints !== false,
 	};
 }
 
@@ -423,15 +466,14 @@ export class ChartModel {
 		const validChannels = new Set(this.channels.map(({ id }) => id));
 		const activeChannels = new Set(this.channels
 			.filter(channel => channel.active !== false).map(channel => channel.id));
-		this.events = assignStableIds(state.events, (event, id) => {
-			const normalized = createEvent(event.type, { ...event, id });
-			if (!validChannels.has(normalized.channel)) normalized.channel = this.channels[0].id;
-			if (!activeChannels.has(normalized.channel)) normalized.selected = false;
-			return normalized;
-		});
+		this.events = normalizeEventTree(state.events, this.channels);
+		walkEvents(this.events, event => { if (!activeChannels.has(event.channel)) event.selected = false; });
+		this.clips = (Array.isArray(state.clips) ? state.clips : []).map((clip, index) => ({
+			name: String(clip?.name ?? `Clip ${index + 1}`), data: clone(clip?.data ?? { events: [], snappees: [] }),
+		}));
 		const nextIds = state.nextIds ?? {};
 		this._nextChannelId = nextCounter(this.channels, nextIds.channel);
-		this._nextEventId = nextCounter(this.events, nextIds.event);
+		this._nextEventId = Math.max(nextCounter(flattenEvents(this.events), nextIds.event), flattenEvents(this.events).reduce((max, event) => Math.max(max, event.id + 1), 0));
 		this._nextSnappeeId = nextCounter(this.snappees, nextIds.snappee);
 		this.importWarnings = Array.isArray(state.importWarnings) ? [...state.importWarnings] : [];
 	}
@@ -620,9 +662,20 @@ export class ChartModel {
 	}
 
 	addEvent(typeOrEvent, overrides = {}) {
+		const source = typeof typeOrEvent === "string" ? null : clone(typeOrEvent);
+		const clearIds = event => {
+			event.id = null;
+			if (event.type === "group") for (const child of event.events || []) clearIds(child);
+			return event;
+		};
 		const event = typeof typeOrEvent === "string"
 			? this.createEvent(typeOrEvent, overrides)
-			: createEvent(typeOrEvent.type, { ...typeOrEvent, id: this._allocate("event") });
+			: createEvent(source.type, { ...clearIds(source), id: this._allocate("event") });
+		const assignChildIds = item => {
+			if (!validId(item.id)) item.id = this._allocate("event");
+			if (item.type === "group") for (const child of item.events || []) assignChildIds(child);
+		};
+		if (event.type === "group") for (const child of event.events || []) assignChildIds(child);
 		if (!this.channels.some(({ id }) => id === event.channel)) event.channel = this.editor.currentChannel;
 		if (this.channels.find(channel => channel.id === event.channel)?.active === false) event.selected = false;
 		this.events.push(event);
@@ -630,8 +683,65 @@ export class ChartModel {
 	}
 
 	removeEvent(id) {
-		const index = this.events.findIndex((event) => event.id === id);
-		return index < 0 ? null : this.events.splice(index, 1)[0];
+		return removeEvent(this.events, id);
+	}
+	allEvents(options = {}) { return flattenEvents(this.events, options.includeGroups !== false); }
+	findEvent(id) { return findEvent(this.events, id); }
+	replaceEvent(id, replacement) { return replaceEvent(this.events, id, replacement); }
+	ancestorsOf(id) { return eventAncestors(this.events, id); }
+	groupSelected(color = "#ff9d3d") {
+		const firstSelected = this.allEvents().find(event => event.selected);
+		const container = firstSelected && eventAncestors(this.events, firstSelected.id);
+		const siblings = firstSelected ? (container.at(-1)?.events || this.events) : [];
+		const selectedIds = new Set(siblings.filter(event => event.selected).map(event => event.id));
+		const members = siblings.filter(event => selectedIds.has(event.id));
+		if (!members.length) return null;
+		const ids = members.map(event => event.id);
+		const positions = members.filter(event => MOVABLE_TYPES.has(event.type))
+			.map(event => resolveAttachedPosition(event, this.snappees) || event);
+		const x = positions.length ? positions.reduce((sum, point) => sum + Number(point.x), 0) / positions.length : 0;
+		const y = positions.length ? positions.reduce((sum, point) => sum + Number(point.y), 0) / positions.length : 0;
+		const group = groupSiblingEvents(this.events, ids, selected => createEvent("group", {
+			id: this._allocate("event"), events: selected.map(event => {
+				const copy = clone(event);
+				const detach = item => {
+					if (MOVABLE_TYPES.has(item.type) && item.attached) {
+						const position = resolveAttachedPosition(item, this.snappees) || { x: 0, y: 0 };
+						item.attached = false; item.x = position.x; item.y = position.y;
+						delete item.snappee; delete item.snapPoint;
+					}
+					item.selected = false;
+					if (item.type === "group") for (const child of item.events || []) detach(child);
+				};
+				detach(copy); return copy;
+			}), x, y, color, channel: selected[0].channel, time: selected[0].time, selected: true,
+		}));
+		return group;
+	}
+	groupDescendants(id, includeSelf = false) {
+		const event = this.findEvent(id);
+		return event?.type === "group" ? descendants(event, includeSelf) : event ? [event] : [];
+	}
+
+	groupBounds(id) {
+		const event = this.findEvent(id);
+		if (!event || event.type !== "group") return null;
+		return groupBounds(event, item => resolveAttachedPosition(item, this.snappees) || item);
+	}
+
+	ungroupSelected() {
+		const groups = this.allEvents().filter(event => event.type === "group" && event.selected)
+			.sort((left, right) => this.ancestorsOf(right.id).length - this.ancestorsOf(left.id).length);
+		let changed = false;
+		for (const group of groups) {
+			if (this.findEvent(group.id)?.type === "group") changed = Boolean(ungroupEvent(this.events, group.id)) || changed;
+		}
+		return changed;
+	}
+
+	addClip(data, name = `Clip ${this.clips.length + 1}`) {
+		const clip = { name: String(name), data: clone(data ?? { events: [], snappees: [] }) };
+		this.clips.push(clip); return clip;
 	}
 
 	addChannel(index = this.channels.length, data = {}) {
@@ -655,7 +765,15 @@ export class ChartModel {
 		const index = this.channels.findIndex((channel) => channel.id === id);
 		if (index < 0) return null;
 		const [removed] = this.channels.splice(index, 1);
-		this.events = this.events.filter((event) => event.channel !== id);
+		const prune = items => (items || []).flatMap(event => {
+			if (event.channel === id) return [];
+			if (event.type === "group") {
+				event.events = prune(event.events);
+				if (!event.events.length) return [];
+			}
+			return [event];
+		});
+		this.events = prune(this.events);
 		if (this.editor.currentChannel === id) {
 			const above = this.channels.slice(0, index).reverse().find(channel => channel.active !== false);
 			const below = this.channels.slice(index).find(channel => channel.active !== false);
@@ -675,7 +793,7 @@ export class ChartModel {
 	removeSnappee(id, options = {}) {
 		const index = this.snappees.findIndex((snappee) => snappee.id === id);
 		if (index < 0) return null;
-		for (const event of this.events) {
+		for (const event of this.allEvents()) {
 			if (event.attached && event.snappee === id) {
 				const position = resolveAttachedPosition(event, this.snappees, options);
 				event.attached = false;
@@ -705,6 +823,7 @@ export class ChartModel {
 			channels: clone(this.channels),
 			events: clone(this.events),
 			snappees: clone(this.snappees),
+			clips: clone(this.clips),
 			nextIds: {
 				channel: this._nextChannelId,
 				event: this._nextEventId,
@@ -782,7 +901,7 @@ export class ChartModel {
 		const activeChannels = new Set(this.channels
 			.filter(channel => channel.active !== false)
 			.map(channel => channel.id));
-		const records = this.events
+		const records = this.allEvents({ includeGroups: false })
 			.filter(event => event.type !== "comment" && activeChannels.has(event.channel))
 			.map((event, sequence) => ({
 			event,
@@ -844,6 +963,7 @@ export class ChartModel {
 			...clone(this.metadata),
 			events: this.generateSunniesnowEvents(),
 		};
+		if (options.sscharterVersion) result.sscharter = { version: String(options.sscharterVersion) };
 		if (options.includeSchema ?? true) result.$schema = SUNNIESNOW_SCHEMA;
 		return result;
 	}

@@ -13,6 +13,7 @@ import {
 	timingFor,
 } from "./timeline-helpers.js";
 import { MOVABLE_TYPES, buildTipPointGuides, tipPointSpawnPosition } from "./stage-helpers.js";
+import { flattenEvents } from "../core/grouping.js";
 
 const DURATION_TYPES = TIMELINE_DURATION_TYPES;
 
@@ -100,7 +101,8 @@ export class ScrollView {
 	#activeEvents(project) {
 		const active = new Set((project.channels || [])
 			.filter(channel => channel.active !== false).map(channel => channel.id));
-		return (project.events || []).filter(event => MOVABLE_TYPES.has(event.type) && active.has(event.channel));
+		return flattenEvents(project.events || [], false).filter(event => MOVABLE_TYPES.has(event.type)
+			&& event.type !== "group" && active.has(event.channel));
 	}
 
 	#position(event) {
@@ -256,12 +258,13 @@ export class ScrollView {
 		for (const record of records) {
 			const { event, point } = record;
 			const screen = mapping.toScreen(point.x, record.start);
-			const color = event.selected ? "#ff3158" : TIMELINE_EVENT_COLORS[event.type] || "#d5dade";
+			const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
+			const color = selected ? "#ff3158" : TIMELINE_EVENT_COLORS[event.type] || "#d5dade";
 			if (DURATION_TYPES.has(event.type) && record.end > record.start) {
 				const end = mapping.toScreen(point.x, record.end);
 				context.save();
 				context.strokeStyle = color;
-				context.globalAlpha = event.selected ? 0.92 : 0.58;
+				context.globalAlpha = selected ? 0.92 : 0.58;
 				context.lineWidth = event.type === "hold" ? 8 : 6;
 				context.beginPath();
 				context.moveTo(screen.x, screen.y);

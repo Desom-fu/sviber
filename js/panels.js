@@ -247,6 +247,36 @@ function makeSnappeePreview(documentRef, snappee, size = 24) {
 	return preview;
 }
 
+function drawClipThumbnail(canvas, data, size = 42) {
+	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
+	canvas.width = size * ratio;
+	canvas.height = size * ratio;
+	canvas.style.width = `${size}px`;
+	canvas.style.height = `${size}px`;
+	const context = canvas.getContext("2d");
+	if (!context) return;
+	context.scale(ratio, ratio);
+	context.fillStyle = "#15181b";
+	context.fillRect(0, 0, size, size);
+	const events = [];
+	const visit = items => (items || []).forEach(event => {
+		if (event.type === "group") visit(event.events);
+		else if (Number.isFinite(Number(event.x)) && Number.isFinite(Number(event.y))) events.push(event);
+	});
+	visit(data?.events);
+	if (!events.length) return;
+	context.strokeStyle = "#d5dade";
+	context.fillStyle = "#50c8bd";
+	context.lineWidth = 1;
+	for (const event of events) {
+		const x = 4 + (Number(event.x) + 100) / 200 * (size - 8);
+		const y = 4 + (50 - Number(event.y)) / 100 * (size - 8);
+		context.beginPath();
+		context.arc(x, y, Math.max(1.5, size / 14), 0, Math.PI * 2);
+		context.fill();
+	}
+}
+
 function drawActionIcon(canvas, type) {
 	const size = 17;
 	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -327,7 +357,7 @@ export class InspectorPanel {
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clear(this.element);
-		const selected = model.events.filter(event => event.selected);
+		const selected = (model.allEvents ? model.allEvents() : model.events).filter(event => event.selected);
 		const commentsOnly = selected.length > 0 && selected.every(event => event.type === "comment");
 		if (Array.isArray(context.transform)) {
 			const transformGroup = this.#group("field.transform");
@@ -678,6 +708,69 @@ export class ChannelsPanel {
 				if (!readOnly && event.key === "Enter") this.onEdit(channel.id);
 			});
 			this.cleanup.push(this.tooltip?.register(item, "panel.channel.edit"));
+			this.element.append(item);
+		});
+	}
+}
+
+export class ClipsPanel {
+	constructor(options = {}) {
+		this.element = options.element || document.getElementById("clips-panel");
+		this.i18n = options.i18n;
+		this.tooltip = options.tooltip;
+		this.onPaste = options.onPaste || (() => {});
+		this.onMove = options.onMove || (() => {});
+		this.onEdit = options.onEdit || (() => {});
+		this.onDelete = options.onDelete || (() => {});
+		this.cleanup = [];
+	}
+
+	#action(icon, tooltipKey, callback, disabled = false) {
+		const button = document.createElement("button");
+		button.type = "button";
+		button.className = "snappee-action";
+		button.disabled = disabled;
+		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
+		const image = document.createElement("img");
+		image.src = `svg/icons/${icon}.svg`;
+		image.alt = "";
+		image.draggable = false;
+		button.append(image);
+		button.addEventListener("click", event => { event.stopPropagation(); if (!button.disabled) callback(); });
+		this.cleanup.push(this.tooltip?.register(button, tooltipKey));
+		return button;
+	}
+
+	render(model, context = {}) {
+		const readOnly = Boolean(context.readOnly);
+		this.cleanup.forEach(dispose => dispose?.());
+		this.cleanup = [];
+		clear(this.element);
+		if (!model.clips?.length) {
+			const empty = document.createElement("div");
+			empty.className = "empty-panel";
+			empty.textContent = this.i18n.t("panel.noClips");
+			this.element.append(empty);
+			return;
+		}
+		model.clips.forEach((clip, index) => {
+			const item = document.createElement("div");
+			item.className = "snappee-item clip-item";
+			item.tabIndex = 0;
+			const canvas = document.createElement("canvas");
+			canvas.className = "clip-thumbnail";
+			drawClipThumbnail(canvas, clip.data);
+			const name = document.createElement("span");
+			name.className = "snappee-name";
+			name.textContent = clip.name;
+			item.append(canvas, name,
+				this.#action("paste", "panel.clip.paste", () => this.onPaste(index), readOnly),
+				this.#action("up", "panel.clip.moveUp", () => this.onMove(index, -1), readOnly || index === 0),
+				this.#action("down", "panel.clip.moveDown", () => this.onMove(index, 1), readOnly || index === model.clips.length - 1),
+				this.#action("edit", "panel.clip.edit", () => this.onEdit(index), readOnly),
+				this.#action("delete", "panel.clip.delete", () => this.onDelete(index), readOnly),
+			);
+			item.addEventListener("dblclick", () => { if (!readOnly) this.onEdit(index); });
 			this.element.append(item);
 		});
 	}

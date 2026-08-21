@@ -1,1 +1,117 @@
-<svg width="32" height="32" xmlns="http://www.w3.org/2000/svg"><defs><marker style="overflow:visible" id="marker8" refX="0" refY="0" orient="auto-start-reverse" markerWidth="0.5" markerHeight="0.5" viewBox="0 0 1 1" preserveAspectRatio="xMidYMid"><path style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:round" d="M 3,-3 0,0 3,3" transform="rotate(180,0.125,0)" /></marker><marker style="overflow:visible" id="ArrowWideRounded" refX="0" refY="0" orient="auto-start-reverse" markerWidth="0.5" markerHeight="0.5" viewBox="0 0 1 1" preserveAspectRatio="xMidYMid"><path style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:round" d="M 3,-3 0,0 3,3" /></marker></defs><path style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill" d="M 5 27 V 18 C 5 18 7 5 16 5 25 5 27 18 27 18 v 9 z" /><path style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill" d="M 16,25 V 7.5" /><path style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill" d="m 12,12 h 8" /><path style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill" d="m 12,15 h 8" /><path style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill" d="m 12,18 h 8" /><path style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill" d="m 12,21 h 8" /><path style="fill:none;fill-opacity:1;stroke:#bb3fc8;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;stroke-opacity:1;paint-order:stroke markers fill;marker-start:url(#ArrowWideRounded);marker-end:url(#marker8)" d="M 8.4004974 12.067577 A 15 15 0 0 1 16 10 A 15 15 0 0 1 23.599503 12.067578 " /></svg>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="32"
+   viewBox="0 0 32 32"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   sodipodi:docname="metronome.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#111111"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     inkscape:zoom="4.6467334"
+     inkscape:cx="14.956744"
+     inkscape:cy="11.405862"
+     inkscape:window-width="1920"
+     inkscape:window-height="1023"
+     inkscape:window-x="0"
+     inkscape:window-y="412"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1" />
+  <defs
+     id="defs1">
+    <marker
+       style="overflow:visible"
+       id="marker8"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Wide, rounded arrow"
+       markerWidth="0.5"
+       markerHeight="0.5"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:round"
+         d="M 3,-3 0,0 3,3"
+         transform="rotate(180,0.125,0)"
+         sodipodi:nodetypes="ccc"
+         id="path8" />
+    </marker>
+    <marker
+       style="overflow:visible"
+       id="ArrowWideRounded"
+       refX="0"
+       refY="0"
+       orient="auto-start-reverse"
+       inkscape:stockid="Wide, rounded arrow"
+       markerWidth="0.5"
+       markerHeight="0.5"
+       viewBox="0 0 1 1"
+       inkscape:isstock="true"
+       inkscape:collect="always"
+       preserveAspectRatio="xMidYMid">
+      <path
+         style="fill:none;stroke:context-stroke;stroke-width:1;stroke-linecap:round"
+         d="M 3,-3 0,0 3,3"
+         transform="rotate(180,0.125,0)"
+         sodipodi:nodetypes="ccc"
+         id="path2" />
+    </marker>
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       style="fill:#db9a63;fill-opacity:1;stroke:#7f7f7f;stroke-width:2;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill;stroke-opacity:1"
+       d="M 5 27 V 18 C 5 18 7 5 16 5 25 5 27 18 27 18 v 9 z"
+       id="path1"
+       sodipodi:nodetypes="ccsccc" />
+    <path
+       style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill"
+       d="M 16,25 V 7.5"
+       id="path3"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill"
+       d="m 12,12 h 8"
+       id="path4"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill"
+       d="m 12,15 h 8"
+       id="path4-9"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill"
+       d="m 12,18 h 8"
+       id="path4-2"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#db9a63;fill-opacity:1;stroke:#3f3f3f;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;paint-order:stroke markers fill"
+       d="m 12,21 h 8"
+       id="path4-4"
+       sodipodi:nodetypes="cc" />
+    <path
+       id="path7"
+       style="fill:none;fill-opacity:1;stroke:#bb3fc8;stroke-width:1;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4.6;stroke-opacity:1;paint-order:stroke markers fill;marker-start:url(#ArrowWideRounded);marker-end:url(#marker8)"
+       d="M 8.4004974 12.067577 A 15 15 0 0 1 16 10 A 15 15 0 0 1 23.599503 12.067578 " />
+  </g>
+</svg>

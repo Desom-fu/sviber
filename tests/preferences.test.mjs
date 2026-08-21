@@ -27,6 +27,7 @@ test("preferences migrate old values and normalize theme and language choices", 
 	assert.deepEqual(loadPreferences(oldStorage), {
 		theme: "system", language: "system", noteSpeed: 3.5,
 		seVolume: 1, musicVolume: 1, autoSaveInterval: 120, allowOutOfBounds: true,
+		liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
 	});
 
 	const invalidStorage = memoryStorage({

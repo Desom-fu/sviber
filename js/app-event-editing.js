@@ -13,20 +13,15 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainSnappeeTranslation, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
-
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
-
 export const withEventEditing = Base => class extends Base {
 	exitCreationModes() {
 		if (!this.creationMode && !this.curveDraft) return false;
-		this.creationMode = null;
-		this.curveDraft = null;
+		this.creationMode = null; this.curveDraft = null;
 		this.cancelPreview();
 		this.refresh();
 		return true;
 	}
-
-	// Interaction callback factories are kept compact so renderers stay model-agnostic.
 	_timelineCallbacks() {
 		return {
 			getWaveform: () => this.audio.waveform,
@@ -44,6 +39,7 @@ export const withEventEditing = Base => class extends Base {
 				else if (resume === 1) void this.audio.play();
 			},
 			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
+			onEnterGroupSelection: id => this.enterGroupSelection(id),
 			onRangeSelect: (beat, channel, mode) => this.rangeSelect(beat, channel, mode),
 			onSeekBeat: (beat, channel, clearSelection) => {
 				this.seekBeat(beat, channel, clearSelection);
@@ -53,7 +49,7 @@ export const withEventEditing = Base => class extends Base {
 			onMoveEvents: (delta, channelDelta, copy) => this.moveEvents(delta, channelDelta, copy),
 			onPreviewDurations: changes => this.preview("Resize events", model => {
 				const durations = new Map(changes.map(change => [change.id, change.duration]));
-				for (const event of model.events) {
+				for (const event of model.allEvents()) {
 					if (durations.has(event.id)) event.duration = deepClone(durations.get(event.id));
 				}
 			}, { scheduleDirty: true }),
@@ -61,11 +57,11 @@ export const withEventEditing = Base => class extends Base {
 				const ids = new Set(changes.map(change => change.id));
 				const durations = new Map(changes.map(change => [change.id, change.duration]));
 				this.commit(i18n.t("history.editEvent", { type: "" }), model => {
-					for (const event of model.events) {
+					for (const event of model.allEvents()) {
 						if (durations.has(event.id)) event.duration = deepClone(durations.get(event.id));
 					}
 				});
-				this.rememberCreationDefaults(this.model.events.filter(event => ids.has(event.id)));
+				this.rememberCreationDefaults(this.model.allEvents().filter(event => ids.has(event.id)));
 			},
 			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode),
 			onBoxSelect: (ids, mode) => this.finishSelectionPreview(ids, mode),
@@ -76,7 +72,6 @@ export const withEventEditing = Base => class extends Base {
 			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey),
 		};
 	}
-
 	_stageCallbacks() {
 		return {
 			getCreationMode: () => this.creationMode,
@@ -98,13 +93,16 @@ export const withEventEditing = Base => class extends Base {
 			onPreviewCurvePoint: (index, point) => this.moveCurveDraftPoint(index, point, false),
 			onCurvePointMove: (index, point) => this.moveCurveDraftPoint(index, point, true),
 			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
+			onEnterGroupSelection: id => this.enterGroupSelection(id),
 			onPreviewPosition: (id, point) => this.previewPosition(id, point),
 			onMovePosition: (id, point) => this.movePosition(id, point),
-			onPreviewFlickAngle: (id, angle) => this.preview("Change flick direction", model => { const event = model.events.find(item => item.id === id); if (event) event.angle = angle; }),
+			onPreviewGroupAnchor: (id, point) => this.previewGroupAnchor(id, point),
+			onMoveGroupAnchor: (id, point) => this.moveGroupAnchor(id, point),
+			onPreviewFlickAngle: (id, angle) => this.preview("Change flick direction", model => { const event = model.findEvent(id); if (event) event.angle = angle; }),
 			onFlickAngle: (id, angle) => {
 				this.lastFlickAngle = Number(angle);
 				this.commit(i18n.t("history.editEvent", { type: eventTypeLabel("flick") }), model => {
-					const event = model.events.find(item => item.id === id);
+					const event = model.findEvent(id);
 					if (event) event.angle = angle;
 				});
 			},
@@ -120,32 +118,43 @@ export const withEventEditing = Base => class extends Base {
 			onSelectAttachedEvents: (id, mode) => {
 				const activeChannels = this.renderIndex?.activeChannelIds
 					|| new Set(this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
-				this.selectEvents(this.model.events.filter(event => event.attached && event.snappee === id
+				this.selectEvents(this.model.allEvents().filter(event => event.attached && event.snappee === id
 					&& activeChannels.has(event.channel)).map(event => event.id), mode);
 			},
 			onPreviewFreeTransform: matrix => this.previewFreeTransform(matrix),
 		};
 	}
-
 	selectEvents(ids, mode = "replace") {
 		this.cancelSelectionPreview();
 		const indexIsCurrent = this.renderIndex?.eventSource === this.model.events
-			&& this.renderIndex.eventById.size === this.model.events.length;
+			&& this.renderIndex.eventById.size === this.model.allEvents().length;
 		const activeChannels = indexIsCurrent ? this.renderIndex.activeChannelIds
 			: new Set(this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 		const eventById = indexIsCurrent ? this.renderIndex.eventById
-			: new Map(this.model.events.map(event => [event.id, event]));
+			: new Map(this.model.allEvents().map(event => [event.id, event]));
 		const targets = new Set([...ids].filter(id => mode === "remove"
 			|| activeChannels.has(eventById.get(id)?.channel)));
 		this.commit(i18n.t("history.selection"), model => {
-			for (const event of model.events) {
+			for (const event of model.allEvents()) {
 				if (mode === "replace") event.selected = targets.has(event.id);
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
 		}, { dirty: false, allowPlaying: true, allowReadOnly: true, scheduleDirty: false });
 	}
-
+	enterGroupSelection(id) {
+		const event = this.model.findEvent(id);
+		const ancestors = event ? this.model.ancestorsOf(id) : [];
+		if (!event || !ancestors.length) return false;
+		const scopeIndex = this.groupSelectionScope == null ? -1 : ancestors.findIndex(group => group.id === this.groupSelectionScope);
+		if (this.groupSelectionScope != null && scopeIndex < 0) return false;
+		const nextGroup = scopeIndex < 0 ? ancestors[0] : ancestors[scopeIndex + 1]; const target = nextGroup ? (ancestors[ancestors.indexOf(nextGroup) + 1] || event) : event;
+		this.groupSelectionScope = nextGroup?.id ?? this.groupSelectionScope;
+		this.commit(i18n.t("history.selection"), model => {
+			for (const candidate of model.allEvents()) candidate.selected = candidate.id === target.id;
+		}, { dirty: false, allowReadOnly: true, scheduleDirty: false });
+		return true;
+	}
 	_reconcileStageMoveAttachmentException(selectionBefore) {
 		const exception = this.stageMoveAttachmentException;
 		if (!exception) return;
@@ -154,38 +163,35 @@ export const withEventEditing = Base => class extends Base {
 			this.stageMoveAttachmentException = null;
 			return;
 		}
-		const selectionAfter = new Set(this.model.events.filter(event => event.selected).map(event => event.id));
+		const selectionAfter = new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id));
 		if (sameSet(selectionBefore, selectionAfter)) return;
 		const onlyAdded = [...selectionBefore].every(id => selectionAfter.has(id));
 		const addedAreUnattached = [...selectionAfter]
 			.filter(id => !selectionBefore.has(id))
-			.every(id => !this.model.events.find(event => event.id === id)?.attached);
+			.every(id => !this.model.findEvent(id)?.attached);
 		if (onlyAdded && addedAreUnattached) exception.selectionIds = selectionAfter;
 		else this.stageMoveAttachmentException = null;
 	}
-
 	_canUseStageMoveAttachmentException(model) {
 		const exception = this.stageMoveAttachmentException;
 		if (!exception) return false;
-		const selectedIds = new Set(model.events.filter(event => event.selected).map(event => event.id));
+		const selectedIds = new Set(model.allEvents().filter(event => event.selected).map(event => event.id));
 		if (selectedIds.size !== exception.selectionIds.size
 			|| [...selectedIds].some(id => !exception.selectionIds.has(id))) return false;
-		const movable = model.events.filter(event => event.selected && MOVABLE_TYPES.has(event.type));
+		const movable = model.allEvents().filter(event => event.selected && MOVABLE_TYPES.has(event.type));
 		const attached = movable.filter(event => event.attached);
 		return attached.length === 1 && attached[0].id === exception.attachedEventId;
 	}
-
 	_captureStageMoveAttachmentException(primaryId) {
-		const movable = this.model.events.filter(event => event.selected && MOVABLE_TYPES.has(event.type));
+		const movable = this.model.allEvents().filter(event => event.selected && MOVABLE_TYPES.has(event.type));
 		const attached = movable.filter(event => event.attached);
 		this.stageMoveAttachmentException = attached.length === 1 && attached[0].id === primaryId
 			? {
 				attachedEventId: primaryId,
-				selectionIds: new Set(this.model.events.filter(event => event.selected).map(event => event.id)),
+				selectionIds: new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id)),
 			}
 			: null;
 	}
-
 	_setPreviewSelection(event, selected) {
 		if (!event) return;
 		const value = Boolean(selected);
@@ -193,24 +199,22 @@ export const withEventEditing = Base => class extends Base {
 		event.selected = value;
 		this.renderIndex?.setEventSelected(event, value);
 	}
-
 	_startSelectionPreview(mode) {
 		if (this.selectionPreview?.mode === mode) return this.selectionPreview;
 		this.cancelSelectionPreview();
 		const indexIsCurrent = this.renderIndex?.eventSource === this.model.events
-			&& this.renderIndex.eventById.size === this.model.events.length;
+			&& this.renderIndex.eventById.size === this.model.allEvents().length;
 		const eventById = indexIsCurrent ? this.renderIndex.eventById
-			: new Map(this.model.events.map(event => [event.id, event]));
+			: new Map(this.model.allEvents().map(event => [event.id, event]));
 		const baseSelected = indexIsCurrent && this.renderIndex.selectedEventIds
 			? new Set(this.renderIndex.selectedEventIds)
-			: new Set(this.model.events.filter(event => event.selected).map(event => event.id));
+			: new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id));
 		this.selectionPreview = { mode, eventById, baseSelected, targets: new Set() };
 		if (mode === "replace") {
 			for (const id of baseSelected) this._setPreviewSelection(eventById.get(id), false);
 		}
 		return this.selectionPreview;
 	}
-
 	previewSelection(ids, mode = "replace") {
 		const preview = this._startSelectionPreview(mode);
 		const targets = new Set(ids);
@@ -229,7 +233,6 @@ export const withEventEditing = Base => class extends Base {
 		this.stage.requestRender();
 		this.scrollView?.requestRender();
 	}
-
 	finishSelectionPreview(ids, mode = "replace") {
 		this.previewSelection(ids, mode);
 		const preview = this.selectionPreview;
@@ -241,10 +244,10 @@ export const withEventEditing = Base => class extends Base {
 				? [...preview.targets].some(id => !preview.baseSelected.has(id))
 				: [...preview.targets].some(id => preview.baseSelected.has(id));
 		this.selectionPreview = null;
+		this._normalizeGroupSelectionScope();
 		if (changed) this.history.record(this.model.snapshot(), i18n.t("history.selection"));
 		this.refresh();
 	}
-
 	cancelSelectionPreview() {
 		const preview = this.selectionPreview;
 		if (!preview) return false;
@@ -259,12 +262,10 @@ export const withEventEditing = Base => class extends Base {
 		this.scrollView?.requestRender();
 		return true;
 	}
-
 	endInteractionPreview() {
 		this.cancelSelectionPreview();
 		this.cancelPreview();
 	}
-
 	rangeSelect(targetBeat, targetChannel, mode) {
 		const beginningBeat = this.currentBeat();
 		const endingBeat = Rational.from(targetBeat);
@@ -276,21 +277,20 @@ export const withEventEditing = Base => class extends Base {
 			.slice(Math.min(beginningChannel, endingChannel), Math.max(beginningChannel, endingChannel) + 1)
 			.filter(channel => channel.active !== false)
 			.map(channel => channel.id));
-		const ids = this.model.events.filter(event => channelIds.has(event.channel)
+			const ids = this.model.allEvents().filter(event => channelIds.has(event.channel)
 			&& Rational.from(event.time).compare(minimumBeat) >= 0
 			&& Rational.from(event.time).compare(maximumBeat) < 0).map(event => event.id);
 		this.commit(i18n.t("history.selection"), model => {
 			model.editor.currentTime = endingBeat.toJSON();
 			model.editor.currentChannel = targetChannel;
 			const targets = new Set(ids);
-			for (const event of model.events) {
+			for (const event of model.allEvents()) {
 				if (mode === "replace") event.selected = targets.has(event.id);
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
 		}, { dirty: false, allowReadOnly: true, scheduleDirty: false });
 	}
-
 	seekBeat(beat, channel = null, clearSelection = false, options = {}) {
 		if (this.audio.playing) this.audio.pause();
 		this.model.editor.timeSnapped = true;
@@ -299,7 +299,7 @@ export const withEventEditing = Base => class extends Base {
 			this.model.editor.currentChannel = channel;
 		}
 		if (clearSelection) {
-			for (const event of this.model.events) event.selected = false;
+			for (const event of this.model.allEvents()) event.selected = false;
 			this.stageMoveAttachmentException = null;
 		}
 		this.audio.seek(this.currentSeconds());
@@ -312,7 +312,6 @@ export const withEventEditing = Base => class extends Base {
 			this.refresh();
 		}
 	}
-
 	setVisibleRange(beginning, end, includeCurrent = false) {
 		const bounds = this.timeBounds(includeCurrent);
 		const span = Math.max(0.05, end - beginning);
@@ -323,7 +322,6 @@ export const withEventEditing = Base => class extends Base {
 		this.timeline.requestRender();
 		this.scrollView?.requestRender();
 	}
-
 	pageVisibleRange(direction) {
 		const sign = Math.sign(Number(direction));
 		if (!sign) return;
@@ -351,7 +349,6 @@ export const withEventEditing = Base => class extends Base {
 			this.requestStatusUpdate();
 		}
 	}
-
 	changeCurrentChannel(direction) {
 		const step = Math.sign(Number(direction));
 		if (!step) return false;
@@ -366,7 +363,6 @@ export const withEventEditing = Base => class extends Base {
 		}
 		return false;
 	}
-
 	navigateWheel(deltaY, zoom = false, allowLockedRangeChange = false) {
 		if (zoom) {
 			if (this.model.editor.lockVisibleRange && !allowLockedRangeChange) return;
@@ -412,21 +408,19 @@ export const withEventEditing = Base => class extends Base {
 		this.requestStatusUpdate();
 		this.audio.seek(nextSeconds);
 	}
-
 	previewMoveEvents(deltaBeat, channelDelta, copy) {
 		this.preview(i18n.t("history.moveEvents"),
 			model => this._applyEventMove(model, deltaBeat, channelDelta, copy),
 			{ scheduleDirty: true });
 	}
-
 	moveEvents(deltaBeat, channelDelta, copy) {
 		this.commit(i18n.t("history.moveEvents"), model => this._applyEventMove(model, deltaBeat, channelDelta, copy));
 	}
-
 	_applyEventMove(model, deltaBeat, channelDelta, copy) {
-		let events = model.events.filter(event => event.selected);
+		let events = model.allEvents().filter(event => event.selected
+			&& !model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
 		if (!events.length) return;
-		const channelIndices = events
+		const channelIndices = events.flatMap(event => event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event])
 			.map(event => model.channels.findIndex(channel => channel.id === event.channel))
 			.filter(index => index >= 0);
 		if (!channelIndices.length) return;
@@ -448,27 +442,63 @@ export const withEventEditing = Base => class extends Base {
 			if (index >= 0) event.channel = model.channels[index + boundedChannelDelta].id;
 		}
 	}
-
 	previewPosition(primaryId, point) {
 		this.preview(i18n.t("history.moveEvents"), model => this._applyPositionMove(model, primaryId, point));
 	}
-
 	movePosition(primaryId, point) {
 		const base = this.previewBase || this.model.snapshot();
 		const before = JSON.stringify(base);
-		const primaryWasAttached = Boolean(base.events.find(event => event.id === primaryId)?.attached);
+		const primaryWasAttached = Boolean(ChartModel.import(base).findEvent(primaryId)?.attached);
 		this.commit(i18n.t("history.moveEvents"), model => this._applyPositionMove(model, primaryId, point));
 		if (JSON.stringify(this.model.snapshot()) !== before) {
-			const primaryIsAttached = Boolean(this.model.events.find(event => event.id === primaryId)?.attached);
+			const primaryIsAttached = Boolean(this.model.findEvent(primaryId)?.attached);
 			if (!primaryWasAttached && primaryIsAttached) this._captureStageMoveAttachmentException(primaryId);
 			else if (!this._canUseStageMoveAttachmentException(this.model)) this.stageMoveAttachmentException = null;
 		}
 	}
-
+	previewGroupAnchor(primaryId, point) {
+		this.preview(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point));
+	}
+	moveGroupAnchor(primaryId, point) {
+		this.commit(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point));
+	}
+	_applyGroupAnchorMove(model, primaryId, point) {
+		const primary = model.findEvent(primaryId);
+		if (primary?.type !== "group") return;
+		const groups = model.allEvents().filter(event => event.type === "group" && event.selected);
+		if (!groups.length || !groups.includes(primary)) return;
+		if (groups.length > 1 && groups.some(group => group.attached)) return;
+		const original = resolveAttachedPosition(primary, model.snappees) || primary;
+		const target = point;
+		const requestedX = Number(target.x) - Number(original.x);
+		const requestedY = Number(target.y) - Number(original.y);
+		const positions = groups.map(group => resolveAttachedPosition(group, model.snappees) || group);
+		const deltaX = allowsOutOfBounds(model) ? requestedX : Math.max(CHART_BOUNDS.minX - Math.min(...positions.map(position => Number(position.x))),
+			Math.min(CHART_BOUNDS.maxX - Math.max(...positions.map(position => Number(position.x))), requestedX));
+		const deltaY = allowsOutOfBounds(model) ? requestedY : Math.max(CHART_BOUNDS.minY - Math.min(...positions.map(position => Number(position.y))),
+			Math.min(CHART_BOUNDS.maxY - Math.max(...positions.map(position => Number(position.y))), requestedY));
+		for (const group of groups) {
+			const position = resolveAttachedPosition(group, model.snappees) || group;
+			group.attached = false;
+			group.x = Number(position.x) + deltaX;
+			group.y = Number(position.y) + deltaY;
+			delete group.snappee;
+			delete group.snapPoint;
+		}
+		if (point.snappeeId != null && pointAllowed(model, point)) {
+			primary.attached = true;
+			primary.snappee = point.snappeeId;
+			primary.snapPoint = deepClone(point.snapPoint);
+			delete primary.x;
+			delete primary.y;
+		}
+	}
 	_applyPositionMove(model, primaryId, point) {
-		const primary = model.events.find(event => event.id === primaryId);
+		const primary = model.findEvent(primaryId);
 		if (!primary) return;
-		const movable = model.events.filter(event => event.selected && MOVABLE_TYPES.has(event.type));
+		const roots = model.allEvents().filter(event => event.selected && MOVABLE_TYPES.has(event.type));
+		const movable = [...new Set(roots.flatMap(event => event.type === "group"
+			? [event, ...model.groupDescendants(event.id)] : [event]))];
 		const attached = movable.filter(event => event.attached);
 		const sharedSnappeeId = attached.length === movable.length && new Set(attached.map(event => event.snappee)).size === 1
 			? attached[0]?.snappee : null;
@@ -567,17 +597,14 @@ export const withEventEditing = Base => class extends Base {
 			delete primary.y;
 		}
 	}
-
 	previewTipSpawn(id, point) {
 		this.preview(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point));
 	}
-
 	setTipSpawn(id, point) {
 		this.commit(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point));
 	}
-
 	_applyTipSpawn(model, id, point) {
-		const event = model.events.find(item => item.id === id);
+		const event = model.findEvent(id);
 		if (!event) return;
 		const position = resolveAttachedPosition(event, model.snappees) || event;
 		if (event.tipPointSpawnAbsolutePosition) {
@@ -602,15 +629,12 @@ export const withEventEditing = Base => class extends Base {
 			event.tipPointSpawnAngle = Math.round(Math.atan2(dy, dx) / (Math.PI / 12)) * Math.PI / 12;
 		}
 	}
-
 	previewSnappeeHandle(id, index, point) {
 		this.preview(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point));
 	}
-
 	setSnappeeHandle(id, index, point) {
 		this.commit(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point));
 	}
-
 	previewSnappeeMove(id, delta) {
 		this.preview(i18n.t("history.editSnappee"), model => {
 			const movement = constrainSnappeeTranslation(model, id, delta);
@@ -619,7 +643,6 @@ export const withEventEditing = Base => class extends Base {
 			});
 		});
 	}
-
 	moveSnappee(id, delta) {
 		this.commit(i18n.t("history.editSnappee"), model => {
 			const movement = constrainSnappeeTranslation(model, id, delta);
@@ -628,7 +651,6 @@ export const withEventEditing = Base => class extends Base {
 			});
 		});
 	}
-
 	_applySnappeeHandle(model, id, index, point) {
 		return mutateSnappeeWithinBounds(model, id, snappee => {
 			let localPoint;
@@ -665,42 +687,43 @@ export const withEventEditing = Base => class extends Base {
 			return true;
 		});
 	}
-
 	attachedSnappeeIds(model = this.model) {
 		const available = new Set(model.snappees.map(snappee => snappee.id));
-		return new Set(model.events
+		return new Set(model.allEvents()
 			.filter(event => event.selected && event.attached && available.has(event.snappee))
 			.map(event => event.snappee));
 	}
-
 	transformationTargets(model = this.model, options = {}) {
 		const explicitSnappeeId = options.snappeeId;
 		const attachedIds = explicitSnappeeId == null
 			? this.attachedSnappeeIds(model)
 			: new Set([explicitSnappeeId]);
-		if (explicitSnappeeId == null && !model.events.some(event => event.selected)) {
+		if (explicitSnappeeId == null && !model.allEvents().some(event => event.selected)) {
 			const selectedSnappee = model.snappees.find(snappee => snappee.selected && snappee.active !== false);
 			if (selectedSnappee) attachedIds.add(selectedSnappee.id);
 		}
-		const directEvents = options.onlySnappee
-			? []
-			: model.events.filter(event => event.selected && MOVABLE_TYPES.has(event.type) && !event.attached);
-		const affectedEvents = model.events.filter(event => directEvents.includes(event)
+		const allEvents = model.allEvents();
+		const selectedGroups = allEvents.filter(event => event.selected && event.type === "group");
+		const groupedDescendants = new Set(selectedGroups.flatMap(group => model.groupDescendants(group.id)));
+		const directEvents = options.onlySnappee ? [] : allEvents.filter(event => {
+			if (!MOVABLE_TYPES.has(event.type)) return false;
+			if (event.selected && !event.attached) return true;
+			return groupedDescendants.has(event) && !event.attached;
+		});
+		const affectedEvents = allEvents.filter(event => directEvents.includes(event)
 			|| (event.attached && attachedIds.has(event.snappee) && MOVABLE_TYPES.has(event.type)));
 		return { attachedIds, directEvents, affectedEvents };
 	}
-
 	transformationAvailable(model = this.model) {
 		const { attachedIds, directEvents } = this.transformationTargets(model);
 		return attachedIds.size > 0 || directEvents.length > 0;
 	}
-
 	transformSelectionBounds(model = this.model) {
 		const { attachedIds, directEvents } = this.transformationTargets(model);
 		const points = directEvents.map(event => resolveAttachedPosition(event, model.snappees)).filter(Boolean);
 		for (const snappee of model.snappees) {
 			if (!attachedIds.has(snappee.id)) continue;
-			try { points.push(...sampleSnappee(snappee)); } catch { /* Invalid snappees cannot contribute a transform box. */ }
+			try { points.push(...sampleSnappee(snappee)); } catch {}
 		}
 		if (!points.length) return null;
 		const xs = points.map(point => point.x);
@@ -709,8 +732,6 @@ export const withEventEditing = Base => class extends Base {
 		const maxX = Math.max(...xs);
 		const minY = Math.min(...ys);
 		const maxY = Math.max(...ys);
-		// Keep a usable transform box for a perfectly horizontal or vertical line.
-		// The minimum extent is only for the handles; the underlying geometry is unchanged.
 		const minimumExtent = 1;
 		const centerX = (minX + maxX) / 2;
 		const centerY = (minY + maxY) / 2;
@@ -724,7 +745,6 @@ export const withEventEditing = Base => class extends Base {
 		};
 		return bounds;
 	}
-
 	_transformTipPointSpawn(event, model, matrix, transformedSnappeeIds) {
 		if (!TIP_POINTABLE_TYPES.has(event.type) || !["chain", "drop"].includes(event.tipPointSpawnType)) return;
 		if (!event.tipPointSpawnAbsolutePosition) {
@@ -750,7 +770,6 @@ export const withEventEditing = Base => class extends Base {
 		delete event.tipPointSpawnSnappee;
 		delete event.tipPointSpawnSnapPoint;
 	}
-
 	_applyTransformMutation(model, matrix, options = {}) {
 		const { attachedIds, directEvents, affectedEvents } = this.transformationTargets(model, options);
 		if (!directEvents.length && !attachedIds.size) return false;
@@ -782,7 +801,6 @@ export const withEventEditing = Base => class extends Base {
 		}
 		return true;
 	}
-
 	startFreeTransform() {
 		if (this.freeTransform) {
 			this.finishFreeTransform();
@@ -799,7 +817,6 @@ export const withEventEditing = Base => class extends Base {
 		this.refresh();
 		return true;
 	}
-
 	previewFreeTransform(transform) {
 		if (!this.freeTransform || !Array.isArray(transform) || transform.length !== 6) return false;
 		const matrix = transform.map(Number);
@@ -814,7 +831,6 @@ export const withEventEditing = Base => class extends Base {
 		this.refresh();
 		return true;
 	}
-
 	finishFreeTransform() {
 		if (!this.freeTransform) return false;
 		const changed = JSON.stringify(this.freeTransform.base) !== JSON.stringify(this.model.snapshot());
@@ -826,7 +842,6 @@ export const withEventEditing = Base => class extends Base {
 		this.refresh();
 		return changed;
 	}
-
 	cancelFreeTransform() {
 		if (!this.freeTransform) return false;
 		this.model.restore(this.freeTransform.base);
@@ -834,7 +849,6 @@ export const withEventEditing = Base => class extends Base {
 		this.refresh();
 		return true;
 	}
-
 	setAttachedSnappeesActive(active) {
 		const ids = this.attachedSnappeeIds();
 		if (!ids.size) return;
@@ -847,11 +861,10 @@ export const withEventEditing = Base => class extends Base {
 			}
 		});
 	}
-
 	attachSelected() {
 		if (!this.model.snappees.some(snappee => snappee.active !== false)) return;
 		this.commit(i18n.t("command.snappee.attach"), model => {
-			for (const event of model.events) {
+			for (const event of model.allEvents()) {
 				if (!event.selected || !MOVABLE_TYPES.has(event.type)) continue;
 				const position = resolveAttachedPosition(event, model.snappees);
 				if (!position) continue;
@@ -868,10 +881,9 @@ export const withEventEditing = Base => class extends Base {
 			}
 		});
 	}
-
 	detachSelected() {
 		this.commit(i18n.t("command.snappee.detach"), model => {
-			for (const event of model.events) {
+			for (const event of model.allEvents()) {
 				if (!event.selected || !event.attached || !MOVABLE_TYPES.has(event.type)) continue;
 				const position = resolveAttachedPosition(event, model.snappees);
 				if (!position) continue;
@@ -883,33 +895,28 @@ export const withEventEditing = Base => class extends Base {
 			}
 		});
 	}
-
 	translateSelected(deltaX, deltaY) {
 		return this.applyTransformToSelection([1, 0, 0, 1, Number(deltaX), Number(deltaY)]);
 	}
-
 	applyTransformToSelection(transform) {
 		if (!Array.isArray(transform) || transform.length !== 6) return false;
 		const matrix = transform.map(Number);
 		if (matrix.some(value => !Number.isFinite(value))) return false;
-
 		if (this.freeTransform) return this.previewFreeTransform(multiplyTransforms(matrix, this.freeTransform.matrix));
 		let applied = false;
 		this.commit(i18n.t("history.transform"), model => { applied = this._applyTransformMutation(model, matrix); });
 		return applied;
 	}
-
 	moveSelectedInTime(direction) {
 		const step = Math.sign(Number(direction));
 		if (!step) return;
 		const delta = new Rational(step, this.model.editor.subdivision);
 		this.commit(i18n.t("history.moveEvents"), model => {
-			for (const event of model.events) {
+			for (const event of model.allEvents()) {
 				if (event.selected) event.time = Rational.from(event.time).add(delta).toJSON();
 			}
 		});
 	}
-
 	async showTransformDialog() {
 		this.exitModes();
 		const values = await this.dialogs.form({
@@ -927,7 +934,6 @@ export const withEventEditing = Base => class extends Base {
 		if (!values) return;
 		this.applyTransformToSelection([values.a, values.b, values.c, values.d, values.tx, values.ty]);
 	}
-
 	editSelectedProperty(property, value) {
 		const historyLabel = i18n.t("history.editEvent", { type: "" });
 		const commentProperties = new Set(["time", "channel", "duration", "endTime", "text"]);
@@ -936,13 +942,17 @@ export const withEventEditing = Base => class extends Base {
 			&& selected(this.model).every(event => event.type === "comment")
 			&& commentProperties.has(property);
 		if (property === "tipPointSpawnType" && value === "chain"
-			&& this.model.events.filter(event => event.selected).length > 1) {
-			const result = this.commit(historyLabel, model => connectSelectedTipPointChain(model.events));
+			&& this.model.allEvents().filter(event => event.selected).length > 1) {
+			const selectedEvent = this.model.allEvents().find(event => event.selected);
+			const scopeGroup = this.groupSelectionScope && this.model.findEvent(this.groupSelectionScope)
+				|| selectedEvent && this.model.ancestorsOf(selectedEvent.id).at(-1);
+			const scope = scopeGroup?.events || this.model.events;
+			const result = this.commit(historyLabel, model => connectSelectedTipPointChain(scope));
 			if (!result?.ok) this.toast.error("toast.tipPointChainSelection");
 			return result;
 		}
 		const result = this.commit(historyLabel, model => {
-			const chosen = model.events.filter(event => event.selected);
+			const chosen = model.allEvents().filter(event => event.selected);
 			if (property === "channel"
 				&& !model.channels.some(channel => channel.id === Number(value) && channel.active !== false)) return;
 			if (property === "endTime") {
@@ -963,7 +973,7 @@ export const withEventEditing = Base => class extends Base {
 					if (value === "bgNote" && event.duration == null) overrides.duration = this.lastBgNoteDuration;
 					if (value === "flick" && event.angle == null) overrides.angle = this.lastFlickAngle;
 					const replacement = createEvent(value, overrides);
-					model.events[model.events.indexOf(event)] = replacement;
+					model.replaceEvent(event.id, replacement);
 				}
 				return;
 			}
@@ -976,7 +986,7 @@ export const withEventEditing = Base => class extends Base {
 				}
 				if (property === "duration" || property.startsWith("tipPoint")) {
 					const replacement = createEvent(event.type, { ...event, [property]: deepClone(nextValue), id: event.id, selected: true });
-					model.events[model.events.indexOf(event)] = replacement;
+					model.replaceEvent(event.id, replacement);
 				} else {
 					event[property] = deepClone(nextValue);
 				}
@@ -987,5 +997,4 @@ export const withEventEditing = Base => class extends Base {
 		}
 		return result;
 	}
-
 };

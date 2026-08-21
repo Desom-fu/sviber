@@ -2,7 +2,7 @@
 
 [简体中文](README.zh-CN.md)
 
-sviber is a browser and NW.js chart editor for [Sunniesnow](https://sunniesnow.github.io/game-unstable). It edits tap, hold, drag, flick, background-note, big-text, and background-pattern events, with beat-based timing, tip points, reusable snappees, history, waveform navigation, and Sunniesnow-compatible preview rendering.
+sviber is a browser and NW.js chart editor for [Sunniesnow](https://sunniesnow.github.io/game-unstable). It edits tap, hold, drag, flick, background-note, big-text, background-pattern, and nested group events, with beat-based timing, tip points, reusable snappees, clips, history, waveform navigation, live hosting, and Sunniesnow-compatible preview rendering.
 
 ## Run in a browser
 
@@ -49,13 +49,26 @@ The visible timeline range is part of the editable chart state and is restored w
 
 To connect multiple notes with one Sunniesnow tip point, select at least two consecutive notes in the same channel and choose **Chain** in the Inspector. Sviber marks the first note as the chain start, makes the remaining selected notes inherit that path, and stops the path before the next unselected note.
 
+## v12 editing workflows
+
+Groups are recursive editor-only containers. **Events > Group** detaches selected events and creates a colored group anchor at their geometric center; selecting a group selects its descendants for movement, transforms, deletion, channel movement, and Sunniesnow export. **Events > Ungroup** restores the selected group's children at the same level. Nested groups keep independent IDs and bounds. A normal click on a grouped event selects the nearest containing group. Double-click enters one group level temporarily, so nested groups are entered from the outside in; the temporary scope ends when it has no selected descendants. Drag the crosshair anchor to move selected group anchors while keeping their children in place. Anchors can snap to direct children or active snappees.
+
+The timeline, stage, and Scroll view draw grouping rings; selected groups draw a colored bounding rectangle. The status panel can independently hide timeline rings, stage rings, and tip points. These display settings are stored in the editable chart and do not change generated Sunniesnow events, which flatten groups recursively.
+
+Copying selected events stores relative beat/channel data, channel attributes, referenced snappees, and nested group trees. **Edit > Save to clips** stores the same data in the chart's Clips panel. A clip can be renamed, reordered, deleted, or pasted at the current beat and channel. **Edit > Paste with options...** can duplicate the referenced channels and/or snappees; nested group references are remapped recursively. Ordinary paste keeps existing channel and snappee references when possible.
+
+The **Timing** menu edits the offset and initial BPM, and copies or pastes the complete timing map as JSON. Timing changes remain separate from event clipboard data. When live hosting is enabled in NW.js, `http://host:port/sviber.ssc` serves an in-memory level archive and the optional sscharter WebSocket port sends `connect`, `update`, and `chartUpdate` messages. Live exports include `sscharter.version = "0.10.1"`; browser builds disable the server controls.
+
 ## Useful shortcuts
 
 | Action | Shortcut |
 | --- | --- |
 | New project / Open project folder / Save project / Export level | `Ctrl+Shift+N` / `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S` |
 | Undo / Redo | `Ctrl+Z` / `Ctrl+Y` |
-| Cut / Copy / Paste / Paste with duplicated snappees | `Ctrl+X` / `Ctrl+C` / `Ctrl+V` / `Ctrl+Shift+V` |
+| Cut / Copy / Paste / Paste options | `Ctrl+X` / `Ctrl+C` / `Ctrl+V` / `Ctrl+Shift+V` |
+| Save selected events to clips | — |
+| Group / Ungroup | `Ctrl+G` / `Ctrl+Shift+G` |
+| Timing menu | Offset/BPM, copy timing, paste timing |
 | Select all / channel / none / by filter | `Ctrl+A` / `Ctrl+Shift+A` / `Ctrl+D` / `Ctrl+F` |
 | Tap / Hold / Drag / Flick / Bg note / Bg pattern | `T` / `H` / `D` / `F` / `B` / `P` |
 | Create channel above / below | `Insert` / `Shift+Insert` |
@@ -86,6 +99,7 @@ My Project/
 - `sviber-project.json` is the project manifest. It identifies the shared music, optional cover/background, all difficulty JSON files, and the active difficulty. **File > Open project folder...** reads this manifest and automatically loads every listed difficulty plus the shared media.
 - Song title, artist, music, and cover/background are project-wide fields. Difficulty name, color, rating, charter, timing, events, and undo/redo history remain independent per difficulty.
 - Every difficulty JSON in the project root is an editable sviber document. It extends Sunniesnow Chart 1.0 with a top-level `sviber` object containing authoring data such as beat timing, channels, snappees, and editor settings. The top-level `events` array is regenerated for compatibility, but reopening the project uses the editable data inside `sviber`.
+- Editable `sviber` data may contain recursive `group` events and a `clips` array. Group children retain stable recursive IDs; generated Sunniesnow JSON recursively flattens them. Clips contain relative event trees plus the channel and snappee records needed by the paste-options workflow.
 - The out-of-bounds setting is stored per difficulty as `sviber.editor.allowOutOfBounds`. Toggling it is undoable and marks that difficulty as changed.
 - An exported `.ssc` is a ZIP archive for Sunniesnow, not a copy of the editable project. Its root contains the shared music, optional cover/background, and one pure Sunniesnow Chart 1.0 JSON file per difficulty. It contains neither `sviber-project.json` nor the top-level `sviber` extension. All exported entries are at archive root because the target Sunniesnow build discovers level music, images, and difficulty JSON there.
 - Export writes the supported Sunniesnow Chart 1.0 fields without enforcing the external JSON Schema. Empty optional metadata such as artist or charter is preserved; unsupported editor-only data is not written to the formal chart JSON.

@@ -99,6 +99,6 @@ export function projectManagedFiles(manifest) {
 	].filter(Boolean));
 }
 
-export function exportSunniesnowChartDocument(model) {
-	return model.exportSunniesnow({ includeSchema: true });
+export function exportSunniesnowChartDocument(model, options = {}) {
+	return model.exportSunniesnow({ includeSchema: true, ...options });
 }

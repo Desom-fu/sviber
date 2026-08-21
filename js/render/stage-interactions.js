@@ -138,7 +138,7 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_hitTest(point) {
-		const priorities = ["free-scale", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "snappee-handle", "event", "snappee-body"];
+		const priorities = ["free-scale", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "group-anchor", "snappee-handle", "event", "snappee-body"];
 		for (const type of priorities) {
 			for (let index = this.hitRegions.length - 1; index >= 0; index -= 1) {
 				const region = this.hitRegions[index];
@@ -213,7 +213,7 @@ export const withStageInteractions = Base => class extends Base {
 			if (this.creationPreview) this.callbacks.onCreateEvent?.(creationMode, this.creationPreview);
 			return;
 		}
-		const hit = this._hitTest(point);
+		let hit = this._hitTest(point);
 		const curveDraft = this.callbacks.getCurveDraft?.();
 		if (curveDraft) {
 			if (playing) return;
@@ -247,7 +247,7 @@ export const withStageInteractions = Base => class extends Base {
 		const activeChannels = this.renderIndex?.activeChannelIds
 			|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 		const shiftPrimary = event.shiftKey
-			? project.events.findLast(candidate => candidate.selected && MOVABLE_TYPES.has(candidate.type)
+			? (this.renderIndex?.selectedEvents || []).findLast(candidate => candidate.selected && MOVABLE_TYPES.has(candidate.type)
 				&& activeChannels.has(candidate.channel))
 			: null;
 		const shiftSnappee = event.shiftKey && !shiftPrimary
@@ -268,13 +268,20 @@ export const withStageInteractions = Base => class extends Base {
 			if (hit.type === "free-scale") {
 				try { this.drag.startLocal = applyTransform(chart, invertTransform(this.drag.matrix)); } catch { this.drag = null; return; }
 			}
+		} else if (hit?.type === "group-anchor" && !shiftPrimary) {
+			if (playing) return;
+			this.drag = { type: "group-anchor", hit, start: point, startChart: hit.position };
 		} else if (hit?.type === "event" && !shiftPrimary) {
+			const selectionEvent = this.renderIndex?.selectionTarget(hit.event) || hit.event;
+			if (selectionEvent !== hit.event) hit = { ...hit, event: selectionEvent,
+				position: this.renderIndex?.positionFor(selectionEvent) || selectionEvent };
+			const selected = this.renderIndex?.isEventSelected(hit.event) ?? Boolean(hit.event.selected);
 			if (event.altKey) {
 				this.callbacks.onSelectEvents?.([hit.event.id], "remove");
 				return;
 			}
-			if (event.ctrlKey && !hit.event.selected) this.callbacks.onSelectEvents?.([hit.event.id], "add");
-			else if (!event.ctrlKey && !hit.event.selected) this.callbacks.onSelectEvents?.([hit.event.id], "replace");
+			if (event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([hit.event.id], "add");
+			else if (!event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([hit.event.id], "replace");
 			this.drag = { type: "event", hit, start: point, startChart: hit.position,
 				collapseSelectionOnClick: !event.ctrlKey && Boolean(hit.event.selected) };
 		} else if (hit?.type === "flick-handle") {
@@ -377,6 +384,21 @@ export const withStageInteractions = Base => class extends Base {
 			const snap = findNearestSnapPoint(target, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
 				bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
 			this.callbacks.onPreviewPosition?.(this.drag.hit.event.id, snap || target);
+		} else if (this.drag.type === "group-anchor") {
+			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
+			const target = allowOutOfBounds ? chart : clampPointToChartBounds(chart);
+			const group = this.drag.hit.event;
+			const directChildren = (group.events || []).filter(event => MOVABLE_TYPES.has(event.type));
+			const child = directChildren.map(event => ({ event, position: this.renderIndex?.positionFor(event) || event }))
+				.filter(({ position }) => Number.isFinite(Number(position.x)) && Number.isFinite(Number(position.y)))
+				.sort((left, right) => Math.hypot(left.position.x - target.x, left.position.y - target.y)
+					- Math.hypot(right.position.x - target.x, right.position.y - target.y))[0];
+			const childDistance = child && Math.hypot(child.position.x - target.x, child.position.y - target.y);
+			const snap = child && childDistance <= 9 / mapping.scale
+				? { x: child.position.x, y: child.position.y, groupEventId: child.event.id }
+				: findNearestSnapPoint(target, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
+					bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
+			this.callbacks.onPreviewGroupAnchor?.(this.drag.hit.event.id, snap || target);
 		} else if (this.drag.type === "flick") {
 			const position = resolveAttachedPosition(this.drag.hit.event, project.snappees) || this.drag.hit.event;
 			const angle = Math.round(Math.atan2(chart.y - position.y, chart.x - position.x) / (Math.PI / 4)) * Math.PI / 4;
@@ -411,8 +433,8 @@ export const withStageInteractions = Base => class extends Base {
 			const x2 = Math.max(this.selectionBox.x1, point.x);
 			const y1 = Math.min(this.selectionBox.y1, point.y);
 			const y2 = Math.max(this.selectionBox.y1, point.y);
-			this.callbacks.onPreviewBoxSelect?.(this.visibleEvents.filter(item => item.screen.x >= x1 && item.screen.x <= x2
-				&& item.screen.y >= y1 && item.screen.y <= y2).map(item => item.event.id), this.drag.mode);
+				this.callbacks.onPreviewBoxSelect?.(this.visibleEvents.filter(item => item.screen.x >= x1 && item.screen.x <= x2
+					&& item.screen.y >= y1 && item.screen.y <= y2).map(item => this.renderIndex?.selectionTarget(item.event)?.id || item.event.id), this.drag.mode);
 		}
 		this.requestRender();
 	}
@@ -432,6 +454,21 @@ export const withStageInteractions = Base => class extends Base {
 			const snap = findNearestSnapPoint(target, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
 				bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
 			this.callbacks.onMovePosition?.(drag.hit.event.id, snap || target);
+		} else if (drag.type === "group-anchor" && this.pointerMoved) {
+			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
+			const target = allowOutOfBounds ? chart : clampPointToChartBounds(chart);
+			const group = drag.hit.event;
+			const directChildren = (group.events || []).filter(item => MOVABLE_TYPES.has(item.type));
+			const child = directChildren.map(item => ({ event: item, position: this.renderIndex?.positionFor(item) || item }))
+				.filter(({ position }) => Number.isFinite(Number(position.x)) && Number.isFinite(Number(position.y)))
+				.sort((left, right) => Math.hypot(left.position.x - target.x, left.position.y - target.y)
+					- Math.hypot(right.position.x - target.x, right.position.y - target.y))[0];
+			const childDistance = child && Math.hypot(child.position.x - target.x, child.position.y - target.y);
+			const snap = child && childDistance <= 9 / mapping.scale
+				? { x: child.position.x, y: child.position.y, groupEventId: child.event.id }
+				: findNearestSnapPoint(target, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
+					bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
+			this.callbacks.onMoveGroupAnchor?.(drag.hit.event.id, snap || target);
 		} else if (drag.type === "event" && drag.collapseSelectionOnClick) {
 			this.callbacks.onSelectEvents?.([drag.hit.event.id], "replace");
 		} else if (drag.type === "flick") {
@@ -468,7 +505,7 @@ export const withStageInteractions = Base => class extends Base {
 				const y1 = Math.min(drag.start.y, point.y);
 				const y2 = Math.max(drag.start.y, point.y);
 				this.callbacks.onBoxSelect?.(this.visibleEvents.filter(item => item.screen.x >= x1 && item.screen.x <= x2
-					&& item.screen.y >= y1 && item.screen.y <= y2).map(item => item.event.id), drag.mode);
+					&& item.screen.y >= y1 && item.screen.y <= y2).map(item => this.renderIndex?.selectionTarget(item.event)?.id || item.event.id), drag.mode);
 			} else if (drag.mode === "replace") {
 				this.callbacks.onSelectEvents?.([], "replace");
 			}
@@ -494,6 +531,11 @@ export const withStageInteractions = Base => class extends Base {
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		const chartPoint = mapping.toChart(point);
 		const project = projectState(this.state);
+		const eventHit = this._hitTest(point);
+		if (eventHit?.type === "event" && eventHit.event.type !== "group") {
+			this.callbacks.onEnterGroupSelection?.(eventHit.event.id);
+			return;
+		}
 		let nearest = null;
 		for (const snappee of project.snappees) {
 			if (!isSnappeeVisible(snappee)) continue;
@@ -508,6 +550,7 @@ export const withStageInteractions = Base => class extends Base {
 				.map(record => record.event.id);
 			this.callbacks.onSelectEvents?.(ids,
 				event.altKey ? "remove" : event.ctrlKey ? "add" : "replace");
+			return;
 		}
 	}
 
