@@ -4,6 +4,8 @@
 
 sviber 是面向 [Sunniesnow](https://sunniesnow.github.io/game-unstable) 的浏览器与 NW.js 谱面编辑器。它支持编辑点按、长押、拖键、划键、背景音符、大字、全部背景图案和嵌套分组事件，并提供基于拍的定时、引导点、可复用吸附器、片段、历史记录、波形导航、实时托管，以及与 Sunniesnow 一致的预览外观。
 
+[帮助手册](docs/index.html)是用户指南的唯一权威来源。本 README 仅说明安装、开发、贡献和许可证。
+
 ## 在浏览器中运行
 
 需要当前版本的 Node.js、npm，以及现代浏览器。完整的工程文件夹流程需要支持 File System Access API 的 Chromium 内核浏览器；不支持该 API 时请使用 NW.js 桌面版。
@@ -128,6 +130,14 @@ npm test
 npm run verify:browser
 npm run build
 ```
+
+## 贡献
+
+提交 Pull Request 前请运行 `npm ci` 和 `npm test`，为用户可见修改同步更新帮助手册并添加针对性的回归测试；较大的设计改动请先在 issue 中讨论。
+
+## 许可证
+
+sviber 使用 [AGPL-3.0-or-later](LICENSE) 许可证。打包字体和第三方依赖仍遵循各自许可证，桌面构建会包含相应字体许可证文件。
 
 `verify:browser` 默认使用 `http://127.0.0.1:4173/sviber/`；如果该地址不可用，会自动启动并在结束时清理临时本地服务器，也可以用 `SVIBER_BASE_URL` 覆盖地址。它会检查中英文界面、明暗主题、960x620 最小窗口、响应式 Sunniesnow 音符大小、限界/超界的全部编辑路径、真实指针交互、Canvas 非空以及离线重载。
 

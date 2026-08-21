@@ -75,6 +75,11 @@ const DEFAULT_EDITOR = Object.freeze({
 	showGroupingInTimeline: true,
 	showGroupingInMainField: true,
 	showTipPoints: true,
+	showBgEventsInTimeline: true,
+	showBgEventsInMainField: true,
+	mainFieldPanX: 0,
+	mainFieldPanY: 0,
+	mainFieldZoom: 1,
 });
 
 function clone(value) {
@@ -86,12 +91,10 @@ function finiteNumber(value, fallback = 0) {
 	const result = Number(value);
 	return Number.isFinite(result) ? result : fallback;
 }
-
 function positiveInteger(value, fallback) {
 	const result = Number(value);
 	return Number.isSafeInteger(result) && result > 0 ? result : fallback;
 }
-
 function normalizeLoopMarks(value) {
 	const marks = [];
 	for (const item of Array.isArray(value) ? value.slice(0, 2) : []) {
@@ -102,11 +105,9 @@ function normalizeLoopMarks(value) {
 	}
 	return marks.sort((left, right) => left.compare(right)).map(mark => mark.toJSON());
 }
-
 function validId(value) {
 	return Number.isSafeInteger(value) && value >= 0;
 }
-
 function normalizeColor(value, fallback = "#7f7f7f") {
 	if (typeof value === "string" && value.trim()) return value;
 	if (Number.isSafeInteger(value) && value >= 0 && value <= 0xffffff) return value;
@@ -427,12 +428,12 @@ function normalizeEditor(editor, channels) {
 		readOnly: Boolean(source.readOnly),
 		abLoopMarks: normalizeLoopMarks(source.abLoopMarks),
 		currentChannel: requested?.active !== false || !activeFallback ? requestedChannel : activeFallback.id,
-		allowOutOfBound: Boolean(source.allowOutOfBound || source.allowOutOfBounds),
-		allowOutOfBounds: Boolean(source.allowOutOfBound || source.allowOutOfBounds),
+		allowOutOfBound: Boolean(source.allowOutOfBound || source.allowOutOfBounds), allowOutOfBounds: Boolean(source.allowOutOfBound || source.allowOutOfBounds),
 		timelineChannelOffset: Math.max(0, Math.min(Math.max(0, channels.length - 3), Math.round(finiteNumber(source.timelineChannelOffset, 0)))),
-		showGroupingInTimeline: source.showGroupingInTimeline !== false,
-		showGroupingInMainField: source.showGroupingInMainField !== false,
-		showTipPoints: source.showTipPoints !== false,
+		showGroupingInTimeline: source.showGroupingInTimeline !== false, showGroupingInMainField: source.showGroupingInMainField !== false,
+		showTipPoints: source.showTipPoints !== false, showBgEventsInTimeline: source.showBgEventsInTimeline !== false, showBgEventsInMainField: source.showBgEventsInMainField !== false,
+		mainFieldPanX: finiteNumber(source.mainFieldPanX, 0), mainFieldPanY: finiteNumber(source.mainFieldPanY, 0),
+		mainFieldZoom: Math.max(0.1, Math.min(16, finiteNumber(source.mainFieldZoom, 1))),
 	};
 }
 
@@ -484,7 +485,7 @@ export class ChartModel {
 			music: "",
 			image: "",
 			editor: DEFAULT_EDITOR,
-			timing: { offset: 0, initialBpm: 120, bpmChanges: [] },
+			timing: { offset: 0, initialBpm: 120, bpmChanges: [], barLines: [] },
 			channels: [{ id: 0 }],
 			events: [],
 			snappees: createDefaultSnappees(),

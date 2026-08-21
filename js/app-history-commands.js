@@ -101,6 +101,7 @@ export const withHistoryCommands = Base => class extends Base {
 		command("events.reverseTime", () => this.reverseSelectedTime(), () => selected(this.model).length > 0);
 		command("events.fillCurveDrag", () => this.fillSelectedCurve(), () => this.model.snappees.some(snappee => snappee.selected && !snappee.type.endsWith("Mesh")));
 		command("timing.offsetAndBpm", () => void this.showTimingDialog());
+		command("timing.barLine", () => this.toggleBarLine());
 		command("timing.copy", () => void this.copyTiming());
 		command("timing.paste", () => void this.pasteTiming());
 
@@ -142,6 +143,7 @@ export const withHistoryCommands = Base => class extends Base {
 		command("transform.matrix", () => void this.showTransformDialog(), () => this.transformationAvailable());
 		command("transform.moveForward", () => this.moveSelectedInTime(1), () => selected(this.model).length > 0);
 		command("transform.moveBackward", () => this.moveSelectedInTime(-1), () => selected(this.model).length > 0);
+		command("transform.timeDilation", () => void this.showTimeDilationDialog(), () => selected(this.model).length > 0);
 
 		command("music.playPause", (_context, event) => {
 			if (event?.type === "keydown" && !this.audio.playing) {

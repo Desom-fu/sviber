@@ -36,6 +36,11 @@ export class StageViewCore {
 		this.pendingPointerMove = null;
 		this.lastHudCombo = null;
 		this.hudComboAnimationStarted = null;
+		this.spaceHeld = false;
+		this.spaceKeyDown = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = true; };
+		this.spaceKeyUp = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = false; };
+		document.addEventListener("keydown", this.spaceKeyDown, true);
+		document.addEventListener("keyup", this.spaceKeyUp, true);
 		this.boundMove = event => this._queuePointerMove(event);
 		this.boundUp = event => {
 			this._flushPointerMove();
@@ -45,6 +50,11 @@ export class StageViewCore {
 			this.surface.canvas.addEventListener("pointerdown", event => this._pointerDown(event));
 			this.surface.canvas.addEventListener("pointermove", event => this._hoverMove(event));
 			this.surface.canvas.addEventListener("pointerleave", () => this._pointerLeave());
+			this.surface.canvas.addEventListener("wheel", event => {
+				if (!event.ctrlKey || !event.shiftKey) return;
+				event.preventDefault();
+				this.callbacks.onMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12);
+			}, { passive: false });
 			this.surface.canvas.addEventListener("dblclick", event => this._doubleClick(event));
 			this.render();
 		});
@@ -151,13 +161,17 @@ export class StageViewCore {
 	}
 
 	_mapping(width, height) {
-		const scale = sunniesnowPlayfieldScale(width, height);
+		const editor = projectState(this.state)?.editor || {};
+		const zoom = Math.max(0.1, Math.min(16, Number(editor.mainFieldZoom) || 1));
+		const scale = sunniesnowPlayfieldScale(width, height) * zoom;
+		const originX = width / 2 + (Number(editor.mainFieldPanX) || 0) * scale;
+		const originY = height / 2 + (Number(editor.mainFieldPanY) || 0) * scale;
 		return {
 			scale,
-			originX: width / 2,
-			originY: height / 2,
-			toScreen: point => ({ x: width / 2 + point.x * scale, y: height / 2 - point.y * scale }),
-			toChart: point => ({ x: (point.x - width / 2) / scale, y: (height / 2 - point.y) / scale }),
+			originX,
+			originY,
+			toScreen: point => ({ x: originX + point.x * scale, y: originY - point.y * scale }),
+			toChart: point => ({ x: (point.x - originX) / scale, y: (originY - point.y) / scale }),
 		};
 	}
 
@@ -215,7 +229,7 @@ export class StageViewCore {
 		this.visibleEvents = [];
 		this._prepareBackground(width, height);
 		context.drawImage(this.backgroundCache, 0, 0);
-		this._drawBackgroundPatterns(context, project, mapping, now);
+		if (project.editor?.showBgEventsInMainField !== false) this._drawBackgroundPatterns(context, project, mapping, now);
 		this._drawBoundary(context, mapping);
 		this._drawHud(context, width, height, project, now);
 		this._drawParticles(context, mapping);
@@ -561,6 +575,7 @@ export class StageViewCore {
 				&& event.type !== "group").map(event => ({ event }));
 		for (const indexed of candidates) {
 			const { event } = indexed;
+			if (project.editor?.showBgEventsInMainField === false && event.type === "bgNote") continue;
 			const visibility = indexed.start == null
 				? this._noteVisibility(event, now)
 				: sunniesnowEventVisualState(event, indexed.start, indexed.end, now, this.state?.preferences?.noteSpeed);

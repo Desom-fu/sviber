@@ -39,6 +39,39 @@ export function normalizeBpmChanges(changes = []) {
 	return deduplicated.map(({ time, bpm }) => ({ time, bpm }));
 }
 
+export function normalizeBarLines(lines = []) {
+	if (!Array.isArray(lines)) throw new TypeError("barLines must be an array");
+	const normalized = lines.map((line, sourceIndex) => ({
+		time: Rational.from(line?.time ?? line?.beat ?? line ?? 0),
+		sourceIndex,
+	}));
+	normalized.sort((left, right) => left.time.compare(right.time) || left.sourceIndex - right.sourceIndex);
+	const deduplicated = [];
+	for (const line of normalized) {
+		if (deduplicated.at(-1)?.time.equals(line.time)) deduplicated[deduplicated.length - 1] = line;
+		else deduplicated.push(line);
+	}
+	return deduplicated.map(({ time }) => ({ time }));
+}
+
+function ceilRational(value) {
+	const rational = Rational.from(value);
+	const quotient = rational.numerator / rational.denominator;
+	return quotient + (rational.numerator > 0n && rational.numerator % rational.denominator ? 1n : 0n);
+}
+
+function floorRational(value) {
+	const rational = Rational.from(value);
+	const quotient = rational.numerator / rational.denominator;
+	return quotient - (rational.numerator < 0n && rational.numerator % rational.denominator ? 1n : 0n);
+}
+
+function safeInteger(value, label) {
+	const number = Number(value);
+	if (!Number.isSafeInteger(number)) throw new RangeError(`${label} is outside the supported beat range`);
+	return number;
+}
+
 /** Piecewise-positive BPM map whose offset is the audio time of beat zero. */
 export class TimingMap {
 	constructor(options = {}, initialBpm, bpmChanges) {
@@ -48,6 +81,7 @@ export class TimingMap {
 		this._offset = assertFinite(options.offset ?? 0, "offset");
 		this._initialBpm = assertBpm(options.initialBpm ?? 120);
 		this.setBpmChanges(options.bpmChanges ?? []);
+		this.setBarLines(options.barLines ?? []);
 	}
 
 	get offset() {
@@ -74,6 +108,14 @@ export class TimingMap {
 		this.setBpmChanges(value);
 	}
 
+	get barLines() {
+		return this._barLines;
+	}
+
+	set barLines(value) {
+		this.setBarLines(value);
+	}
+
 	setOffset(offset) {
 		this._offset = assertFinite(offset, "offset");
 		this._rebuildChangeTimes();
@@ -90,6 +132,85 @@ export class TimingMap {
 		this._bpmChanges = normalizeBpmChanges(changes);
 		this._rebuildChangeTimes();
 		return this;
+	}
+
+	setBarLines(lines) {
+		this._barLines = normalizeBarLines(lines);
+		return this;
+	}
+
+	addBarLine(time) {
+		const target = Rational.from(time);
+		if (this.barLines.some(line => line.time.equals(target))) return false;
+		this.setBarLines([...this.barLines, { time: target }]);
+		return true;
+	}
+
+	removeBarLine(time) {
+		const target = Rational.from(time);
+		const next = this.barLines.filter(line => !line.time.equals(target));
+		const changed = next.length !== this.barLines.length;
+		if (changed) this.setBarLines(next);
+		return changed;
+	}
+
+	barLineAt(time) {
+		const target = Rational.from(time);
+		return this.barLines.find(line => line.time.equals(target)) || null;
+	}
+
+	latestBarLineAt(time) {
+		const target = Rational.from(time);
+		let low = 0;
+		let high = this.barLines.length;
+		while (low < high) {
+			const middle = (low + high) >> 1;
+			if (this.barLines[middle].time.compare(target) <= 0) low = middle + 1;
+			else high = middle;
+		}
+		return low ? this.barLines[low - 1].time : Rational.from(0);
+	}
+
+	beatLinesBetween(beginning, end, subdivision = 1) {
+		if (!Number.isSafeInteger(subdivision) || subdivision < 1) {
+			throw new RangeError("subdivision must be a positive safe integer");
+		}
+		let first = Rational.from(beginning);
+		let last = Rational.from(end);
+		if (first.compare(last) > 0) [first, last] = [last, first];
+		const actual = this.barLines.map(line => line.time);
+		const segments = [{ base: Rational.from(0), beginning: null, end: actual[0] ?? null, barLine: false }];
+		for (let index = 0; index < actual.length; index += 1) {
+			segments.push({ base: actual[index], beginning: actual[index], end: actual[index + 1] ?? null, barLine: true });
+		}
+		const result = [];
+		const seen = new Set();
+		for (const segment of segments) {
+			const rangeBeginning = segment.beginning && segment.beginning.compare(first) > 0 ? segment.beginning : first;
+			const rangeEnd = segment.end && segment.end.compare(last) < 0 ? segment.end : last;
+			if (rangeBeginning.compare(rangeEnd) > 0) continue;
+			const scaledBeginning = rangeBeginning.sub(segment.base).mul(subdivision);
+			const scaledEnd = rangeEnd.sub(segment.base).mul(subdivision);
+			const firstStep = safeInteger(ceilRational(scaledBeginning), "beat line");
+			const lastStep = safeInteger(floorRational(scaledEnd), "beat line");
+			for (let step = firstStep; step <= lastStep; step += 1) {
+				const beat = segment.base.add(new Rational(step, subdivision));
+				if (segment.beginning && beat.compare(segment.beginning) < 0) continue;
+				if (segment.end && beat.compare(segment.end) >= 0) continue;
+				const key = beat.toString();
+				if (seen.has(key)) continue;
+				seen.add(key);
+				const relative = beat.sub(segment.base);
+				result.push({
+					beat,
+					base: segment.base,
+					relative,
+					barLine: segment.barLine && relative.compare(0) === 0,
+					integerFromBar: relative.denominator === 1n,
+				});
+			}
+		}
+		return result.sort((left, right) => left.beat.compare(right.beat));
 	}
 
 	addBpmChange(time, bpm) {
@@ -181,7 +302,19 @@ export class TimingMap {
 	}
 
 	secondsToSnappedBeat(seconds, subdivision) {
-		return this.secondsToBeat(seconds).snap(subdivision);
+		return this.snapBeat(this.secondsToBeat(seconds), subdivision);
+	}
+
+	snapBeat(value, subdivision) {
+		if (!Number.isSafeInteger(subdivision) || subdivision < 1) {
+			throw new RangeError("subdivision must be a positive safe integer");
+		}
+		const target = Rational.from(value);
+		const base = this.latestBarLineAt(target);
+		let closest = base.add(target.sub(base).snap(subdivision));
+		const nextBar = this.barLines.find(line => line.time.compare(target) > 0)?.time;
+		if (nextBar && nextBar.sub(target).abs().compare(closest.sub(target).abs()) < 0) closest = nextBar;
+		return closest;
 	}
 
 	snapSeconds(seconds, subdivision) {
@@ -237,6 +370,7 @@ export class TimingMap {
 				time: change.time.toJSON(),
 				bpm: change.bpm,
 			})),
+			barLines: this.barLines.map(line => ({ time: line.time.toJSON() })),
 		};
 	}
 

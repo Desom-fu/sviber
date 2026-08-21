@@ -534,11 +534,11 @@ export async function runInteractionChecks(page, outputDirectory) {
 	assert.equal(await inspectorChoices.count(), 4);
 	assert.equal(await page.locator('#inspector-panel input[type="radio"][value="relative"]').isChecked(), true);
 	assert.equal(await page.locator('#inspector-panel input[type="radio"][value="seconds"]').isChecked(), true);
-	assert.equal(await page.locator('#inspector-panel label[title="绝对"] + .attached-input input').first().isDisabled(), true);
-	assert.equal(await page.locator('#inspector-panel label[title="生成距离"] + input').isDisabled(), true,
-		"tip-point spawn fields must be disabled for inherit mode");
+	assert.equal(await page.locator('#inspector-panel label[title="绝对"] + .attached-input').getAttribute("data-hidden"), "true");
+	assert.equal(await page.locator('#inspector-panel label[title="生成距离"] + input').getAttribute("data-hidden"), "true",
+		"tip-point spawn fields must be hidden for inherit mode");
 	await page.locator('#inspector-panel label[title="生成类型"] + select').selectOption("chain");
-	assert.equal(await page.locator('#inspector-panel label[title="生成距离"] + input').isDisabled(), true,
+	assert.equal(await page.locator('#inspector-panel label[title="生成距离"] + input').getAttribute("data-hidden"), "true",
 		"mixed chain/inherit selection must keep spawn fields disabled");
 	await page.evaluate(() => {
 		const firstSelected = globalThis.sviber.model.events.find(event => event.selected);

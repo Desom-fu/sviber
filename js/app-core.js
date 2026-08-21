@@ -1,22 +1,7 @@
-import { i18n } from "./i18n.js";
-import { CommandRegistry } from "./commands.js";
-import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js";
-import { ChartModel, DIFFICULTY_COLORS, EVENT_TYPES, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
-import { uniqueChartFilename } from "./core/project.js";
-import { History } from "./core/history.js";
-import { Rational } from "./core/rational.js";
-import { TimingMap } from "./core/timing.js";
-import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
+import { i18n } from "./i18n.js"; import { CommandRegistry } from "./commands.js"; import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js"; import { ChartModel } from "./core/chart-model.js";
+import { uniqueChartFilename } from "./core/project.js"; import { History } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
 import { AudioPlayer } from "./audio/player.js";
-import {
-	collectHitSchedule,
-	collectHoldReleaseSchedule,
-	collectIndexedHitSchedule,
-	collectIndexedHoldReleaseSchedule,
-	collectReverseHitSchedule,
-	collectIndexedReverseHitSchedule,
-	collectMetronomeSchedule,
-} from "./audio/scheduler.js";
+import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule, collectIndexedHoldReleaseSchedule, collectReverseHitSchedule, collectIndexedReverseHitSchedule, collectMetronomeSchedule } from "./audio/scheduler.js";
 import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { ScrollView } from "./render/scroll-view.js";
@@ -24,7 +9,7 @@ import { ChartRenderIndex } from "./render/chart-index.js";
 import { HelpController } from "./help.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { ChannelsPanel, ClipsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { loadPreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, selected, formatTime, formatBeat, eventTypeLabel } from "./app-helpers.js";
 import { handleMacroMessage } from "./app-macro-bridge.js";
 import { bindEdgeToggleReveal } from "./ui-layout.js";
 import { LiveHosting } from "./live-hosting.js";
@@ -98,6 +83,7 @@ export class SviberAppCore {
 		this.stage = new StageView(document.getElementById("stage-surface"), this._stageCallbacks());
 		this.scrollView = new ScrollView(document.getElementById("scroll-surface"), {
 			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
+			onScrollPan: (seconds, final, drag) => this.panScrollView?.(seconds, final, drag),
 			getTimelineWidth: () => this.timeline.surface.width,
 		});
 		this.inspectorPanel = new InspectorPanel({
@@ -574,11 +560,16 @@ export class SviberAppCore {
 		for (const [id, property] of [["lock-visible-range", "lockVisibleRange"], ["play-se", "playSe"],
 			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"],
 			["show-grouping-in-timeline", "showGroupingInTimeline"], ["show-grouping-in-main-field", "showGroupingInMainField"],
-			["show-tip-points", "showTipPoints"], ["allow-out-of-bound", "allowOutOfBound"], ["read-only", "readOnly"]]) {
+			["show-tip-points", "showTipPoints"], ["show-bg-events-in-timeline", "showBgEventsInTimeline"],
+			["show-bg-events-in-main-field", "showBgEventsInMainField"], ["allow-out-of-bound", "allowOutOfBound"], ["read-only", "readOnly"]]) {
 			const control = document.getElementById(id);
 			if (control) control.checked = Boolean(this.model.editor[property]);
 		}
 		this._syncFullscreenState();
+		const resetView = document.getElementById("reset-main-field-view");
+		if (resetView) resetView.hidden = Math.abs(Number(this.model.editor.mainFieldPanX) || 0) < 1e-9
+			&& Math.abs(Number(this.model.editor.mainFieldPanY) || 0) < 1e-9
+			&& Math.abs((Number(this.model.editor.mainFieldZoom) || 1) - 1) < 1e-9;
 		const comments = this.renderIndex?.activeComments(seconds) || this.model.allEvents().filter(event => {
 			if (event.type !== "comment") return false;
 			const start = this.timing().beatToSeconds(event.time);
@@ -652,7 +643,7 @@ export class SviberAppCore {
 		document.getElementById("difficulty-select")?.addEventListener("change", event => void this.switchDifficulty(event.target.value));
 		document.getElementById("difficulty-add")?.addEventListener("click", () => void this.newDifficulty());
 		document.getElementById("difficulty-delete")?.addEventListener("click", () => void this.deleteDifficulty());
-		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "allow-out-of-bound"]) {
+		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "show-bg-events-in-timeline", "show-bg-events-in-main-field", "allow-out-of-bound"]) {
 			document.getElementById(id)?.addEventListener("change", event => {
 				if (id === "allow-out-of-bound") {
 					const checked = Boolean(event.target.checked);
@@ -667,6 +658,8 @@ export class SviberAppCore {
 					: id === "show-grouping-in-timeline" ? "showGroupingInTimeline"
 					: id === "show-grouping-in-main-field" ? "showGroupingInMainField"
 					: id === "show-tip-points" ? "showTipPoints"
+					: id === "show-bg-events-in-timeline" ? "showBgEventsInTimeline"
+					: id === "show-bg-events-in-main-field" ? "showBgEventsInMainField"
 					: "metronome"] = Boolean(event.target.checked);
 				this.refresh();
 			});
@@ -674,6 +667,7 @@ export class SviberAppCore {
 		document.getElementById("read-only")?.addEventListener("change", event => this.setReadOnly(event.target.checked));
 		document.getElementById("fullscreen")?.addEventListener("change", event => void this.setFullscreen(event.target.checked));
 		document.getElementById("live-hosting")?.addEventListener("change", event => void this.setLiveHosting(event.target.checked));
+		document.getElementById("reset-main-field-view")?.addEventListener("click", () => this.resetMainFieldView?.());
 	}
 	_bindAudio() {
 		this.audio.addEventListener("timeupdate", event => {
@@ -921,6 +915,10 @@ export class SviberAppCore {
 			if (this.dialogs.active || event.defaultPrevented
 				|| event.target.closest(".property-panel,.history-list,.status-panel,.menu-popup,.dialog-body,.tool-bar,select,textarea")) return;
 			event.preventDefault();
+			if (event.ctrlKey && event.shiftKey) {
+				this.setMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12);
+				return;
+			}
 			this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey);
 		}, { passive: false });
 		window.addEventListener("beforeunload", event => {
@@ -972,7 +970,8 @@ export class SviberAppCore {
 				model: recovery.model,
 			}], { activeChart: "difficulty-0", name: recovery.source?.projectName || recovery.model.metadata.title, saved: false });
 			if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
-		} else this.autosave.markManualSave(); return true;
+			return true;
+		} else { this.autosave.markManualSave(); return false; }
 	}
 	exitModes() {
 		this.creationMode = null;

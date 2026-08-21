@@ -63,6 +63,7 @@ const DEFINITIONS = [
 	define('events.fillCurveDrag', null, null, {blockDuringPlayback: true}),
 
 	define('timing.offsetAndBpm'),
+	define('timing.barLine', 'R', null, {blockDuringPlayback: true}),
 	define('timing.copy', null, null, {allowWhenBlocked: true}),
 	define('timing.paste', null, null, {blockDuringPlayback: true}),
 
@@ -112,6 +113,7 @@ const DEFINITIONS = [
 	define('transform.matrix', null, null, {blockDuringPlayback: true}),
 	define('transform.moveForward', '>'),
 	define('transform.moveBackward', '<'),
+	define('transform.timeDilation', null, null, {blockDuringPlayback: true}),
 
 	define('music.playPause', 'Space', 'play-pause', {checkable: true, allowWhenBlocked: true}),
 	define('music.playReverse', 'Shift+Space', null, {checkable: true, allowWhenBlocked: true}),
@@ -176,7 +178,7 @@ export const MENU_DEFINITION = Object.freeze([
 	}),
 	Object.freeze({
 		id: 'timing', labelKey: 'menu.timing', mnemonic: 't', items: Object.freeze([
-			item('timing.offsetAndBpm'), item('events.bpmChange'), item('timing.copy'), item('timing.paste')
+			item('timing.offsetAndBpm'), item('events.bpmChange'), item('timing.barLine'), separator, item('timing.copy'), item('timing.paste')
 		])
 	}),
 	Object.freeze({
@@ -210,7 +212,7 @@ export const MENU_DEFINITION = Object.freeze([
 			item('transform.moveDownLarge'), item('transform.moveUpLarge'),
 			item('transform.moveRightLarge'), separator, item('transform.flipHorizontal'),
 			item('transform.flipVertical'), item('transform.free'), item('transform.matrix'), separator,
-			item('transform.moveForward'), item('transform.moveBackward')
+			item('transform.moveForward'), item('transform.moveBackward'), item('transform.timeDilation')
 		])
 	}),
 	Object.freeze({

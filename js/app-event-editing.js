@@ -1,20 +1,7 @@
-import { i18n } from "./i18n.js";
-import { CommandRegistry } from "./commands.js";
-import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js";
-import { ChartModel, DIFFICULTY_COLORS, EVENT_TYPES, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
-import { History } from "./core/history.js";
-import { Rational } from "./core/rational.js";
-import { TimingMap } from "./core/timing.js";
-import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
-import { AudioPlayer } from "./audio/player.js";
-import { collectHitSchedule, collectHoldReleaseSchedule } from "./audio/scheduler.js";
-import { TimelineView } from "./render/timeline.js";
-import { StageView } from "./render/stage.js";
-import { AutosaveManager, FileManager } from "./platform.js";
-import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainSnappeeTranslation, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
-import { eventUsesChannel } from "./core/grouping.js";
-import { withFreeTransform } from "./app-free-transform.js";
+import { i18n } from "./i18n.js"; import { ChartModel, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js"; import { Rational } from "./core/rational.js";
+import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
+import { MOVABLE_TYPES, DURATION_TYPES, deepClone, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, mutateSnappeeWithinBounds, constrainSnappeeTranslation, eventTypeLabel } from "./app-helpers.js";
+import { eventUsesChannel } from "./core/grouping.js"; import { withFreeTransform } from "./app-free-transform.js"; import { withViewControls } from "./app-view-controls.js";
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 const withEventEditingBase = Base => class extends Base {
 	exitCreationModes() {
@@ -30,16 +17,8 @@ const withEventEditingBase = Base => class extends Base {
 			getTimeBounds: () => this.timeBounds(true),
 			onTimelineResize: () => this.scrollView?.requestRender(), onChannelOffset: offset => { this.model.editor.timelineChannelOffset = offset; },
 			isPlaying: () => this.audio.playing,
-			onSeekStart: () => {
-				this.resumePlaybackAfterSeek = this.audio.playing ? this.audio.direction : false;
-				if (this.audio.playing) this.audio.pause();
-			},
-			onSeekEnd: () => {
-				const resume = this.resumePlaybackAfterSeek;
-				this.resumePlaybackAfterSeek = false;
-				if (resume === -1) void this.audio.playReverse();
-				else if (resume === 1) void this.audio.play();
-			},
+			onSeekStart: () => { this.resumePlaybackAfterSeek = this.audio.playing ? this.audio.direction : false; if (this.audio.playing) this.audio.pause(); },
+			onSeekEnd: () => { const resume = this.resumePlaybackAfterSeek; this.resumePlaybackAfterSeek = false; if (resume === -1) void this.audio.playReverse(); else if (resume === 1) void this.audio.play(); },
 			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
 			onEnterGroupSelection: id => this.enterGroupSelection(id),
 			onRangeSelect: (beat, channel, mode) => this.rangeSelect(beat, channel, mode),
@@ -125,6 +104,7 @@ const withEventEditingBase = Base => class extends Base {
 			},
 			onPreviewFreeTransform: matrix => this.previewFreeTransform(matrix),
 			onPreviewFreeTransformAnchor: anchor => this.previewFreeTransformAnchor(anchor),
+			onMainFieldPan: (x, y) => this.setMainFieldPan(x, y), onMainFieldZoom: factor => this.setMainFieldZoom(factor), onProgressSeek: payload => this.seekProgress(payload),
 		};
 	}
 	selectEvents(ids, mode = "replace") {
@@ -977,8 +957,24 @@ const withEventEditingBase = Base => class extends Base {
 				return;
 			}
 			for (const event of chosen) {
-				if ((property === "x" || property === "y") && event.attached) continue;
 				let nextValue = value;
+				if ((property === "x" || property === "y") && event.type === "group") {
+					if (event.attached) continue;
+					const current = Number(event[property]) || 0;
+					const delta = Number(nextValue) - current;
+					if (!Number.isFinite(delta)) continue;
+					for (const descendant of model.groupDescendants(event.id)) {
+						if (!MOVABLE_TYPES.has(descendant.type)) continue;
+						if (descendant.attached) {
+							const resolved = resolveAttachedPosition(descendant, model.snappees);
+							if (resolved) { descendant.attached = false; descendant.x = resolved.x; descendant.y = resolved.y; delete descendant.snappee; delete descendant.snapPoint; }
+						}
+						descendant[property] = (Number(descendant[property]) || 0) + delta;
+					}
+					event[property] = Number(nextValue);
+					continue;
+				}
+				if ((property === "x" || property === "y") && event.attached) continue;
 				if ((property === "x" || property === "y") && !allowsOutOfBounds(model)) {
 					const point = clampPointToChartBounds({ x: property === "x" ? nextValue : event.x, y: property === "y" ? nextValue : event.y });
 					nextValue = point[property];
@@ -997,4 +993,4 @@ const withEventEditingBase = Base => class extends Base {
 		return result;
 	}
 };
-export const withEventEditing = Base => withFreeTransform(withEventEditingBase(Base));
+export const withEventEditing = Base => withViewControls(withFreeTransform(withEventEditingBase(Base)));

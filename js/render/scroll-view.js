@@ -5,10 +5,11 @@ import { ChartRenderIndex } from "./chart-index.js";
 import {
 	TIMELINE_DURATION_TYPES,
 	TIMELINE_EVENT_COLORS,
-	beatColor,
 	drawTimelineEventIcon,
 	eventDrawLayer,
+	isBackgroundEvent,
 	projectState,
+	relativeBeatColor,
 	tipSpawnDirectionSegment,
 	timingFor,
 } from "./timeline-helpers.js";
@@ -53,6 +54,11 @@ export class ScrollView {
 		this.drag = null;
 		this.pointerMoved = false;
 		this.renderFrame = 0;
+		this.spaceHeld = false;
+		this.spaceKeyDown = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = true; };
+		this.spaceKeyUp = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = false; };
+		document.addEventListener("keydown", this.spaceKeyDown, true);
+		document.addEventListener("keyup", this.spaceKeyUp, true);
 		this.surface.ready.then(() => {
 			this.surface.canvas.addEventListener("pointerdown", event => this.#pointerDown(event));
 		});
@@ -102,8 +108,9 @@ export class ScrollView {
 	#activeEvents(project) {
 		const active = new Set((project.channels || [])
 			.filter(channel => channel.active !== false).map(channel => channel.id));
-		return flattenEvents(project.events || [], false).filter(event => MOVABLE_TYPES.has(event.type)
-			&& active.has(event.channel));
+		return flattenEvents(project.events || [], false).filter(event => event.type !== "group" && event.type !== "comment"
+			&& active.has(event.channel)
+			&& (project.editor?.showBgEventsInTimeline !== false || !isBackgroundEvent(event)));
 	}
 
 	#position(event) {
@@ -133,22 +140,25 @@ export class ScrollView {
 		const first = this.timing.secondsToBeatNumber(current - mapping.timeSpan * 0.2);
 		const last = this.timing.secondsToBeatNumber(current + mapping.timeSpan * 1.1);
 		const subdivision = Math.max(1, Math.floor(projectState(this.state).editor.subdivision || 2));
-		const firstStep = Math.floor(first * subdivision) - 1;
-		const lastStep = Math.ceil(last * subdivision) + 1;
+		const lines = this.timing.beatLinesBetween(
+			Rational.fromNumber(Math.min(first, last) - 1 / subdivision),
+			Rational.fromNumber(Math.max(first, last) + 1 / subdivision),
+			subdivision,
+		);
 		const lineGroups = new Map();
 		const labels = [];
 		let previousLabelY = Infinity;
-		for (let step = firstStep; step <= lastStep; step += 1) {
-			const beat = new Rational(step, subdivision);
-			const time = this.timing.beatToSeconds(beat);
+		for (const line of lines) {
+			const time = this.timing.beatToSeconds(line.beat);
 			const y = mapping.toScreen(0, time).y;
 			if (y < -2 || y > height + 2) continue;
-			const major = step % subdivision === 0;
-			const style = `${beatColor(step, subdivision)}:${major ? "major" : "minor"}`;
-			if (!lineGroups.has(style)) lineGroups.set(style, { color: beatColor(step, subdivision), major, ys: [] });
+			const major = line.integerFromBar;
+			const color = relativeBeatColor(line.relative);
+			const style = `${color}:${line.barLine ? "bar" : major ? "major" : "minor"}`;
+			if (!lineGroups.has(style)) lineGroups.set(style, { color, major, barLine: line.barLine, ys: [] });
 			lineGroups.get(style).ys.push(Math.round(y) + 0.5);
 			if (major && Math.abs(y - previousLabelY) >= 12) {
-				labels.push({ text: String(step / subdivision), y });
+				labels.push({ text: line.relative.toString(), y });
 				previousLabelY = y;
 			}
 		}
@@ -156,7 +166,7 @@ export class ScrollView {
 		for (const group of lineGroups.values()) {
 			context.strokeStyle = group.color;
 			context.globalAlpha = group.major ? 0.72 : 0.3;
-			context.lineWidth = group.major ? 1.35 : 1;
+			context.lineWidth = group.barLine ? 2.5 : group.major ? 1.35 : 1;
 			context.beginPath();
 			for (const y of group.ys) {
 				context.moveTo(0, y);
@@ -235,6 +245,7 @@ export class ScrollView {
 		const records = [];
 		for (const record of source) {
 			const { event } = record;
+			if (project.editor?.showBgEventsInTimeline === false && isBackgroundEvent(event)) continue;
 			const item = { event, start: record.start, end: record.end,
 				point: record.position || this.#position(event) };
 			const screen = mapping.toScreen(item.point.x, item.start);
@@ -262,13 +273,14 @@ export class ScrollView {
 			const screen = mapping.toScreen(point.x, record.start);
 			const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
 			const color = selected ? "#ff3158" : TIMELINE_EVENT_COLORS[event.type] || "#d5dade";
-			const ancestors = this.renderIndex?.ancestorsById.get(event.id) || [];
+			const ancestors = project.editor?.showGroupingInTimeline === false
+				? [] : this.renderIndex?.ancestorsById.get(event.id) || [];
 			ancestors.slice().reverse().forEach((group, index) => {
 				context.save();
 				context.strokeStyle = group.color || "#ff9d3d";
 				context.lineWidth = 1.4;
 				context.beginPath();
-				context.arc(screen.x, screen.y, 9 + index * 4, 0, Math.PI * 2);
+				context.arc(screen.x, screen.y, 12 + index * 5, 0, Math.PI * 2);
 				context.stroke();
 				context.restore();
 			});
@@ -370,6 +382,35 @@ export class ScrollView {
 		if (event.button !== 0 || !this.state) return;
 		event.preventDefault();
 		const point = this.surface.toLocal(event);
+		if (event.ctrlKey && this.spaceHeld) {
+			const project = projectState(this.state);
+			const mapping = this.#mapping(this.surface.width, this.surface.height);
+			this.drag = { type: "viewport-pan", start: point, startSeconds: this.#currentSeconds(),
+				current: this.#currentSeconds(), beginning: Number(project.editor.visibleRangeBeginning),
+				end: Number(project.editor.visibleRangeEnd), followRange: project.editor.lockVisibleRange !== true
+					&& this.#currentSeconds() >= project.editor.visibleRangeBeginning
+					&& this.#currentSeconds() <= project.editor.visibleRangeEnd, timeScale: mapping.timeScale };
+			this.pointerMoved = false;
+			const move = moveEvent => {
+				const current = this.surface.toLocal(moveEvent);
+				this.pointerMoved ||= Math.hypot(current.x - this.drag.start.x, current.y - this.drag.start.y) > 3;
+				if (!this.pointerMoved) return;
+				const delta = -(current.y - this.drag.start.y) / this.drag.timeScale;
+				this.callbacks.onScrollPan?.(this.drag.startSeconds + delta, false, this.drag);
+			};
+			const up = upEvent => {
+				document.removeEventListener("pointermove", move);
+				document.removeEventListener("pointerup", up);
+				const current = this.surface.toLocal(upEvent);
+				const delta = -(current.y - this.drag.start.y) / this.drag.timeScale;
+				this.callbacks.onScrollPan?.(this.drag.startSeconds + delta, true, this.drag);
+				this.drag = null;
+				this.requestRender();
+			};
+			document.addEventListener("pointermove", move);
+			document.addEventListener("pointerup", up, { once: true });
+			return;
+		}
 		const hit = [...this.hitRegions].reverse().find(region =>
 			Math.hypot(point.x - region.x, point.y - region.y) <= region.radius);
 		if (hit) {
@@ -411,6 +452,8 @@ export class ScrollView {
 
 	destroy() {
 		if (this.renderFrame) cancelAnimationFrame(this.renderFrame);
+		document.removeEventListener("keydown", this.spaceKeyDown, true);
+		document.removeEventListener("keyup", this.spaceKeyUp, true);
 		this.surface.destroy();
 	}
 }

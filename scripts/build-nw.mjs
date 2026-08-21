@@ -1,5 +1,5 @@
 import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
-import { createWriteStream, existsSync } from "node:fs";
+import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { pipeline } from "node:stream/promises";
@@ -40,7 +40,8 @@ if (!["win", "osx", "linux"].includes(TARGET_PLATFORM)) {
 if (!TARGET_ARCHITECTURES[TARGET_PLATFORM].has(TARGET_ARCH)) {
 	throw new Error(`Unsupported NW.js target: ${TARGET_PLATFORM}-${TARGET_ARCH}`);
 }
-const FONT_ASSETS = [
+const FONT_ASSETS = JSON.parse(readFileSync(path.join(sviberDirectory, "json", "font-assets.json"), "utf8"));
+/*
 	{
 		name: "LXGWWenKai-Regular.ttf",
 		sha256: "9D5FB31B282E4AC16B6B9AAA0D40C21E947AC6BD2A7F32C814D43F7F5F396BF9",
@@ -118,7 +119,7 @@ const FONT_ASSETS = [
 			"https://cdn.jsdelivr.net/gh/notofonts/noto-fonts@ffebf8c1ee449e544955a7e813c54f9b73848eac/LICENSE",
 		],
 	},
-];
+*/
 
 function gitOutput(args) {
 	return new Promise((resolve, reject) => {

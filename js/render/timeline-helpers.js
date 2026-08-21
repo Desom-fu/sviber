@@ -33,13 +33,17 @@ export const TIMELINE_DURATION_TYPES = new Set([
 	"diamondGrid", "pentagon", "turntable", "hexagram", "comment",
 ]);
 
-const BACKGROUND_EVENT_TYPES = new Set([
+export const BACKGROUND_EVENT_TYPES = new Set([
 	"bgNote", "bigText", "grid", "hexagon", "checkerboard",
 	"diamondGrid", "pentagon", "turntable", "hexagram",
 ]);
 
+export function isBackgroundEvent(event) {
+	return BACKGROUND_EVENT_TYPES.has(event?.type);
+}
+
 export function eventDrawLayer(event) {
-	return BACKGROUND_EVENT_TYPES.has(event?.type) ? 0 : 1;
+	return isBackgroundEvent(event) ? 0 : 1;
 }
 
 export function projectState(state) {
@@ -70,6 +74,11 @@ export function beatDenominator(step, subdivision) {
 
 export function beatColor(step, subdivision) {
 	return BEAT_LINE_COLORS[beatDenominator(step, subdivision)] || BEAT_LINE_COLORS.other;
+}
+
+export function relativeBeatColor(relative) {
+	const denominator = Number(relative?.denominator ?? 1);
+	return BEAT_LINE_COLORS[denominator] || BEAT_LINE_COLORS.other;
 }
 
 export function drawPatternIcon(context, type, x, y, radius, color) {

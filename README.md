@@ -4,6 +4,8 @@
 
 sviber is a browser and NW.js chart editor for [Sunniesnow](https://sunniesnow.github.io/game-unstable). It edits tap, hold, drag, flick, background-note, big-text, background-pattern, and nested group events, with beat-based timing, tip points, reusable snappees, clips, history, waveform navigation, live hosting, and Sunniesnow-compatible preview rendering.
 
+The [help manual](docs/index.html) is the authoritative user guide. This README covers installation, development, contribution, and licensing only.
+
 ## Run in a browser
 
 Requirements: a current Node.js release with npm and a modern browser. The complete project-folder workflow requires a Chromium-based browser with the File System Access API; use the NW.js desktop app when that API is unavailable.
@@ -51,7 +53,7 @@ Stage and timeline pointer dragging are coalesced to animation frames. Drag prev
 
 To connect multiple notes with one Sunniesnow tip point, select at least two consecutive notes in the same channel and choose **Chain** in the Inspector. Sviber marks the first note as the chain start, makes the remaining selected notes inherit that path, and stops the path before the next unselected note.
 
-## v12 editing workflows
+## Current editing workflows
 
 Groups are recursive editor-only containers. **Events > Group** detaches selected events and creates a colored group anchor at their geometric center; selecting a group selects its descendants for movement, transforms, deletion, channel movement, and Sunniesnow export. **Free transform** includes the group anchor, every direct or indirect child, and any snappee referenced by an attached child. An attached group remains movable when it is the only selected root. **Events > Ungroup** restores the selected group's children at the same level. Nested groups keep independent IDs and bounds. A normal click on a grouped event selects the nearest containing group, and a second click clears that group selection. Double-click enters one group level temporarily, so nested groups are entered from the outside in; the temporary scope ends when it has no selected descendants. Drag the crosshair anchor to move selected group anchors while keeping their children in place. Anchors can snap to direct children or active snappees.
 
@@ -59,7 +61,9 @@ The timeline, stage, and Scroll view draw grouping rings; root selected groups d
 
 Copying selected events stores relative beat/channel data, channel attributes, referenced snappees, and nested group trees. **Edit > Save to clips** stores the same data in the chart's Clips panel. Each row keeps clear spacing between its 42px thumbnail, name, and five actions. A clip can be renamed, reordered, deleted, or pasted at the current beat and channel. **Edit > Paste with options...** can duplicate the referenced channels and/or snappees; nested group references are remapped recursively. Ordinary paste keeps existing channel and snappee references when possible.
 
-The **Timing** menu edits the offset and initial BPM, and copies or pastes the complete timing map as JSON. Timing changes remain separate from event clipboard data. Event clipboard data includes relative events plus the channel and snappee records needed by **Paste with options**. The timeline channel scrollbar position is stored in `sviber.editor.timelineChannelOffset` and restored when the chart is loaded. When live hosting is enabled in NW.js, `http://host:port/sviber.ssc` serves an in-memory level archive and the optional sscharter WebSocket port sends `connect`, `update`, and `chartUpdate` messages. Live exports include `sscharter.version = "0.10.1"`; browser builds disable the server controls.
+The **Timing** menu edits offset, initial BPM, and bar lines (`R`), and copies or pastes the complete timing map as JSON. Timing changes remain separate from event clipboard data. The Transform menu includes rational time dilation with optional duration preservation. `Ctrl+Space` pans the timeline and main field; `Ctrl+Shift` wheel zooms the main field, and its reset button restores the default view. Background events can be toggled independently in the timeline/Scroll view and main field. When live hosting is enabled in NW.js, `http://host:port/sviber.ssc` serves an in-memory level archive and the optional sscharter WebSocket port sends `connect`, `update`, and `chartUpdate` messages; startup, errors, and shutdown are reported as toasts. Live exports include `sscharter.version = "0.10.1"`; browser builds disable the server controls.
+
+The complete user guide is maintained in the [help manual](docs/index.html). Contributions should include focused tests and documentation updates; please open an issue before large changes. sviber is distributed under [AGPL-3.0-or-later](LICENSE), while bundled fonts and third-party packages retain their own licenses.
 
 ## Useful shortcuts
 
@@ -129,6 +133,14 @@ npm test
 npm run verify:browser
 npm run build
 ```
+
+## Contributing
+
+Run `npm ci` and `npm test` before opening a pull request. Include focused regression tests and update the help manual for user-facing changes. Please use the issue tracker for design discussion.
+
+## License
+
+sviber is licensed under [AGPL-3.0-or-later](LICENSE). Bundled fonts and third-party dependencies retain their respective licenses; desktop builds include the relevant font license files.
 
 `verify:browser` uses `http://127.0.0.1:4173/sviber/` by default and starts a temporary local server when that URL is unavailable; set `SVIBER_BASE_URL` to override it. It checks Chinese and English UI, light and dark themes, the 960x620 minimum window, responsive Sunniesnow note sizing, bounded and out-of-bounds editing paths, real pointer interactions, nonblank canvases, and an offline reload.
 

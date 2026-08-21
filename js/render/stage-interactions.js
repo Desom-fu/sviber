@@ -207,6 +207,14 @@ export const withStageInteractions = Base => class extends Base {
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		this.pointerMoved = false;
 		const playing = Boolean(this.callbacks.isPlaying?.());
+		if (event.ctrlKey && this.spaceHeld) {
+			this.drag = { type: "viewport-pan", start: point, scale: mapping.scale,
+				panX: Number(project.editor?.mainFieldPanX) || 0, panY: Number(project.editor?.mainFieldPanY) || 0 };
+			document.addEventListener("pointermove", this.boundMove);
+			document.addEventListener("pointerup", this.boundUp, { once: true });
+			document.addEventListener("pointercancel", this.boundUp, { once: true });
+			return;
+		}
 		const creationMode = this.callbacks.getCreationMode?.();
 		if (creationMode && MOVABLE_TYPES.has(creationMode)) {
 			if (playing) return;
@@ -242,6 +250,18 @@ export const withStageInteractions = Base => class extends Base {
 			} else {
 				this.callbacks.onCurvePoint?.(mapping.toChart(point), false);
 			}
+			return;
+		}
+		if (!hit && point.y >= this.surface.height - 18) {
+			const bounds = this.callbacks.getTimeBounds?.() || [0, 10];
+			const current = currentSeconds(this.state, this.timing);
+			this.drag = { type: "progress", start: point, bounds, current,
+				beginning: Number(project.editor.visibleRangeBeginning), end: Number(project.editor.visibleRangeEnd),
+				followRange: project.editor.lockVisibleRange !== true && current >= project.editor.visibleRangeBeginning && current <= project.editor.visibleRangeEnd };
+			this.callbacks.onProgressSeek?.(this._progressPayload(this.drag, point.x, false));
+			document.addEventListener("pointermove", this.boundMove);
+			document.addEventListener("pointerup", this.boundUp, { once: true });
+			document.addEventListener("pointercancel", this.boundUp, { once: true });
 			return;
 		}
 		const freeTransform = this.callbacks.getFreeTransform?.();
@@ -410,7 +430,12 @@ export const withStageInteractions = Base => class extends Base {
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		const chart = mapping.toChart(point);
-		if (this.drag.type === "free-anchor") {
+		if (this.drag.type === "viewport-pan") {
+			this.callbacks.onMainFieldPan?.(this.drag.panX + (point.x - this.drag.start.x) / this.drag.scale,
+				this.drag.panY + (point.y - this.drag.start.y) / this.drag.scale);
+		} else if (this.drag.type === "progress") {
+			this.callbacks.onProgressSeek?.(this._progressPayload(this.drag, point.x, false));
+		} else if (this.drag.type === "free-anchor") {
 			const descriptor = this.callbacks.getFreeTransform?.();
 			const candidates = [];
 			for (const point of descriptor?.anchorPoints || []) candidates.push({ point: applyTransform(point, descriptor.matrix), follows: true, local: point });
@@ -496,6 +521,12 @@ export const withStageInteractions = Base => class extends Base {
 		this.requestRender();
 	}
 
+	_progressPayload(drag, x, final) {
+		const progress = Math.max(0, Math.min(1, x / Math.max(1, this.surface.width)));
+		return { seconds: drag.bounds[0] + progress * (drag.bounds[1] - drag.bounds[0]),
+			startSeconds: drag.current, beginning: drag.beginning, end: drag.end, followRange: drag.followRange, final };
+	}
+
 	_pointerUp(event) {
 		if (!this.drag) return;
 		const drag = this.drag;
@@ -503,7 +534,12 @@ export const withStageInteractions = Base => class extends Base {
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		const chart = mapping.toChart(point);
-		if (drag.type === "free-anchor") {
+		if (drag.type === "progress") {
+			this.callbacks.onProgressSeek?.(this._progressPayload(drag, point.x, true));
+		} else if (drag.type === "viewport-pan") {
+			this.callbacks.onMainFieldPan?.(drag.panX + (point.x - drag.start.x) / drag.scale,
+				drag.panY + (point.y - drag.start.y) / drag.scale);
+		} else if (drag.type === "free-anchor") {
 			const descriptor = this.callbacks.getFreeTransform?.();
 			const candidates = [];
 			for (const point of descriptor?.anchorPoints || []) candidates.push({ point: applyTransform(point, descriptor.matrix), follows: true, local: point });

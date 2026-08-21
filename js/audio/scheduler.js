@@ -113,14 +113,17 @@ export function collectMetronomeSchedule(timing, currentTime, playbackRate, dire
 	const rate = Math.max(0.1, Number(playbackRate) || 1);
 	const forward = direction >= 0;
 	const endingTime = currentTime + (forward ? 1 : -1) * Math.max(0, lookAhead) * rate;
-	const currentBeat = timing.secondsToBeat(currentTime).toNumber();
-	const endingBeat = timing.secondsToBeat(endingTime).toNumber();
-	const first = forward ? Math.ceil(currentBeat - 1e-8) : Math.floor(currentBeat + 1e-8);
-	const last = forward ? Math.floor(endingBeat + 1e-8) : Math.ceil(endingBeat - 1e-8);
+	const currentBeat = timing.secondsToBeat(currentTime);
+	const endingBeat = timing.secondsToBeat(endingTime);
+	const lines = typeof timing.beatLinesBetween === "function"
+		? timing.beatLinesBetween(currentBeat, endingBeat, 1)
+		: integerBeatLines(currentBeat, endingBeat);
+	if (!forward) lines.reverse();
 	const result = [];
-	for (let beat = first; forward ? beat <= last : beat >= last; beat += forward ? 1 : -1) {
+	for (const line of lines) {
+		const beat = line.beat?.toNumber?.() ?? Number(line.beat);
 		if (scheduledBeats.has(beat)) continue;
-		const time = timing.beatToSeconds(beat);
+		const time = timing.beatToSeconds(line.beat?.toJSON?.() ?? beat);
 		if (Array.isArray(loopRange) && loopRange.length === 2
 			&& (forward ? time >= loopRange[1] - 1e-8 : time <= loopRange[0] + 1e-8)) continue;
 		const distance = forward ? time - currentTime : currentTime - time;
@@ -128,4 +131,13 @@ export function collectMetronomeSchedule(timing, currentTime, playbackRate, dire
 		result.push({ beat, time, delay: Math.max(0, distance / rate), accent: false });
 	}
 	return result;
+}
+
+function integerBeatLines(beginning, end) {
+	const start = Math.ceil(Math.min(Number(beginning?.toNumber?.() ?? beginning), Number(end?.toNumber?.() ?? end)) - 1e-9);
+	const finish = Math.floor(Math.max(Number(beginning?.toNumber?.() ?? beginning), Number(end?.toNumber?.() ?? end)) + 1e-9);
+	return Array.from({ length: Math.max(0, finish - start + 1) }, (_, index) => {
+		const beat = start + index;
+		return { beat: { toNumber: () => beat } };
+	});
 }

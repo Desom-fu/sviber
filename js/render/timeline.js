@@ -10,12 +10,12 @@ import {
 	TIMELINE_COMMENT_TEXT_COLOR,
 	TIMELINE_DURATION_TYPES as DURATION_TYPES,
 	TIMELINE_EVENT_COLORS as NOTE_COLORS,
-	beatColor,
-	beatDenominator,
 	currentSeconds,
 	drawTimelineEventIcon,
 	eventDrawLayer,
+	isBackgroundEvent,
 	projectState,
+	relativeBeatColor,
 	timelineTipSegments,
 	tipSpawnDirectionSegment,
 	timingFor,
@@ -49,6 +49,11 @@ export class TimelineView {
 		this.renderAnimationFrame = 0;
 		this.pointerMoveAnimationFrame = 0;
 		this.pendingPointerMove = null;
+		this.spaceHeld = false;
+		this.spaceKeyDown = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = true; };
+		this.spaceKeyUp = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = false; };
+		document.addEventListener("keydown", this.spaceKeyDown, true);
+		document.addEventListener("keyup", this.spaceKeyUp, true);
 		this.boundMove = event => this.#queuePointerMove(event);
 		this.boundUp = event => {
 			this.#flushPointerMove();
@@ -244,26 +249,28 @@ export class TimelineView {
 		const subdivision = Math.max(1, Math.floor(editor.subdivision || 2));
 		const beginningBeat = this.timing.secondsToBeatNumber(editor.visibleRangeBeginning);
 		const endingBeat = this.timing.secondsToBeatNumber(editor.visibleRangeEnd);
-		const firstStep = Math.floor(Math.min(beginningBeat, endingBeat) * subdivision) - 1;
-		const lastStep = Math.ceil(Math.max(beginningBeat, endingBeat) * subdivision) + 1;
+		const lines = this.timing.beatLinesBetween(
+			Rational.fromNumber(Math.min(beginningBeat, endingBeat) - 1 / subdivision),
+			Rational.fromNumber(Math.max(beginningBeat, endingBeat) + 1 / subdivision),
+			subdivision,
+		);
 		context.save();
 		context.font = "10px 'Cascadia Mono', Consolas, monospace";
 		context.textBaseline = "top";
-		for (let step = firstStep; step <= lastStep; step += 1) {
-			const beat = new Rational(step, subdivision);
-			const x = this.#timeToX(this.timing.beatToSeconds(beat), layout.waveform.width);
+		for (const line of lines) {
+			const x = this.#timeToX(this.timing.beatToSeconds(line.beat), layout.waveform.width);
 			if (x < -1 || x > layout.waveform.width + 1) continue;
-			context.strokeStyle = beatColor(step, subdivision);
-			context.globalAlpha = beatDenominator(step, subdivision) === 1 ? 0.72 : 0.34;
-			context.lineWidth = beatDenominator(step, subdivision) === 1 ? 1.35 : 1;
+			context.strokeStyle = relativeBeatColor(line.relative);
+			context.globalAlpha = line.integerFromBar ? 0.72 : 0.34;
+			context.lineWidth = line.barLine ? 2.5 : line.integerFromBar ? 1.35 : 1;
 			context.beginPath();
 			context.moveTo(Math.round(x) + 0.5, 0);
 			context.lineTo(Math.round(x) + 0.5, layout.scroll.y);
 			context.stroke();
-			if (step % subdivision === 0) {
+			if (line.integerFromBar) {
 				context.globalAlpha = 0.9;
-				context.fillStyle = beatColor(step, subdivision);
-				context.fillText(String(step / subdivision), x + 3, 3);
+				context.fillStyle = relativeBeatColor(line.relative);
+				context.fillText(line.relative.toString(), x + 3, 3);
 			}
 		}
 		context.restore();
@@ -342,6 +349,7 @@ export class TimelineView {
 			|| (left.sequence ?? 0) - (right.sequence ?? 0));
 		for (const record of records) {
 			const { event } = record;
+			if (project.editor?.showBgEventsInTimeline === false && isBackgroundEvent(event)) continue;
 			const interactive = activeChannelIds.has(event.channel);
 			const position = this.#eventPosition(event, layout, project, offsets, record);
 			if (!position) continue;
@@ -360,7 +368,7 @@ export class TimelineView {
 					context.globalAlpha = interactive ? 0.86 : 0.24;
 					context.lineWidth = 1.4;
 					context.beginPath();
-					context.arc(position.x, position.y, 9 + index * 4, 0, Math.PI * 2);
+					context.arc(position.x, position.y, 12 + index * 5, 0, Math.PI * 2);
 					context.stroke();
 				});
 			}
@@ -697,6 +705,14 @@ export class TimelineView {
 		const layout = this.#layout(this.surface.width, this.surface.height);
 		this.pointerMoved = false;
 		const playing = Boolean(this.callbacks.isPlaying?.());
+		if (event.ctrlKey && this.spaceHeld) {
+			this.drag = { type: "viewport-pan", start: point, beginning: project.editor.visibleRangeBeginning,
+				ending: project.editor.visibleRangeEnd, width: this.surface.width };
+			document.addEventListener("pointermove", this.boundMove);
+			document.addEventListener("pointerup", this.boundUp, { once: true });
+			document.addEventListener("pointercancel", this.boundUp, { once: true });
+			return;
+		}
 		if (playing && hit?.type === "bpm") return;
 		if (hit?.type === "bpm") {
 			this.drag = { type: "bpm-click", hit, start: point };
@@ -790,6 +806,12 @@ export class TimelineView {
 		const project = projectState(this.state);
 		const layout = this.#layout(this.surface.width, this.surface.height);
 		switch (this.drag.type) {
+			case "viewport-pan": {
+				const span = this.drag.ending - this.drag.beginning;
+				const delta = (point.x - this.drag.start.x) / Math.max(1, this.drag.width) * span;
+				this.callbacks.onVisibleRange?.(this.drag.beginning - delta, this.drag.ending - delta);
+				break;
+			}
 			case "seek":
 				this.#seekAt(point.x);
 				break;
@@ -962,6 +984,8 @@ export class TimelineView {
 		cancelAnimationFrame(this.renderAnimationFrame);
 		cancelAnimationFrame(this.pointerMoveAnimationFrame);
 		this.surface.destroy();
+		document.removeEventListener("keydown", this.spaceKeyDown, true);
+		document.removeEventListener("keyup", this.spaceKeyUp, true);
 	}
 }
 

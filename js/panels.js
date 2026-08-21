@@ -248,6 +248,11 @@ function makeSnappeePreview(documentRef, snappee, size = 24) {
 	return preview;
 }
 
+function setControlHidden(control, hidden) {
+	if (control) control.dataset.hidden = hidden ? "true" : "false";
+	return control;
+}
+
 function drawClipThumbnail(canvas, data, size = 42) {
 	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
 	canvas.width = size * ratio;
@@ -348,6 +353,7 @@ export class InspectorPanel {
 	#row(labelKey, control, tooltipKey = null) {
 		const row = document.createElement("div");
 		row.className = "property-row";
+		if (control?.dataset?.hidden === "true") row.hidden = true;
 		const label = document.createElement("label");
 		label.textContent = this.i18n.t(labelKey);
 		row.append(label, control);
@@ -417,6 +423,18 @@ export class InspectorPanel {
 			group.append(this.#row("field.color", makeInput(document, "color",
 				color === MIXED ? "#ff9d3d" : color || "#ff9d3d",
 				value => this.onChange("color", value))));
+			const position = commonValue(selected, event => {
+				const resolved = resolveAttachedPosition(event, model.snappees);
+				return resolved ? [resolved.x, resolved.y] : [event.x || 0, event.y || 0];
+			});
+			const positionWrapper = document.createElement("div");
+			positionWrapper.className = "pair-input";
+			positionWrapper.append(
+				makeExpressionControl(document, position === MIXED ? MIXED : position[0], value => this.onChange("x", value)),
+				makeExpressionControl(document, position === MIXED ? MIXED : position[1], value => this.onChange("y", value)),
+			);
+			if (selected.some(event => event.attached)) positionWrapper.querySelectorAll("input").forEach(input => input.disabled = true);
+			group.append(this.#row("field.position", positionWrapper));
 			if (model.editor.readOnly) setControlDisabled(group, true);
 			this.element.append(group);
 			return;
@@ -494,14 +512,14 @@ export class InspectorPanel {
 				{ value: "relative", label: this.i18n.t("field.relative") },
 			], absolute === MIXED ? MIXED : absolute ? "absolute" : "relative",
 			value => this.onChange("tipPointSpawnAbsolutePosition", value === "absolute"));
-			setControlDisabled(spawnPositionControl, !spawnFieldsEnabled);
+			setControlHidden(spawnPositionControl, !spawnFieldsEnabled);
 			group.append(this.#row("field.spawnPosition", spawnPositionControl));
 
 			const attached = commonValue(selected, event => event.tipPointSpawnAttached);
 			const attachedControl = makeInput(document, "checkbox", attached,
 				value => this.onChange("tipPointSpawnAttached", value));
 			attachedControl.indeterminate = attached === MIXED;
-			setControlDisabled(attachedControl, !spawnFieldsEnabled || absolute !== true || !model.snappees.length);
+			setControlHidden(attachedControl, !spawnFieldsEnabled || absolute !== true || !model.snappees.length);
 			group.append(this.#row("field.attached", attachedControl));
 
 			const absolutePosition = commonValue(selected, event => [event.tipPointSpawnX, event.tipPointSpawnY]);
@@ -519,14 +537,14 @@ export class InspectorPanel {
 				makeExpressionControl(document, absolutePosition === MIXED ? MIXED : absolutePosition[1], value => this.onChange("tipPointSpawnY", value)),
 			);
 			absoluteWrapper.append(absolutePair);
-			setControlDisabled(absoluteWrapper, !spawnFieldsEnabled || absolute !== true || attached === true);
+			setControlHidden(absoluteWrapper, !spawnFieldsEnabled || absolute !== true || attached === true);
 			group.append(this.#row("field.absolute", absoluteWrapper));
 
 			if (attached === true) {
 				const snappeeControl = makeSelect(document,
 					model.snappees.map(snappee => ({ value: snappee.id, label: snappee.name })), spawnSnappeeId,
 					value => this.onChange("tipPointSpawnSnappee", Number(value)));
-				setControlDisabled(snappeeControl, !spawnFieldsEnabled || absolute !== true);
+				setControlHidden(snappeeControl, !spawnFieldsEnabled || absolute !== true);
 				group.append(this.#row("field.snappee", snappeeControl));
 				const targetSnappee = spawnSnappeeId === MIXED ? null : model.snappees.find(snappee => snappee.id === spawnSnappeeId);
 				const snapPoint = commonValue(selected, event => event.tipPointSpawnSnapPoint);
@@ -541,12 +559,12 @@ export class InspectorPanel {
 					};
 					wrapper.append(makeInput(document, "number", snapPoint === MIXED ? MIXED : pair[0], value => update(0, value), { step: "1" }),
 						makeInput(document, "number", snapPoint === MIXED ? MIXED : pair[1], value => update(1, value), { step: "1" }));
-					setControlDisabled(wrapper, !spawnFieldsEnabled || absolute !== true);
+					setControlHidden(wrapper, !spawnFieldsEnabled || absolute !== true);
 					group.append(this.#row("field.snapPoint", wrapper));
 				} else {
 					const control = makeInput(document, "number", snapPoint,
 						value => this.onChange("tipPointSpawnSnapPoint", Math.round(value)), { step: "1" });
-					setControlDisabled(control, !spawnFieldsEnabled || absolute !== true);
+					setControlHidden(control, !spawnFieldsEnabled || absolute !== true);
 					group.append(this.#row("field.snapPoint", control));
 				}
 			}
@@ -554,12 +572,12 @@ export class InspectorPanel {
 			const distanceControl = makeExpressionControl(document,
 				commonValue(selected, event => event.tipPointSpawnDistance),
 				value => this.onChange("tipPointSpawnDistance", Math.max(0, value)));
-			setControlDisabled(distanceControl, !spawnFieldsEnabled || absolute !== false);
+			setControlHidden(distanceControl, !spawnFieldsEnabled || absolute !== false);
 			group.append(this.#row("field.spawnDistance", distanceControl));
 			const directionControl = makeAngleControl(document,
 				commonValue(selected, event => event.tipPointSpawnAngle),
 				value => this.onChange("tipPointSpawnAngle", value), this.i18n);
-			setControlDisabled(directionControl, !spawnFieldsEnabled || absolute !== false);
+			setControlHidden(directionControl, !spawnFieldsEnabled || absolute !== false);
 			group.append(this.#row("field.spawnDirection", directionControl));
 
 			const timeInBeats = commonValue(selected, event => event.tipPointSpawnTimeBeats);
@@ -568,18 +586,18 @@ export class InspectorPanel {
 				{ value: "beats", label: this.i18n.t("field.beats") },
 			], timeInBeats === MIXED ? MIXED : timeInBeats ? "beats" : "seconds",
 			value => this.onChange("tipPointSpawnTimeBeats", value === "beats"));
-			setControlDisabled(spawnUnitControl, !spawnFieldsEnabled);
+			setControlHidden(spawnUnitControl, !spawnFieldsEnabled);
 			group.append(this.#row("field.spawnUnit", spawnUnitControl));
 			const spawnTime = commonValue(selected, event => event.tipPointSpawnTime);
 			const secondsControl = makeExpressionControl(document,
 				timeInBeats === false ? spawnTime : timeInBeats === MIXED ? MIXED : "",
 				value => this.onChange("tipPointSpawnTime", Math.max(0, value)));
-			setControlDisabled(secondsControl, !spawnFieldsEnabled || timeInBeats !== false);
+			setControlHidden(secondsControl, !spawnFieldsEnabled || timeInBeats !== false);
 			group.append(this.#row("field.spawnTimeSeconds", secondsControl));
 			const beatsControl = makeRationalControl(document,
 				timeInBeats === true ? spawnTime : timeInBeats === MIXED ? MIXED : [0, 0, 1],
 				value => this.onChange("tipPointSpawnTime", value));
-			setControlDisabled(beatsControl, !spawnFieldsEnabled || timeInBeats !== true);
+			setControlHidden(beatsControl, !spawnFieldsEnabled || timeInBeats !== true);
 			group.append(this.#row("field.spawnTimeBeats", beatsControl));
 		}
 		if (model.editor.readOnly) {

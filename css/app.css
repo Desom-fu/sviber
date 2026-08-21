@@ -361,9 +361,9 @@ textarea:focus-visible,
 
 .stage-surface.is-hovering-top-edge .edge-toggle-top { opacity: 1; pointer-events: auto; }
 
-.edge-toggle-right { right: 0; }
-.edge-toggle-left { left: 0; }
-.edge-toggle-top { top: 0; left: 50%; transform: translateX(-50%); width: 44px; height: 18px; font-size: 12px; }
+.edge-toggle-right { right: 0; } .edge-toggle-left { left: 0; } .edge-toggle-top { top: 0; left: 50%; transform: translateX(-50%); width: 44px; height: 18px; font-size: 12px; }
+
+.reset-main-field-view { position: absolute; left: 50%; bottom: 10px; width: 32px; height: 28px; transform: translateX(-50%); border: 1px solid var(--border-strong); border-radius: 2px; background: rgb(20 22 25 / 78%); color: var(--text); font-size: 18px; line-height: 1; z-index: 4; } .reset-main-field-view[hidden] { display: none; }
 
 .workspace.is-timeline-hidden { grid-template-rows: 0 minmax(0, 1fr); }
 .workspace.is-timeline-hidden .timeline-row { visibility: hidden; pointer-events: none; }

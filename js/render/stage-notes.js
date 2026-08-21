@@ -238,6 +238,8 @@ export const withStageNotes = Base => class extends Base {
 			: sunniesnowDisplayedPattern(project.events, this.timing, now))?.event;
 		const selected = this.renderIndex?.stageSelectedEvents || flattenEvents(project.events || [], false).filter(event => event.selected);
 		for (const event of selected) {
+			if (project.editor?.showBgEventsInMainField === false
+				&& (event.type === "bgNote" || PATTERN_TYPES.has(event.type))) continue;
 			if (MOVABLE_TYPES.has(event.type)) {
 				if (this._noteVisibility(event, now)) continue;
 				const position = this.renderIndex?.positionFor(event)

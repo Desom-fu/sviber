@@ -736,8 +736,15 @@ export const withFileWorkflows = Base => class extends Base {
 	async setLiveHosting(enabled) {
 		if (!globalThis.nw) return false;
 		try {
-			if (enabled) await this.liveHosting.start();
-			else this.liveHosting.stop();
+			if (enabled) {
+				await this.liveHosting.start();
+				const address = this.liveHosting.server?.address?.();
+				const reloadPort = this.liveHosting.reloadServer?.address?.()?.port || this.liveHosting.reloadPort;
+				this.toast.show("toast.liveHostingStarted", { address: address?.address ? `${address.address}:${address.port}` : this.liveHosting.address, port: reloadPort });
+			} else {
+				this.liveHosting.stop();
+				this.toast.show("toast.liveHostingStopped");
+			}
 			this.refresh();
 			return true;
 		} catch (error) {
