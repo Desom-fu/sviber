@@ -15,6 +15,10 @@ import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
+export function toggledCreationMode(current, type) {
+	return current === type ? null : type;
+}
+
 export const withHistoryCommands = Base => class extends Base {
 	rememberCreationDefaults(events) {
 		for (const event of events || []) {
@@ -208,6 +212,11 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	chooseEventTool(type) {
+		const nextMode = toggledCreationMode(this.creationMode, type);
+		if (nextMode === null) {
+			this.exitCreationModes();
+			return;
+		}
 		const alreadyCreating = Boolean(this.creationMode);
 		this.curveDraft = null;
 		this.cancelFreeTransform();
@@ -226,7 +235,7 @@ export const withHistoryCommands = Base => class extends Base {
 			this.rememberCreationDefaults(selected(this.model));
 			return;
 		}
-		this.creationMode = type;
+		this.creationMode = nextMode;
 		this.refresh();
 	}
 

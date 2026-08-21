@@ -1,6 +1,7 @@
 import { Rational } from "../core/rational.js";
 import { resolveAttachedPosition } from "../core/geometry.js";
 import { flattenEvents } from "../core/grouping.js";
+import { eventClickSelectionMode } from "./selection.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
 import { buildTipPointGuides, drawTipPointTrail, tipPointPathBetween, tipPointSpawnPosition, tipPointVisualState } from "./stage.js";
@@ -699,20 +700,20 @@ export class TimelineView {
 					event.altKey ? "remove" : event.ctrlKey ? "add" : "replace");
 				return;
 			}
-			if (event.altKey) {
+			const selectionMode = eventClickSelectionMode({ selected, ctrlKey: event.ctrlKey, altKey: event.altKey });
+			if (selectionMode === "remove" && event.altKey) {
 				this.callbacks.onSelectEvents?.([selectionEvent.id], "remove");
 				return;
 			}
-			if (event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([selectionEvent.id], "add");
-			else if (!event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([selectionEvent.id], "replace");
+			if (!selected) this.callbacks.onSelectEvents?.([selectionEvent.id], selectionMode);
 			const selectedEvents = flattenEvents(project.events || [], true).filter(candidate => candidate.selected);
 			const simultaneous = selectedEvents.length > 0
 				&& selectedEvents.every(candidate => Rational.from(candidate.time).equals(hit.event.time));
 			this.drag = {
-				type: "event", event: hit.event, start: point,
+				type: "event", event: hit.event, selectionId: selectionEvent.id, start: point,
 				startBeat: Rational.from(hit.event.time), copy: event.ctrlKey,
 				absoluteBeatSnap: simultaneous,
-				collapseSelectionOnClick: !event.ctrlKey && selected,
+				collapseSelectionOnClick: selectionMode === "remove",
 			};
 		} else if (hit?.type === "duration") {
 			const activeChannelIds = this.renderIndex?.activeChannelIds
@@ -844,7 +845,7 @@ export class TimelineView {
 			const delta = drag.absoluteBeatSnap ? ending.sub(drag.startBeat) : ending.sub(beginning);
 			this.callbacks.onMoveEvents?.(delta.toJSON(), channelDelta, drag.copy);
 		} else if (drag.type === "event" && drag.collapseSelectionOnClick) {
-			this.callbacks.onSelectEvents?.([drag.event.id], "replace");
+			this.callbacks.onSelectEvents?.([drag.selectionId || drag.event.id], "remove");
 		} else if (drag.type === "duration" && this.pointerMoved) {
 			const changes = this.#durationChanges(drag, point.x, layout, project);
 			if (changes) this.callbacks.onResizeEvents?.(changes);

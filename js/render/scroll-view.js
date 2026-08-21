@@ -14,6 +14,7 @@ import {
 } from "./timeline-helpers.js";
 import { MOVABLE_TYPES, buildTipPointGuides, tipPointSpawnPosition } from "./stage-helpers.js";
 import { flattenEvents } from "../core/grouping.js";
+import { eventClickSelectionMode } from "./selection.js";
 
 const DURATION_TYPES = TIMELINE_DURATION_TYPES;
 
@@ -102,7 +103,7 @@ export class ScrollView {
 		const active = new Set((project.channels || [])
 			.filter(channel => channel.active !== false).map(channel => channel.id));
 		return flattenEvents(project.events || [], false).filter(event => MOVABLE_TYPES.has(event.type)
-			&& event.type !== "group" && active.has(event.channel));
+			&& active.has(event.channel));
 	}
 
 	#position(event) {
@@ -260,6 +261,23 @@ export class ScrollView {
 			const screen = mapping.toScreen(point.x, record.start);
 			const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
 			const color = selected ? "#ff3158" : TIMELINE_EVENT_COLORS[event.type] || "#d5dade";
+			if (event.type === "group") {
+				context.save();
+				context.strokeStyle = event.color || "#ff9d3d";
+				context.fillStyle = selected ? "#ff3158" : "#f7f8f9";
+				context.lineWidth = 1.5;
+				context.beginPath();
+				context.arc(screen.x, screen.y, 6, 0, Math.PI * 2);
+				context.moveTo(screen.x - 9, screen.y);
+				context.lineTo(screen.x + 9, screen.y);
+				context.moveTo(screen.x, screen.y - 9);
+				context.lineTo(screen.x, screen.y + 9);
+				context.stroke();
+				context.fill();
+				context.restore();
+				this.hitRegions.push({ event, x: screen.x, y: screen.y, radius: 10 });
+				continue;
+			}
 			if (DURATION_TYPES.has(event.type) && record.end > record.start) {
 				const end = mapping.toScreen(point.x, record.end);
 				context.save();
@@ -338,7 +356,9 @@ export class ScrollView {
 		const hit = [...this.hitRegions].reverse().find(region =>
 			Math.hypot(point.x - region.x, point.y - region.y) <= region.radius);
 		if (hit) {
-			this.callbacks.onSelectEvents?.([hit.event.id], event.altKey ? "remove" : event.ctrlKey ? "add" : "replace");
+			const selected = this.renderIndex?.isEventSelected(hit.event) ?? Boolean(hit.event.selected);
+			const mode = eventClickSelectionMode({ selected, ctrlKey: event.ctrlKey, altKey: event.altKey });
+			this.callbacks.onSelectEvents?.([this.renderIndex?.selectionTarget(hit.event)?.id || hit.event.id], mode);
 			return;
 		}
 		this.drag = { x: point.x, y: point.y, mode: event.altKey ? "remove" : event.ctrlKey ? "add" : "replace" };

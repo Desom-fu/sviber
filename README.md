@@ -43,7 +43,7 @@ On Windows, launch `build/nw/sviber.exe`. The first build needs network access t
 
 To migrate an older file, choose **File > Import chart/level file...** and select a legacy Sviber JSON, plain Sunniesnow JSON, or `.ssc`. For an `.ssc`, choose one chart, music file, and image from the archive. The result is imported as one difficulty in the current project; use **Save project** afterward to place it in a project folder.
 
-The timeline supports rectangular selection, `Ctrl` to add or copy while dragging, `Alt` to remove, and `Shift` for time/channel range selection. The stage uses the same selection modifiers. Most creation and editing commands are intentionally locked during playback; Music commands remain available.
+The timeline supports rectangular selection, a second ordinary click on a selected event to clear it, `Ctrl` to add or copy while dragging, `Alt` to remove, and `Shift` for time/channel range selection. The stage and Scroll view use the same click-toggle and selection modifiers. Repeating the active Tap/Hold/Drag/Flick/Bg note toolbar command exits that creation mode. Most creation and editing commands are intentionally locked during playback; Music commands remain available.
 
 The visible timeline range is part of the editable chart state and is restored when a saved chart is opened. `Ctrl`+wheel zooms the range, `Shift`+wheel scrolls channel lanes, and `PageUp`/`PageDown` pages the range. With **Lock visible range** enabled, playback and ordinary seeking do not move it, while the scrollbar, `Ctrl`+wheel, and range keyboard commands remain available. Holding `Shift` while dragging an event keeps the last selected event as the move context and does not retarget another event under the pointer.
 

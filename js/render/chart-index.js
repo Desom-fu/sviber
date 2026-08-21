@@ -98,7 +98,7 @@ export class ChartRenderIndex {
 	constructor(project, timing, options = {}) {
 		this.project = project;
 		this.eventSource = project.events;
-		this.flatEvents = flattenEvents(project.events || [], false);
+		this.flatEvents = flattenEvents(project.events || [], true);
 		this.ancestorsById = new Map();
 		walkEvents(project.events || [], (event, ancestors) => this.ancestorsById.set(event.id, ancestors));
 		this.timing = timing;
@@ -128,8 +128,10 @@ export class ChartRenderIndex {
 		this.movableRecords = this.activeEventRecords.filter(record => MOVABLE_TYPES.has(record.event.type)
 			&& record.event.type !== "group");
 		this.groupRecords = this.activeEventRecords.filter(record => record.event.type === "group");
+		this.scrollRecords = [...this.movableRecords, ...this.groupRecords]
+			.sort((left, right) => left.start - right.start || left.sequence - right.sequence);
 		this.movableIndex = new IntervalIndex(this.movableRecords, "visibleStart", "visibleEnd");
-		this.scrollIndex = new IntervalIndex(this.movableRecords, "start", "end");
+		this.scrollIndex = new IntervalIndex(this.scrollRecords, "start", "end");
 		this.scrollDurationIndex = new IntervalIndex(
 			this.movableRecords.filter(record => record.end > record.start), "start", "end",
 		);

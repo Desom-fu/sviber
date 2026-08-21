@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v36";
+const CACHE_VERSION = "sviber-v37";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -44,7 +44,7 @@ const APP_SHELL = [
 	"./js/render/timeline-helpers.js",
 	"./svg/icon.svg",
 	"./js/vendor-loader.js",
-	"./js/app.js?v=26",
+	"./js/app.js?v=27",
 	"./js/macros.js",
 	"./js/commands.js",
 	"./js/i18n.js",
@@ -67,6 +67,7 @@ const APP_SHELL = [
 	"./js/render/stage.js",
 	"./js/render/timeline.js",
 	"./js/render/scroll-view.js",
+	"./js/render/selection.js",
 	"./js/app-macro-bridge.js",
 	"./js/core/snappee-presets.js",
 	"./json/i18n.en-US.json",

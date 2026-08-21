@@ -550,8 +550,8 @@ export const withStageNotes = Base => class extends Base {
 				.map(record => record.event);
 			const movableGroups = selectedGroups.length === 1 || selectedGroups.every(event => !event.attached);
 			if (movableGroups && group.selected) {
-				this.hitRegions.push({ type: "group-anchor", event: group, position, x: screen.x - 12, y: screen.y - 12,
-					width: 24, height: 24, centerX: screen.x, centerY: screen.y, radius: 12 });
+				this.hitRegions.push({ type: "group-anchor", event: group, position, x: screen.x - 8, y: screen.y - 8,
+					width: 16, height: 16, centerX: screen.x, centerY: screen.y, radius: 8 });
 			}
 			const bounds = this._groupBounds(group);
 			if (bounds && this.renderIndex.isEventSelected(group)) {

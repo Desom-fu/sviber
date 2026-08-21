@@ -247,6 +247,7 @@
   "event.turntable": "转盘",
   "event.hexagram": "六芒星",
   "event.comment": "注释",
+  "event.group": "分组",
   "snappee.rectangularMesh": "矩形网格",
   "snappee.radialMesh": "径向网格",
   "snappee.parametricMesh": "参数网格",

@@ -247,6 +247,7 @@
   "event.turntable": "Turntable",
   "event.hexagram": "Hexagram",
   "event.comment": "Comment",
+  "event.group": "Group",
   "snappee.rectangularMesh": "Rectangular mesh",
   "snappee.radialMesh": "Radial mesh",
   "snappee.parametricMesh": "Parametric mesh",

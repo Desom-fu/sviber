@@ -13,6 +13,10 @@ import { withEventEditing } from "../js/app-event-editing.js";
 import { withFileWorkflows } from "../js/app-file-workflows.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { withStageInteractions } from "../js/render/stage-interactions.js";
+import { toggledCreationMode } from "../js/app-history-commands.js";
+import { eventClickSelectionMode } from "../js/render/selection.js";
+import { COMMAND_DEFINITIONS } from "../js/commands.js";
+import { HelpController } from "../js/help.js";
 
 test("nested groups keep recursive IDs, bounds, clips, and Sunniesnow export flat", () => {
 	const model = ChartModel.createDefault({
@@ -83,6 +87,71 @@ test("timeline channel offset round-trips and clamps to visible channels", () =>
 		channels: [{ id: 0 }, { id: 1 }], editor: { timelineChannelOffset: 5 },
 	});
 	assert.equal(clamped.editor.timelineChannelOffset, 0);
+});
+
+test("v0.3.2 selection clicks toggle without changing modifier semantics", () => {
+	assert.equal(eventClickSelectionMode({ selected: false }), "replace");
+	assert.equal(eventClickSelectionMode({ selected: true }), "remove");
+	assert.equal(eventClickSelectionMode({ selected: false, ctrlKey: true }), "add");
+	assert.equal(eventClickSelectionMode({ selected: true, ctrlKey: true }), "add");
+	assert.equal(eventClickSelectionMode({ selected: false, altKey: true }), "remove");
+	assert.equal(eventClickSelectionMode({ selected: true, altKey: true }), "remove");
+});
+
+test("v0.3.2 event tools toggle the active creation mode and groups keep shortcuts", async () => {
+	assert.equal(toggledCreationMode("tap", "tap"), null);
+	assert.equal(toggledCreationMode(null, "tap"), "tap");
+	assert.equal(toggledCreationMode("tap", "hold"), "hold");
+	assert.equal(COMMAND_DEFINITIONS["events.group"].shortcut, "Ctrl+G");
+	assert.equal(COMMAND_DEFINITIONS["events.ungroup"].shortcut, "Ctrl+Shift+G");
+	const [english, chinese, css] = await Promise.all([
+		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8"),
+		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+	]);
+	assert.equal(JSON.parse(english)["event.group"], "Group");
+	assert.equal(JSON.parse(chinese)["event.group"], "分组");
+	assert.match(css, /\.shortcut-grid\s*\{[^}]*min-width:\s*0/);
+	assert.match(css, /\.shortcut-grid\s*>\s*span/);
+});
+
+test("v0.3.2 keyboard shortcut dialog lists group and ungroup", async () => {
+	const previousDocument = globalThis.document;
+	const hadDocument = Object.hasOwn(globalThis, "document");
+	const makeNode = tag => ({
+		tag,
+		children: [],
+		className: "",
+		textContent: "",
+		append(...children) { this.children.push(...children); },
+	});
+	globalThis.document = { createElement: tag => makeNode(tag) };
+	let dialog;
+	try {
+		const help = new HelpController({
+			i18n: { t: key => key, shortcut: shortcut => shortcut },
+			dialogs: { open: async options => { dialog = options; } },
+		});
+		await help.showKeyboardShortcuts(COMMAND_DEFINITIONS);
+		const rows = dialog.content.children.map(node => node.textContent);
+		assert.ok(rows.includes("command.events.group"));
+		assert.ok(rows.includes("command.events.ungroup"));
+		assert.ok(rows.includes("Ctrl+G"));
+		assert.ok(rows.includes("Ctrl+Shift+G"));
+	} finally {
+		if (hadDocument) globalThis.document = previousDocument;
+		else delete globalThis.document;
+	}
+});
+
+test("v0.3.2 group records remain visible in the scroll index", () => {
+	const model = ChartModel.createDefault({ events: [{
+		id: 10, type: "group", channel: 0, time: [2, 0, 1], x: 0, y: 0, color: "#123456",
+		events: [{ id: 11, type: "tap", channel: 0, time: [2, 0, 1], x: 10, y: 5 }],
+	}] });
+	const index = new ChartRenderIndex(model, new TimingMap({ initialBpm: 60 }));
+	assert.deepEqual(index.scrollEventRecords(1, 3).map(record => record.event.id), [10, 11]);
+	assert.equal(index.groupRecords[0].event.color, "#123456");
 });
 
 test("v12 editor fields use the file-format spelling and preserve legacy imports", () => {

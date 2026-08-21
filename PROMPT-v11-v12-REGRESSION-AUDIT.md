@@ -107,3 +107,55 @@ fix: complete v11-v12 regression audit
 ```
 
 并创建 annotated tag `v0.3.1`。不得覆盖已有的 `v0.3.0` tag。
+
+## v0.3.2 交互与分组修复
+
+本轮针对 v0.3.1 使用反馈重新审视了 v11/v12 diff 中的选择、工具栏、分组和快捷键行为。修复内容如下：
+
+### 选择行为
+
+- 新增 `js/render/selection.js`，统一主编辑区、时间轴和 Scroll view 的点击选择模式。
+- 普通点击未选事件仍然替换选择；普通点击已经选中的同一事件现在会取消选择。
+- `Ctrl` 仍然追加选择，`Alt` 仍然移除选择；两种修饰键优先于普通点击的切换语义。
+- 主编辑区的 group anchor、时间轴的 group 命中项和 Scroll view 的 group 十字锚点都遵循同一套重复点击取消规则。
+- 拖动与点击分离：已选事件只有在指针未超过拖动阈值时才执行取消，不会因为开始拖动而误取消选择。
+
+### 创建工具
+
+- `toggledCreationMode()` 统一工具栏和快捷键使用的创建模式切换规则。
+- 当前 Tap、Hold、Drag、Flick 或 Bg note 工具再次点击时退出创建模式；点击其他事件工具仍会切换到新工具。
+- 该行为同步写入 README 和中英文手册，避免帮助文档继续描述为只能由 Escape 退出。
+
+### Group 修复
+
+- `ChartRenderIndex` 纳入 group 记录，保证 group 事件可被索引、选中并在 Scroll view 中显示。
+- Scroll view 新增 group 十字锚点及命中区域；主编辑区 group anchor 命中区域与绘制尺寸对齐。
+- 嵌套 Group 的双击进入逻辑保留：普通点击仍选最近直接父 Group，双击只推进一层临时选择作用域，必须从外层到内层逐层进入；作用域内没有选中后代时自动退出。
+- Group Inspector 不再显示普通事件类型下拉框，只保留 `Time` 和可编辑 `Color`；颜色修改继续走历史记录和只读保护。
+- 补齐 `event.group` 的英文 `Group` 和中文 `分组` i18n，并确认菜单命令 `events.group` / `events.ungroup` 的双语 label/hint。
+
+### 快捷键与帮助
+
+- 分组快捷键明确固定为 `Ctrl+G`（分组）和 `Ctrl+Shift+G`（解组），并继续注册在 Events 菜单与命令注册表中。
+- 快捷键弹窗现在直接回归测试最终生成的 DOM 内容，确认两条分组命令和对应快捷键都会显示，而不是只检查命令定义。
+- 快捷键弹窗移除会造成横向滚动的最小宽度，并允许长标签换行；快捷键列保持紧凑不挤压标签。
+- 中英文手册的 Events 表格新增 Group/Ungroup 独立行；README 的常用快捷键表和分组说明也明确列出两条快捷键。
+
+### 发布文件与测试
+
+- `package.json`、`package-lock.json` 更新为 `0.3.2`。
+- 主入口 cachebuster 更新为 `js/app.js?v=27`，Service Worker 更新为 `sviber-v37`，并加入 `js/render/selection.js` 缓存项。
+- 新增回归覆盖：选择模式、创建工具 toggle、快捷键弹窗内容、Group i18n、Group Scroll index，以及快捷键弹窗 CSS。
+- 最终验证命令：
+
+```text
+node --test tests/v10-features.test.mjs tests/v11-features.test.mjs tests/v12-features.test.mjs tests/render-index.test.mjs
+npm test
+npm run verify:browser
+npm run build
+git diff --check
+```
+
+最终实际结果：`npm test` 151/151 通过；`npm run verify:browser` 通过，包含 Group 检查器、主编辑器 anchor、快捷键 toggle、选择取消和双基准 100000 事件性能检查，播放/编辑均 0 丢帧；`npm run build` 成功生成 `build/sviber-0.3.2.nw` 和 Windows x64 NW.js 包；`git diff --check` 通过。
+
+本节对应发行版本为 `v0.3.2`；历史的 v0.3.1 审计结论和发布记录保留在上文，不覆盖既有 `v0.3.0` 与 `v0.3.1` tag。

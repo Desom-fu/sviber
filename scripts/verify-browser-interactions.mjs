@@ -308,8 +308,26 @@ export async function runInteractionChecks(page, outputDirectory) {
 	"stage multi-selection did not move as a rigid group");
 	stagePointerPosition = await stagePointer(0);
 	await page.mouse.click(stagePointerPosition.x, stagePointerPosition.y);
-	assert.deepEqual(await page.evaluate(() => globalThis.sviber.model.events.map(event => event.selected)), [true, false],
-		"clicking a selected stage event without dragging did not collapse to a single selection");
+	assert.deepEqual(await page.evaluate(() => globalThis.sviber.model.events.map(event => event.selected)), [false, true],
+		"clicking a selected stage event without dragging did not remove that event from the selection");
+	await page.keyboard.press("Control+a");
+	await page.keyboard.press("Control+g");
+	await page.waitForFunction(() => globalThis.sviber.model.events.length === 1
+		&& globalThis.sviber.model.events[0].type === "group"
+		&& globalThis.sviber.model.events[0].selected);
+	await page.waitForFunction(() => globalThis.sviber.stage.hitRegions.some(region => region.type === "group-anchor"));
+	const groupInspector = await page.evaluate(() => ({
+		text: document.querySelector("#inspector-panel")?.textContent || "",
+		colorInputs: document.querySelectorAll('#inspector-panel input[type="color"]').length,
+		selects: document.querySelectorAll("#inspector-panel select").length,
+		anchors: globalThis.sviber.stage.hitRegions.filter(region => region.type === "group-anchor").length,
+	}));
+	assert.match(groupInspector.text, /分组/);
+	assert.match(groupInspector.text, /时间/);
+	assert.match(groupInspector.text, /颜色/);
+	assert.equal(groupInspector.colorInputs, 1, "group color input is missing");
+	assert.equal(groupInspector.selects, 0, "group inspector still exposes an event-type selector");
+	assert.ok(groupInspector.anchors > 0, "selected group anchor is missing from the main editor hit regions");
 
 	await restoreLayoutFixture();
 	await page.screenshot({ path: path.join(outputDirectory, "sviber-desktop-zh-CN.png"), fullPage: true });
@@ -348,6 +366,9 @@ export async function runInteractionChecks(page, outputDirectory) {
 	await page.locator('.tool-button[data-command="music.subdivision2"]').click();
 
 	await page.locator('.tool-button[data-command="events.tap"]').click();
+	await page.waitForFunction(() => globalThis.sviber.creationMode === null);
+	await page.locator('.tool-button[data-command="events.tap"]').click();
+	await page.waitForFunction(() => globalThis.sviber.creationMode === "tap");
 	const stage = page.locator("#stage-surface canvas");
 	const stageBox = await stage.boundingBox();
 	await page.mouse.click(stageBox.x + stageBox.width * 0.62, stageBox.y + stageBox.height * 0.48);

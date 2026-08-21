@@ -1,5 +1,6 @@
 import { Rational } from "../core/rational.js";
 import { TimingMap } from "../core/timing.js";
+import { eventClickSelectionMode } from "./selection.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee, snapSnappeeTranslation } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
@@ -276,14 +277,14 @@ export const withStageInteractions = Base => class extends Base {
 			if (selectionEvent !== hit.event) hit = { ...hit, event: selectionEvent,
 				position: this.renderIndex?.positionFor(selectionEvent) || selectionEvent };
 			const selected = this.renderIndex?.isEventSelected(hit.event) ?? Boolean(hit.event.selected);
-			if (event.altKey) {
+			const selectionMode = eventClickSelectionMode({ selected, ctrlKey: event.ctrlKey, altKey: event.altKey });
+			if (selectionMode === "remove" && event.altKey) {
 				this.callbacks.onSelectEvents?.([hit.event.id], "remove");
 				return;
 			}
-			if (event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([hit.event.id], "add");
-			else if (!event.ctrlKey && !selected) this.callbacks.onSelectEvents?.([hit.event.id], "replace");
+			if (!selected) this.callbacks.onSelectEvents?.([hit.event.id], selectionMode);
 			this.drag = { type: "event", hit, start: point, startChart: hit.position,
-				collapseSelectionOnClick: !event.ctrlKey && Boolean(hit.event.selected) };
+				collapseSelectionOnClick: selectionMode === "remove" };
 		} else if (hit?.type === "flick-handle") {
 			this.drag = { type: "flick", hit, start: point };
 		} else if (hit?.type === "tip-handle") {
@@ -546,7 +547,9 @@ export const withStageInteractions = Base => class extends Base {
 					bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
 			this.callbacks.onMoveGroupAnchor?.(drag.hit.event.id, snap || target);
 		} else if (drag.type === "event" && drag.collapseSelectionOnClick) {
-			this.callbacks.onSelectEvents?.([drag.hit.event.id], "replace");
+			this.callbacks.onSelectEvents?.([drag.hit.event.id], "remove");
+		} else if (drag.type === "group-anchor" && !this.pointerMoved && drag.hit.event.selected) {
+			this.callbacks.onSelectEvents?.([drag.hit.event.id], "remove");
 		} else if (drag.type === "flick") {
 			const position = resolveAttachedPosition(drag.hit.event, project.snappees) || drag.hit.event;
 			this.callbacks.onFlickAngle?.(drag.hit.event.id,

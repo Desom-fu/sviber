@@ -357,8 +357,11 @@ export class InspectorPanel {
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clear(this.element);
-		const selected = (model.allEvents ? model.allEvents() : model.events).filter(event => event.selected);
+		const allSelected = (model.allEvents ? model.allEvents() : model.events).filter(event => event.selected);
+		const selectedGroups = allSelected.filter(event => event.type === "group");
+		const selected = selectedGroups.length ? selectedGroups : allSelected;
 		const commentsOnly = selected.length > 0 && selected.every(event => event.type === "comment");
+		const groupsOnly = selectedGroups.length > 0;
 		if (Array.isArray(context.transform)) {
 			const transformGroup = this.#group("field.transform");
 			const wrapper = document.createElement("div");
@@ -383,16 +386,28 @@ export class InspectorPanel {
 
 		const group = this.#group(selected.every(event => event.type === selected[0].type)
 			? `event.${selected[0].type}` : "panel.commonProperties");
-		const types = commonValue(selected, event => event.type);
-		const typeControl = makeSelect(document, [
-			"tap", "hold", "drag", "flick", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment",
-		].map(type => ({ value: type, label: this.i18n.t(`event.${type}`) })), types,
-		value => this.onChange("type", value));
-		group.append(this.#row("field.type", typeControl));
+		let typeControl = null;
+		if (!groupsOnly) {
+			const types = commonValue(selected, event => event.type);
+			typeControl = makeSelect(document, [
+				"tap", "hold", "drag", "flick", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment",
+			].map(type => ({ value: type, label: this.i18n.t(`event.${type}`) })), types,
+			value => this.onChange("type", value));
+			group.append(this.#row("field.type", typeControl));
+		}
 
 		const time = commonValue(selected, event => event.time);
 		group.append(this.#row("field.time", makeRationalControl(document, time,
 			value => this.onChange("time", value))));
+		if (groupsOnly) {
+			const color = commonValue(selected, event => event.color);
+			group.append(this.#row("field.color", makeInput(document, "color",
+				color === MIXED ? "#ff9d3d" : color || "#ff9d3d",
+				value => this.onChange("color", value))));
+			if (model.editor.readOnly) setControlDisabled(group, true);
+			this.element.append(group);
+			return;
+		}
 		const channel = commonValue(selected, event => event.channel);
 		group.append(this.#row("field.channel", makeSelect(document,
 			model.channels.map((item, index) => ({ item, index }))
@@ -556,7 +571,7 @@ export class InspectorPanel {
 		}
 		if (model.editor.readOnly) {
 			if (!commentsOnly) group.disabled = true;
-			else setControlDisabled(typeControl, true);
+			else if (typeControl) setControlDisabled(typeControl, true);
 		}
 		this.element.append(group);
 	}
