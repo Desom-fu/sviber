@@ -397,8 +397,15 @@ export const withChartTools = Base => class extends Base {
 
 	selectSnappee(id) {
 		if (this.model.editor.readOnly) return false;
-		for (const snappee of this.model.snappees) snappee.selected = snappee.id === id && snappee.active;
-		this.refresh();
+		let changed = false;
+		for (const snappee of this.model.snappees) {
+			const selected = snappee.id === id && snappee.active !== false;
+			if (snappee.selected !== selected) { snappee.selected = selected; changed = true; }
+		}
+		if (!changed) return true;
+		this.snappeesPanel?.syncFlags?.(this.model, { readOnly: this.model.editor.readOnly });
+		this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
+		this._syncCheckedCommands?.();
 		return true;
 	}
 
@@ -406,7 +413,7 @@ export const withChartTools = Base => class extends Base {
 		this.commit(i18n.t("history.editSnappee"), model => {
 			const snappee = model.snappees.find(item => item.id === id);
 			if (snappee) { snappee.active = !snappee.active; if (!snappee.active) snappee.selected = false; }
-		}, { allowReadOnly: true });
+		}, { allowReadOnly: true, lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true });
 	}
 
 	duplicateSnappee(id) {

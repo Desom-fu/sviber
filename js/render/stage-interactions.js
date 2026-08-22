@@ -161,6 +161,11 @@ export const withStageInteractions = Base => class extends Base {
 		return null;
 	}
 
+	_snapChartPoint(chart, project, mapping) {
+		const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale });
+		return snap ? { x: snap.x, y: snap.y } : chart;
+	}
+
 	_previewAt(screenPoint) {
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
@@ -515,9 +520,9 @@ export const withStageInteractions = Base => class extends Base {
 			const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale });
 			this.callbacks.onPreviewCurvePoint?.(this.drag.hit.index, snap || chart);
 		} else if (this.drag.type === "pen-new") {
-			this.callbacks.onPreviewPenNode?.(this.drag.index, chart);
+			this.callbacks.onPreviewPenNode?.(this.drag.index, this._snapChartPoint(chart, project, mapping));
 		} else if (this.drag.type === "draft-pen-handle") {
-			this.callbacks.onPreviewPenHandle?.(this.drag.hit.index, this.drag.hit.kind, chart);
+			this.callbacks.onPreviewPenHandle?.(this.drag.hit.index, this.drag.hit.kind, this._snapChartPoint(chart, project, mapping));
 		} else if (this.drag.type === "box") {
 			if (!this.pointerMoved) return;
 			this.selectionBox ||= { x1: this.drag.start.x, y1: this.drag.start.y, x2: point.x, y2: point.y };
@@ -623,9 +628,9 @@ export const withStageInteractions = Base => class extends Base {
 				this.callbacks.onCurvePointMove?.(drag.hit.index, snap || chart);
 			} else this.callbacks.onCurvePointActivate?.(drag.hit.index);
 		} else if (drag.type === "pen-new") {
-			this.callbacks.onPenNode?.(drag.index, chart, this.pointerMoved);
+			this.callbacks.onPenNode?.(drag.index, this._snapChartPoint(chart, project, mapping), this.pointerMoved);
 		} else if (drag.type === "draft-pen-handle") {
-			this.callbacks.onPenHandle?.(drag.hit.index, drag.hit.kind, chart);
+			this.callbacks.onPenHandle?.(drag.hit.index, drag.hit.kind, this._snapChartPoint(chart, project, mapping));
 		} else if (drag.type === "box") {
 			if (this.pointerMoved) {
 				const x1 = Math.min(drag.start.x, point.x);

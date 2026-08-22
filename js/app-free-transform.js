@@ -1,13 +1,59 @@
 import { resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
+import { snapshotsEqual, captureHistoryView } from "./core/history.js";
 
 export const withFreeTransform = Base => class extends Base {
 	_refreshLightweight(options = {}) {
 		if (options.selectionOnly) this.renderIndex?.syncSelection?.();
-		this.refreshInteractionPreview?.({ rebuildIndex: options.rebuildIndex !== false });
-		this.inspectorPanel?.render(this.model, { transform: this.freeTransform?.matrix || null });
-		this.historyPanel?.render(this.history, { readOnly: this.model.editor.readOnly });
+		this.refreshInteractionPreview?.({ rebuildIndex: options.rebuildIndex !== false, stageOnly: options.stageOnly });
+		if (options.snappeeOnly || options.viewOnly) {
+			this.snappeesPanel?.syncFlags?.(this.model, { readOnly: this.model.editor.readOnly });
+		}
+		if (!options.skipInspector) {
+			this.inspectorPanel?.render(this.model, {
+				transform: this.freeTransform?.matrix || null,
+				selectedEvents: options.selectionOnly ? this.renderIndex?.selectedEvents : null,
+			});
+		}
+		if (!options.skipHistory) this.historyPanel?.render(this.history, { readOnly: this.model.editor.readOnly });
 		this._syncCheckedCommands?.();
 		document.title = `${this.dirty ? "* " : ""}${this.model.metadata.title} ${this.model.metadata.difficultyName} - sviber`;
+	}
+	_finishCommit(label, mutation, options = {}, previewScheduleDirty = false) {
+		const viewOnly = Boolean(options.selectionOnly || options.viewOnly);
+		const selectionBefore = this.stageMoveAttachmentException
+			? new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id))
+			: null;
+		const before = viewOnly ? null : this.model.snapshot();
+		const result = mutation(this.model);
+		this._normalizeGroupSelectionScope?.();
+		if (selectionBefore) this._reconcileStageMoveAttachmentException?.(selectionBefore);
+		let recorded = true;
+		if (viewOnly) {
+			recorded = this.history.recordView(captureHistoryView(this.model), label, options.metadata ?? null);
+		} else {
+			const after = this.model.snapshot();
+			if (snapshotsEqual(after, before)) {
+				if (previewScheduleDirty) this._invalidatePlaybackSchedule();
+				if (options.lightweight) this._refreshLightweight(options); else this.refresh();
+				return result;
+			}
+			recorded = this.history.record(after, label, options.metadata ?? null);
+		}
+		if (!recorded) {
+			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
+			if (!viewOnly) {
+				if (options.lightweight) this._refreshLightweight(options); else this.refresh();
+			}
+			return result;
+		}
+		if (options.dirty !== false) {
+			if (viewOnly) this.dirty = true;
+			else this.updateDirty();
+		}
+		if (options.scheduleDirty !== false || previewScheduleDirty) this._invalidatePlaybackSchedule();
+		if (!viewOnly) this.broadcastLiveChartUpdate?.();
+		if (options.lightweight) this._refreshLightweight(options); else this.refresh();
+		return result;
 	}
 	refreshInteractionPreview(options = {}) {
 		if (typeof this._rebuildRenderIndex !== "function" || !this.timeline) return this.refresh?.();

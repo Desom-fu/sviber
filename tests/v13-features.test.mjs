@@ -248,15 +248,16 @@ test("v0.4.2 drops bgNote angle and avoids long-session full snapshots/refreshes
 	const caption = api.bgNote(new api.Location(3, 4), "caption");
 	assert.equal(caption.text, "caption");
 	assert.deepEqual(runtime.state.events.at(-1).duration, [0, 0, 1]);
-	const [core, editing, stage, index, jsApi, rubyApi] = await Promise.all([
+	const [core, editing, transform, stage, index, jsApi, rubyApi] = await Promise.all([
 		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-event-editing.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-free-transform.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/render/stage-core.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/render/chart-index.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro-api.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro-api.rb", import.meta.url), "utf8"),
 	]);
-	assert.match(core, /if \(snapshotsEqual\(after, before\)\)/);
+	assert.match(transform, /if \(snapshotsEqual\(after, before\)\)/);
 	assert.doesNotMatch(core, /JSON\.stringify\(this\.model\.snapshot\(\)\)/);
 	assert.match(core, /this\.audio\.addEventListener\("play"[\s\S]*this\.refreshPlaybackFrame\(\)/);
 	assert.doesNotMatch(editing, /JSON\.stringify\(this\.model\.snapshot\(\)\)/);
@@ -267,4 +268,31 @@ test("v0.4.2 drops bgNote angle and avoids long-session full snapshots/refreshes
 	assert.doesNotMatch(jsApi, /bgNote: \(location, angle,/);
 	assert.match(rubyApi, /def bg_note\(location, duration = 0, text = ""\)/);
 	assert.doesNotMatch(rubyApi, /def bg_note\(location, angle,/);
+});
+
+test("v0.4.3 snaps dragged pen handles and orients snappee previews like the stage", async () => {
+	const [interactions, panels, editing, tools, transform, history] = await Promise.all([
+		readFile(new URL("../js/render/stage-interactions.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-event-editing.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-chart-tools.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-free-transform.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/core/history.js", import.meta.url), "utf8"),
+	]);
+	assert.match(interactions, /_snapChartPoint\(chart, project, mapping\)/);
+	assert.match(interactions, /drag\.type === "pen-new"[\s\S]*_snapChartPoint\(chart, project, mapping\)/);
+	assert.match(interactions, /draft-pen-handle[\s\S]*_snapChartPoint\(chart, project, mapping\)/);
+	assert.match(panels, /y: offsetY \+ \(maxY - point\.y\) \* scale/);
+	assert.doesNotMatch(panels, /y: offsetY \+ \(point\.y - minY\) \* scale/);
+	assert.match(history, /recordView\(view, label/);
+	assert.match(transform, /history\.recordView\(captureHistoryView\(this\.model\)/);
+	assert.match(editing, /this\.history\.recordView\(captureHistoryView\(this\.model\)/);
+	assert.doesNotMatch(editing, /history\.record\(this\.model\.snapshot\(\), i18n\.t\("history\.selection"\)/);
+	assert.match(editing, /viewOnly: true, snappeeOnly: true/);
+	assert.match(tools, /snappeesPanel\?\.syncFlags\?/);
+	assert.match(tools, /selectSnappee\(id\) \{[\s\S]*?refreshInteractionPreview\?/);
+	assert.doesNotMatch(tools, /selectSnappee\(id\) \{[\s\S]*?this\.refresh\(\);[\s\S]*?toggleSnappee/);
+	assert.match(tools, /viewOnly: true, snappeeOnly: true/);
+	assert.match(panels, /syncFlags\(model, context = \{\}\)/);
+	assert.match(panels, /dataset\.historyId/);
 });

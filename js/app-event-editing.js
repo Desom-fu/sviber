@@ -1,7 +1,7 @@
 import { i18n } from "./i18n.js"; import { ChartModel, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js"; import { Rational } from "./core/rational.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
 import { MOVABLE_TYPES, DURATION_TYPES, deepClone, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, mutateSnappeeWithinBounds, constrainSnappeeTranslation, eventTypeLabel } from "./app-helpers.js";
-import { eventUsesChannel, findEvent } from "./core/grouping.js"; import { snapshotsEqual } from "./core/history.js"; import { withFreeTransform } from "./app-free-transform.js"; import { withViewControls } from "./app-view-controls.js";
+import { eventUsesChannel, findEvent } from "./core/grouping.js"; import { snapshotsEqual, captureHistoryView } from "./core/history.js"; import { withFreeTransform } from "./app-free-transform.js"; import { withViewControls } from "./app-view-controls.js";
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 function applyFlickAngles(model, id, angle, changes) {
 	for (const [eventId, nextAngle] of changes instanceof Map ? changes : [[id, angle]]) { const event = model.findEvent(eventId); if (event) event.angle = nextAngle; }
@@ -118,6 +118,8 @@ const withEventEditingBase = Base => class extends Base {
 			: new Map(this.model.allEvents().map(event => [event.id, event]));
 		const targets = new Set([...ids].filter(id => mode === "remove"
 			|| eventUsesChannel(eventById.get(id), activeChannels)));
+		if (mode === "replace" && indexIsCurrent && this.renderIndex.selectedEventIds?.size === targets.size
+			&& [...targets].every(id => this.renderIndex.selectedEventIds.has(id))) return;
 		this.commit(i18n.t("history.selection"), model => {
 			for (const event of model.allEvents()) {
 				if (mode === "replace") event.selected = targets.has(event.id);
@@ -229,7 +231,8 @@ const withEventEditingBase = Base => class extends Base {
 				: [...preview.targets].some(id => preview.baseSelected.has(id));
 		this.selectionPreview = null;
 		this._normalizeGroupSelectionScope();
-		if (changed) this.history.record(this.model.snapshot(), i18n.t("history.selection"));
+		if (!changed) return;
+		this.history.recordView(captureHistoryView(this.model), i18n.t("history.selection"));
 		this._refreshLightweight({ selectionOnly: true, rebuildIndex: false });
 	}
 	cancelSelectionPreview() {
@@ -834,7 +837,7 @@ const withEventEditingBase = Base => class extends Base {
 				snappee.active = Boolean(active);
 				if (!active) snappee.selected = false;
 			}
-		});
+		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true });
 	}
 	attachSelected() {
 		if (!this.model.snappees.some(snappee => snappee.active !== false)) return;

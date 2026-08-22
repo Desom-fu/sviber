@@ -29,7 +29,7 @@ import {
 	sampleSnappeePath,
 	snapSnappeeTranslation,
 } from "../js/core/geometry.js";
-import { History } from "../js/core/history.js";
+import { History, captureHistoryView } from "../js/core/history.js";
 import {
 	ChartModel,
 	connectSelectedTipPointChain,
@@ -379,6 +379,74 @@ test("History records manual and automatic save markers on the current entry", (
 	history.markCurrent("autosave", 100);
 	history.markCurrent("save", 200);
 	assert.deepEqual(history.currentEntry.metadata.historyMarkers, { autosave: 100, save: 200 });
+});
+
+test("History view records overlay selection without storing another full snapshot", () => {
+	const base = {
+		events: [{ id: 1, type: "tap", selected: false }, { id: 2, type: "tap", selected: false }],
+		snappees: [{ id: 7, selected: false, active: true }],
+		editor: { currentTime: [0, 0, 1], currentChannel: 0 },
+	};
+	const history = new History(base);
+	const selected = captureHistoryView({
+		...base,
+		events: [{ id: 1, type: "tap", selected: true }, { id: 2, type: "tap", selected: false }],
+		snappees: [{ id: 7, selected: true, active: false }],
+		editor: { currentTime: [1, 0, 1], currentChannel: 3 },
+	});
+	assert.equal(history.recordView(selected, "Selection"), true);
+	assert.equal(history._entries.at(-1).state, null);
+	assert.equal(history.current.events[0].selected, true);
+	assert.equal(history.current.snappees[0].active, false);
+	assert.deepEqual(history.current.editor.currentTime, [1, 0, 1]);
+	assert.equal(history.recordView(selected, "Selection"), false);
+	assert.equal(history.current.events[1].selected, false);
+	assert.equal(history.undo().events[0].selected, false);
+	assert.equal(history.redo().snappees[0].selected, true);
+	history.record({
+		...base,
+		events: [{ id: 1, type: "tap", selected: true, x: 4 }, { id: 2, type: "tap", selected: false }],
+		snappees: [{ id: 7, selected: true, active: false }],
+		editor: { currentTime: [1, 0, 1], currentChannel: 3 },
+	}, "Move");
+	assert.equal(history.current.events[0].x, 4);
+	assert.equal(history.undo().events[0].x, undefined);
+	assert.equal(history.current.events[0].selected, true);
+});
+
+test("History view records materialize when the retained window loses its base snapshot", () => {
+	const history = new History({
+		events: [{ id: 1, type: "tap", selected: false }],
+		snappees: [{ id: 1, selected: false, active: true }],
+		editor: { currentChannel: 0 },
+		value: 0,
+	}, { limit: 3 });
+	history.recordView(captureHistoryView({
+		events: [{ id: 1, type: "tap", selected: true }],
+		snappees: [{ id: 1, selected: false, active: true }],
+		editor: { currentChannel: 0 },
+	}), "One");
+	history.recordView(captureHistoryView({
+		events: [{ id: 1, type: "tap", selected: false }],
+		snappees: [{ id: 1, selected: false, active: false }],
+		editor: { currentChannel: 1 },
+	}), "Two");
+	history.recordView(captureHistoryView({
+		events: [{ id: 1, type: "tap", selected: true }],
+		snappees: [{ id: 1, selected: true, active: false }],
+		editor: { currentChannel: 2 },
+	}), "Three");
+	assert.equal(history.length, 3);
+	assert.notEqual(history._entries[0].state, null);
+	assert.equal(history.getSnapshot(0).events[0].selected, true);
+	assert.equal(history.current.editor.currentChannel, 2);
+	assert.equal(history.current.snappees[0].selected, true);
+	history.transformStates(state => {
+		state.value = "kept";
+		return state;
+	});
+	assert.equal(history.getSnapshot(0).value, "kept");
+	assert.equal(history.current.events[0].selected, true);
 });
 
 test("new charts create and activate only the rectangular default snappee", () => {

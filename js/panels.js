@@ -187,7 +187,7 @@ function drawSnappeePreview(canvas, snappee, size) {
 	const offsetY = (size - (maxY - minY) * scale) / 2;
 	const project = point => ({
 		x: offsetX + (point.x - minX) * scale,
-		y: offsetY + (point.y - minY) * scale,
+		y: offsetY + (maxY - point.y) * scale,
 	});
 	const drawLine = (line, closed = false) => {
 		if (!line.length) return;
@@ -374,7 +374,7 @@ export class InspectorPanel {
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clear(this.element);
-		const allSelected = (model.allEvents ? model.allEvents() : model.events).filter(event => event.selected);
+		const allSelected = (Array.isArray(context.selectedEvents) ? context.selectedEvents : (model.allEvents ? model.allEvents() : model.events)).filter(event => event.selected);
 		const selectedGroups = allSelected.filter(event => event.type === "group");
 		const selected = selectedGroups.length ? selectedGroups : allSelected;
 		const commentsOnly = selected.length > 0 && selected.every(event => event.type === "comment");
@@ -622,11 +622,12 @@ export class SnappeesPanel {
 		this.cleanup = [];
 	}
 
-	#action(icon, tooltipKey, callback, disabled = false) {
+	#action(icon, tooltipKey, callback, disabled = false, action = null) {
 		const button = document.createElement("button");
 		button.type = "button";
 		button.className = "snappee-action";
 		button.disabled = disabled;
+		if (action) button.dataset.snappeeAction = action;
 		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
 		const image = document.createElement("img");
 		image.src = `svg/icons/${icon}.svg`;
@@ -639,6 +640,38 @@ export class SnappeesPanel {
 		});
 		this.cleanup.push(this.tooltip?.register(button, tooltipKey));
 		return button;
+	}
+
+	#syncToggle(button, snappee) {
+		const icon = snappee.active === false ? "activate" : "deactivate";
+		const tooltipKey = snappee.active === false ? "panel.snappee.activate" : "panel.snappee.deactivate";
+		const image = button.querySelector("img");
+		if (image) image.src = `svg/icons/${icon}.svg`;
+		button.setAttribute("aria-label", this.i18n.t(tooltipKey));
+		this.tooltip?.register(button, tooltipKey);
+	}
+
+	syncFlags(model, context = {}) {
+		const items = this.element.querySelectorAll(":scope > .snappee-item");
+		if (!model.snappees.length || items.length !== model.snappees.length) {
+			this.render(model, context);
+			return;
+		}
+		for (let index = 0; index < model.snappees.length; index += 1) {
+			const snappee = model.snappees[index];
+			const item = items[index];
+			if (item.dataset.snappeeId !== String(snappee.id)) {
+				this.render(model, context);
+				return;
+			}
+			item.classList.toggle("is-selected", Boolean(snappee.selected));
+			item.classList.toggle("is-inactive", snappee.active === false);
+			item.tabIndex = context.readOnly ? -1 : 0;
+			item.setAttribute("aria-disabled", String(Boolean(context.readOnly)));
+			item.setAttribute("aria-pressed", String(Boolean(snappee.selected)));
+			const toggle = item.querySelector("[data-snappee-action='toggle']");
+			if (toggle) this.#syncToggle(toggle, snappee);
+		}
 	}
 
 	render(model, context = {}) {
@@ -659,6 +692,7 @@ export class SnappeesPanel {
 		}
 		model.snappees.forEach((snappee, index) => {
 			const item = document.createElement("div");
+			item.dataset.snappeeId = String(snappee.id);
 			item.className = `snappee-item${snappee.selected ? " is-selected" : ""}${snappee.active === false ? " is-inactive" : ""}`;
 			item.tabIndex = readOnly ? -1 : 0;
 			item.setAttribute("aria-disabled", String(readOnly));
@@ -670,7 +704,7 @@ export class SnappeesPanel {
 			name.textContent = snappee.name;
 			item.append(preview, name,
 				this.#action(snappee.active === false ? "activate" : "deactivate", snappee.active === false ? "panel.snappee.activate" : "panel.snappee.deactivate",
-					() => this.onToggle(snappee.id), false),
+					() => this.onToggle(snappee.id), false, "toggle"),
 				this.#action("duplicate", "panel.snappee.duplicate", () => this.onDuplicate(snappee.id), readOnly),
 				this.#action("up", "panel.snappee.moveUp", () => this.onMove(snappee.id, -1), readOnly || index === 0),
 				this.#action("down", "panel.snappee.moveDown", () => this.onMove(snappee.id, 1), readOnly || index === model.snappees.length - 1),
@@ -835,43 +869,93 @@ export class HistoryPanel {
 		this.tooltip = options.tooltip;
 		this.onGoTo = options.onGoTo || (() => {});
 		this.cleanup = [];
+		this.language = null;
+	}
+
+	#entries(history) {
+		return typeof history.panelEntries === "function" ? history.panelEntries() : history.entries;
+	}
+
+	#makeItem(entry, context = {}) {
+		const readOnly = Boolean(context.readOnly);
+		const button = document.createElement("button");
+		button.type = "button";
+		button.dataset.historyId = String(entry.id);
+		button.disabled = readOnly;
+		button.setAttribute("aria-disabled", String(readOnly));
+		button.className = `history-item${entry.active ? " is-current" : ""}${entry.undone ? " is-future" : ""}`;
+		const index = document.createElement("span");
+		index.className = "history-index";
+		index.textContent = entry.active ? "›" : "";
+		const label = document.createElement("span");
+		label.className = "history-label";
+		label.textContent = this.i18n.localize(entry.label);
+		const markers = document.createElement("span");
+		markers.className = "history-markers";
+		for (const kind of ["save", "autosave"]) {
+			if (!entry.metadata?.historyMarkers?.[kind]) continue;
+			const image = document.createElement("img");
+			image.src = `svg/icons/${kind === "save" ? "save" : "auto-save"}.svg`;
+			image.className = `history-marker is-${kind}`;
+			image.alt = this.i18n.t(`history.marker.${kind}`);
+			markers.append(image);
+		}
+		const time = document.createElement("time");
+		time.className = "history-time";
+		time.dateTime = new Date(entry.timestamp).toISOString();
+		time.textContent = new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+		button.append(index, label, markers, time);
+		button.addEventListener("click", () => this.onGoTo(entry.index));
+		const dispose = this.tooltip?.register(button, "panel.history.seek");
+		button._disposeTooltip = dispose;
+		this.cleanup.push(dispose);
+		return button;
+	}
+
+	#paint(entries, context = {}, relocalize = false) {
+		const readOnly = Boolean(context.readOnly);
+		let current = null;
+		for (let index = 0; index < entries.length; index += 1) {
+			const entry = entries[index];
+			const button = this.element.children[index];
+			if (!button) continue;
+			button.disabled = readOnly;
+			button.setAttribute("aria-disabled", String(readOnly));
+			button.classList.toggle("is-current", Boolean(entry.active));
+			button.classList.toggle("is-future", Boolean(entry.undone));
+			const marker = button.querySelector(".history-index");
+			if (marker) marker.textContent = entry.active ? "›" : "";
+			if (relocalize) {
+				const label = button.querySelector(".history-label");
+				if (label) label.textContent = this.i18n.localize(entry.label);
+			}
+			if (entry.active) current = button;
+		}
+		current?.scrollIntoView({ block: "nearest" });
 	}
 
 	render(history, context = {}) {
-		const readOnly = Boolean(context.readOnly);
-		this.cleanup.forEach(dispose => dispose?.());
-		this.cleanup = [];
-		clear(this.element);
-		for (const entry of history.entries) {
-			const button = document.createElement("button");
-			button.type = "button";
-			button.disabled = readOnly;
-			button.setAttribute("aria-disabled", String(readOnly));
-			button.className = `history-item${entry.active ? " is-current" : ""}${entry.undone ? " is-future" : ""}`;
-			const index = document.createElement("span");
-			index.className = "history-index";
-			index.textContent = entry.active ? "›" : "";
-			const label = document.createElement("span");
-			label.textContent = this.i18n.localize(entry.label);
-			const markers = document.createElement("span");
-			markers.className = "history-markers";
-			for (const kind of ["save", "autosave"]) {
-				if (!entry.metadata?.historyMarkers?.[kind]) continue;
-				const image = document.createElement("img");
-				image.src = `svg/icons/${kind === "save" ? "save" : "auto-save"}.svg`;
-				image.className = `history-marker is-${kind}`;
-				image.alt = this.i18n.t(`history.marker.${kind}`);
-				markers.append(image);
-			}
-			const time = document.createElement("time");
-			time.className = "history-time";
-			time.dateTime = new Date(entry.timestamp).toISOString();
-			time.textContent = new Date(entry.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-			button.append(index, label, markers, time);
-			button.addEventListener("click", () => this.onGoTo(entry.index));
-			this.cleanup.push(this.tooltip?.register(button, "panel.history.seek"));
-			this.element.append(button);
+		this.sync(history, context);
+	}
+
+	sync(history, context = {}) {
+		const entries = this.#entries(history);
+		const relocalize = this.language !== this.i18n.language;
+		this.language = this.i18n.language;
+		let prefix = 0;
+		const limit = Math.min(this.element.children.length, entries.length);
+		while (prefix < limit && this.element.children[prefix].dataset.historyId === String(entries[prefix].id)) {
+			prefix += 1;
 		}
-		this.element.querySelector(".is-current")?.scrollIntoView({ block: "nearest" });
+		for (let index = this.element.children.length - 1; index >= prefix; index -= 1) {
+			const button = this.element.children[index];
+			button._disposeTooltip?.();
+			button.remove();
+		}
+		this.cleanup = this.cleanup.slice(0, prefix);
+		for (let index = prefix; index < entries.length; index += 1) {
+			this.element.append(this.#makeItem(entries[index], context));
+		}
+		this.#paint(entries, context, relocalize);
 	}
 }

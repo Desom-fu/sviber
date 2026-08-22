@@ -1,6 +1,15 @@
 # PROMPT v13 implementation
 
-This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.2`.
+This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.3`.
+
+## v0.4.3 pen-handle snapping, snappee preview orientation, and selection hitches
+
+- While drawing a pen curve, dragged off-curve handles now use the same snap search as on-curve anchors. Creating a node still snaps the click; dragging out Bezier handles, and later dragging those handles, both go through `_snapChartPoint()` in `js/render/stage-interactions.js`.
+- Snappee panel thumbnails now project chart `+Y` upward, matching the main field (`y = offsetY + (maxY - point.y) * scale`). The previous mapping put higher chart Y at the bottom of the preview.
+- Selection, box-select finish, snappee activate/deactivate, and snappee panel selection no longer snapshot or clone the whole chart. `History.recordView()` stores a compact overlay (`selectedEventIds`, snappee `selected`/`active`, playhead/channel) and materializes a full snapshot only on undo/redo or when the 1000-entry window would otherwise drop the base state.
+- `commit({ selectionOnly/viewOnly })` and `finishSelectionPreview()` use that view path, skip live-chart broadcasts, and skip `updateDirty()` JSON work for selection. Unchanged click-select, empty-space deselect, and no-op box-select return before any panel rebuild.
+- The history list now reuses existing rows (`dataset.historyId`) and only appends/truncates the tail, so a long session of ~1000 entries does not recreate every history button on each click.
+- Snappee panel select/toggle updates `is-selected` / `is-inactive` and the activate icon in place. It no longer clears the list or resamples every preview canvas. Stage redraws without rebuilding the render index.
 
 ## v0.4.2 long-session, pen-drag, and helper fixes
 
@@ -74,9 +83,9 @@ This release implements the additions in `PROMPT-v13.md` and the follow-up inter
 
 ## Verification
 
-- `npm test`: 171 tests passed.
+- `npm test`: 174 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
-- `npm run build`: generated `build/sviber-0.4.2.nw` and the NW.js desktop directory.
+- `npm run build`: generated `build/sviber-0.4.3.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
 - `ruby tests/ruby-macro-smoke.rb`: passed (including direction-bearing snappees, parametric expressions, rational timing, grouping, `b`/`b!`, and TipPoint checks).
 - `npm run verify:browser`: passed, including real JS/Ruby macro application, Ruby `hello world` console forwarding, 100k-event playback/editing benchmarks, interaction checks, and nonblank canvas summaries.

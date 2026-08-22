@@ -1,5 +1,5 @@
 import { i18n } from "./i18n.js"; import { CommandRegistry } from "./commands.js"; import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js"; import { ChartModel } from "./core/chart-model.js";
-import { uniqueChartFilename } from "./core/project.js"; import { History, snapshotsEqual } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
+import { uniqueChartFilename } from "./core/project.js"; import { History } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
 import { AudioPlayer } from "./audio/player.js";
 import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule, collectIndexedHoldReleaseSchedule, collectReverseHitSchedule, collectIndexedReverseHitSchedule, collectMetronomeSchedule } from "./audio/scheduler.js";
 import { TimelineView } from "./render/timeline.js";
@@ -282,22 +282,7 @@ export class SviberAppCore {
 			this.previewBase = null;
 			this.previewScheduleDirty = false;
 		}
-		const selectionBefore = new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id));
-		const before = this.model.snapshot(), result = mutation(this.model);
-		this._normalizeGroupSelectionScope();
-		const after = this.model.snapshot();
-		if (snapshotsEqual(after, before)) {
-			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
-			if (options.lightweight) this._refreshLightweight(options); else this.refresh();
-			return result;
-		}
-		this._reconcileStageMoveAttachmentException(selectionBefore);
-		this.history.record(after, label, options.metadata ?? null);
-		if (options.dirty !== false) this.updateDirty();
-		if (options.scheduleDirty !== false || previewScheduleDirty) this._invalidatePlaybackSchedule();
-		this.broadcastLiveChartUpdate?.();
-		if (options.lightweight) this._refreshLightweight(options); else this.refresh();
-		return result;
+		return this._finishCommit(label, mutation, options, previewScheduleDirty);
 	}
 	_invalidatePlaybackSchedule() {
 		if (!this.audio.playing) return;

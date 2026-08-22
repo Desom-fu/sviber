@@ -70,6 +70,70 @@ export function snapshotsEqual(left, right, seen = new Map()) {
 			&& snapshotsEqual(left[key], right[key], seen));
 }
 
+
+function visitChartEvents(events, visit) {
+	for (const event of events || []) {
+		visit(event);
+		if (event?.type === "group") visitChartEvents(event.events, visit);
+	}
+}
+
+export function captureHistoryView(model) {
+	const selectedEventIds = [];
+	visitChartEvents(model?.events, event => { if (event?.selected) selectedEventIds.push(event.id); });
+	return {
+		selectedEventIds,
+		snappees: (model?.snappees || []).map(snappee => ({
+			id: snappee.id,
+			selected: Boolean(snappee.selected),
+			active: snappee.active !== false,
+		})),
+		currentTime: cloneSnapshot(model?.editor?.currentTime ?? null),
+		currentChannel: model?.editor?.currentChannel ?? null,
+	};
+}
+
+export function applyHistoryView(state, view) {
+	if (!state || !view) return state;
+	const selected = new Set(view.selectedEventIds || []);
+	visitChartEvents(state.events, event => { event.selected = selected.has(event.id); });
+	const overlays = new Map((view.snappees || []).map(item => [item.id, item]));
+	for (const snappee of state.snappees || []) {
+		const overlay = overlays.get(snappee.id);
+		if (!overlay) continue;
+		snappee.selected = Boolean(overlay.selected);
+		snappee.active = overlay.active !== false;
+	}
+	if (state.editor) {
+		if (Object.hasOwn(view, "currentTime")) state.editor.currentTime = cloneSnapshot(view.currentTime);
+		if (Object.hasOwn(view, "currentChannel")) state.editor.currentChannel = view.currentChannel;
+	}
+	return state;
+}
+
+export function historyViewsEqual(left, right) {
+	if (left === right) return true;
+	if (!left || !right) return false;
+	if (left.currentChannel !== right.currentChannel) return false;
+	if (!snapshotsEqual(left.currentTime, right.currentTime)) return false;
+	const leftIds = left.selectedEventIds || [];
+	const rightIds = right.selectedEventIds || [];
+	if (leftIds.length !== rightIds.length) return false;
+	for (let index = 0; index < leftIds.length; index += 1) {
+		if (leftIds[index] !== rightIds[index]) return false;
+	}
+	const leftSnappees = left.snappees || [];
+	const rightSnappees = right.snappees || [];
+	if (leftSnappees.length !== rightSnappees.length) return false;
+	for (let index = 0; index < leftSnappees.length; index += 1) {
+		const first = leftSnappees[index];
+		const second = rightSnappees[index];
+		if (first.id !== second.id || Boolean(first.selected) !== Boolean(second.selected)
+			|| (first.active !== false) !== (second.active !== false)) return false;
+	}
+	return true;
+}
+
 /** A bounded snapshot history with Photoshop-style arbitrary cursor jumps. */
 export class History {
 	constructor(initialState, options = {}) {
@@ -99,17 +163,67 @@ export class History {
 		};
 	}
 
+	_entryView(index) {
+		const entry = this._entries[index];
+		if (!entry) return null;
+		if (entry.view) return entry.view;
+		if (entry.state) return captureHistoryView(entry.state);
+		return null;
+	}
+
+	_resolvedState(index) {
+		const entry = this._entries[index];
+		if (entry.state != null) return this.clone(entry.state);
+		let baseIndex = index - 1;
+		while (baseIndex >= 0 && this._entries[baseIndex].state == null) baseIndex -= 1;
+		if (baseIndex < 0 || this._entries[baseIndex].state == null) {
+			throw new Error("history is missing a base snapshot");
+		}
+		return applyHistoryView(this.clone(this._entries[baseIndex].state), entry.view);
+	}
+
+	_materializeInPlace(index) {
+		const entry = this._entries[index];
+		if (!entry || entry.state != null) return;
+		const next = { ...entry, state: this._resolvedState(index) };
+		delete next.kind;
+		delete next.view;
+		this._entries[index] = next;
+	}
+
+	_trim() {
+		if (this._entries.length <= this.limit) return;
+		const overflow = this._entries.length - this.limit;
+		this._materializeInPlace(overflow);
+		this._entries.splice(0, overflow);
+		this._cursor -= overflow;
+	}
+
 	record(state, label = "Edit", metadata = null, options = {}) {
 		const snapshot = this.clone(state);
-		if (!options.force && this.equals(this._entries[this._cursor].state, snapshot)) return false;
+		const baseline = this._entries[this._cursor].state ?? this._resolvedState(this._cursor);
+		if (!options.force && this.equals(baseline, snapshot)) return false;
 		if (this._cursor < this._entries.length - 1) this._entries.length = this._cursor + 1;
 		this._entries.push(this._makeEntry(snapshot, label, metadata));
 		this._cursor = this._entries.length - 1;
-		if (this._entries.length > this.limit) {
-			const overflow = this._entries.length - this.limit;
-			this._entries.splice(0, overflow);
-			this._cursor -= overflow;
-		}
+		this._trim();
+		return true;
+	}
+
+	recordView(view, label = "Edit", metadata = null, options = {}) {
+		if (!options.force && historyViewsEqual(this._entryView(this._cursor), view)) return false;
+		if (this._cursor < this._entries.length - 1) this._entries.length = this._cursor + 1;
+		this._entries.push({
+			id: this._nextId++,
+			label: String(label ?? "Edit"),
+			timestamp: Date.now(),
+			metadata: metadata == null ? null : this.clone(metadata),
+			kind: "view",
+			view: this.clone(view),
+			state: null,
+		});
+		this._cursor = this._entries.length - 1;
+		this._trim();
 		return true;
 	}
 
@@ -119,13 +233,16 @@ export class History {
 
 	replaceCurrent(state, label = this._entries[this._cursor].label, metadata = null) {
 		const previous = this._entries[this._cursor];
-		this._entries[this._cursor] = {
+		const next = {
 			...previous,
 			label: String(label),
 			timestamp: Date.now(),
 			metadata: metadata == null ? previous.metadata : this.clone(metadata),
 			state: this.clone(state),
 		};
+		delete next.kind;
+		delete next.view;
+		this._entries[this._cursor] = next;
 		return this.current;
 	}
 
@@ -141,6 +258,7 @@ export class History {
 	transformStates(transform) {
 		if (typeof transform !== "function") throw new TypeError("history state transform must be a function");
 		this._entries = this._entries.map((entry, index) => {
+			if (entry.state == null) return entry;
 			const state = this.clone(entry.state);
 			const transformed = transform(state, index);
 			return { ...entry, state: this.clone(transformed === undefined ? state : transformed) };
@@ -182,21 +300,37 @@ export class History {
 		if (!Number.isSafeInteger(index) || index < 0 || index >= this._entries.length) {
 			throw new RangeError("history snapshot is out of range");
 		}
-		return this.clone(this._entries[index].state);
+		return this._resolvedState(index);
 	}
 
 	get current() {
-		return this.clone(this._entries[this._cursor].state);
+		return this._resolvedState(this._cursor);
 	}
 
 	get currentEntry() {
-		const { state, ...entry } = this._entries[this._cursor];
-		return { ...this.clone(entry), state: this.clone(state) };
+		const { state, view, ...entry } = this._entries[this._cursor];
+		return {
+			...this.clone(entry),
+			...(view == null ? {} : { view: this.clone(view) }),
+			state: this._resolvedState(this._cursor),
+		};
 	}
 
 	get entries() {
 		return this._entries.map(({ state, ...entry }, index) => ({
 			...this.clone(entry),
+			index,
+			active: index === this._cursor,
+			undone: index > this._cursor,
+		}));
+	}
+
+	panelEntries() {
+		return this._entries.map((entry, index) => ({
+			id: entry.id,
+			label: entry.label,
+			timestamp: entry.timestamp,
+			metadata: entry.metadata,
 			index,
 			active: index === this._cursor,
 			undone: index > this._cursor,
