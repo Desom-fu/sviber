@@ -1,5 +1,5 @@
 import { Rational } from "../core/rational.js";
-import { resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
+import { resolveAttachedPosition, sampleSnappee, sampleSnappeePath } from "../core/geometry.js";
 import { eventTime, eventUsesChannel, flattenEvents, walkEvents } from "../core/grouping.js";
 import {
 	DURATION_TYPES,
@@ -107,6 +107,7 @@ export class ChartRenderIndex {
 		this.approachSpeed = Number(options.noteSpeed) > 0
 			? Number(options.noteSpeed) : SUNNIESNOW_SKIN.approachSpeed;
 		this.snappeeSamples = new Map();
+		this.snappeePaths = new Map();
 		this.snappeePointMaps = new Map();
 		this.snappeeById = new Map();
 		this.eventRecordMap = new Map();
@@ -204,6 +205,10 @@ export class ChartRenderIndex {
 			let samples = [];
 			try { samples = sampleSnappee(snappee); } catch { /* Invalid draft snappees stay unresolved. */ }
 			this.snappeeSamples.set(snappee, samples);
+			if (snappee.type === "bezierCurve" || snappee.type === "penCurve") {
+				try { this.snappeePaths.set(snappee, sampleSnappeePath(snappee)); }
+				catch { this.snappeePaths.set(snappee, samples); }
+			}
 			this.snappeeById.set(snappee.id, snappee);
 			this.snappeePointMaps.set(snappee.id,
 				new Map(samples.map(sample => [snapPointKey(sample.snapPoint), sample])));

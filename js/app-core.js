@@ -1,5 +1,5 @@
 import { i18n } from "./i18n.js"; import { CommandRegistry } from "./commands.js"; import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js"; import { ChartModel } from "./core/chart-model.js";
-import { uniqueChartFilename } from "./core/project.js"; import { History } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
+import { uniqueChartFilename } from "./core/project.js"; import { History, snapshotsEqual } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
 import { AudioPlayer } from "./audio/player.js";
 import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule, collectIndexedHoldReleaseSchedule, collectReverseHitSchedule, collectIndexedReverseHitSchedule, collectMetronomeSchedule } from "./audio/scheduler.js";
 import { TimelineView } from "./render/timeline.js";
@@ -283,16 +283,16 @@ export class SviberAppCore {
 			this.previewScheduleDirty = false;
 		}
 		const selectionBefore = new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id));
-		const before = JSON.stringify(this.model.snapshot());
-		const result = mutation(this.model);
+		const before = this.model.snapshot(), result = mutation(this.model);
 		this._normalizeGroupSelectionScope();
-		if (JSON.stringify(this.model.snapshot()) === before) {
+		const after = this.model.snapshot();
+		if (snapshotsEqual(after, before)) {
 			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
 			if (options.lightweight) this._refreshLightweight(options); else this.refresh();
 			return result;
 		}
 		this._reconcileStageMoveAttachmentException(selectionBefore);
-		this.history.record(this.model.snapshot(), label, options.metadata ?? null);
+		this.history.record(after, label, options.metadata ?? null);
 		if (options.dirty !== false) this.updateDirty();
 		if (options.scheduleDirty !== false || previewScheduleDirty) this._invalidatePlaybackSchedule();
 		this.broadcastLiveChartUpdate?.();
@@ -728,7 +728,7 @@ export class SviberAppCore {
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
 			this._scheduleHits(time);
-			this.refresh();
+			this._syncCheckedCommands(); this._refreshDifficultyUi(); this.refreshPlaybackFrame();
 		});
 		this.audio.addEventListener("directionchange", () => {
 			this.stage.cancelScheduledHits();

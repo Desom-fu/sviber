@@ -722,9 +722,9 @@
 			h: (location, duration, text = "") => new Hold({ location, time: chartFacade.currentTime, channel: Channel.current, duration, text }),
 			d: location => new Drag({ location, time: chartFacade.currentTime, channel: Channel.current }),
 			f: (location, angle, text = "") => new Flick({ location, time: chartFacade.currentTime, channel: Channel.current, angle, text }),
-			bgNote: (location, angle, duration = 0, text = "") => {
+			bgNote: (location, duration = 0, text = "") => {
 				if (typeof duration === "string" && text === "") { text = duration; duration = 0; }
-				return new BgNote({ location, time: chartFacade.currentTime, channel: Channel.current, angle, duration, text });
+				return new BgNote({ location, time: chartFacade.currentTime, channel: Channel.current, duration, text });
 			},
 			bigText: (duration, text = "") => new BigText({ time: chartFacade.currentTime, channel: Channel.current, duration, text }),
 			grid: duration => new Grid({ time: chartFacade.currentTime, channel: Channel.current, duration }),

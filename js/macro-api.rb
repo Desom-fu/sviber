@@ -1576,12 +1576,12 @@ def h(location, duration, text = "") = Hold.new(location: location, time: Chart.
 def d(location) = Drag.new(location: location, time: Chart.current_time, channel: Channel.current)
 def f(location, angle, text = "") = Flick.new(location: location, time: Chart.current_time, channel: Channel.current, angle: angle, text: text)
 
-def bg_note(location, angle, duration = 0, text = "")
+def bg_note(location, duration = 0, text = "")
   if duration.is_a?(String) && text.empty?
     text = duration
     duration = 0
   end
-  BgNote.new(location: location, time: Chart.current_time, channel: Channel.current, angle: angle, duration: duration, text: text)
+  BgNote.new(location: location, time: Chart.current_time, channel: Channel.current, duration: duration, text: text)
 end
 
 def big_text(duration, text = "") = BigText.new(time: Chart.current_time, channel: Channel.current, duration: duration, text: text)

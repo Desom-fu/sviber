@@ -1,6 +1,14 @@
 # PROMPT v13 implementation
 
-This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released as `0.4.1`.
+This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.2`.
+
+## v0.4.2 long-session, pen-drag, and helper fixes
+
+- `commit()` no longer `JSON.stringify`s the whole chart twice to detect no-ops. It snapshots before and after the mutation and uses structural `snapshotsEqual`, then records that after-snapshot. Selecting or deselecting after a long session no longer builds two giant JSON strings just to see if anything changed.
+- Event moves and free-transform completion use the same structural compare. Move-finish no longer re-imports the whole snapshot through `ChartModel.import()` only to read one `attached` flag.
+- The audio `play` listener still rebuilds the render index and hit schedule, but it now updates play-button/difficulty state and calls `refreshPlaybackFrame()` instead of a full `refresh()`. Inspector, snappees, channels, clips, and history panels are no longer rebuilt at the start of every playback.
+- Pen-tool handle drags reuse a captured static main-field layer and only redraw the curve draft overlay. Bezier/pen snappee polylines are cached on `ChartRenderIndex.snappeePaths` so ordinary frames do not resample them; a selected curve still resamples live while its handles are edited.
+- Macro helpers are now `bgNote(location, duration=0, text="")` / `bg_note(location, duration=0, text="")`. The extra `angle` argument is gone in JavaScript, Ruby, and both help-manual tables. A lone string in the duration position is still treated as text. Event file types remain `"bgNote"` / `:bg_note`.
 
 ## Follow-up regressions and long-session fixes
 
@@ -66,9 +74,9 @@ This release implements the additions in `PROMPT-v13.md` and the follow-up inter
 
 ## Verification
 
-- `npm test`: 170 tests passed.
+- `npm test`: 171 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
-- `npm run build`: generated `build/sviber-0.4.1.nw` and the NW.js desktop directory.
+- `npm run build`: generated `build/sviber-0.4.2.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
 - `ruby tests/ruby-macro-smoke.rb`: passed (including direction-bearing snappees, parametric expressions, rational timing, grouping, `b`/`b!`, and TipPoint checks).
 - `npm run verify:browser`: passed, including real JS/Ruby macro application, Ruby `hello world` console forwarding, 100k-event playback/editing benchmarks, interaction checks, and nonblank canvas summaries.

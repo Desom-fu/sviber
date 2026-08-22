@@ -29,6 +29,10 @@ export class StageViewCore {
 		this.backgroundSource = document.createElement("canvas");
 		this.backgroundPadded = document.createElement("canvas");
 		this.backgroundDirty = true;
+		this._staticLayer = document.createElement("canvas");
+		this._staticLayerValid = false;
+		this._staticHitRegions = [];
+		this._staticVisibleEvents = [];
 		this.particles = [];
 		this.particleAnimationFrame = 0;
 		this.renderAnimationFrame = 0;
@@ -62,6 +66,7 @@ export class StageViewCore {
 
 	setState(state, options = {}) {
 		this.state = state;
+		this._staticLayerValid = false;
 		const project = projectState(state);
 		this.renderIndex = state?.renderIndex || new ChartRenderIndex(project, timingFor(state), {
 			noteSpeed: state?.preferences?.noteSpeed,
@@ -128,7 +133,7 @@ export class StageViewCore {
 			this.renderAnimationFrame = 0;
 		}
 		if (!this.state || !this.surface.context) return;
-		if (this.surface.resize()) this.backgroundDirty = true;
+		if (this.surface.resize()) { this.backgroundDirty = true; this._staticLayerValid = false; }
 		this.surface.render((context, width, height) => this._draw(context, width, height));
 	}
 
@@ -225,6 +230,14 @@ export class StageViewCore {
 		const project = projectState(this.state);
 		const mapping = this._mapping(width, height);
 		const now = currentSeconds(this.state, this.timing);
+		const draft = this.callbacks.getCurveDraft?.();
+		if (this._canReuseStaticLayer(width, height, draft)) {
+			context.drawImage(this._staticLayer, 0, 0);
+			this.hitRegions = this._staticHitRegions.slice();
+			this.visibleEvents = this._staticVisibleEvents;
+			this._drawCurveDraft(context, mapping);
+			return;
+		}
 		this.hitRegions = [];
 		this.visibleEvents = [];
 		this._prepareBackground(width, height);
@@ -242,8 +255,23 @@ export class StageViewCore {
 		this._drawSelectionHandles(context, project, mapping);
 		this._drawFreeTransform(context, mapping);
 		this._drawCreationPreview(context, project, mapping);
+		if (draft) this._captureStaticLayer(context, width, height);
 		this._drawCurveDraft(context, mapping);
 		if (this.selectionBox) this._drawSelectionBox(context, this.selectionBox);
+	}
+	_canReuseStaticLayer(width, height, draft) {
+		return Boolean(draft) && this._staticLayerValid && this._staticLayer.width === width
+			&& this._staticLayer.height === height && !this.selectionBox && !this.creationPreview;
+	}
+	_captureStaticLayer(context, width, height) {
+		if (this._staticLayer.width !== width || this._staticLayer.height !== height) {
+			this._staticLayer.width = width;
+			this._staticLayer.height = height;
+		}
+		this._staticLayer.getContext("2d").drawImage(context.canvas, 0, 0);
+		this._staticHitRegions = this.hitRegions.slice();
+		this._staticVisibleEvents = this.visibleEvents;
+		this._staticLayerValid = true;
 	}
 
 	_drawBoundary(context, mapping) {
@@ -455,7 +483,7 @@ export class StageViewCore {
 				this._drawRadialMeshPath(context, snappee, mapping);
 			} else if (snappee.type === "bezierCurve" || snappee.type === "penCurve") {
 				let path;
-				try { path = sampleSnappeePath(snappee); } catch { path = points; }
+				try { path = (!snappee.selected && this.renderIndex?.snappeePaths?.get(snappee)) || sampleSnappeePath(snappee); } catch { path = points; }
 				context.beginPath();
 				path.forEach((value, index) => {
 					const point = mapping.toScreen(value);

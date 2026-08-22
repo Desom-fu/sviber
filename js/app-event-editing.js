@@ -1,7 +1,7 @@
 import { i18n } from "./i18n.js"; import { ChartModel, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js"; import { Rational } from "./core/rational.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
 import { MOVABLE_TYPES, DURATION_TYPES, deepClone, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, mutateSnappeeWithinBounds, constrainSnappeeTranslation, eventTypeLabel } from "./app-helpers.js";
-import { eventUsesChannel } from "./core/grouping.js"; import { withFreeTransform } from "./app-free-transform.js"; import { withViewControls } from "./app-view-controls.js";
+import { eventUsesChannel, findEvent } from "./core/grouping.js"; import { snapshotsEqual } from "./core/history.js"; import { withFreeTransform } from "./app-free-transform.js"; import { withViewControls } from "./app-view-controls.js";
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 function applyFlickAngles(model, id, angle, changes) {
 	for (const [eventId, nextAngle] of changes instanceof Map ? changes : [[id, angle]]) { const event = model.findEvent(eventId); if (event) event.angle = nextAngle; }
@@ -437,10 +437,9 @@ const withEventEditingBase = Base => class extends Base {
 	}
 	movePosition(primaryId, point) {
 		const base = this.previewBase || this.model.snapshot();
-		const before = JSON.stringify(base);
-		const primaryWasAttached = Boolean(ChartModel.import(base).findEvent(primaryId)?.attached);
+		const primaryWasAttached = Boolean(findEvent(base.events, primaryId)?.attached);
 		this.commit(i18n.t("history.moveEvents"), model => this._applyPositionMove(model, primaryId, point));
-		if (JSON.stringify(this.model.snapshot()) !== before) {
+		if (!snapshotsEqual(this.model.snapshot(), base)) {
 			const primaryIsAttached = Boolean(this.model.findEvent(primaryId)?.attached);
 			if (!primaryWasAttached && primaryIsAttached) this._captureStageMoveAttachmentException(primaryId);
 			else if (!this._canUseStageMoveAttachmentException(this.model)) this.stageMoveAttachmentException = null;
@@ -809,7 +808,7 @@ const withEventEditingBase = Base => class extends Base {
 	}
 	finishFreeTransform() {
 		if (!this.freeTransform) return false;
-		const changed = JSON.stringify(this.freeTransform.base) !== JSON.stringify(this.model.snapshot());
+		const changed = !snapshotsEqual(this.freeTransform.base, this.model.snapshot());
 		this.freeTransform = null;
 		if (changed) {
 			this.history.record(this.model.snapshot(), i18n.t("history.transform"));

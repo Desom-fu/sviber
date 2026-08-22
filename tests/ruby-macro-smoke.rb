@@ -92,4 +92,15 @@ begin
   raise "deleted channel remained usable"
 rescue RuntimeError
 end
+ink = bg_note(Location.new(1, 2), 1, "hello")
+raise "bg_note text" unless ink.text == "hello"
+raise "bg_note kept angle" if ink.send(:record).key?("angle")
+begin
+  ink.angle
+  raise "bg_note helper still exposes angle"
+rescue RuntimeError
+end
+caption = bg_note(Location.new(3, 4), "caption")
+raise "bg_note text-only" unless caption.text == "caption"
+
 STDERR.puts "ruby macro smoke ok"
