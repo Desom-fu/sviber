@@ -746,7 +746,8 @@ export class SviberAppCore {
 		});
 		const finish = () => {
 			this.playbackScheduleInvalidated = false;
-			(this.stage.clearHitEffects || this.stage.cancelScheduledHits)?.();
+			if (typeof this.stage.clearHitEffects === "function") this.stage.clearHitEffects();
+			else this.stage.cancelScheduledHits();
 			if (this.resumePlaybackAfterSeek) {
 				this.model.editor.timeSnapped = false;
 				this.model.editor.currentTime = this.audio.currentTime;
