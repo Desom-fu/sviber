@@ -88,6 +88,23 @@ export async function runInteractionChecks(page, outputDirectory) {
 	assert.ok(Math.hypot(stageDeltas[0].x, stageDeltas[0].y) > 1, "stage drag did not move the selection");
 	assert.ok(stageDeltas.every(delta => Math.abs(delta.x - stageDeltas[0].x) < 1e-8
 		&& Math.abs(delta.y - stageDeltas[0].y) < 1e-8), "stage drag did not preserve multi-selection spacing");
+	const stageCanvas = page.locator("#stage-surface canvas");
+	const panCanvasBox = await stageCanvas.boundingBox();
+	assert.ok(panCanvasBox, "stage canvas has no bounding box for viewport-pan verification");
+	await page.evaluate(() => globalThis.sviber.resetMainFieldView());
+	const panStart = { x: panCanvasBox.x + panCanvasBox.width / 2, y: panCanvasBox.y + panCanvasBox.height / 2 };
+	await page.keyboard.down("Control");
+	await page.keyboard.down("Space");
+	await page.mouse.move(panStart.x, panStart.y);
+	await page.mouse.down();
+	await page.mouse.move(panStart.x + 80, panStart.y + 40, { steps: 4 });
+	await page.keyboard.up("Control");
+	await page.mouse.up();
+	await page.keyboard.up("Space");
+	await page.waitForFunction(() => Math.hypot(
+		globalThis.sviber.model.editor.mainFieldPanX,
+		globalThis.sviber.model.editor.mainFieldPanY,
+	) > 1);
 
 	const timelineMovePoint = await canvasPoint("timeline", "eventCenters");
 	assert.ok(timelineMovePoint, "selected timeline event was not rendered for drag verification");

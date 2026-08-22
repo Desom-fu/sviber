@@ -1,6 +1,11 @@
 # PROMPT v13 implementation
 
-This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.5`.
+This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.6`.
+
+## v0.4.6 robust Ctrl+Space canvas pan release
+
+- Main-field viewport pans now capture the active pointer and release it explicitly when the gesture ends, so the drag remains valid when Ctrl or Space is released in either order or when the pointer leaves the canvas.
+- A browser `pointercancel` during a viewport pan keeps the most recent preview position instead of applying the cancellation event's stale coordinates. The pointer-release order is covered by the stage interaction regression test.
 
 ## v0.4.5 inspector visibility and channel names
 
@@ -94,9 +99,9 @@ This release implements the additions in `PROMPT-v13.md` and the follow-up inter
 
 ## Verification
 
-- `npm test`: 177 tests passed.
+- `npm test`: 178 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
-- `npm run build`: generated `build/sviber-0.4.5.nw` and the NW.js desktop directory.
+- `npm run build`: generated `build/sviber-0.4.6.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
 - `ruby tests/ruby-macro-smoke.rb`: passed (including direction-bearing snappees, parametric expressions, rational timing, grouping, `b`/`b!`, and TipPoint checks).
 - `npm run verify:browser`: passed, including real JS/Ruby macro application, Ruby `hello world` console forwarding, 100k-event playback/editing benchmarks, interaction checks, and nonblank canvas summaries.

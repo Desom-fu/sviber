@@ -208,6 +208,7 @@ export const withStageInteractions = Base => class extends Base {
 	_pointerDown(event) {
 		if (event.button !== 0) return;
 		event.preventDefault();
+		try { this.surface.canvas.setPointerCapture?.(event.pointerId); } catch { /* Pointer capture is optional. */ }
 		const point = this.surface.toLocal(event);
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
@@ -554,8 +555,10 @@ export const withStageInteractions = Base => class extends Base {
 		if (drag.type === "progress") {
 			this.callbacks.onProgressSeek?.(this._progressPayload(drag, point.x, true));
 		} else if (drag.type === "viewport-pan") {
-			this.callbacks.onMainFieldPan?.(drag.panX + (point.x - drag.start.x) / drag.scale,
-				drag.panY + (point.y - drag.start.y) / drag.scale);
+			if (event.type !== "pointercancel") {
+				this.callbacks.onMainFieldPan?.(drag.panX + (point.x - drag.start.x) / drag.scale,
+					drag.panY + (point.y - drag.start.y) / drag.scale);
+			}
 		} else if (drag.type === "free-anchor") {
 			const descriptor = this.callbacks.getFreeTransform?.();
 			const candidates = [];

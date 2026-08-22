@@ -49,6 +49,7 @@ export class StageViewCore {
 		this.boundUp = event => {
 			this._flushPointerMove();
 			this._pointerUp(event);
+			try { this.surface.canvas.releasePointerCapture?.(event.pointerId); } catch { /* Pointer capture may already be gone. */ }
 		};
 		this.surface.ready.then(() => {
 			this.surface.canvas.addEventListener("pointerdown", event => this._pointerDown(event));

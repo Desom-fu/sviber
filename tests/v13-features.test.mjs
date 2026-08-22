@@ -336,3 +336,13 @@ test("v0.4.5 actually hides inapplicable tip-point inspector rows", async () => 
 	assert.match(manual, /channel dropdown lists channel names/);
 	assert.match(manual, /通道下拉菜单显示通道名称/);
 });
+
+test("v0.4.6 keeps main-field pan when pointer capture is cancelled", async () => {
+	const [core, interactions] = await Promise.all([
+		readFile(new URL("../js/render/stage-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/stage-interactions.js", import.meta.url), "utf8"),
+	]);
+	assert.match(core, /releasePointerCapture\?\.\(event\.pointerId\)/);
+	assert.match(interactions, /setPointerCapture\?\.\(event\.pointerId\)/);
+	assert.match(interactions, /event\.type !== "pointercancel"/);
+});
