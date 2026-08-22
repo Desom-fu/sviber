@@ -643,6 +643,8 @@ export class SnappeesPanel {
 
 	render(model, context = {}) {
 		const readOnly = Boolean(context.readOnly);
+		const scrollTop = Number(this.element.scrollTop) || 0;
+		const scrollLeft = Number(this.element.scrollLeft) || 0;
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clear(this.element);
@@ -651,6 +653,8 @@ export class SnappeesPanel {
 			empty.className = "empty-panel";
 			empty.textContent = this.i18n.t("panel.noSnappees");
 			this.element.append(empty);
+			this.element.scrollTop = scrollTop;
+			this.element.scrollLeft = scrollLeft;
 			return;
 		}
 		model.snappees.forEach((snappee, index) => {
@@ -683,6 +687,8 @@ export class SnappeesPanel {
 			this.cleanup.push(this.tooltip?.register(item, "panel.snappee.edit"));
 			this.element.append(item);
 		});
+		this.element.scrollTop = scrollTop;
+		this.element.scrollLeft = scrollLeft;
 	}
 }
 

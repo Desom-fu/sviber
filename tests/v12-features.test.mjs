@@ -15,6 +15,7 @@ import { withHistoryCommands } from "../js/app-history-commands.js";
 import { withStageInteractions } from "../js/render/stage-interactions.js";
 import { toggledCreationMode } from "../js/app-history-commands.js";
 import { eventClickSelectionMode } from "../js/render/selection.js";
+import { flickAngleChanges } from "../js/render/flick-angle.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../js/commands.js";
 import { HelpController } from "../js/help.js";
 import { I18n } from "../js/i18n.js";
@@ -107,6 +108,17 @@ test("v0.3.2 selection clicks toggle without changing modifier semantics", () =>
 	assert.equal(eventClickSelectionMode({ selected: true, ctrlKey: true }), "add");
 	assert.equal(eventClickSelectionMode({ selected: false, altKey: true }), "remove");
 	assert.equal(eventClickSelectionMode({ selected: true, altKey: true }), "remove");
+});
+
+test("selected Flick handles preserve angle differences during multi-selection rotation", () => {
+	const flicks = [{ id: 1, angle: 0.1 }, { id: 2, angle: 1.2 }, { id: 3, angle: -2.4 }];
+	const changes = flickAngleChanges(flicks, 1, 0.1 + Math.PI / 2);
+	assert.equal(changes.size, flicks.length);
+	assert.ok(Math.abs(changes.get(1) - (0.1 + Math.PI / 2)) < 1e-12);
+	assert.ok(Math.abs((changes.get(2) - changes.get(1)) - (flicks[1].angle - flicks[0].angle)) < 1e-12);
+	assert.ok(Math.abs((changes.get(3) - changes.get(1)) - (flicks[2].angle - flicks[0].angle)) < 1e-12);
+	const single = flickAngleChanges([{ id: 4, angle: 0.2 }], 4, 0.3);
+	assert.equal(single.get(4), 0);
 });
 
 test("v0.3.2 event tools toggle the active creation mode and groups keep shortcuts", async () => {

@@ -3,6 +3,9 @@ import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapP
 import { MOVABLE_TYPES, DURATION_TYPES, deepClone, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, mutateSnappeeWithinBounds, constrainSnappeeTranslation, eventTypeLabel } from "./app-helpers.js";
 import { eventUsesChannel } from "./core/grouping.js"; import { withFreeTransform } from "./app-free-transform.js"; import { withViewControls } from "./app-view-controls.js";
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
+function applyFlickAngles(model, id, angle, changes) {
+	for (const [eventId, nextAngle] of changes instanceof Map ? changes : [[id, angle]]) { const event = model.findEvent(eventId); if (event) event.angle = nextAngle; }
+}
 const withEventEditingBase = Base => class extends Base {
 	exitCreationModes() {
 		if (!this.creationMode && !this.curveDraft) return false;
@@ -80,13 +83,10 @@ const withEventEditingBase = Base => class extends Base {
 			onMovePosition: (id, point) => this.movePosition(id, point),
 			onPreviewGroupAnchor: (id, point) => this.previewGroupAnchor(id, point),
 			onMoveGroupAnchor: (id, point) => this.moveGroupAnchor(id, point),
-			onPreviewFlickAngle: (id, angle) => this.preview("Change flick direction", model => { const event = model.findEvent(id); if (event) event.angle = angle; }, { lightweight: true, incremental: true }),
-			onFlickAngle: (id, angle) => {
+			onPreviewFlickAngle: (id, angle, changes) => this.preview("Change flick direction", model => applyFlickAngles(model, id, angle, changes), { lightweight: true, incremental: true, rebuildIndex: false }),
+			onFlickAngle: (id, angle, changes) => {
 				this.lastFlickAngle = Number(angle);
-				this.commit(i18n.t("history.editEvent", { type: eventTypeLabel("flick") }), model => {
-					const event = model.findEvent(id);
-					if (event) event.angle = angle;
-				});
+				this.commit(i18n.t("history.editEvent", { type: eventTypeLabel("flick") }), model => applyFlickAngles(model, id, angle, changes));
 			},
 			onPreviewTipSpawn: (id, point) => this.previewTipSpawn(id, point),
 			onTipSpawn: (id, point) => this.setTipSpawn(id, point),
@@ -124,7 +124,7 @@ const withEventEditingBase = Base => class extends Base {
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false, allowPlaying: true, allowReadOnly: true, scheduleDirty: false });
+		}, { dirty: false, allowPlaying: true, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: false });
 	}
 	enterGroupSelection(id) {
 		const event = this.model.findEvent(id);
@@ -136,7 +136,7 @@ const withEventEditingBase = Base => class extends Base {
 		this.groupSelectionScope = nextGroup?.id ?? this.groupSelectionScope;
 		this.commit(i18n.t("history.selection"), model => {
 			for (const candidate of model.allEvents()) candidate.selected = candidate.id === target.id;
-		}, { dirty: false, allowReadOnly: true, scheduleDirty: false });
+		}, { dirty: false, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: true });
 		return true;
 	}
 	_reconcileStageMoveAttachmentException(selectionBefore) {
@@ -230,7 +230,7 @@ const withEventEditingBase = Base => class extends Base {
 		this.selectionPreview = null;
 		this._normalizeGroupSelectionScope();
 		if (changed) this.history.record(this.model.snapshot(), i18n.t("history.selection"));
-		this.refresh();
+		this._refreshLightweight({ selectionOnly: true, rebuildIndex: false });
 	}
 	cancelSelectionPreview() {
 		const preview = this.selectionPreview;
@@ -275,7 +275,7 @@ const withEventEditingBase = Base => class extends Base {
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false, allowReadOnly: true, scheduleDirty: false });
+		}, { dirty: false, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: false });
 	}
 	seekBeat(beat, channel = null, clearSelection = false, options = {}) {
 		if (this.audio.playing) this.audio.pause();

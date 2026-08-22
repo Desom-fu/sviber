@@ -547,7 +547,7 @@ export const withHistoryCommands = Base => class extends Base {
 		const subdivision = Math.max(1, Math.floor(value));
 		this.model.editor.subdivision = subdivision;
 		if (!this.audio.playing) this.model.editor.currentTime = this.currentBeat().snap(subdivision).toJSON();
-		this.refresh();
+		this.refreshInteractionPreview?.({ rebuildIndex: false });
 	}
 
 	setSpeed(value) {

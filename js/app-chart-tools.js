@@ -480,8 +480,10 @@ export const withChartTools = Base => class extends Base {
 			node.outgoing = outgoing;
 			node.incoming = { x: node.x * 2 - outgoing.x, y: node.y * 2 - outgoing.y };
 		}
-		if (record) this.recordCurveDraftAction();
-		this.refresh();
+		if (record) {
+			this.recordCurveDraftAction();
+			this.refresh();
+		} else this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
 	setPenNodeHandle(index, kind, point, record = false) {
@@ -489,8 +491,10 @@ export const withChartTools = Base => class extends Base {
 		const node = draft?.type === "penCurve" ? draft.penNodes?.[index] : null;
 		if (!node || !["incoming", "outgoing"].includes(kind)) return;
 		node[kind] = { x: Number(point.x), y: Number(point.y) };
-		if (record) this.recordCurveDraftAction();
-		this.refresh();
+		if (record) {
+			this.recordCurveDraftAction();
+			this.refresh();
+		} else this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
 	recordPenNode() {

@@ -1,6 +1,14 @@
 # PROMPT v13 implementation
 
-This release implements the additions in `PROMPT-v13.md` and bumps the application to `0.4.1`.
+This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released as `0.4.1`.
+
+## Follow-up regressions and long-session fixes
+
+- Selected Flick handles are now rendered for every individually selected Flick. Dragging one handle records the whole selected Flick set and applies a quantized common angle delta, preserving all relative angle differences; a single Flick keeps absolute `pi/4` snapping. The pure calculation lives in `js/render/flick-angle.js` and is covered by `tests/v12-features.test.mjs`.
+- Tip-point inspector controls now hide their complete property rows when the selected spawn mode, absolute/relative position mode, or seconds/beats unit makes them inapplicable. The row-level `hidden` behavior is retained in `js/panels.js` and checked by v13 tests and browser assertions.
+- Long-session playback startup is protected by a generation token. A delayed `AudioContext.resume()` cannot resurrect a stale play request after pause or replay, concurrent resumes share one Promise, and stale hit/metronome effects are ignored. `tests/audio-platform.test.mjs` covers the rapid play/pause/replay race.
+- Selection, subdivision changes, Flick previews, and Pen control-point previews use the existing render index and targeted canvas redraws instead of rebuilding all indexes and panels on every pointer move. Selection caches are synchronized incrementally through `ChartRenderIndex.syncSelection()`.
+- Snappees panel rerenders preserve both scroll offsets, so toggling, reordering, editing, or other actions no longer jump the panel to its top.
 
 ## v0.4.1 regression fixes
 
@@ -47,12 +55,12 @@ This release implements the additions in `PROMPT-v13.md` and bumps the applicati
 
 ## Verification
 
-- `npm test`: 165 tests passed.
+- `npm test`: 168 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
 - `npm run build`: generated `build/sviber-0.4.1.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
 - `ruby tests/ruby-macro-smoke.rb`: passed (Ruby API rational, group, `b`/`b!`, and TipPoint checks).
-- Final v12/v13 audit was rerun with `git diff --no-index --unified=0`: all 41 low-level diff hunks were reviewed and mapped to the logical areas below before the release tag was moved.
+- Final v11/v12 and v12/v13 audits were rerun with `git diff --no-index --unified=0`: all low-level hunks were reviewed line by line, including the previously omitted multi-selected Flick rotation and hidden tip-point inspector rows. Each changed requirement was mapped to implementation and regression/browser evidence before the release tag was moved.
 
 ## Final diff audit checklist
 

@@ -272,6 +272,47 @@ test("AudioPlayer preserves negative pre-roll and schedules the music source at 
 	}
 });
 
+test("AudioPlayer ignores stale async play operations after a rapid pause and replay", async () => {
+	const previousAudioContext = globalThis.AudioContext;
+	const previousRequest = globalThis.requestAnimationFrame;
+	const previousCancel = globalThis.cancelAnimationFrame;
+	let releaseResume;
+	let resumeCalls = 0;
+	class DelayedContext {
+		constructor() {
+			this.state = "suspended";
+			this.currentTime = 100000;
+			this.destination = {};
+		}
+		resume() {
+			resumeCalls += 1;
+			return new Promise(resolve => { releaseResume = () => { this.state = "running"; resolve(); }; });
+		}
+		createGain() { return { gain: { value: 1 }, connect() {}, disconnect() {} }; }
+	}
+	globalThis.AudioContext = DelayedContext;
+	globalThis.requestAnimationFrame = () => 1;
+	globalThis.cancelAnimationFrame = () => {};
+	try {
+		const player = new AudioPlayer();
+		const first = player.play();
+		const second = player.play();
+		player.pause();
+		releaseResume();
+		await Promise.all([first, second]);
+		assert.equal(resumeCalls, 1);
+		assert.equal(player.playing, false);
+		await player.play();
+		assert.equal(player.playing, true);
+		player.pause();
+	} finally {
+		if (previousAudioContext === undefined) delete globalThis.AudioContext;
+		else globalThis.AudioContext = previousAudioContext;
+		globalThis.requestAnimationFrame = previousRequest;
+		globalThis.cancelAnimationFrame = previousCancel;
+	}
+});
+
 test("AudioPlayer cancels only future hit sources while retaining active sources", async () => {
 	const sources = [];
 	const context = {

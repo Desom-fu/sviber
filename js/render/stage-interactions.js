@@ -1,6 +1,7 @@
 import { Rational } from "../core/rational.js";
 import { TimingMap } from "../core/timing.js";
 import { eventClickSelectionMode } from "./selection.js";
+import { flickAngleChanges } from "./flick-angle.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee, snapSnappeeTranslation } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { MOVABLE_TYPES, NOTE_TYPES, PATTERN_TYPES, DURATION_TYPES, TIP_POINT_SPAWN_TYPES, TIP_POINT_TRAIL_DURATION, TIP_POINT_ZOOM_DURATION, TIP_POINT_TRAIL_TAIL_DURATION, SUNNIESNOW_AUTOPLAY_GRADIENT, SUNNIESNOW_SKIN, sunniesnowNoteRadius, sunniesnowNoteTextColor, sunniesnowPlayfieldScale, isSnappeeVisible, sunniesnowTapDoubleLinePairs, circularArcDraftSpan, sunniesnowEventVisualState, sunniesnowPatternVisualState, sunniesnowDisplayedPattern, colorIntegerToCss, randomColor, projectState, timingFor, currentSeconds, tipPointSpawnTime, buildTipPointGuides, tipPointDirection, sampleTipPointPath, tipPointPathBetween, tipPointVisualState, directionBetween, adjacentDirection, tipPointTrailEdges, drawTipPointTrail, appendPolygonPath, polygonPath, selectedEvents, pointInPolygon } from "./stage-helpers.js";
@@ -306,7 +307,16 @@ export const withStageInteractions = Base => class extends Base {
 			this.drag = { type: "event", hit, start: point, startChart: hit.position,
 				collapseSelectionOnClick: selectionMode === "remove" };
 		} else if (hit?.type === "flick-handle") {
-			this.drag = { type: "flick", hit, start: point };
+			const selectedFlicks = [...(this.renderIndex?.stageSelectedEvents || selectedEvents(project))]
+				.filter(candidate => candidate?.selected && candidate.type === "flick");
+			const flicks = selectedFlicks.length ? selectedFlicks : [hit.event];
+			const primary = flicks.find(candidate => candidate.id === hit.event.id) || hit.event;
+			this.drag = {
+				type: "flick", hit, start: point, primaryId: primary.id,
+				flicks: flicks.map(candidate => ({ id: candidate.id, angle: Number(candidate.angle) || 0 })),
+				position: this.renderIndex?.positionFor(primary)
+					|| resolveAttachedPosition(primary, project.snappees) || primary,
+			};
 		} else if (hit?.type === "tip-handle") {
 			this.drag = { type: "tip", hit, start: point };
 		} else if (hit?.type === "snappee-handle") {
@@ -482,9 +492,11 @@ export const withStageInteractions = Base => class extends Base {
 					bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
 			this.callbacks.onPreviewGroupAnchor?.(this.drag.hit.event.id, snap || target);
 		} else if (this.drag.type === "flick") {
-			const position = resolveAttachedPosition(this.drag.hit.event, project.snappees) || this.drag.hit.event;
-			const angle = Math.round(Math.atan2(chart.y - position.y, chart.x - position.x) / (Math.PI / 4)) * Math.PI / 4;
-			this.callbacks.onPreviewFlickAngle?.(this.drag.hit.event.id, angle);
+			const position = this.drag.position;
+			const pointerAngle = Math.atan2(chart.y - position.y, chart.x - position.x);
+			const changes = flickAngleChanges(this.drag.flicks, this.drag.primaryId, pointerAngle);
+			const angle = changes.get(this.drag.primaryId);
+			this.callbacks.onPreviewFlickAngle?.(this.drag.primaryId, angle, changes);
 		} else if (this.drag.type === "tip") {
 			const settingsEvent = this.drag.hit.settingsEvent || this.drag.hit.event;
 			this.callbacks.onPreviewTipSpawn?.(settingsEvent.id, this._tipHandleEditPoint(this.drag.hit, chart, project));
@@ -587,9 +599,10 @@ export const withStageInteractions = Base => class extends Base {
 		} else if (drag.type === "group-anchor" && !this.pointerMoved && drag.hit.event.selected) {
 			this.callbacks.onSelectEvents?.([drag.hit.event.id], "remove");
 		} else if (drag.type === "flick") {
-			const position = resolveAttachedPosition(drag.hit.event, project.snappees) || drag.hit.event;
-			this.callbacks.onFlickAngle?.(drag.hit.event.id,
-				Math.round(Math.atan2(chart.y - position.y, chart.x - position.x) / (Math.PI / 4)) * Math.PI / 4);
+			const position = drag.position;
+			const pointerAngle = Math.atan2(chart.y - position.y, chart.x - position.x);
+			const changes = flickAngleChanges(drag.flicks, drag.primaryId, pointerAngle);
+			this.callbacks.onFlickAngle?.(drag.primaryId, changes.get(drag.primaryId), changes);
 		} else if (drag.type === "tip") {
 			const settingsEvent = drag.hit.settingsEvent || drag.hit.event;
 			this.callbacks.onTipSpawn?.(settingsEvent.id, this._tipHandleEditPoint(drag.hit, chart, project));

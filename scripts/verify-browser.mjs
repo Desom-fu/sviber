@@ -14,6 +14,7 @@ import { runPreferenceAndLicenseChecks } from "./verify-browser-preferences.mjs"
 import { measureLargeChartEditing, measureLargeChartPlayback, measureRealDrag } from "./browser-performance.mjs";
 import { runClipLayoutChecks } from "./verify-browser-clips.mjs";
 import { runKeyboardShortcutLayoutChecks } from "./verify-browser-shortcuts.mjs";
+import { runRegressionChecks } from "./verify-browser-regressions.mjs";
 
 const scriptDirectory = path.dirname(fileURLToPath(import.meta.url));
 const projectDirectory = path.resolve(scriptDirectory, "..");
@@ -411,8 +412,8 @@ try {
 	await page.keyboard.up("Control");
 	await page.waitForFunction(previous => globalThis.sviber.model.editor.mainFieldZoom > previous, timelineGestureBefore.zoom);
 	assert.equal(await page.evaluate(() => { const editor = globalThis.sviber.model.editor; return editor.visibleRangeEnd - editor.visibleRangeBeginning; }), timelineGestureBefore.span, "timeline Ctrl+Shift+wheel changed its visible range");
-	const bpmButton = page.locator('#tool-bar [data-command="events.bpmChange"]');
-	assert.equal(await bpmButton.evaluate(button => button.previousElementSibling?.getAttribute("role")), "separator");
+	await runRegressionChecks(page);
+	await page.locator("#inspector-tab").click();
 	await page.evaluate(() => { globalThis.sviber.model.editor.mainFieldPanX = 12; globalThis.sviber.refreshNow(); });
 	const resetView = page.locator("#reset-main-field-view");
 	assert.equal(await resetView.isHidden(), false);

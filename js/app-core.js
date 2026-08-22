@@ -285,7 +285,7 @@ export class SviberAppCore {
 		this._normalizeGroupSelectionScope();
 		if (JSON.stringify(this.model.snapshot()) === before) {
 			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
-			this.refresh();
+			if (options.lightweight) this._refreshLightweight(options); else this.refresh();
 			return result;
 		}
 		this._reconcileStageMoveAttachmentException(selectionBefore);
@@ -293,7 +293,7 @@ export class SviberAppCore {
 		if (options.dirty !== false) this.updateDirty();
 		if (options.scheduleDirty !== false || previewScheduleDirty) this._invalidatePlaybackSchedule();
 		this.broadcastLiveChartUpdate?.();
-		this.refresh();
+		if (options.lightweight) this._refreshLightweight(options); else this.refresh();
 		return result;
 	}
 	_invalidatePlaybackSchedule() {
@@ -441,7 +441,7 @@ export class SviberAppCore {
 		this.previewScheduleDirty ||= Boolean(options.scheduleDirty); if (!options.incremental) this.model.restore(this.previewBase);
 		mutation(this.model);
 		if (options.scheduleDirty) this._invalidatePlaybackSchedule();
-		if (options.lightweight) this.refreshInteractionPreview();
+		if (options.lightweight) this.refreshInteractionPreview({ rebuildIndex: options.rebuildIndex !== false });
 		else this.refresh();
 	}
 	cancelPreview() {

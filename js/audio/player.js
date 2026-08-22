@@ -51,6 +51,8 @@ export class AudioPlayer extends EventTarget {
 		this.hitSources = new Set();
 		this.hitBuffers = new Map();
 		this.lastEffectBeat = -Infinity;
+		this.playbackGeneration = 0;
+		this.contextResumePromise = null;
 	}
 
 	get duration() {
@@ -92,7 +94,12 @@ export class AudioPlayer extends EventTarget {
 			this.seGain.gain.value = this.seVolume;
 			this.seGain.connect(this.context.destination);
 		}
-		if (this.context.state === "suspended") await this.context.resume();
+		if (this.context.state === "suspended") {
+			this.contextResumePromise ||= Promise.resolve(this.context.resume()).finally(() => {
+				this.contextResumePromise = null;
+			});
+			await this.contextResumePromise;
+		}
 		return this.context;
 	}
 
@@ -127,6 +134,7 @@ export class AudioPlayer extends EventTarget {
 	}
 
 	setRate(rate) {
+		this.playbackGeneration += 1;
 		const nextRate = Math.max(0.1, Math.min(4, Number(rate) || 1));
 		const wasPlaying = this.playing;
 		const time = this.currentTime;
@@ -149,6 +157,7 @@ export class AudioPlayer extends EventTarget {
 	}
 
 	setLoopRange(range) {
+		this.playbackGeneration += 1;
 		const values = Array.isArray(range) ? range.map(Number) : [];
 		const next = values.length === 2 && values.every(Number.isFinite) && values[1] > values[0]
 			? [values[0], values[1]] : null;
@@ -163,6 +172,7 @@ export class AudioPlayer extends EventTarget {
 	}
 
 	seek(seconds) {
+		this.playbackGeneration += 1;
 		const provided = Number(seconds);
 		const nextTime = Math.min(this.duration, Number.isFinite(provided) ? provided : 0);
 		const wasPlaying = this.playing;
@@ -177,7 +187,9 @@ export class AudioPlayer extends EventTarget {
 	async #playDirection(direction) {
 		const nextDirection = direction < 0 ? -1 : 1;
 		if (this.playing && this.direction === nextDirection) return;
-		await this.ensureContext();
+		const generation = ++this.playbackGeneration;
+		const context = await this.ensureContext();
+		if (!context || generation !== this.playbackGeneration) return;
 		const wasPlaying = this.playing;
 		if (wasPlaying) {
 			this.position = this.currentTime;
@@ -207,6 +219,7 @@ export class AudioPlayer extends EventTarget {
 	}
 
 	pause() {
+		this.playbackGeneration += 1;
 		if (!this.playing) {
 			this.#stopHitSources();
 			return;
@@ -313,8 +326,9 @@ export class AudioPlayer extends EventTarget {
 
 	async playHit(type = "tap", delay = 0) {
 		if (!HIT_SOUND_TYPES.has(type)) return null;
+		const generation = this.playbackGeneration;
 		const context = await this.ensureContext();
-		if (!context) return null;
+		if (!context || generation !== this.playbackGeneration) return null;
 		const time = context.currentTime + Math.max(0, Number(delay) || 0);
 		const sampleType = type === "hold" ? "tap" : type;
 		if (!this.hitBuffers.has(sampleType)) {
@@ -340,8 +354,9 @@ export class AudioPlayer extends EventTarget {
 	}
 
 	async playMetronome(delay = 0) {
+		const generation = this.playbackGeneration;
 		const context = await this.ensureContext();
-		if (!context?.createOscillator || !context?.createGain) return null;
+		if (!context || generation !== this.playbackGeneration || !context.createOscillator || !context.createGain) return null;
 		const time = context.currentTime + Math.max(0, Number(delay) || 0);
 		const source = context.createOscillator();
 		const gain = context.createGain();
@@ -364,14 +379,17 @@ export class AudioPlayer extends EventTarget {
 	}
 
 	cancelHitSounds() {
+		this.playbackGeneration += 1;
 		this.#stopHitSources();
 	}
 
 	cancelScheduledHitSounds() {
+		this.playbackGeneration += 1;
 		this.#stopHitSources(true);
 	}
 
 	destroy() {
+		this.playbackGeneration += 1;
 		this.pause();
 		this.#stopHitSources();
 		if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);

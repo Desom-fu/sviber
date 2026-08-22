@@ -289,6 +289,15 @@ export class ChartRenderIndex {
 		}
 	}
 
+	syncSelection() {
+		this.selectedRecords = this.eventRecords.filter(record => this.isEventSelected(record.event));
+		this.selectedEvents = this.selectedRecords.map(record => record.event);
+		this.selectedEventIds = new Set(this.selectedEvents.map(event => event.id));
+		this.stageSelectedEvents = new Set(this.activeEventRecords
+			.filter(record => this.isEventSelected(record.event) && record.event.type !== "comment")
+			.map(record => record.event));
+	}
+
 	positionFor(event) {
 		return this.eventRecordMap.get(event)?.position || resolveAttachedPosition(event, this.project.snappees);
 	}

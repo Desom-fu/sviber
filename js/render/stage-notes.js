@@ -298,12 +298,11 @@ export const withStageNotes = Base => class extends Base {
 		if (this.callbacks.getFreeTransform?.()) return;
 		const selected = [...(this.renderIndex?.stageSelectedEvents || selectedEvents(project))]
 			.filter(event => MOVABLE_TYPES.has(event.type));
-		if (selected.length !== 1) return;
-		const event = selected[0];
-		const position = this.renderIndex?.positionFor(event)
-			|| resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
-		const screen = mapping.toScreen(position);
-		if (event.type === "flick") {
+		const selectedFlicks = selected.filter(event => event.selected && event.type === "flick");
+		for (const event of selectedFlicks) {
+			const position = this.renderIndex?.positionFor(event)
+				|| resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
+			const screen = mapping.toScreen(position);
 			const angle = Number(event.angle) || 0;
 			const visibility = this._noteVisibility(event, currentSeconds(this.state, this.timing));
 			const pulse = visibility && visibility.phase !== "fadingOut"
@@ -314,6 +313,12 @@ export const withStageNotes = Base => class extends Base {
 			this._drawDiamond(context, handle.x, handle.y, 6);
 			this.hitRegions.push({ type: "flick-handle", event, x: handle.x - 10, y: handle.y - 10, width: 20, height: 20 });
 		}
+		if (selected.length !== 1) return;
+		const event = selected[0];
+		if (!event.selected) return;
+		const position = this.renderIndex?.positionFor(event)
+			|| resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };
+		const screen = mapping.toScreen(position);
 		const tipGuide = NOTE_TYPES.has(event.type)
 			? (this.renderIndex?.tipGuides || buildTipPointGuides(project, this.timing)).find(guide => guide.events[0] === event
 				&& (guide.mode === "drop" || guide.spawnSettings === event))

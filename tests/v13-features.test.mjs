@@ -37,6 +37,20 @@ test("v13 commands expose bar line and time dilation", () => {
 	assert.ok(transform.items.some(item => item.command === "transform.timeDilation"));
 });
 
+test("v13 inspector hides inactive tip-point input rows and preserves panel scroll", async () => {
+	const panels = await readFile(new URL("../js/panels.js", import.meta.url), "utf8");
+	assert.match(panels, /if \(control\?\.dataset\?\.hidden === "true"\) row\.hidden = true/);
+	assert.match(panels, /setControlHidden\(distanceControl, !spawnFieldsEnabled \|\| absolute !== false\)/);
+	assert.match(panels, /setControlHidden\(absoluteWrapper, !spawnFieldsEnabled \|\| absolute !== true \|\| attached === true\)/);
+	assert.match(panels, /setControlHidden\(secondsControl, !spawnFieldsEnabled \|\| timeInBeats !== false\)/);
+	assert.match(panels, /setControlHidden\(beatsControl, !spawnFieldsEnabled \|\| timeInBeats !== true\)/);
+	const snappeeStart = panels.indexOf("export class SnappeesPanel");
+	const channelsStart = panels.indexOf("export class ChannelsPanel");
+	const snappees = panels.slice(snappeeStart, channelsStart);
+	assert.match(snappees, /const scrollTop = Number\(this\.element\.scrollTop\)/);
+	assert.match(snappees, /this\.element\.scrollTop = scrollTop/);
+});
+
 test("v13 build/package metadata is shared through JSON and Nix", async () => {
 	const [fonts, build, defaultNix, flake] = await Promise.all([
 		readFile(new URL("../json/font-assets.json", import.meta.url), "utf8"),

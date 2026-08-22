@@ -1,16 +1,30 @@
 import { resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
 
 export const withFreeTransform = Base => class extends Base {
+	_refreshLightweight(options = {}) {
+		if (options.selectionOnly) this.renderIndex?.syncSelection?.();
+		this.refreshInteractionPreview?.({ rebuildIndex: options.rebuildIndex !== false });
+		this.inspectorPanel?.render(this.model, { transform: this.freeTransform?.matrix || null });
+		this.historyPanel?.render(this.history, { readOnly: this.model.editor.readOnly });
+		this._syncCheckedCommands?.();
+		document.title = `${this.dirty ? "* " : ""}${this.model.metadata.title} ${this.model.metadata.difficultyName} - sviber`;
+	}
 	refreshInteractionPreview(options = {}) {
 		if (typeof this._rebuildRenderIndex !== "function" || !this.timeline) return this.refresh?.();
-		if (options.rebuildIndex !== false) this._rebuildRenderIndex();
-		const view = this.viewState();
-		this.timeline.setState(view, { render: false });
-		this.stage.setState(view, { render: false });
-		this.scrollView?.setState(view, { render: false });
-		this.timeline.requestRender();
-		this.stage.requestRender();
-		this.scrollView?.requestRender();
+		const rebuildIndex = options.rebuildIndex !== false;
+		if (rebuildIndex) {
+			this._rebuildRenderIndex();
+			const view = this.viewState();
+			this.timeline.setState(view, { render: false });
+			this.stage.setState(view, { render: false });
+			this.scrollView?.setState(view, { render: false });
+		}
+		if (options.stageOnly) this.stage.requestRender();
+		else {
+			this.timeline.requestRender();
+			this.stage.requestRender();
+			this.scrollView?.requestRender();
+		}
 		this.requestStatusUpdate();
 	}
 	startFreeTransform() {
