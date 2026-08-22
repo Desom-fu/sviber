@@ -1573,7 +1573,7 @@ put it in the independent channel.
 Put other events connected by tip points in the main channel and the normal channels
 as possible so that their tip points do not interfere with each other.
 If such is impossible (i.e., at some time,
-there are four tip points with more than one connected events),
+there are more than four tip points with more than one connected events),
 put events in a tip point chain in a no-tip-point channel, thus giving up on this tip point chain.
 Arrange the channel assignment so that there are as few events having to be put in no-tip-point channels as possible.
 When choosing Lyrica tip point spawn types, never choose those involving randomness,

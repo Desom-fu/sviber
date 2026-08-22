@@ -20,7 +20,7 @@ This release implements every added or changed hunk in `PROMPT-v14.md` relative 
 | Lyrica import dialog: Charter, PRNG seed, Quantization denominator | `requestLyricaImportOptions()` | i18n + help |
 | Every Lyrica channel → one sviber channel; disabled → inactive | `importLyricaChart()` | Import unit test |
 | Spawn absolute iff determined by a main-channel event position; beats iff determined by an event time | `evaluateLyricaSpawn()` flags + `spawnFields()` | Spawn unit test |
-| Export: sole-event chains → independent; pack multi-event onto main+normal; dump a whole chain to no-tip-point if four multi-event tip points coincide, minimizing dump | `assignLyricaExportChannels()` + `exportLyricaChart()` | Export unit test |
+| Export: sole-event chains → independent; pack multi-event onto main+normal; dump a whole chain to no-tip-point if **more than four** multi-event tip points coincide, minimizing dump | `assignLyricaExportChannels()` (four slots: main + three normal) + `exportLyricaChart()` | Export unit test: four overlapping chains stay packed; a fifth dumps |
 | Never pick random Lyrica spawn types; closest spawn position; ignore spawn time | `chooseClosestNonRandomSpawn()` / `deterministicSpawnCandidates()` | Export test forbids `b` 2/3/4 |
 | `bar-line.svg` on Bar line | Command icon + `svg/icons/bar-line.svg` | Command test |
 | Move to channel above/below live only under Channel (with separators), not Events | `MENU_DEFINITION` | Command test |
@@ -49,9 +49,13 @@ This release implements every added or changed hunk in `PROMPT-v14.md` relative 
 ## Verification
 
 - `node scripts/check-source-size.mjs`: passed.
-- `node --test tests/*.test.mjs`: 191 passed, twice (same assertions).
+- `node --test tests/*.test.mjs`: 191 passed after the dump-threshold wording update (same 191 as the earlier full-suite runs).
 - Browser harness extended in `scripts/verify-browser-v14.mjs` for Rulers, HUD pause, toolbar Channel items, and channel-offset helper.
 
-## Prompt typos left unchanged
+## Second prompt-diff audit
 
-`clarificastion`, `Remoeve`, `trangle`, `tranlating` are not behavior changes.
+Re-read `git diff --no-index PROMPT-v13.md PROMPT-v14.md` after the working-copy wording change (`e2562af` → `9b4cbeb`: dump when **more than four** multi-event tip points coincide). Every added or changed hunk still maps to shipped code; no extra convert/placeholder path was added.
+
+The only prompt delta since the first v0.5.0 commit is that dump threshold. `LYRICA_MULTI_TIP_CHANNELS` already has four slots (`-60`, `-40`, `-20`, `0`); `assignLyricaExportChannels()` ranks multi-event chains by length descending so the shortest leftover chain is dumped. Four overlapping chains dump nothing; a fifth overlapping chain dumps one chain.
+
+Prompt typos left unchanged: `clarificastion`, `Remoeve`, `trangle`, `tranlating`. They are not behavior changes.

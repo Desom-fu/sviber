@@ -124,6 +124,14 @@ test("Lyrica export puts sole tip points on independent and dumps overlapping mu
 	assert.ok(parsed.events.every(event => ![2, 3, 4].includes(event.b)), "export never picks random spawn types");
 	const chosen = chooseClosestNonRandomSpawn({ x: 0, y: 0 }, { x: 0, y: -100 }, null, -60);
 	assert.equal(chosen.b, 20);
+	const four = assignLyricaExportChannels([
+		{ events: [1, 2], start: 0, end: 2 },
+		{ events: [3, 4], start: 0, end: 2 },
+		{ events: [5, 6], start: 0, end: 2 },
+		{ events: [7, 8], start: 0, end: 2 },
+	]);
+	assert.equal(four.assigned.length, 4);
+	assert.equal(four.dumped.length, 0);
 	const packed = assignLyricaExportChannels([
 		{ events: [1, 2], start: 0, end: 2 },
 		{ events: [3, 4], start: 0, end: 2 },
@@ -219,7 +227,9 @@ test("v14 help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0
 	assert.match(en, /Export Lyrica chart/);
 	assert.match(zh, /阳春白雪/);
 	assert.match(help, /Export Lyrica/);
+	assert.match(help, /more than four multi-event tip points/);
 	assert.match(help, /阳春白雪/);
+	assert.match(help, /超过四条多事件游标/);
 	assert.match(help, /Rulers/);
 	assert.match(help, /pause button/);
 	assert.match(help, /<kbd>0<\/kbd>/);
