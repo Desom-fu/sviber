@@ -2981,7 +2981,7 @@ but they should be able to be called at top level of a macro script):
 - `h(location, duration, text="")`: equivalent to `Hold::new(...)`.
 - `d(location)`: equivalent to `Drag::new(...)`.
 - `f(location, angle, text="")`: equivalent to `Flick::new(...)`.
-- `bg_note(location, angle, duration=0, text="")`: equivalent to `BgNote::new(...)`.
+- `bg_note(location, duration=0, text="")`: equivalent to `BgNote::new(...)`.
   When only one of `duration` and `text` is omitted, determine which one is omitted by inspecting the data type.
 - `big_text(duration, text="")`: equivalent to `BigText::new(...)`.
 - `grid(duration)`, `diamond_grid(duration)`, `hexagon(duration)`, ...
