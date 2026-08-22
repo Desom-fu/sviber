@@ -1,4 +1,4 @@
-import { i18n } from "./i18n.js"; import { CommandRegistry } from "./commands.js"; import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js"; import { ChartModel } from "./core/chart-model.js";
+import { i18n } from "./i18n.js"; import { CommandRegistry, isEditableTarget } from "./commands.js"; import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js"; import { ChartModel } from "./core/chart-model.js";
 import { uniqueChartFilename } from "./core/project.js"; import { History } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
 import { AudioPlayer } from "./audio/player.js";
 import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule, collectIndexedHoldReleaseSchedule, collectReverseHitSchedule, collectIndexedReverseHitSchedule, collectMetronomeSchedule } from "./audio/scheduler.js";
@@ -97,6 +97,7 @@ export class SviberAppCore {
 				const matrix = [...this.freeTransform.matrix];
 				matrix[index] = value;
 				this.previewFreeTransform(matrix);
+				return this.freeTransform?.matrix?.[index];
 			},
 		});
 		this.snappeesPanel = new SnappeesPanel({
@@ -873,6 +874,7 @@ export class SviberAppCore {
 					this.refresh();
 				}
 			} else if (event.key === "Enter" && this.freeTransform && !this.dialogs.active) {
+				if (isEditableTarget(event.target)) return;
 				event.preventDefault();
 				this.finishFreeTransform();
 			} else if (event.key === "Enter" && this.curveDraft && !this.dialogs.active) {

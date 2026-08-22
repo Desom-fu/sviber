@@ -296,3 +296,19 @@ test("v0.4.3 snaps dragged pen handles and orients snappee previews like the sta
 	assert.match(panels, /syncFlags\(model, context = \{\}\)/);
 	assert.match(panels, /dataset\.historyId/);
 });
+
+test("v0.4.4 clamps free-transform translate/scale and keeps inspector Enter from finishing", async () => {
+	const [core, transform, geometry, panels, manual] = await Promise.all([
+		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-free-transform.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/core/geometry.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+	]);
+	assert.match(geometry, /export function clampAffineToChartBounds/);
+	assert.match(transform, /clampAffineToChartBounds\(this\._freeTransformAnchorPoints\(this\.model\)/);
+	assert.match(core, /isEditableTarget\(event\.target\)/);
+	assert.match(panels, /onTransformChange\(index, next\)/);
+	assert.match(manual, /submits that element/);
+	assert.match(manual, /只提交该矩阵元素/);
+});

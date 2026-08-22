@@ -1,6 +1,11 @@
 # PROMPT v13 implementation
 
-This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.3`.
+This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.4`.
+
+## v0.4.4 free-transform clamp and inspector Enter
+
+- Free-transform translation and axis-aligned scaling that would leave the chart now clamp to the boundary via `clampAffineToChartBounds()` instead of rejecting the preview. Translation clamps x/y independently; scale uses a closed-form parameter along the requested matrix so a constrained point lands on the edge. Rotation and shear that would leave the chart are still rejected.
+- `Enter` in an inspector matrix field submits that element (and writes back a clamped value when needed). Global `Enter` still finishes free transform only when the focused target is not an editable field.
 
 ## v0.4.3 pen-handle snapping, snappee preview orientation, and selection hitches
 
@@ -83,9 +88,9 @@ This release implements the additions in `PROMPT-v13.md` and the follow-up inter
 
 ## Verification
 
-- `npm test`: 174 tests passed.
+- `npm test`: 176 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
-- `npm run build`: generated `build/sviber-0.4.3.nw` and the NW.js desktop directory.
+- `npm run build`: generated `build/sviber-0.4.4.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
 - `ruby tests/ruby-macro-smoke.rb`: passed (including direction-bearing snappees, parametric expressions, rational timing, grouping, `b`/`b!`, and TipPoint checks).
 - `npm run verify:browser`: passed, including real JS/Ruby macro application, Ruby `hello world` console forwarding, 100k-event playback/editing benchmarks, interaction checks, and nonblank canvas summaries.

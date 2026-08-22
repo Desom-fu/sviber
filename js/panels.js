@@ -385,7 +385,10 @@ export class InspectorPanel {
 			wrapper.className = "matrix-input";
 			const keys = ["field.matrixA", "field.matrixB", "field.matrixC", "field.matrixD", "field.matrixTx", "field.matrixTy"];
 			context.transform.forEach((value, index) => {
-				const input = makeInput(document, "number", value, next => this.onTransformChange(index, next), { step: "any" });
+				const input = makeInput(document, "number", value, next => {
+					const applied = this.onTransformChange(index, next);
+					if (Number.isFinite(applied) && applied !== next) input.value = applied;
+				}, { step: "any" });
 				input.setAttribute("aria-label", this.i18n.t(keys[index]));
 				input.title = this.i18n.t(keys[index]);
 				wrapper.append(input);

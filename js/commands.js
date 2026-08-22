@@ -318,7 +318,7 @@ export function matchesShortcut(event, shortcut, {metaAsCtrl = false} = {}) {
 		&& meta === parsed.meta;
 }
 
-function isEditableTarget(target) {
+export function isEditableTarget(target) {
 	if (!target || typeof target.closest !== 'function') {
 		return false;
 	}

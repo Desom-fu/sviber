@@ -20,6 +20,7 @@ import {
 	CHART_BOUNDS,
 	SNAPPEE_TYPES,
 	applyTransform,
+	clampAffineToChartBounds,
 	clampPointToChartBounds,
 	findNearestSnapPoint,
 	isPointWithinChartBounds,
@@ -55,6 +56,21 @@ test("chart-boundary helpers use the editor's documented note area", () => {
 	assert.equal(isPointWithinChartBounds({ x: 100.001, y: 0 }), false);
 	assert.equal(isPointWithinChartBounds({ x: 0, y: -50.001 }), false);
 	assert.deepEqual(clampPointToChartBounds({ x: 125, y: -75 }), { x: 100, y: -50 });
+	const points = [{ x: 90, y: 0 }, { x: 80, y: 10 }];
+	const translated = clampAffineToChartBounds(points, [1, 0, 0, 1, 50, 0], [1, 0, 0, 1, 0, 0]);
+	assert.deepEqual(translated, [1, 0, 0, 1, 10, 0]);
+	const scaled = clampAffineToChartBounds(
+		[{ x: -10, y: -10 }, { x: 10, y: 10 }],
+		[20, 0, 0, 20, 0, 0],
+		[1, 0, 0, 1, 0, 0],
+	);
+	assert.ok(Math.abs(scaled[0] - 5) < 1e-12);
+	assert.ok(Math.abs(scaled[3] - 5) < 1e-12);
+	const scaledPoint = applyTransform({ x: 10, y: 10 }, scaled);
+	assert.ok(Math.abs(scaledPoint.x - 50) < 1e-12);
+	assert.ok(Math.abs(scaledPoint.y - 50) < 1e-12);
+	const rotated = clampAffineToChartBounds([{ x: 90, y: 0 }], [0, 1, -1, 0, 0, 0], [1, 0, 0, 1, 0, 0]);
+	assert.deepEqual(rotated, [0, 1, -1, 0, 0, 0]);
 });
 
 function assertClose(actual, expected, epsilon = 1e-10) {

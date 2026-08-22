@@ -82,6 +82,60 @@ export function invertTransform(transform) {
 	];
 }
 
+
+export function clampAffineToChartBounds(points, requested, previous = IDENTITY_TRANSFORM) {
+	const next = normalizeTransform(requested);
+	const from = normalizeTransform(previous);
+	if (!points.length || points.every(point => isPointWithinChartBounds(applyTransform(point, next)))) return [...next];
+	let delta;
+	try { delta = multiplyTransforms(next, invertTransform(from)); }
+	catch { return [...next]; }
+	const [a, b, c, d] = delta;
+	if (Math.abs(b) > 1e-9 || Math.abs(c) > 1e-9) return [...next];
+	if (Math.abs(a - 1) <= 1e-9 && Math.abs(d - 1) <= 1e-9) {
+		let minDx = -Infinity, maxDx = Infinity, minDy = -Infinity, maxDy = Infinity;
+		for (const point of points) {
+			const current = applyTransform(point, from);
+			minDx = Math.max(minDx, CHART_BOUNDS.minX - current.x);
+			maxDx = Math.min(maxDx, CHART_BOUNDS.maxX - current.x);
+			minDy = Math.max(minDy, CHART_BOUNDS.minY - current.y);
+			maxDy = Math.min(maxDy, CHART_BOUNDS.maxY - current.y);
+		}
+		return multiplyTransforms([
+			1, 0, 0, 1,
+			Math.max(minDx, Math.min(maxDx, Number(delta[4]))),
+			Math.max(minDy, Math.min(maxDy, Number(delta[5]))),
+		], from);
+	}
+	if (!points.every(point => isPointWithinChartBounds(applyTransform(point, from)))) return [...from];
+	const limitT = (current, target, min, max) => {
+		const travel = target - current;
+		if (Math.abs(travel) <= EPSILON) return 1;
+		return Math.max((min - current) / travel, (max - current) / travel);
+	};
+	let tMax = 1;
+	for (const point of points) {
+		const current = applyTransform(point, from);
+		const target = applyTransform(point, next);
+		tMax = Math.min(tMax, limitT(current.x, target.x, CHART_BOUNDS.minX, CHART_BOUNDS.maxX));
+		tMax = Math.min(tMax, limitT(current.y, target.y, CHART_BOUNDS.minY, CHART_BOUNDS.maxY));
+	}
+	tMax = Math.max(0, Math.min(1, tMax));
+	const interpolate = t => from.map((value, index) => value + (next[index] - value) * t);
+	const matrix = interpolate(tMax);
+	if (points.every(point => isPointWithinChartBounds(applyTransform(point, matrix)))) return matrix;
+	let lo = 0, hi = tMax, best = [...from];
+	for (let step = 0; step < 32; step += 1) {
+		const mid = (lo + hi) / 2;
+		const candidate = interpolate(mid);
+		if (points.every(point => isPointWithinChartBounds(applyTransform(point, candidate)))) {
+			best = candidate;
+			lo = mid;
+		} else hi = mid;
+	}
+	return best;
+}
+
 export function transformAngle(angle, transform) {
 	const [a, b, c, d] = normalizeTransform(transform);
 	const radians = finiteNumber(angle, "angle");

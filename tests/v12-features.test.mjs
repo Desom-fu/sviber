@@ -427,3 +427,40 @@ test("selected groups can free-transform a line of events while ordinary degener
 	] });
 	assert.equal(app.startFreeTransform(), false);
 });
+
+test("free transform translate and scale clamp to the chart boundary", () => {
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	app.exitModes = () => {};
+	app.refresh = () => {};
+	app.refreshInteractionPreview = () => {};
+	app.model = ChartModel.createDefault({ events: [
+		{ id: 1, type: "tap", selected: true, channel: 0, time: [0, 0, 1], x: 90, y: 0 },
+		{ id: 2, type: "tap", selected: true, channel: 0, time: [0, 0, 1], x: 80, y: 10 },
+	] });
+	assert.equal(app.startFreeTransform(), true);
+	assert.equal(app.previewFreeTransform([1, 0, 0, 1, 50, 0]), true);
+	assert.equal(app.model.findEvent(1).x, 100);
+	assert.equal(app.model.findEvent(2).x, 90);
+	assert.deepEqual(app.freeTransform.matrix, [1, 0, 0, 1, 10, 0]);
+	app.cancelFreeTransform();
+	app.model = ChartModel.createDefault({ events: [
+		{ id: 1, type: "tap", selected: true, channel: 0, time: [0, 0, 1], x: -10, y: -10 },
+		{ id: 2, type: "tap", selected: true, channel: 0, time: [0, 0, 1], x: 10, y: 10 },
+	] });
+	assert.equal(app.startFreeTransform(), true);
+	assert.equal(app.previewFreeTransform([20, 0, 0, 20, 0, 0]), true);
+	assert.ok(Math.abs(app.model.findEvent(2).y - 50) < 1e-9);
+	assert.ok(Math.abs(app.model.findEvent(2).x - 50) < 1e-9);
+	assert.ok(Math.abs(app.freeTransform.matrix[0] - 5) < 1e-9);
+	assert.ok(Math.abs(app.freeTransform.matrix[3] - 5) < 1e-9);
+	app.cancelFreeTransform();
+	app.model = ChartModel.createDefault({ events: [
+		{ id: 1, type: "tap", selected: true, channel: 0, time: [0, 0, 1], x: 90, y: 10 },
+		{ id: 2, type: "tap", selected: true, channel: 0, time: [0, 0, 1], x: 70, y: -10 },
+	] });
+	assert.equal(app.startFreeTransform(), true);
+	assert.equal(app.previewFreeTransform([0, 1, -1, 0, 0, 0]), false);
+	assert.equal(app.model.findEvent(1).x, 90);
+	assert.equal(app.model.findEvent(1).y, 10);
+});

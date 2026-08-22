@@ -812,8 +812,8 @@ try {
 	assert.deepEqual(outOfBoundsBehavior.unboundedInspector, { x: 150, y: 70 });
 	assert.deepEqual(outOfBoundsBehavior.unboundedDrag, { x: 175, y: 80 });
 	assert.equal(outOfBoundsBehavior.boundedFreeStarted, true);
-	assert.equal(outOfBoundsBehavior.boundedFreeApplied, false);
-	assert.deepEqual(outOfBoundsBehavior.boundedFree, [{ x: 90, y: 40 }, { x: 95, y: 45 }]);
+	assert.equal(outOfBoundsBehavior.boundedFreeApplied, true);
+	assert.deepEqual(outOfBoundsBehavior.boundedFree, [{ x: 95, y: 45 }, { x: 100, y: 50 }]);
 	assert.equal(outOfBoundsBehavior.unboundedFreeStarted, true);
 	assert.equal(outOfBoundsBehavior.unboundedFreeApplied, true);
 	assert.deepEqual(outOfBoundsBehavior.unboundedFree, [{ x: 110, y: 60 }, { x: 115, y: 65 }]);

@@ -1,4 +1,4 @@
-import { resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
+import { clampAffineToChartBounds, resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
 import { snapshotsEqual, captureHistoryView } from "./core/history.js";
 
 export const withFreeTransform = Base => class extends Base {
@@ -17,6 +17,24 @@ export const withFreeTransform = Base => class extends Base {
 		if (!options.skipHistory) this.historyPanel?.render(this.history, { readOnly: this.model.editor.readOnly });
 		this._syncCheckedCommands?.();
 		document.title = `${this.dirty ? "* " : ""}${this.model.metadata.title} ${this.model.metadata.difficultyName} - sviber`;
+	}
+	previewFreeTransform(transform) {
+		if (!this.freeTransform || !Array.isArray(transform) || transform.length !== 6) return false;
+		const requested = transform.map(Number);
+		if (requested.some(value => !Number.isFinite(value))) return false;
+		const previousSnapshot = this.model.snapshot();
+		const previousMatrix = this.freeTransform.matrix;
+		this.model.restore(this.freeTransform.base);
+		const matrix = this.model.editor?.allowOutOfBound
+			? requested
+			: clampAffineToChartBounds(this._freeTransformAnchorPoints(this.model), requested, previousMatrix);
+		if (!this._applyTransformMutation(this.model, matrix)) {
+			this.model.restore(previousSnapshot);
+			return false;
+		}
+		this.freeTransform.matrix = matrix;
+		this.refreshInteractionPreview();
+		return true;
 	}
 	_finishCommit(label, mutation, options = {}, previewScheduleDirty = false) {
 		const viewOnly = Boolean(options.selectionOnly || options.viewOnly);

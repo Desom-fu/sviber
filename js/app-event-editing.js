@@ -795,20 +795,6 @@ const withEventEditingBase = Base => class extends Base {
 		}
 		return true;
 	}
-	previewFreeTransform(transform) {
-		if (!this.freeTransform || !Array.isArray(transform) || transform.length !== 6) return false;
-		const matrix = transform.map(Number);
-		if (matrix.some(value => !Number.isFinite(value))) return false;
-		const previous = this.model.snapshot();
-		this.model.restore(this.freeTransform.base);
-		if (!this._applyTransformMutation(this.model, matrix)) {
-			this.model.restore(previous);
-			return false;
-		}
-		this.freeTransform.matrix = matrix;
-		this.refreshInteractionPreview();
-		return true;
-	}
 	finishFreeTransform() {
 		if (!this.freeTransform) return false;
 		const changed = !snapshotsEqual(this.freeTransform.base, this.model.snapshot());
