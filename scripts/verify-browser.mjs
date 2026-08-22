@@ -935,7 +935,7 @@ try {
 	});
 	assert.equal(toolbarGeometry.switcher.right - toolbarGeometry.switcher.left, 0,
 		`the web chart selector occupies layout space: ${JSON.stringify(toolbarGeometry)}`);
-	assert.equal(toolbarGeometry.buttons.length, 35);
+	assert.equal(toolbarGeometry.buttons.length, 36);
 	assert.ok(toolbarGeometry.buttons.every(button => button.width > 0
 		&& button.left >= toolbarGeometry.toolbar.left - 1 && button.right <= toolbarGeometry.toolbar.right + 1),
 		`not every toolbar command is visible at 960px: ${JSON.stringify(toolbarGeometry)}`);
