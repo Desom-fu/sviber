@@ -391,7 +391,10 @@ export const withChartTools = Base => class extends Base {
 		const data = this.formToSnappee(type, values);
 		this.commit(source ? i18n.t("history.editSnappee") : i18n.t("history.createSnappee"), model => {
 			if (source) mutateSnappeeWithinBounds(model, id, snappee => { Object.assign(snappee, data); });
-			else model.addSnappee(type, data);
+			else {
+				const created = model.addSnappee(type, data);
+				for (const snappee of model.snappees) snappee.selected = snappee.id === created.id;
+			}
 		});
 	}
 

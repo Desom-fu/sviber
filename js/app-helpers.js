@@ -68,6 +68,22 @@ export function resolvePreferenceLanguage(language, systemLanguage = globalThis.
 	return String(systemLanguage || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
 }
 
+export function isScrollableDomTarget(target) {
+	if (!target || typeof target.closest !== "function") return false;
+	if (target.closest("textarea, select, [contenteditable='true']")) return true;
+	let element = target.nodeType === 1 ? target : target.parentElement;
+	while (element && element !== element.ownerDocument?.body && element !== element.ownerDocument?.documentElement) {
+		const style = element.ownerDocument?.defaultView?.getComputedStyle?.(element);
+		const overflowY = style?.overflowY || "";
+		const overflowX = style?.overflowX || "";
+		const scrollableY = (overflowY === "auto" || overflowY === "scroll") && element.scrollHeight > element.clientHeight + 1;
+		const scrollableX = (overflowX === "auto" || overflowX === "scroll") && element.scrollWidth > element.clientWidth + 1;
+		if (scrollableY || scrollableX) return true;
+		element = element.parentElement;
+	}
+	return false;
+}
+
 export function applyThemePreference(theme, root = globalThis.document?.documentElement) {
 	const normalized = preferenceChoice(theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme);
 	if (root) {
@@ -76,6 +92,8 @@ export function applyThemePreference(theme, root = globalThis.document?.document
 		const documentRef = root.ownerDocument || globalThis.document;
 		const systemDark = globalThis.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
 		const dark = normalized === "dark" || normalized === "system" && systemDark;
+		root.classList.toggle("theme-dark", dark);
+		root.classList.toggle("theme-light", !dark);
 		documentRef?.querySelector?.('meta[name="theme-color"]')
 			?.setAttribute("content", dark ? "#292c30" : "#eceeef");
 	}

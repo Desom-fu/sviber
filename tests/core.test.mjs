@@ -70,7 +70,11 @@ test("chart-boundary helpers use the editor's documented note area", () => {
 	assert.ok(Math.abs(scaledPoint.x - 50) < 1e-12);
 	assert.ok(Math.abs(scaledPoint.y - 50) < 1e-12);
 	const rotated = clampAffineToChartBounds([{ x: 90, y: 0 }], [0, 1, -1, 0, 0, 0], [1, 0, 0, 1, 0, 0]);
-	assert.deepEqual(rotated, [0, 1, -1, 0, 0, 0]);
+	const rotatedPoint = applyTransform({ x: 90, y: 0 }, rotated);
+	assert.ok(isPointWithinChartBounds(rotatedPoint));
+	assert.ok(Math.abs(rotatedPoint.x - 50) < 1e-6 || Math.abs(rotatedPoint.y - 50) < 1e-6
+		|| Math.abs(rotatedPoint.x + 100) < 1e-6 || Math.abs(rotatedPoint.y + 50) < 1e-6);
+	assert.notDeepEqual(rotated, [0, 1, -1, 0, 0, 0]);
 });
 
 function assertClose(actual, expected, epsilon = 1e-10) {

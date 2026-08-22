@@ -40,6 +40,7 @@ export class StageViewCore {
 		this.pendingPointerMove = null;
 		this.lastHudCombo = null;
 		this.hudComboAnimationStarted = null;
+		this.pointerScreen = null;
 		this.spaceHeld = false;
 		this.spaceKeyDown = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = true; };
 		this.spaceKeyUp = event => { if (event.code === "Space" || event.key === " ") this.spaceHeld = false; };
@@ -111,6 +112,15 @@ export class StageViewCore {
 	cancelScheduledHits() {
 		const now = performance.now();
 		this.particles = this.particles.filter(particle => particle.started <= now);
+		this.render();
+	}
+
+	clearHitEffects() {
+		this.particles = [];
+		if (this.particleAnimationFrame) {
+			cancelAnimationFrame(this.particleAnimationFrame);
+			this.particleAnimationFrame = 0;
+		}
 		this.render();
 	}
 
@@ -250,6 +260,8 @@ export class StageViewCore {
 		this._drawSnappees(context, project, mapping);
 		this._drawNotes(context, project, mapping, now);
 		this._drawGrouping?.(context, project, mapping, now);
+		this._drawSnappeeAttachRings?.(context, project, mapping, now);
+		this._drawRulers?.(context, width, height, project, mapping);
 		this._drawCreationEchoes(context, project, mapping, now);
 		this._drawTipPoints(context, project, mapping, now);
 		this._drawSelectedInvisible(context, project, mapping, now);

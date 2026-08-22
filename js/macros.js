@@ -1,6 +1,7 @@
 import { MESSAGES } from "./i18n.js";
 
 const GLOBAL_KEY = "sviber.macros";
+const LAST_LANGUAGE_KEY = "sviber.macroLanguage";
 const MONACO_VERSION = "0.52.2";
 const MONACO_CDN_BASE = `https://cdn.jsdelivr.net/npm/monaco-editor@${MONACO_VERSION}/min/vs`;
 function preferredLanguage() {
@@ -371,14 +372,23 @@ async function saveTab(tab) {
 	return true;
 }
 
+function lastMacroLanguage() {
+	try {
+		const stored = localStorage.getItem(LAST_LANGUAGE_KEY);
+		if (stored === "javascript" || stored === "ruby") return stored;
+	} catch { /* Ignore unavailable storage. */ }
+	return "ruby";
+}
+
 async function newMacro() {
 	const values = await showMacroForm({
 		titleKey: "form.newTitle", initialName: uniqueName("macro", activeList), includeScope: true,
-		includeLanguage: true,
+		scope: activeList, includeLanguage: true, language: lastMacroLanguage(),
 		validate: (name, type, language) => validateMacroName(name, macros[type], language),
 	});
 	if (!values) return;
 	const { name: clean, type, language } = values;
+	try { localStorage.setItem(LAST_LANGUAGE_KEY, language); } catch { /* Ignore unavailable storage. */ }
 	const filename = macroFilename(clean, language);
 	const content = language === "ruby"
 		? "# sviber macro\nputs \"hello\"\n"

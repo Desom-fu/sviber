@@ -3,6 +3,7 @@ import { eventTime } from "./core/grouping.js";
 import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js";
 import { ChartModel, DIFFICULTY_COLORS, EVENT_TYPES, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
+import { exportLyricaChart, importLyricaChart, isLyricaChartText } from "./core/lyrica.js";
 import { uniqueChartFilename } from "./core/project.js";
 import { History } from "./core/history.js";
 import { Rational } from "./core/rational.js";
@@ -341,8 +342,27 @@ export const withFileWorkflows = Base => class extends Base {
 		});
 	}
 
+	async requestLyricaImportOptions() {
+		const values = await this.dialogs.form({
+			titleKey: "dialog.importLyrica",
+			values: { charter: this.lastCharter(), seed: 0, quantizationDenominator: 192 },
+			fields: [
+				{ id: "charter", type: "text", labelKey: "field.charter" },
+				{ id: "seed", type: "text", labelKey: "field.prngSeed" },
+				{ id: "quantizationDenominator", type: "integer", labelKey: "field.quantizationDenominator", positive: true, min: 1 },
+			],
+		});
+		if (!values) return null;
+		this.rememberCharter(values.charter);
+		return {
+			charter: values.charter,
+			seed: values.seed,
+			quantizationDenominator: values.quantizationDenominator,
+		};
+	}
+
 	async requestImportOptions(document) {
-		if (document?.sviber) return {};
+		if (document?.lyrica || document?.sviber) return {};
 		const values = await this.dialogs.form({
 			titleKey: "dialog.importTiming",
 			values: { offset: 0, initialBpm: 120, largestDenominator: 192, bpmChanges: [] },
@@ -478,9 +498,18 @@ export const withFileWorkflows = Base => class extends Base {
 		try {
 			const parsed = await this.files.parseFile(file);
 			if (!parsed) return;
-			const importOptions = await this.requestImportOptions(parsed.document);
-			if (importOptions == null) return;
-			const model = ChartModel.import(parsed.document, importOptions);
+			let model;
+			if (parsed.lyricaText != null || parsed.document?.lyrica) {
+				const lyricaOptions = await this.requestLyricaImportOptions();
+				if (lyricaOptions == null) return;
+				const text = parsed.lyricaText ?? parsed.document.lyrica;
+				if (!isLyricaChartText(text)) throw new Error("The selected file is not a Lyrica chart.");
+				model = new ChartModel(importLyricaChart(text, lyricaOptions));
+			} else {
+				const importOptions = await this.requestImportOptions(parsed.document);
+				if (importOptions == null) return;
+				model = ChartModel.import(parsed.document, importOptions);
+			}
 			this.installProject([{
 				id: "difficulty-0",
 				file: uniqueChartFilename(model.metadata.difficultyName),
@@ -561,6 +590,22 @@ export const withFileWorkflows = Base => class extends Base {
 		} catch (error) {
 			console.error(error);
 			this.toast.error("toast.backgroundLoadFailed", { message: localizedErrorMessage(error) });
+		}
+	}
+
+	async exportLyrica() {
+		try {
+			const text = exportLyricaChart(this.model);
+			const location = await this.files.saveText(text, {
+				filename: `${this.model.metadata.title || "chart"}.txt`,
+				description: "Lyrica chart",
+			});
+			if (!location) return null;
+			this.toast.show("toast.lyricaExported");
+			return location;
+		} catch (error) {
+			this.toast.error("toast.lyricaExportFailed", { message: localizedErrorMessage(error) });
+			return null;
 		}
 	}
 

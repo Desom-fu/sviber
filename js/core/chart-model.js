@@ -76,6 +76,7 @@ const DEFAULT_EDITOR = Object.freeze({
 	showTipPoints: true,
 	showBgEventsInTimeline: true,
 	showBgEventsInMainField: true,
+	showRulers: false,
 	mainFieldPanX: 0,
 	mainFieldPanY: 0,
 	mainFieldZoom: 1,
@@ -171,7 +172,7 @@ function normalizeSnapPoint(value) {
 	return Number(value);
 }
 
-function normalizeTipPointFields(event, source) {
+export function normalizeTipPointFields(event, source) {
 	event.tipPointSpawnType = TIP_SPAWN_TYPES.has(source.tipPointSpawnType)
 		? source.tipPointSpawnType
 		: "inherit";
@@ -431,6 +432,7 @@ function normalizeEditor(editor, channels) {
 		timelineChannelOffset: Math.max(0, Math.min(Math.max(0, channels.length - 3), Math.round(finiteNumber(source.timelineChannelOffset, 0)))),
 		showGroupingInTimeline: source.showGroupingInTimeline !== false, showGroupingInMainField: source.showGroupingInMainField !== false,
 		showTipPoints: source.showTipPoints !== false, showBgEventsInTimeline: source.showBgEventsInTimeline !== false, showBgEventsInMainField: source.showBgEventsInMainField !== false,
+		showRulers: Boolean(source.showRulers),
 		mainFieldPanX: finiteNumber(source.mainFieldPanX, 0), mainFieldPanY: finiteNumber(source.mainFieldPanY, 0),
 		mainFieldZoom: Math.max(0.1, Math.min(16, finiteNumber(source.mainFieldZoom, 1))),
 	};

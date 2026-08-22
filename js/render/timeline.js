@@ -111,6 +111,17 @@ export class TimelineView {
 		this.requestRender();
 	}
 
+	scrollChannelsBy(delta) {
+		const project = projectState(this.state);
+		const maxOffset = Math.max(0, (project?.channels?.length || 0) - 3);
+		const nextOffset = Math.max(0, Math.min(maxOffset, this.channelOffset + Math.sign(Number(delta) || 0)));
+		if (nextOffset === this.channelOffset) return nextOffset;
+		this.channelOffset = nextOffset;
+		this.callbacks.onChannelOffset?.(nextOffset);
+		this.requestRender();
+		return nextOffset;
+	}
+
 	#queuePointerMove(event) {
 		this.pendingPointerMove = {
 			clientX: event.clientX,
@@ -969,13 +980,7 @@ export class TimelineView {
 			return;
 		}
 		if (project.channels.length > 3 && event.shiftKey) {
-			const nextOffset = Math.max(0, Math.min(project.channels.length - 3,
-				this.channelOffset + Math.sign(event.deltaY)));
-			if (nextOffset !== this.channelOffset) {
-				this.channelOffset = nextOffset;
-				this.callbacks.onChannelOffset?.(nextOffset);
-			}
-			this.requestRender();
+			this.scrollChannelsBy(event.deltaY);
 			return;
 		}
 		this.callbacks.onWheel?.(event);
@@ -985,12 +990,10 @@ export class TimelineView {
 		document.removeEventListener("pointermove", this.boundMove);
 		document.removeEventListener("pointerup", this.boundUp);
 		document.removeEventListener("pointercancel", this.boundUp);
-		cancelAnimationFrame(this.renderAnimationFrame);
-		cancelAnimationFrame(this.pointerMoveAnimationFrame);
+		cancelAnimationFrame(this.renderAnimationFrame); cancelAnimationFrame(this.pointerMoveAnimationFrame);
 		this.surface.destroy();
 		document.removeEventListener("keydown", this.spaceKeyDown, true);
 		document.removeEventListener("keyup", this.spaceKeyUp, true);
 	}
 }
-
 export { BEAT_LINE_COLORS };

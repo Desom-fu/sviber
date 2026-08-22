@@ -522,16 +522,18 @@ export const withStageNotes = Base => class extends Base {
 			if (!ancestors.length || !this.renderIndex.activeChannelIds.has(event.channel)) continue;
 			const position = this.renderIndex.positionFor(event) || event;
 			const screen = mapping.toScreen(position);
+			const noteRadius = sunniesnowNoteRadius(event.type);
 			ancestors.slice().reverse().forEach((group, index) => {
 				context.save();
 				context.globalAlpha = 0.84;
 				context.strokeStyle = group.color || "#ff9d3d";
 				context.lineWidth = 1.5;
 				context.beginPath();
-				context.arc(screen.x, screen.y, (sunniesnowNoteRadius(event.type) + 5 + index * 4) * mapping.scale, 0, Math.PI * 2);
+				context.arc(screen.x, screen.y, (noteRadius + 6 + index * 4) * mapping.scale, 0, Math.PI * 2);
 				context.stroke();
 				context.restore();
 			});
+
 		}
 		for (const record of (this.renderIndex.groupRecords || []).filter(record => record.event.selected)) {
 			const group = record.event;
@@ -764,4 +766,107 @@ export const withStageNotes = Base => class extends Base {
 		}
 	}
 
+	_drawSnappeeAttachRings(context, project, mapping, now) {
+		const selectedSnappee = project.snappees?.find(snappee => snappee.selected && snappee.active !== false);
+		if (!selectedSnappee || !this.renderIndex) return;
+		const records = this.renderIndex.visibleMovableRecords(now)
+			.filter(record => record.event.type !== "group")
+			.concat(this.renderIndex.selectedRecords.filter(record => record.event.type !== "group"));
+		const seen = new Set();
+		for (const record of records) {
+			const event = record.event;
+			if (seen.has(event.id) || !event.attached || event.snappee !== selectedSnappee.id) continue;
+			if (!this.renderIndex.activeChannelIds.has(event.channel)) continue;
+			seen.add(event.id);
+			const position = this.renderIndex.positionFor(event) || event;
+			const screen = mapping.toScreen(position);
+			context.save();
+			context.globalAlpha = 0.9;
+			context.strokeStyle = selectedSnappee.color || "#00e0ad";
+			context.lineWidth = 1.5;
+			context.beginPath();
+			context.arc(screen.x, screen.y, (sunniesnowNoteRadius(event.type) + 6) * mapping.scale, 0, Math.PI * 2);
+			context.stroke();
+			context.restore();
+		}
+	}
+
+	_drawRulers(context, width, height, project, mapping) {
+		if (!project.editor?.showRulers) return;
+		const thickness = 22;
+		const chartLeft = mapping.toScreen({ x: CHART_BOUNDS.minX, y: 0 }).x;
+		const chartRight = mapping.toScreen({ x: CHART_BOUNDS.maxX, y: 0 }).x;
+		const chartTop = mapping.toScreen({ x: 0, y: CHART_BOUNDS.maxY }).y;
+		const chartBottom = mapping.toScreen({ x: 0, y: CHART_BOUNDS.minY }).y;
+		context.save();
+		context.fillStyle = "#c8c8c8";
+		context.fillRect(0, 0, width, thickness);
+		context.fillRect(0, 0, thickness, height);
+		context.fillStyle = "#ffffff";
+		context.fillRect(Math.max(0, chartLeft), 0, Math.max(0, Math.min(width, chartRight) - Math.max(0, chartLeft)), thickness);
+		context.fillRect(0, Math.max(0, chartTop), thickness, Math.max(0, Math.min(height, chartBottom) - Math.max(0, chartTop)));
+		const step = niceRulerStep(20 / Math.max(1e-6, mapping.scale));
+		context.fillStyle = "#404040";
+		context.strokeStyle = "#404040";
+		context.lineWidth = 1;
+		context.font = "10px 'Cascadia Mono', Consolas, sans-serif";
+		context.textAlign = "center";
+		context.textBaseline = "top";
+		const minX = mapping.toChart({ x: thickness, y: 0 }).x;
+		const maxX = mapping.toChart({ x: width, y: 0 }).x;
+		for (let value = Math.ceil(minX / step) * step; value <= maxX + 1e-9; value += step) {
+			const x = mapping.toScreen({ x: value, y: 0 }).x;
+			if (x < thickness) continue;
+			const major = Math.abs(value / step) % 5 < 1e-6;
+			context.beginPath();
+			context.moveTo(x + 0.5, thickness - (major ? 12 : 7));
+			context.lineTo(x + 0.5, thickness);
+			context.stroke();
+			if (major) context.fillText(formatRulerValue(value), x, 2);
+		}
+		context.textAlign = "right";
+		context.textBaseline = "middle";
+		const maxY = mapping.toChart({ x: 0, y: thickness }).y;
+		const minY = mapping.toChart({ x: 0, y: height }).y;
+		for (let value = Math.ceil(minY / step) * step; value <= maxY + 1e-9; value += step) {
+			const y = mapping.toScreen({ x: 0, y: value }).y;
+			if (y < thickness) continue;
+			const major = Math.abs(value / step) % 5 < 1e-6;
+			context.beginPath();
+			context.moveTo(thickness - (major ? 12 : 7), y + 0.5);
+			context.lineTo(thickness, y + 0.5);
+			context.stroke();
+			if (major) context.fillText(formatRulerValue(value), thickness - 14, y);
+		}
+		if (this.pointerScreen) {
+			const marker = this.pointerScreen;
+			context.fillStyle = "#ff3b00";
+			context.beginPath();
+			context.moveTo(marker.x, thickness);
+			context.lineTo(marker.x - 7, 2);
+			context.lineTo(marker.x + 7, 2);
+			context.closePath();
+			context.fill();
+			context.beginPath();
+			context.moveTo(thickness, marker.y);
+			context.lineTo(2, marker.y - 7);
+			context.lineTo(2, marker.y + 7);
+			context.closePath();
+			context.fill();
+		}
+		context.restore();
+	}
+
 };
+
+function niceRulerStep(raw) {
+	const exponent = Math.floor(Math.log10(Math.max(1e-6, raw)));
+	const fraction = raw / 10 ** exponent;
+	const nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 5 ? 5 : 10;
+	return nice * 10 ** exponent;
+}
+
+function formatRulerValue(value) {
+	const text = Math.abs(value) >= 100 ? value.toFixed(0) : value.toFixed(Math.abs(value) >= 10 ? 0 : 1);
+	return text.replace(/\.0$/, "");
+}

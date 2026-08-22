@@ -55,10 +55,13 @@ export function sunniesnowNoteTextColor(event, visibility) {
 	return visibility?.phase === "fadingOut" && event?.type !== "bgNote" ? "#ffff55" : "#ffffff";
 }
 
+export const SUNNIESNOW_PLAYFIELD_WIDTH = 250;
+export const SUNNIESNOW_PLAYFIELD_HEIGHT = 150;
+
 export function sunniesnowPlayfieldScale(width, height) {
 	const safeWidth = Math.max(1, Number(width) || 1);
 	const safeHeight = Math.max(1, Number(height) || 1);
-	return Math.min(safeWidth / 250, safeHeight / 150);
+	return Math.min(safeWidth / SUNNIESNOW_PLAYFIELD_WIDTH, safeHeight / SUNNIESNOW_PLAYFIELD_HEIGHT);
 }
 
 export function isSnappeeVisible(snappee) {

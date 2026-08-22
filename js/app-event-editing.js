@@ -1,4 +1,5 @@
-import { i18n } from "./i18n.js"; import { ChartModel, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js"; import { Rational } from "./core/rational.js";
+import { i18n } from "./i18n.js"; import { ChartModel, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
+import { fillInheritedTipPointParams } from "./core/tip-point.js"; import { Rational } from "./core/rational.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
 import { MOVABLE_TYPES, DURATION_TYPES, deepClone, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, mutateSnappeeWithinBounds, constrainSnappeeTranslation, eventTypeLabel } from "./app-helpers.js";
 import { eventUsesChannel, findEvent } from "./core/grouping.js"; import { snapshotsEqual, captureHistoryView } from "./core/history.js"; import { withFreeTransform } from "./app-free-transform.js"; import { withViewControls } from "./app-view-controls.js";
@@ -106,6 +107,7 @@ const withEventEditingBase = Base => class extends Base {
 			onPreviewFreeTransform: matrix => this.previewFreeTransform(matrix),
 			onPreviewFreeTransformAnchor: anchor => this.previewFreeTransformAnchor(anchor),
 			onMainFieldPan: (x, y) => this.setMainFieldPan(x, y), onMainFieldZoom: factor => this.setMainFieldZoom(factor), onProgressSeek: payload => this.seekProgress(payload),
+			onHudPause: () => void this.registry.execute("music.playPause", this),
 		};
 	}
 	selectEvents(ids, mode = "replace") {
@@ -946,6 +948,12 @@ const withEventEditingBase = Base => class extends Base {
 				return;
 			}
 			for (const event of chosen) {
+				if (property === "tipPointSpawnType" && (value === "chain" || value === "drop")
+					&& (event.tipPointSpawnType || "inherit") === "inherit") {
+					fillInheritedTipPointParams(event, model.allEvents());
+					event.tipPointSpawnType = value;
+					continue;
+				}
 				let nextValue = value;
 				if ((property === "x" || property === "y") && event.type === "group") {
 					if (event.attached) continue;

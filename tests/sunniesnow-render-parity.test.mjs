@@ -56,11 +56,25 @@ test("pausing cancels only future hit effects while active effects finish", () =
 	const target = {
 		particles: [{ started: now - 20 }, { started: now + 1000 }],
 		rendered: false,
+		particleAnimationFrame: 0,
 		render() { this.rendered = true; },
 	};
 	StageView.prototype.cancelScheduledHits.call(target);
 	assert.equal(target.particles.length, 1);
 	assert.ok(target.particles[0].started <= now);
+	assert.equal(target.rendered, true);
+});
+
+test("music stop clears in-flight hit effects immediately", () => {
+	const now = performance.now();
+	const target = {
+		particles: [{ started: now - 20 }, { started: now + 1000 }],
+		rendered: false,
+		particleAnimationFrame: 0,
+		render() { this.rendered = true; },
+	};
+	StageView.prototype.clearHitEffects.call(target);
+	assert.equal(target.particles.length, 0);
 	assert.equal(target.rendered, true);
 });
 

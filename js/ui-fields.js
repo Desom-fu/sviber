@@ -368,7 +368,23 @@ export function createFieldControl(field, value, environment = {}) {
 			const denominator = makeInput(documentRef, 'number', tuple[2] ?? 1, {step: 1, min: 1});
 			group.append(integer, '+', numerator, '/', denominator);
 			element = group;
-			read = () => [Number(integer.value), Number(numerator.value), Number(denominator.value)];
+			const writeCanonical = () => {
+				const raw = [Number(integer.value), Number(numerator.value), Number(denominator.value)];
+				if (!raw.every(Number.isSafeInteger) || raw[2] <= 0) return raw;
+				const canonical = canonicalizeRationalTuple(raw);
+				integer.value = String(canonical[0]);
+				numerator.value = String(canonical[1]);
+				denominator.value = String(canonical[2]);
+				return canonical;
+			};
+			group.addEventListener('focusout', event => {
+				if (!group.contains(event.relatedTarget)) writeCanonical();
+			});
+			read = () => {
+				const raw = [Number(integer.value), Number(numerator.value), Number(denominator.value)];
+				if (!raw.every(Number.isSafeInteger) || raw[2] <= 0) return raw;
+				return canonicalizeRationalTuple(raw);
+			};
 			focus = () => integer.focus();
 			break;
 		}
@@ -474,6 +490,11 @@ function isFiniteExpression(value) {
 	}
 }
 
+export function canonicalizeRationalTuple(value) {
+	if (!Array.isArray(value) || value.length !== 3 || !value.every(Number.isSafeInteger) || value[2] <= 0) return value;
+	try { return Rational.from(value).toJSON(); } catch { return value; }
+}
+
 function rationalTupleIsCanonical(value) {
 	if (!Array.isArray(value) || value.length !== 3 || !value.every(Number.isSafeInteger)) return false;
 	try {
@@ -505,9 +526,8 @@ export function validateField(field, value, values, i18n = defaultI18n) {
 		case 'rational':
 			if (!value.every(Number.isInteger)) return i18n.t('validation.integer');
 			if (value[2] <= 0) return i18n.t('validation.denominator');
-			if (!rationalTupleIsCanonical(value)) return i18n.t('validation.rational');
-			if (field.positive && value[0] + value[1] / value[2] <= 0) return i18n.t('validation.positive');
-			if (field.nonnegative && value[0] + value[1] / value[2] < 0) return i18n.t('validation.nonnegative');
+			if (field.positive && Rational.from(value).compare(0) <= 0) return i18n.t('validation.positive');
+			if (field.nonnegative && Rational.from(value).compare(0) < 0) return i18n.t('validation.nonnegative');
 			break;
 		case 'pair':
 			if (field.numeric && value.some(item => !Number.isFinite(item))) return i18n.t('validation.number');

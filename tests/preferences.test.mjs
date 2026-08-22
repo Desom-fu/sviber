@@ -56,6 +56,7 @@ test("explicit themes update the document root and title color", () => {
 		ownerDocument: { querySelector: () => ({ setAttribute: (_name, value) => { titleColor = value; } }) },
 		setAttribute: (name, value) => attributes.set(name, value),
 		removeAttribute: name => attributes.delete(name),
+		classList: { toggle() {} },
 	};
 	assert.equal(applyThemePreference("dark", root), "dark");
 	assert.equal(attributes.get("data-theme"), "dark");

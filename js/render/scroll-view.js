@@ -13,6 +13,7 @@ import {
 	tipSpawnDirectionSegment,
 	timingFor,
 } from "./timeline-helpers.js";
+import { SUNNIESNOW_PLAYFIELD_WIDTH } from "./stage-helpers.js";
 import { MOVABLE_TYPES, buildTipPointGuides, tipPointSpawnPosition } from "./stage-helpers.js";
 import { descendants, flattenEvents } from "../core/grouping.js";
 import { eventClickSelectionMode } from "./selection.js";
@@ -79,7 +80,7 @@ export class ScrollView {
 		const visibleSpan = Math.max(0.001,
 			Number(project?.editor?.visibleRangeEnd) - Number(project?.editor?.visibleRangeBeginning));
 		const timelineWidth = Math.max(1, Number(this.callbacks.getTimelineWidth?.()) || width);
-		const xScale = Math.max(0.1, width / (CHART_BOUNDS.maxX - CHART_BOUNDS.minX));
+		const xScale = Math.max(0.1, width / SUNNIESNOW_PLAYFIELD_WIDTH);
 		const timeScale = Math.max(0.1, timelineWidth / visibleSpan);
 		const current = this.#currentSeconds();
 		const baseline = height * 0.75;
@@ -87,11 +88,11 @@ export class ScrollView {
 		return {
 			xScale, timeScale, baseline, timeSpan,
 			toScreen: (x, time) => ({
-				x: (Number(x) - CHART_BOUNDS.minX) * xScale,
+				x: (Number(x) + SUNNIESNOW_PLAYFIELD_WIDTH / 2) * xScale,
 				y: baseline - (Number(time) - current) * timeScale,
 			}),
 			fromScreen: (x, y) => ({
-				x: x / xScale + CHART_BOUNDS.minX,
+				x: x / xScale - SUNNIESNOW_PLAYFIELD_WIDTH / 2,
 				time: current - (y - baseline) / timeScale,
 			}),
 		};
@@ -133,6 +134,32 @@ export class ScrollView {
 		const top = mapping.fromScreen(0, -padding).time;
 		const bottom = mapping.fromScreen(0, height + padding).time;
 		return [Math.min(top, bottom), Math.max(top, bottom)];
+	}
+
+	#drawAbLoop(context, width, mapping) {
+		const marks = (Array.isArray(projectState(this.state)?.editor?.abLoopMarks)
+			? projectState(this.state).editor.abLoopMarks : [])
+			.map(mark => this.timing.beatToSeconds(mark))
+			.filter(Number.isFinite)
+			.sort((left, right) => left - right);
+		if (!marks.length) return;
+		context.save();
+		if (marks.length >= 2) {
+			const top = mapping.toScreen(0, marks[1]).y;
+			const bottom = mapping.toScreen(0, marks[0]).y;
+			context.fillStyle = "rgba(64,160,255,0.18)";
+			context.fillRect(0, Math.min(top, bottom), width, Math.abs(bottom - top));
+		}
+		context.strokeStyle = "#3da9ff";
+		context.lineWidth = 2;
+		for (const mark of marks) {
+			const y = mapping.toScreen(0, mark).y + 0.5;
+			context.beginPath();
+			context.moveTo(0, y);
+			context.lineTo(width, y);
+			context.stroke();
+		}
+		context.restore();
 	}
 
 	#drawBeatLines(context, width, height, mapping) {
@@ -344,6 +371,7 @@ export class ScrollView {
 		context.fillStyle = "#090a0c";
 		context.fillRect(0, 0, width, height);
 		this.#drawBeatLines(context, width, height, mapping);
+		this.#drawAbLoop(context, width, mapping);
 		this.#drawTipGuides(context, project, mapping, beginning, ending);
 		this.hitRegions = [];
 		this.#drawEvents(context, project, mapping, width, height, beginning, ending);

@@ -9,7 +9,7 @@ import { ChartRenderIndex } from "./render/chart-index.js";
 import { HelpController } from "./help.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { ChannelsPanel, ClipsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { loadPreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, selected, formatTime, formatBeat, eventTypeLabel } from "./app-helpers.js";
+import { loadPreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, selected, formatTime, formatBeat, eventTypeLabel, isScrollableDomTarget } from "./app-helpers.js";
 import { handleMacroMessage } from "./app-macro-bridge.js";
 import { bindEdgeToggleReveal } from "./ui-layout.js";
 import { LiveHosting } from "./live-hosting.js";
@@ -78,7 +78,7 @@ export class SviberAppCore {
 		this.unsubscribeCommandModes = this.registry.subscribe(change => {
 			if (change.type !== "execute" || change.phase !== "before") return;
 			const creationTools = new Set(["events.tap", "events.hold", "events.drag", "events.flick", "events.bgNote"]);
-			if (change.id.startsWith("music.") || creationTools.has(change.id)
+			if (change.id.startsWith("music.") || change.id.startsWith("channel.select") || creationTools.has(change.id)
 				|| change.id === "edit.undo" || change.id === "edit.redo") return;
 			this.exitCreationModes();
 		});
@@ -550,7 +550,8 @@ export class SviberAppCore {
 			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"],
 			["show-grouping-in-timeline", "showGroupingInTimeline"], ["show-grouping-in-main-field", "showGroupingInMainField"],
 			["show-tip-points", "showTipPoints"], ["show-bg-events-in-timeline", "showBgEventsInTimeline"],
-			["show-bg-events-in-main-field", "showBgEventsInMainField"], ["allow-out-of-bound", "allowOutOfBound"], ["read-only", "readOnly"]]) {
+			["show-bg-events-in-main-field", "showBgEventsInMainField"], ["show-rulers", "showRulers"],
+			["allow-out-of-bound", "allowOutOfBound"], ["read-only", "readOnly"]]) {
 			const control = document.getElementById(id);
 			if (control) control.checked = Boolean(this.model.editor[property]);
 		}
@@ -632,7 +633,7 @@ export class SviberAppCore {
 		document.getElementById("difficulty-select")?.addEventListener("change", event => void this.switchDifficulty(event.target.value));
 		document.getElementById("difficulty-add")?.addEventListener("click", () => void this.newDifficulty());
 		document.getElementById("difficulty-delete")?.addEventListener("click", () => void this.deleteDifficulty());
-		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "show-bg-events-in-timeline", "show-bg-events-in-main-field", "allow-out-of-bound"]) {
+		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "show-bg-events-in-timeline", "show-bg-events-in-main-field", "show-rulers", "allow-out-of-bound"]) {
 			document.getElementById(id)?.addEventListener("change", event => {
 				if (id === "allow-out-of-bound") {
 					const checked = Boolean(event.target.checked);
@@ -649,6 +650,7 @@ export class SviberAppCore {
 					: id === "show-tip-points" ? "showTipPoints"
 					: id === "show-bg-events-in-timeline" ? "showBgEventsInTimeline"
 					: id === "show-bg-events-in-main-field" ? "showBgEventsInMainField"
+					: id === "show-rulers" ? "showRulers"
 					: "metronome"] = Boolean(event.target.checked);
 				this.refresh();
 			});
@@ -744,7 +746,7 @@ export class SviberAppCore {
 		});
 		const finish = () => {
 			this.playbackScheduleInvalidated = false;
-			this.stage.cancelScheduledHits();
+			(this.stage.clearHitEffects || this.stage.cancelScheduledHits)?.();
 			if (this.resumePlaybackAfterSeek) {
 				this.model.editor.timeSnapped = false;
 				this.model.editor.currentTime = this.audio.currentTime;
@@ -904,6 +906,11 @@ export class SviberAppCore {
 		document.addEventListener("wheel", event => {
 			if (event.defaultPrevented) return;
 			if (event.ctrlKey && event.shiftKey) { event.preventDefault(); this.setMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12); return; }
+			if (event.shiftKey && !event.ctrlKey && !isScrollableDomTarget(event.target)) {
+				event.preventDefault();
+				this.timeline?.scrollChannelsBy?.(Math.sign(event.deltaY));
+				return;
+			}
 			if (this.dialogs.active
 				|| event.target.closest(".property-panel,.history-list,.status-panel,.menu-popup,.dialog-body,.tool-bar,select,textarea")) return;
 			event.preventDefault();

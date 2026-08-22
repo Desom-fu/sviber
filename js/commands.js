@@ -26,6 +26,7 @@ const DEFINITIONS = [
 	define('file.saveProject', null, null, {allowInInput: true, desktopOnly: true}),
 	define('file.saveLevel', 'Ctrl+Shift+S', null, {allowInInput: true}),
 	define('file.importClipboard', null, null, {blockDuringPlayback: true}),
+	define('file.exportLyrica', null, null, {blockDuringPlayback: true}),
 	define('file.exportClipboard'),
 	define('file.openProjectFolder', null, null, {desktopOnly: true}),
 	define('file.chartProperties', null, null, {blockDuringPlayback: true}),
@@ -63,7 +64,7 @@ const DEFINITIONS = [
 	define('events.fillCurveDrag', null, null, {blockDuringPlayback: true}),
 
 	define('timing.offsetAndBpm'),
-	define('timing.barLine', 'R', null, {blockDuringPlayback: true}),
+	define('timing.barLine', 'R', 'bar-line', {blockDuringPlayback: true}),
 	define('timing.copy', null, null, {allowWhenBlocked: true}),
 	define('timing.paste', null, null, {blockDuringPlayback: true}),
 
@@ -129,7 +130,7 @@ const DEFINITIONS = [
 	define('music.subdivision4', '4', 'time-lattice-4', {checkable: true, group: 'subdivision', allowWhenBlocked: true}),
 	define('music.subdivision6', '6', 'time-lattice-6', {checkable: true, group: 'subdivision', allowWhenBlocked: true}),
 	define('music.subdivision8', '8', 'time-lattice-8', {checkable: true, group: 'subdivision', allowWhenBlocked: true}),
-	define('music.subdivisionOther', null, null, {allowWhenBlocked: true}),
+	define('music.subdivisionOther', '0', null, {allowWhenBlocked: true}),
 	define('music.speedDecrease', '[', null, {allowWhenBlocked: true}),
 	define('music.speedIncrease', ']', null, {allowWhenBlocked: true}),
 	define('music.speed025', 'Ctrl+4', 'speed-0-25', {checkable: true, group: 'speed', allowWhenBlocked: true}),
@@ -162,7 +163,7 @@ export const MENU_DEFINITION = Object.freeze([
 			item('file.openProject'), item('file.openChart'), separator,
 			item('file.save'), item('file.saveAs'), item('file.saveProject'), separator,
 			item('file.importFile'), item('file.importClipboard'), separator,
-			item('file.saveLevel'), item('file.exportClipboard'), separator,
+			item('file.saveLevel'), item('file.exportLyrica'), item('file.exportClipboard'), separator,
 			item('file.setMusic'), item('file.setBackground'), separator,
 			item('file.openProjectFolder'), separator,
 			item('file.chartProperties'), separator, item('file.deleteChart'), separator, item('file.preferences')
@@ -185,15 +186,15 @@ export const MENU_DEFINITION = Object.freeze([
 		id: 'events', labelKey: 'menu.events', mnemonic: 'v', items: Object.freeze([
 			item('events.tap'), item('events.hold'), item('events.drag'), item('events.flick'),
 			separator, item('events.bgNote'), item('events.bgPattern'), separator,
-			item('events.comment'), separator, item('events.group'), item('events.ungroup'), separator, item('events.moveChannelAbove'),
-			item('events.moveChannelBelow'), separator, item('events.reverseTime'),
+			item('events.comment'), separator, item('events.group'), item('events.ungroup'), separator, item('events.reverseTime'),
 			item('events.fillCurveDrag')
 		])
 	}),
 	Object.freeze({
 		id: 'channel', labelKey: 'menu.channel', mnemonic: 'c', items: Object.freeze([
-			item('channel.createAbove'), item('channel.createBelow'), item('channel.delete'),
-			item('channel.moveUp'), item('channel.moveDown')
+			item('events.moveChannelAbove'), item('events.moveChannelBelow'), separator,
+			item('channel.createAbove'), item('channel.createBelow'), separator, item('channel.delete'),
+			separator, item('channel.moveUp'), item('channel.moveDown')
 		])
 	}),
 	Object.freeze({
@@ -242,7 +243,7 @@ export const MENU_DEFINITION = Object.freeze([
 
 export const TOOLBAR_ITEMS = Object.freeze([
 	'events.tap', 'events.hold', 'events.drag', 'events.flick', 'events.bgNote',
-	'events.bgPattern', 'separator', 'events.bpmChange', 'separator', 'events.moveChannelAbove',
+	'events.bgPattern', 'separator', 'events.bpmChange', 'timing.barLine', 'separator', 'events.moveChannelAbove',
 	'events.moveChannelBelow', 'channel.createAbove', 'channel.createBelow',
 	'channel.delete', 'separator',
 	'snappee.rectangularMesh', 'snappee.radialMesh', 'snappee.regularPolygon',

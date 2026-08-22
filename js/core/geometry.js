@@ -83,16 +83,43 @@ export function invertTransform(transform) {
 }
 
 
+function interpolateAffine(from, next, t) {
+	return from.map((value, index) => value + (next[index] - value) * t);
+}
+
+function rotationCenter(delta) {
+	const [a, b, c, d, tx, ty] = delta;
+	const cosine = (a + d) / 2;
+	const sine = (b - c) / 2;
+	const u = 1 - cosine;
+	const denom = u * u + sine * sine;
+	if (denom <= 1e-12) return null;
+	return {
+		x: (u * tx - sine * ty) / denom,
+		y: (sine * tx + u * ty) / denom,
+		angle: Math.atan2(sine, cosine),
+	};
+}
+
+function rotationAbout(center, angle) {
+	const cosine = Math.cos(angle);
+	const sine = Math.sin(angle);
+	return [
+		cosine, sine, -sine, cosine,
+		center.x - cosine * center.x + sine * center.y,
+		center.y - sine * center.x - cosine * center.y,
+	];
+}
+
 export function clampAffineToChartBounds(points, requested, previous = IDENTITY_TRANSFORM) {
 	const next = normalizeTransform(requested);
 	const from = normalizeTransform(previous);
 	if (!points.length || points.every(point => isPointWithinChartBounds(applyTransform(point, next)))) return [...next];
 	let delta;
 	try { delta = multiplyTransforms(next, invertTransform(from)); }
-	catch { return [...next]; }
+	catch { return [...from]; }
 	const [a, b, c, d] = delta;
-	if (Math.abs(b) > 1e-9 || Math.abs(c) > 1e-9) return [...next];
-	if (Math.abs(a - 1) <= 1e-9 && Math.abs(d - 1) <= 1e-9) {
+	if (Math.abs(b) <= 1e-9 && Math.abs(c) <= 1e-9 && Math.abs(a - 1) <= 1e-9 && Math.abs(d - 1) <= 1e-9) {
 		let minDx = -Infinity, maxDx = Infinity, minDy = -Infinity, maxDy = Infinity;
 		for (const point of points) {
 			const current = applyTransform(point, from);
@@ -108,26 +135,35 @@ export function clampAffineToChartBounds(points, requested, previous = IDENTITY_
 		], from);
 	}
 	if (!points.every(point => isPointWithinChartBounds(applyTransform(point, from)))) return [...from];
+	const rotation = rotationCenter(delta);
+	const sample = t => {
+		if (rotation && Math.abs(a - d) <= 1e-6 && Math.abs(b + c) <= 1e-6
+			&& Math.abs(a * a + b * b - 1) <= 1e-3) {
+			return multiplyTransforms(rotationAbout(rotation, rotation.angle * t), from);
+		}
+		return interpolateAffine(from, next, t);
+	};
 	const limitT = (current, target, min, max) => {
 		const travel = target - current;
 		if (Math.abs(travel) <= EPSILON) return 1;
 		return Math.max((min - current) / travel, (max - current) / travel);
 	};
 	let tMax = 1;
-	for (const point of points) {
-		const current = applyTransform(point, from);
-		const target = applyTransform(point, next);
-		tMax = Math.min(tMax, limitT(current.x, target.x, CHART_BOUNDS.minX, CHART_BOUNDS.maxX));
-		tMax = Math.min(tMax, limitT(current.y, target.y, CHART_BOUNDS.minY, CHART_BOUNDS.maxY));
+	if (!rotation || Math.abs(rotation.angle) <= 1e-9) {
+		for (const point of points) {
+			const current = applyTransform(point, from);
+			const target = applyTransform(point, next);
+			tMax = Math.min(tMax, limitT(current.x, target.x, CHART_BOUNDS.minX, CHART_BOUNDS.maxX));
+			tMax = Math.min(tMax, limitT(current.y, target.y, CHART_BOUNDS.minY, CHART_BOUNDS.maxY));
+		}
+		tMax = Math.max(0, Math.min(1, tMax));
 	}
-	tMax = Math.max(0, Math.min(1, tMax));
-	const interpolate = t => from.map((value, index) => value + (next[index] - value) * t);
-	const matrix = interpolate(tMax);
+	const matrix = sample(tMax);
 	if (points.every(point => isPointWithinChartBounds(applyTransform(point, matrix)))) return matrix;
 	let lo = 0, hi = tMax, best = [...from];
 	for (let step = 0; step < 32; step += 1) {
 		const mid = (lo + hi) / 2;
-		const candidate = interpolate(mid);
+		const candidate = sample(mid);
 		if (points.every(point => isPointWithinChartBounds(applyTransform(point, candidate)))) {
 			best = candidate;
 			lo = mid;

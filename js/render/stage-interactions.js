@@ -66,7 +66,29 @@ export const withStageInteractions = Base => class extends Base {
 		context.fillStyle = "#ffffff";
 		context.textBaseline = "middle";
 		context.textAlign = "left";
-		context.fillText(title, 4 * unit, 2 * unit);
+		const pauseRadius = width / 45;
+		const pauseX = width / 30;
+		const pauseY = width / 30;
+		context.save();
+		context.fillStyle = "rgba(255,255,255,0.1)";
+		context.strokeStyle = "#ffffff";
+		context.lineWidth = Math.max(1, pauseRadius / 36);
+		context.beginPath();
+		context.roundRect(pauseX - pauseRadius, pauseY - pauseRadius, pauseRadius * 2, pauseRadius * 2, pauseRadius / 4);
+		context.fill();
+		context.stroke();
+		context.fillStyle = "#ffffff";
+		context.fillRect(pauseX - pauseRadius / 2, pauseY - pauseRadius / 2, pauseRadius / 3, pauseRadius);
+		context.fillRect(pauseX + pauseRadius / 6, pauseY - pauseRadius / 2, pauseRadius / 3, pauseRadius);
+		context.restore();
+		this.hitRegions.push({
+			type: "hud-pause",
+			x: pauseX - pauseRadius,
+			y: pauseY - pauseRadius,
+			width: pauseRadius * 2,
+			height: pauseRadius * 2,
+		});
+		context.fillText(title, pauseX + pauseRadius + unit * 0.4, 2 * unit);
 
 		const playableCount = this.renderIndex?.hitRecords.length
 			?? project.events.filter(event => NOTE_TYPES.has(event.type)).length;
@@ -140,7 +162,7 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_hitTest(point) {
-		const priorities = ["free-scale", "free-scale-edge", "free-anchor", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "group-anchor", "snappee-handle", "event", "snappee-body"];
+		const priorities = ["free-scale", "free-scale-edge", "free-anchor", "free-rotate", "free-move", "draft-pen-handle", "draft-point", "flick-handle", "tip-handle", "group-anchor", "snappee-handle", "event", "snappee-body", "hud-pause"];
 		for (const type of priorities) {
 			for (let index = this.hitRegions.length - 1; index >= 0; index -= 1) {
 				const region = this.hitRegions[index];
@@ -182,7 +204,9 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_hoverMove(event) {
+		this.pointerScreen = this.surface.toLocal(event);
 		if (this.drag) return;
+		if (projectState(this.state)?.editor?.showRulers) this.requestRender();
 		const draft = this.callbacks.getCurveDraft?.();
 		if (draft) {
 			const mapping = this._mapping(this.surface.width, this.surface.height);
@@ -198,6 +222,7 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_pointerLeave() {
+		this.pointerScreen = null;
 		if (this.drag) return;
 		this.creationPreview = null;
 		this.curvePreview = null;
@@ -230,6 +255,10 @@ export const withStageInteractions = Base => class extends Base {
 			return;
 		}
 		let hit = this._hitTest(point);
+		if (hit?.type === "hud-pause") {
+			this.callbacks.onHudPause?.();
+			return;
+		}
 		const curveDraft = this.callbacks.getCurveDraft?.();
 		if (curveDraft) {
 			if (playing) return;
@@ -440,8 +469,10 @@ export const withStageInteractions = Base => class extends Base {
 	}
 
 	_pointerMove(event) {
-		if (!this.drag) return;
 		const point = this.surface.toLocal(event);
+		this.pointerScreen = point;
+		if (projectState(this.state)?.editor?.showRulers && !this.drag) this.requestRender();
+		if (!this.drag) return;
 		if (Math.hypot(point.x - this.drag.start.x, point.y - this.drag.start.y) > 3) this.pointerMoved = true;
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);

@@ -28,6 +28,13 @@ function extension(name) {
 	return String(name).split(".").pop()?.toLowerCase() || "";
 }
 
+function looksLikeLyrica(text) {
+	const first = String(text || "").split(/\r?\n/).find(line => line.trim());
+	if (!first || first.includes("{")) return false;
+	const fields = first.split("|");
+	return fields.length >= 4 && Number.isFinite(Number(fields[0]));
+}
+
 function sanitizeFilename(name, fallback = "chart") {
 	const result = String(name || fallback).replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim();
 	return result || fallback;
@@ -502,7 +509,19 @@ export class FileManager {
 			const parsed = await this.#parseLevel(file, importOptions);
 			return parsed ? { ...parsed, chartPath: "", fromLevel: true } : null;
 		}
-		const document = JSON.parse(await file.text());
+		const text = await file.text();
+		if (fileExtension === "txt" || looksLikeLyrica(text)) {
+			return {
+				document: { lyrica: text },
+				lyricaText: text,
+				musicFile: null,
+				imageFile: null,
+				chartFilename: file.name,
+				chartPath: this.localPathFor(file),
+				fromLevel: false,
+			};
+		}
+		const document = JSON.parse(text);
 		return {
 			document,
 			musicFile: null,
@@ -660,6 +679,34 @@ export class FileManager {
 				const handle = await showSaveFilePicker({
 					suggestedName: filename,
 					types: [{ description: "Sunniesnow level", accept: { "application/zip": [".ssc"] } }],
+				});
+				await writeHandle(handle, blob);
+				return filename;
+			} catch (error) {
+				if (error.name === "AbortError") return null;
+				throw error;
+			}
+		}
+		download(blob, filename);
+		return filename;
+	}
+
+	async saveText(text, options = {}) {
+		const filename = String(options.filename || "chart.txt");
+		const blob = new Blob([String(text ?? "")], { type: options.type || "text/plain" });
+		const accept = options.accept || ".txt,text/plain";
+		const modules = nwModules();
+		if (modules) {
+			const pathname = await pickNwSavePath(filename, accept);
+			if (!pathname) return null;
+			await writeLocalFile(modules.fs, pathname, blob);
+			return pathname;
+		}
+		if (globalThis.showSaveFilePicker) {
+			try {
+				const handle = await showSaveFilePicker({
+					suggestedName: filename,
+					types: [{ description: options.description || "Text", accept: { "text/plain": [".txt"] } }],
 				});
 				await writeHandle(handle, blob);
 				return filename;

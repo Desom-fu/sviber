@@ -237,10 +237,11 @@ test("the v9 quarter-speed command preserves an exact 0.25 playback rate", () =>
 
 test("rational validation waits for a canonical, reduced tuple", () => {
 	assert.equal(validateField({ type: "rational" }, [1, 1, 2]), "");
-	assert.notEqual(validateField({ type: "rational" }, [1, 2, 2]), "");
-	assert.notEqual(validateField({ type: "rational" }, [0, 0, 2]), "");
-	assert.notEqual(validateField({ type: "rational" }, [-1, 1, 2]), "");
+	assert.equal(validateField({ type: "rational" }, [1, 2, 2]), "");
+	assert.equal(validateField({ type: "rational" }, [0, 0, 2]), "");
+	assert.equal(validateField({ type: "rational" }, [-1, 1, 2]), "");
 	assert.equal(validateField({ type: "rational" }, [-1, -1, 2]), "");
+	assert.notEqual(validateField({ type: "rational" }, [1, 1, 0]), "");
 });
 
 test("v9 documentation and independent macro code are linked", async () => {

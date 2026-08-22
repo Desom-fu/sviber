@@ -18,6 +18,8 @@
 		if (selected === "system") document.documentElement.removeAttribute("data-theme");
 		else document.documentElement.dataset.theme = selected;
 		const dark = selected === "dark" || selected === "system" && Boolean(media?.matches);
+		document.documentElement.classList.toggle("theme-dark", dark);
+		document.documentElement.classList.toggle("theme-light", !dark);
 		document.querySelector('meta[name="theme-color"]')
 			?.setAttribute("content", dark ? "#292c30" : "#eceeef");
 		globalThis.dispatchEvent(new CustomEvent("sviber-theme-change", {

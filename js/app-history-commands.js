@@ -57,6 +57,7 @@ export const withHistoryCommands = Base => class extends Base {
 		command("file.saveProject", () => void this.saveProject());
 		command("file.saveLevel", () => void this.saveLevel());
 		command("file.importClipboard", () => void this.importClipboard());
+		command("file.exportLyrica", () => void this.exportLyrica());
 		command("file.exportClipboard", () => void this.exportClipboard());
 		command("file.openProjectFolder", () => this.files.openProjectFolder(),
 			() => Boolean(globalThis.nw && this.files.projectPath));

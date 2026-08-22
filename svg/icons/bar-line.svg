@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="32"
+   height="32"
+   viewBox="0 0 32 32"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   sodipodi:docname="bar-line.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#111111"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="px"
+     inkscape:zoom="3.344843"
+     inkscape:cx="-20.030836"
+     inkscape:cy="50.824509"
+     inkscape:window-width="1920"
+     inkscape:window-height="1023"
+     inkscape:window-x="0"
+     inkscape:window-y="412"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <defs
+     id="defs1" />
+  <path
+     style="fill:none;stroke:#ff2448;stroke-miterlimit:4.6;stroke-opacity:1;stroke-width:4"
+     d="M 8,4 V 28"
+     id="path1"
+     sodipodi:nodetypes="cc" />
+  <path
+     style="font-size:12px;font-family:'JetBrains Mono';-inkscape-font-specification:'JetBrains Mono';letter-spacing:0px;fill:#ff2448;stroke-width:4;stroke-miterlimit:4.6"
+     d="m 16.291994,12.819999 h 1.056 v -2.34 h 2.292 V 9.5199991 h -2.292 v -2.34 h -1.056 v 2.34 h -2.292 v 0.9599999 h 2.292 z m 5.028004,2.46 h 1.14 l 4.26,-11.2799999 h -1.14 z"
+     id="text1"
+     aria-label="+/" />
+</svg>

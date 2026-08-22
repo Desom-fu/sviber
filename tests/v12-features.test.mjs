@@ -7,7 +7,7 @@ import { encodeWebSocketFrame, parseAddress, SSCHARTER_VERSION } from "../js/liv
 import { ChartRenderIndex } from "../js/render/chart-index.js";
 import { TimingMap } from "../js/core/timing.js";
 import { Rational } from "../js/core/rational.js";
-import { findNearestSnapPoint } from "../js/core/geometry.js";
+import { findNearestSnapPoint, isPointWithinChartBounds } from "../js/core/geometry.js";
 import { withChartTools } from "../js/app-chart-tools.js";
 import { withEventEditing } from "../js/app-event-editing.js";
 import { withFileWorkflows } from "../js/app-file-workflows.js";
@@ -460,7 +460,7 @@ test("free transform translate and scale clamp to the chart boundary", () => {
 		{ id: 2, type: "tap", selected: true, channel: 0, time: [0, 0, 1], x: 70, y: -10 },
 	] });
 	assert.equal(app.startFreeTransform(), true);
-	assert.equal(app.previewFreeTransform([0, 1, -1, 0, 0, 0]), false);
-	assert.equal(app.model.findEvent(1).x, 90);
-	assert.equal(app.model.findEvent(1).y, 10);
+	assert.equal(app.previewFreeTransform([0, 1, -1, 0, 0, 0]), true);
+	assert.equal(isPointWithinChartBounds(app.model.findEvent(1)), true);
+	assert.equal(isPointWithinChartBounds(app.model.findEvent(2)), true);
 });
