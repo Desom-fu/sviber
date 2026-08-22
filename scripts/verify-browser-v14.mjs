@@ -24,7 +24,7 @@ export async function runV14BrowserChecks(page) {
 	assert.equal(chrome.toolbarHasBarLine, true, "toolbar missing Bar line");
 	assert.equal(chrome.toolbarHasMove, true, "toolbar missing move-to-channel");
 
-	await page.locator("#show-rulers").setChecked(true);
+	await page.locator("label[data-tooltip-key='status.showRulers']").click();
 	const rulerOn = await page.evaluate(() => Boolean(globalThis.sviber.model.editor.showRulers));
 	assert.equal(rulerOn, true, "checking Rulers did not persist");
 
