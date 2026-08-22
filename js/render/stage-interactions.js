@@ -165,7 +165,7 @@ export const withStageInteractions = Base => class extends Base {
 		const project = projectState(this.state);
 		const mapping = this._mapping(this.surface.width, this.surface.height);
 		const raw = mapping.toChart(screenPoint);
-		const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
+		const allowOutOfBounds = Boolean(project.editor?.allowOutOfBound);
 		const target = allowOutOfBounds ? raw : clampPointToChartBounds(raw);
 		const snap = findNearestSnapPoint(target, project.snappees, {
 			activeOnly: true,
@@ -463,7 +463,7 @@ export const withStageInteractions = Base => class extends Base {
 				this.callbacks.onPreviewFreeTransformAnchor?.(internal);
 			} else {
 				const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: limit,
-					bounds: project.editor?.allowOutOfBounds ? undefined : CHART_BOUNDS });
+					bounds: project.editor?.allowOutOfBound ? undefined : CHART_BOUNDS });
 				this.callbacks.onPreviewFreeTransformAnchor?.(snap
 					? { point: snap, follows: false }
 					: { point: chart, follows: false });
@@ -471,13 +471,13 @@ export const withStageInteractions = Base => class extends Base {
 		} else if (this.drag.type.startsWith("free-")) {
 			this.callbacks.onPreviewFreeTransform?.(this._freeTransformMatrix(this.drag, chart, event));
 		} else if (this.drag.type === "event") {
-			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
+			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBound);
 			const target = allowOutOfBounds ? chart : clampPointToChartBounds(chart);
 			const snap = findNearestSnapPoint(target, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
 				bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
 			this.callbacks.onPreviewPosition?.(this.drag.hit.event.id, snap || target);
 		} else if (this.drag.type === "group-anchor") {
-			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
+			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBound);
 			const target = allowOutOfBounds ? chart : clampPointToChartBounds(chart);
 			const group = this.drag.hit.event;
 			const directChildren = (group.events || []).filter(event => MOVABLE_TYPES.has(event.type));
@@ -509,7 +509,7 @@ export const withStageInteractions = Base => class extends Base {
 				x: chart.x - this.drag.startChart.x,
 				y: chart.y - this.drag.startChart.y,
 			}, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
-				bounds: project.editor?.allowOutOfBounds ? undefined : CHART_BOUNDS });
+				bounds: project.editor?.allowOutOfBound ? undefined : CHART_BOUNDS });
 			this.callbacks.onPreviewSnappeeMove?.(this.drag.hit.snappee.id, movement);
 		} else if (this.drag.type === "draft-point") {
 			const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale });
@@ -568,19 +568,19 @@ export const withStageInteractions = Base => class extends Base {
 			if (internal && Math.hypot(internal.point.x - chart.x, internal.point.y - chart.y) <= limit) this.callbacks.onPreviewFreeTransformAnchor?.(internal);
 			else {
 				const snap = findNearestSnapPoint(chart, project.snappees, { activeOnly: true, maxDistance: limit,
-					bounds: project.editor?.allowOutOfBounds ? undefined : CHART_BOUNDS });
+					bounds: project.editor?.allowOutOfBound ? undefined : CHART_BOUNDS });
 				this.callbacks.onPreviewFreeTransformAnchor?.(snap ? { point: snap, follows: false } : { point: chart, follows: false });
 			}
 		} else if (drag.type.startsWith("free-")) {
 			this.callbacks.onPreviewFreeTransform?.(this._freeTransformMatrix(drag, chart, event));
 		} else if (drag.type === "event" && this.pointerMoved) {
-			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
+			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBound);
 			const target = allowOutOfBounds ? chart : clampPointToChartBounds(chart);
 			const snap = findNearestSnapPoint(target, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
 				bounds: allowOutOfBounds ? undefined : CHART_BOUNDS });
 			this.callbacks.onMovePosition?.(drag.hit.event.id, snap || target);
 		} else if (drag.type === "group-anchor" && this.pointerMoved) {
-			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBounds);
+			const allowOutOfBounds = Boolean(project.editor?.allowOutOfBound);
 			const target = allowOutOfBounds ? chart : clampPointToChartBounds(chart);
 			const group = drag.hit.event;
 			const directChildren = (group.events || []).filter(item => MOVABLE_TYPES.has(item.type));
@@ -615,7 +615,7 @@ export const withStageInteractions = Base => class extends Base {
 				x: chart.x - drag.startChart.x,
 				y: chart.y - drag.startChart.y,
 			}, project.snappees, { activeOnly: true, maxDistance: 9 / mapping.scale,
-				bounds: project.editor?.allowOutOfBounds ? undefined : CHART_BOUNDS });
+				bounds: project.editor?.allowOutOfBound ? undefined : CHART_BOUNDS });
 			this.callbacks.onSnappeeMove?.(drag.hit.snappee.id, movement);
 		} else if (drag.type === "draft-point") {
 			if (this.pointerMoved) {

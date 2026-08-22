@@ -27,7 +27,7 @@ This release implements the additions in `PROMPT-v13.md` and the follow-up inter
 ## Timeline, timing, and navigation
 
 - `js/core/timing.js` now normalizes, serializes, inserts, removes, and searches bar lines. Beat-line generation and snapping are relative to the latest bar line, with rational labels and bar-line emphasis.
-- `js/render/timeline.js` and `js/render/timeline-helpers.js` render bar-relative beat labels and colors. `js/audio/scheduler.js` schedules the metronome on bar-relative integer beats.
+- `js/render/timeline.js` and `js/render/timeline-helpers.js` choose labeled/color-coded lines relative to the latest bar line while displaying the absolute beat `t`, as required by the prompt. `js/audio/scheduler.js` schedules the metronome on bar-relative integer beats.
 - `timing.barLine` (`R`) and `transform.timeDilation` were added to `js/commands.js`, with UI dialogs and undoable model changes in the app command modules.
 - Timeline and scroll-view Ctrl+Space panning, main-field Ctrl+Space panning, Ctrl+Shift zooming, reset-view control, and progress-bar seeking are wired through `js/render/*`, `js/app-view-controls.js`, and `js/app-core.js`.
 
@@ -45,22 +45,34 @@ This release implements the additions in `PROMPT-v13.md` and the follow-up inter
 
 ## Macro API
 
-- `js/macro-api.js` and `js/macro-api.rb` are standalone sandbox-loaded API implementations. They expose rational beat inputs, direction aliases, CSS/hex color normalization, `Vector2D`, six-accessor `AffineMatrix2D` composition, nearest-point `Location` attachments, serialized `TipPoint` modes, `BpmChange`, `BarLine`, `Channel`, `Snappee` (including geometry-aware named subclasses), `Event`, and `Clip` wrappers.
-- Chart collections, current time/channel, selected snappee/events, timing collections, grouping callbacks, relative copy/paste, event/channel/snappee mutation, nested-group transforms, and deleted-wrapper invalidation are available from JavaScript and Ruby. Ruby also exposes the static `Chart` facade and exact `Integer`/`Rational` `b`/`b!` semantics.
-- `docs/index.html` documents the shared state model, wrapper classes, global shortcuts, and runnable JavaScript/Ruby examples.
+- `js/macro-api.js` and `js/macro-api.rb` were aligned directly to the API overview in `PROMPT-v13.md`. Macro code receives the prompt-defined top-level classes and helpers only; the former `api`, `state`, raw `chart`, `$sviber`, CRUD, and selection-helper interfaces are neither injected nor documented. Internal factory state is kept outside the macro argument list.
+- Both languages expose the static `Chart` facade; `Vector2D`; six-accessor `AffineMatrix2D`; `Location`; `TipPoint`; `BpmChange`; `BarLine`; `Channel`; `Snappee` and the seven named subclasses listed by the prompt; typed `Event` wrappers; `Clip`; and every prompt helper from `b`/`b!` through `copy` and `transform`. JavaScript uses the documented camelCase mapping, including `bBang`, while Ruby uses the prompt's snake_case and predicate conventions.
+- Beat inputs follow the prompt rather than the former permissive API: Ruby public beat arguments accept only `Integer` or `Rational`; JavaScript accepts a finite number, a two-integer rational tuple, or a three-integer file-format tuple and quantizes numbers with a fixed maximum denominator. Missing arguments, `null`, arbitrary beat objects, and Ruby arrays are rejected instead of treated as compatibility forms.
+- JavaScript event types accept the prompt's camelCase names only, and `AffineMatrix2D` uses six scalar constructor arguments rather than the former single-array convenience form. Ruby keeps its prompt-defined snake_case symbol conversion independently.
+- Direction names now use chart coordinates exactly: right is `0`, up is `pi/2`, left is `pi`, and down is `-pi/2`; long diagonal names in either word order and their two-letter aliases map consistently in JavaScript and Ruby. Hex integers and CSS color strings are normalized by the same public color-taking entry points.
+- Direction-name normalization also covers the angle arguments of `RadialMesh` and `RegularPolygonCurve`. Ruby evaluates parametric mesh/curve expressions through a restricted math-expression parser, while JavaScript uses the loaded math.js evaluator; `pos` and nearest-point enumeration honor inclusive/exclusive parameter ranges and closed curves.
+- `Location` strictly implements `(x,y)`, `(curve,i)`, and `(mesh,i,j)`. Assigning a snappee attaches to that snappee's nearest point, assigning `nil`/`null` detaches, coordinate setters detach, and `attach` searches only active snappees. Channel lookup is 1-based, snappee lookup is 0-based, and negative collection indexes return no object instead of using Ruby's negative-index semantics. The former mesh-array constructor form is not retained.
+- `TipPoint.chain`/`drop` use the prompt keyword/options structure and enforce absolute-vs-relative and seconds-vs-beats exclusivity. The positional `(distance,angle,time)` and `(location,time)` forms exist only on `tpc`/`tpd`, as specified.
+- Event construction and type conversion enforce the prompt's type-dependent fields and wrapper subclasses. Channel collections exclude group descendants, direct `Group` construction removes its children from the top-level event list, group location/time setters translate all descendants, group anchors move independently, and deleting a wrapper invalidates later operations through the same underlying record.
+- `Clip.new` now stores the same versioned, relative time/channel data shape as the event clipboard, including referenced channels and snappees. `Clip#paste` and `copy(events)` return newly typed event wrappers and map channels by panel order rather than assuming contiguous IDs.
+- `transform` accepts only an `AffineMatrix2D` or the prompt callback/block form and only event arrays or snappee arrays. It transforms event/group locations, snappee matrices, flick directions, and both absolute and relative chain/drop spawn geometry without applying chart-boundary checks.
+- `docs/index.html` has complete parallel English and Chinese API sections with exact class members, constructor/helper signatures, JS/Ruby name mappings, direction values, exclusivity rules, deletion behavior, and full examples. Regression assertions reject descriptions of the former container/CRUD API.
+- Ruby browser execution keeps `json` and `base64` loaded in the sandbox API. Wasm bytes are compiled inside the iframe realm, and the browser regression now fails immediately on macro-console errors; this covers both the original cross-realm timeout and the later missing-`Base64` failure found during release verification.
+- The saved/editor runtime now uses only the prompt field `allowOutOfBound`; the old `allowOutOfBounds` import/runtime mirror was removed instead of being retained as a compatibility path.
 
 ## Documentation and localization
 
-- Updated README installation/contribution/license guidance, English and Chinese help text, command tables, terminology (`bgNote` as `墨点`, tip points as `游标`), release metadata, and version assertions.
+- Reduced both READMEs to installation, build/development, contribution, and license material, with the help manual as the sole user/API guide. Updated parallel English/Chinese help text, command tables, terminology (`bgNote` as `墨点`, tip points as `游标`), release metadata, and version assertions.
 
 ## Verification
 
-- `npm test`: 168 tests passed.
+- `npm test`: 170 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
 - `npm run build`: generated `build/sviber-0.4.1.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
-- `ruby tests/ruby-macro-smoke.rb`: passed (Ruby API rational, group, `b`/`b!`, and TipPoint checks).
-- Final v11/v12 and v12/v13 audits were rerun with `git diff --no-index --unified=0`: all low-level hunks were reviewed line by line, including the previously omitted multi-selected Flick rotation and hidden tip-point inspector rows. Each changed requirement was mapped to implementation and regression/browser evidence before the release tag was moved.
+- `ruby tests/ruby-macro-smoke.rb`: passed (including direction-bearing snappees, parametric expressions, rational timing, grouping, `b`/`b!`, and TipPoint checks).
+- `npm run verify:browser`: passed, including real JS/Ruby macro application, Ruby `hello world` console forwarding, 100k-event playback/editing benchmarks, interaction checks, and nonblank canvas summaries.
+- Final v11/v12 and v12/v13 audits were rerun with `git diff --no-index --unified=0`: all low-level hunks were reviewed line by line, including the previously omitted multi-selected Flick rotation and hidden tip-point inspector rows. Each changed requirement was mapped to implementation and regression/browser evidence before release tagging.
 
 ## Final diff audit checklist
 
@@ -69,7 +81,7 @@ The final `git diff --no-index --unified=0 PROMPT-v12.md PROMPT-v13.md` review f
 | Diff area | Implemented in | Verification |
 | --- | --- | --- |
 | Nix package, flake, shared font hashes | `default.nix`, `flake.nix`, `json/font-assets.json`, `scripts/build-nw.mjs` | v13 package test and `npm run build` |
-| Bar-relative waveform labels and beat lines | `js/core/timing.js`, `js/render/timeline.js` | bar-line timing test |
+| Bar-relative waveform label selection with absolute beat text | `js/core/timing.js`, `js/render/timeline.js` | bar-line timing test and browser assertions |
 | Group ring sizing | `js/render/timeline.js`, `js/render/scroll-view.js`, stage renderers | browser canvas checks |
 | Bar-relative line colors, thick bar lines, snapping | `TimingMap`, timeline/scroll renderers | timing test and browser verification |
 | Timeline Ctrl+Space pan | timeline interaction handlers | browser drag benchmark |

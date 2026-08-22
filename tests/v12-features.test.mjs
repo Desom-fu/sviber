@@ -238,7 +238,7 @@ test("history labels are translated again after the interface language changes",
 	assert.equal(translations.localize("Ungroup events"), "解组事件");
 });
 
-test("v12 editor fields use the file-format spelling and preserve legacy imports", () => {
+test("v12 editor fields use the file-format spelling", () => {
 	const model = ChartModel.createDefault({
 		editor: {
 			allowOutOfBound: true,
@@ -248,13 +248,8 @@ test("v12 editor fields use the file-format spelling and preserve legacy imports
 		},
 	});
 	assert.equal(model.editor.allowOutOfBound, true);
-	assert.equal(model.editor.allowOutOfBounds, true);
 	assert.equal(ChartModel.import(model.toJSON()).editor.allowOutOfBound, true);
-	const legacy = ChartModel.createDefault({ editor: { allowOutOfBounds: true } });
-	assert.equal(legacy.editor.allowOutOfBound, true);
-	assert.equal(legacy.editor.showGroupingInTimeline, true);
-	assert.equal(legacy.editor.showGroupingInMainField, true);
-	assert.equal(legacy.editor.showTipPoints, true);
+	assert.equal(ChartModel.createDefault({ editor: { allowOutOfBounds: true } }).editor.allowOutOfBound, false);
 });
 
 test("snap-to-point uses the v12 6.25 boundary exactly", async () => {

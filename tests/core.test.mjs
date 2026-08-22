@@ -434,7 +434,6 @@ test("ChartModel defaults and round-trips the out-of-bounds editor setting", () 
 	model.editor.allowOutOfBound = true;
 	const reopened = ChartModel.import(model.toJSON());
 	assert.equal(reopened.editor.allowOutOfBound, true);
-	assert.equal(reopened.editor.allowOutOfBounds, true);
 	assert.equal(reopened.toJSON().sviber.editor.allowOutOfBound, true);
 	assert.equal(Object.hasOwn(reopened.toJSON().sviber.editor, "allowOutOfBounds"), false);
 });

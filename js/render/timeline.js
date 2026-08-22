@@ -270,7 +270,7 @@ export class TimelineView {
 			if (line.integerFromBar) {
 				context.globalAlpha = 0.9;
 				context.fillStyle = relativeBeatColor(line.relative);
-				context.fillText(line.relative.toString(), x + 3, 3);
+				context.fillText(line.beat.toString(), x + 3, 3);
 			}
 		}
 		context.restore();

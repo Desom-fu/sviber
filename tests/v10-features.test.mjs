@@ -43,21 +43,22 @@ test("preset snappee labels retain the matching legacy default names", async () 
 	]);
 });
 
-test("JavaScript macro API exposes live chart collections and mutation helpers", async () => {
+test("JavaScript macro API exposes the PROMPT v13 top-level surface", async () => {
 	await import("../js/macro-api.js");
-	const api = globalThis.createSviberMacroApi({
+	const runtime = globalThis.createSviberMacroApi({
 		metadata: { title: "Macro" }, editor: { currentChannel: 0, currentTime: [2, 0, 1] },
 		channels: [{ id: 0, name: "Main" }], events: [], snappees: [],
 	});
-	const event = api.tap({ x: 3, y: 4 });
-	assert.equal(api.events[0], event);
-	assert.equal(api.findEvent(event), event);
-	api.updateEvent(event, { x: 8 });
-	assert.equal(event.x, 8);
-	api.select(event);
-	assert.equal(api.events[0].selected, true);
-	api.removeEvent(event);
-	assert.equal(api.events.length, 0);
+	assert.deepEqual(Object.keys(runtime.globals).sort(), [
+		"AffineMatrix2D", "BarLine", "BezierCurve", "BgNote", "BigText", "BpmChange", "Channel",
+		"Chart", "Checkerboard", "Clip", "Comment", "DiamondGrid", "Drag", "Event", "Flick", "Grid",
+		"Group", "Hexagon", "Hexagram", "Hold", "Location", "ParametricCurve", "ParametricMesh",
+		"PenCurve", "Pentagon", "RadialMesh", "RectangularMesh", "RegularPolygonCurve", "Snappee", "Tap",
+		"TipPoint", "Turntable", "Vector2D", "b", "bBang", "bgNote", "bigText", "bpm", "c",
+		"checkerboard", "copy", "d", "diamondGrid", "f", "g", "grid", "h", "hexagon", "hexagram",
+		"l", "pentagon", "s", "t", "tpc", "tpd", "transform", "turntable",
+	].sort());
+	assert.deepEqual(Object.keys(runtime).sort(), ["globals", "state"]);
 });
 
 test("autosaves omit generated top-level events while ordinary saves retain them", () => {
@@ -84,11 +85,14 @@ test("documentation and release metadata describe the current v10 behavior", asy
 		readFile(new URL("../service-worker.js", import.meta.url), "utf8"),
 	]);
 	assert.match(manual, /same sound and level; there is no strong-beat\/weak-beat accent/);
-	assert.match(manual, /每拍使用相同的声音和响度，不区分强拍与弱拍/);
-	assert.match(readme, /every 120 seconds/);
-	assert.match(readmeZh, /每 120 秒/);
-	assert.match(rubyApi, /\$stdout = SviberMacroOutput/);
+	assert.match(manual, /相对最近小节线为整数拍的位置/);
+	assert.match(manual, /default autosave interval is 120 seconds/);
+	assert.match(manual, /默认 120 秒/);
+	assert.match(readme, /help manual.*authoritative user guide/i);
+	assert.match(readmeZh, /帮助手册.*唯一权威来源/);
+	assert.match(rubyApi, /\$stdout = SviberMacroInternals::Output/);
 	assert.match(rubyApi, /def puts\(\*values\)/);
+	assert.match(sandbox, /SviberMacroInternals\.load_json/);
 	assert.match(sandbox, /consolePrint: false/);
 	assert.equal(JSON.parse(packageJson).version, "0.4.1");
 	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v44"/);

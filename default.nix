@@ -1,21 +1,37 @@
-{ lib, stdenv, nodejs, npm, nwjs, fetchurl ? null }:
+{ lib, stdenv, nodejs, nwjs, fetchurl, importNpmLock, makeWrapper }:
 
-stdenv.mkDerivation {
+let
+  package = builtins.fromJSON (builtins.readFile ./package.json);
+  fontManifest = builtins.fromJSON (builtins.readFile ./json/font-assets.json);
+  fonts = map (asset: {
+    inherit (asset) name;
+    source = fetchurl {
+      urls = asset.urls;
+      sha256 = lib.toLower asset.sha256;
+    };
+  }) fontManifest;
+in stdenv.mkDerivation {
   pname = "sviber";
-  version = (builtins.fromJSON (builtins.readFile ./package.json)).version;
+  inherit (package) version;
   src = lib.cleanSource ./.;
-  nativeBuildInputs = [ nodejs npm ];
+  npmDeps = importNpmLock { npmRoot = ./.; };
+  nativeBuildInputs = [ nodejs importNpmLock.npmConfigHook makeWrapper ];
   buildPhase = ''
-    export HOME=$TMPDIR/home
-    mkdir -p "$HOME"
-    npm ci --ignore-scripts
+    runHook preBuild
+    mkdir -p node_modules/.cache/sviber/fonts
+    ${lib.concatMapStringsSep "\n" (font: "cp ${font.source} node_modules/.cache/sviber/fonts/${lib.escapeShellArg font.name}") fonts}
+    export SVIBER_NW_PACKAGE_ONLY=1
     npm run build
+    runHook postBuild
   '';
   installPhase = ''
+    runHook preInstall
     mkdir -p $out/share/sviber
-    cp -r build/nw/. $out/share/sviber/
+    cp build/sviber-${package.version}.nw $out/share/sviber/
     mkdir -p $out/bin
-    ln -s $out/share/sviber/sviber $out/bin/sviber
+    makeWrapper ${lib.getExe nwjs} $out/bin/sviber \
+      --add-flags $out/share/sviber/sviber-${package.version}.nw
+    runHook postInstall
   '';
   meta = {
     description = "Desktop-style Sunniesnow chart editor";

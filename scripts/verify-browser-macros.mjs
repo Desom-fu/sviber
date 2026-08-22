@@ -10,8 +10,8 @@ export async function runMacroChecks(browser, baseUrl) {
 		try {
 			if (location.pathname.endsWith("/sviber/")) {
 				localStorage.setItem("sviber.macros", JSON.stringify({
-					smoke: "state.metadata.title = 'Macro smoke'; globalThis.console.log('macro smoke ok');",
-					rubySmoke: { language: "ruby", content: "puts \\\"hello world\\\"" },
+					smoke: "t(l(13, 17), 'Macro smoke'); globalThis.console.log('macro smoke ok');",
+					rubySmoke: { language: "ruby", content: "t(l(1, 2), 'Ruby smoke')\nputs 'hello world'" },
 				}));
 			}
 		} catch { /* Sandboxed macro frames have no storage origin. */ }
@@ -50,14 +50,24 @@ export async function runMacroChecks(browser, baseUrl) {
 		await popup.getByRole("button", { name: "smoke", exact: true }).click();
 		const historyBefore = await page.evaluate(() => globalThis.sviber.history.length);
 		await popup.keyboard.press("F8");
-		await page.waitForFunction(() => globalThis.sviber.model.metadata.title === "Macro smoke");
+		await page.waitForFunction(() => globalThis.sviber.model.events.some(event => event.text === "Macro smoke"));
 		assert.equal(await page.evaluate(() => globalThis.sviber.history.length), historyBefore + 1);
 		await popup.waitForFunction(() => document.querySelector("#macro-console-output")
 			?.textContent.includes("macro smoke ok"));
 		await popup.getByRole("button", { name: "rubySmoke", exact: true }).click();
 		await popup.keyboard.press("F8");
-		await popup.waitForFunction(() => document.querySelector("#macro-console-output")
-			?.textContent.includes("hello world"), null, { timeout: 30_000 });
+		try {
+			await popup.waitForFunction(() => {
+				const text = document.querySelector("#macro-console-output")?.textContent || "";
+				return text.includes("hello world") || text.includes("[error]");
+			}, null, { timeout: 30_000 });
+			const consoleText = await popup.locator("#macro-console-output").textContent();
+			assert.match(consoleText, /hello world/);
+		} catch (error) {
+			const consoleText = await popup.locator("#macro-console-output").textContent().catch(() => "");
+			throw new Error(`Ruby macro smoke did not finish. Console: ${consoleText || "(empty)"}. Page errors: ${pageErrors.join(" | ") || "(none)"}`, { cause: error });
+		}
+		await page.waitForFunction(() => globalThis.sviber.model.events.some(event => event.text === "Ruby smoke"));
 		assert.deepEqual(pageErrors, []);
 		return { locale: "zh-CN", dialog: true, applied: true, historyDelta: 2, consoleForwarded: true, ruby: true };
 	} finally {

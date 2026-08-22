@@ -57,7 +57,10 @@ export class SviberAppCore {
 		this.liveHosting = new LiveHosting({ address: this.preferences.liveHostingAddress, reloadPort: this.preferences.liveReloadPort,
 			getLevel: () => this.hostedLevel(), onMessage: data => {
 				if (data.type === "connect") console.info(`Sunniesnow connected to sviber (${data.userAgent || "unknown client"}).`);
-			} });
+			},
+			onError: error => this.toast?.error("toast.liveHostingFailed", { message: String(error?.message || error) }),
+			onStop: () => { this.toast?.show("toast.liveHostingStopped"); this.refresh?.(); },
+		});
 		this.boundFullscreenChange = () => this._syncFullscreenState();
 		this.tooltip = new TooltipManager({ i18n });
 		this.toast = new ToastManager({ i18n });
@@ -648,7 +651,7 @@ export class SviberAppCore {
 				if (id === "allow-out-of-bound") {
 					const checked = Boolean(event.target.checked);
 					this.commit(i18n.t("history.allowOutOfBounds"), model => {
-						model.editor.allowOutOfBound = checked; model.editor.allowOutOfBounds = checked;
+						model.editor.allowOutOfBound = checked;
 					});
 					return;
 				}
@@ -912,13 +915,11 @@ export class SviberAppCore {
 		};
 		document.addEventListener("keyup", this.boundSpaceKeyUp, true);
 		document.addEventListener("wheel", event => {
-			if (this.dialogs.active || event.defaultPrevented
+			if (event.defaultPrevented) return;
+			if (event.ctrlKey && event.shiftKey) { event.preventDefault(); this.setMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12); return; }
+			if (this.dialogs.active
 				|| event.target.closest(".property-panel,.history-list,.status-panel,.menu-popup,.dialog-body,.tool-bar,select,textarea")) return;
 			event.preventDefault();
-			if (event.ctrlKey && event.shiftKey) {
-				this.setMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12);
-				return;
-			}
 			this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey);
 		}, { passive: false });
 		window.addEventListener("beforeunload", event => {

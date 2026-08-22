@@ -158,7 +158,7 @@ export class ScrollView {
 			if (!lineGroups.has(style)) lineGroups.set(style, { color, major, barLine: line.barLine, ys: [] });
 			lineGroups.get(style).ys.push(Math.round(y) + 0.5);
 			if (major && Math.abs(y - previousLabelY) >= 12) {
-				labels.push({ text: line.relative.toString(), y });
+				labels.push({ text: line.beat.toString(), y });
 				previousLabelY = y;
 			}
 		}

@@ -108,11 +108,43 @@ export class LiveHosting {
 		this.reloadPort = Number(options.reloadPort ?? DEFAULT_RELOAD_PORT) || 0;
 		this.getLevel = options.getLevel || (() => null);
 		this.onMessage = options.onMessage || (() => {});
+		this.onError = options.onError || (() => {});
+		this.onStop = options.onStop || (() => {});
+		this.stopping = false;
+		this.stopReported = false;
+	}
+
+	#reportError(error) {
+		try { this.onError(error instanceof Error ? error : new Error(String(error))); }
+		catch { /* Notifications must not interrupt server cleanup. */ }
+	}
+
+	#listen(server, port, host) {
+		return new Promise((resolve, reject) => {
+			const cleanup = () => { server.off("error", failed); server.off("listening", listening); };
+			const failed = error => { cleanup(); reject(error); };
+			const listening = () => { cleanup(); resolve(); };
+			server.once("error", failed);
+			server.once("listening", listening);
+			server.listen(port, host);
+		});
+	}
+
+	#watch(server) {
+		server.on("error", error => this.#reportError(error));
+		server.on("close", () => {
+			if (this.stopping || this.stopReported) return;
+			this.stopReported = true;
+			this.stop();
+			try { this.onStop(); } catch { /* Notifications must not interrupt cleanup. */ }
+		});
 	}
 
 	async start() {
 		if (!globalThis.nw) throw new Error("Live hosting is available only in NW.js.");
 		if (this.server) return this;
+		this.stopping = false;
+		this.stopReported = false;
 		this.http = nwRequire("http");
 		this.crypto = nwRequire("crypto");
 		this.Buffer = nwRequire("buffer")?.Buffer || globalThis.Buffer;
@@ -133,15 +165,14 @@ export class LiveHosting {
 					"Content-Length": value.length,
 				});
 				response.end(value);
-			}).catch(() => {
+			}).catch(error => {
+				this.#reportError(error);
 				response.statusCode = 500;
 				response.end();
 			});
 		});
-		await new Promise((resolve, reject) => {
-			this.server.once("error", reject);
-			this.server.listen(port, host, resolve);
-		});
+		await this.#listen(this.server, port, host);
+		this.#watch(this.server);
 		if (this.reloadPort > 0) await this.#startReload();
 		return this;
 	}
@@ -174,20 +205,18 @@ export class LiveHosting {
 			this.clients.add(client);
 			socket.on("data", chunk => {
 				try { handleWebSocketBytes(client, chunk, this.Buffer); }
-				catch { client.close(); }
+				catch (error) { this.#reportError(error); client.close(); }
 			});
 			const remove = () => this.clients.delete(client);
 			socket.on("close", remove);
-			socket.on("error", remove);
+			socket.on("error", error => { remove(); this.#reportError(error); });
 			if (head?.length) {
 				try { handleWebSocketBytes(client, head, this.Buffer); }
-				catch { client.close(); }
+				catch (error) { this.#reportError(error); client.close(); }
 			}
 		});
-		await new Promise((resolve, reject) => {
-			this.reloadServer.once("error", reject);
-			this.reloadServer.listen(this.reloadPort, "0.0.0.0", resolve);
-		});
+		await this.#listen(this.reloadServer, this.reloadPort, "0.0.0.0");
+		this.#watch(this.reloadServer);
 	}
 
 	#handleMessage(client, message) {
@@ -204,11 +233,12 @@ export class LiveHosting {
 		const payload = JSON.stringify(message);
 		for (const client of this.clients) {
 			try { client.send(payload); }
-			catch { client.close(); this.clients.delete(client); }
+			catch (error) { this.#reportError(error); client.close(); this.clients.delete(client); }
 		}
 	}
 
 	stop() {
+		this.stopping = true;
 		for (const client of this.clients) client.close();
 		this.clients.clear();
 		this.server?.close();

@@ -16,20 +16,16 @@
 	};
 
 	async function runJavaScript(message) {
-		const api = global.createSviberMacroApi(message.state, output);
-		const helpers = Object.fromEntries(Object.entries(api)
-			.filter(([key]) => key !== "state" && key !== "console"));
-		const names = Object.keys(helpers);
+		const runtime = global.createSviberMacroApi(message.state, output);
+		delete global.createSviberMacroApi;
+		const names = Object.keys(runtime.globals);
 		const AsyncFunction = Object.getPrototypeOf(async function macroFunction() {}).constructor;
 		global.console = consoleProxy;
 		try {
-			const result = await new AsyncFunction("api", "state", "console", ...names, message.code)(
-				api, api.state, consoleProxy, ...names.map(name => helpers[name]),
+			await new AsyncFunction("console", ...names, message.code)(
+				consoleProxy, ...names.map(name => runtime.globals[name]),
 			);
-			if (result && typeof result === "object") {
-				return result.state && typeof result.state === "object" ? result.state : result;
-			}
-			return api.state;
+			return runtime.state;
 		} finally {
 			global.console = nativeConsole;
 		}
@@ -48,7 +44,7 @@
 		const codePayload = encode(message.code || "");
 		const source = [
 			String(message.rubyApi || ""),
-			`$sviber.load_json(Base64.strict_decode64("${statePayload}"))`,
+			`SviberMacroInternals.load_json(Base64.strict_decode64("${statePayload}"))`,
 			`sviber_macro_source = Base64.strict_decode64("${codePayload}")`,
 			"sviber_macro_error = nil",
 			"begin",
@@ -56,7 +52,7 @@
 			"rescue Exception => error",
 			"  sviber_macro_error = { \"class\" => error.class.name, \"message\" => error.message, \"backtrace\" => error.backtrace }",
 			"end",
-			"JSON.generate({ \"state\" => $sviber.state, \"logs\" => $sviber_macro_logs, \"error\" => sviber_macro_error })",
+			"JSON.generate({ \"state\" => SviberMacroInternals.state, \"logs\" => $__sviber_macro_logs, \"error\" => sviber_macro_error })",
 		].join("\n");
 		const result = JSON.parse(vm.eval(source).toString());
 		for (const record of Array.isArray(result.logs) ? result.logs : []) {

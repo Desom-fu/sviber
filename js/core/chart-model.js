@@ -69,7 +69,6 @@ const DEFAULT_EDITOR = Object.freeze({
 	readOnly: false,
 	abLoopMarks: [],
 	currentChannel: 0,
-	allowOutOfBounds: false,
 	allowOutOfBound: false,
 	timelineChannelOffset: 0,
 	showGroupingInTimeline: true,
@@ -428,7 +427,7 @@ function normalizeEditor(editor, channels) {
 		readOnly: Boolean(source.readOnly),
 		abLoopMarks: normalizeLoopMarks(source.abLoopMarks),
 		currentChannel: requested?.active !== false || !activeFallback ? requestedChannel : activeFallback.id,
-		allowOutOfBound: Boolean(source.allowOutOfBound || source.allowOutOfBounds), allowOutOfBounds: Boolean(source.allowOutOfBound || source.allowOutOfBounds),
+		allowOutOfBound: Boolean(source.allowOutOfBound),
 		timelineChannelOffset: Math.max(0, Math.min(Math.max(0, channels.length - 3), Math.round(finiteNumber(source.timelineChannelOffset, 0)))),
 		showGroupingInTimeline: source.showGroupingInTimeline !== false, showGroupingInMainField: source.showGroupingInMainField !== false,
 		showTipPoints: source.showTipPoints !== false, showBgEventsInTimeline: source.showBgEventsInTimeline !== false, showBgEventsInMainField: source.showBgEventsInMainField !== false,
@@ -819,7 +818,6 @@ export class ChartModel {
 
 	serializeSviber() {
 		const editor = clone(this.editor);
-		delete editor.allowOutOfBounds;
 		return {
 			music: this.music,
 			image: this.image,

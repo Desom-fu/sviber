@@ -115,7 +115,7 @@ export function selected(model) {
 }
 
 export function allowsOutOfBounds(model) {
-	return Boolean(model.editor?.allowOutOfBound || model.editor?.allowOutOfBounds);
+	return Boolean(model.editor?.allowOutOfBound);
 }
 
 export function pointAllowed(model, point) {

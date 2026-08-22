@@ -565,7 +565,6 @@ try {
 		app.preferences = { ...app.preferences, noteSpeed: 2 };
 		delete app.preferences.allowOutOfBounds;
 		app.model.editor.allowOutOfBound = false;
-		app.model.editor.allowOutOfBounds = false;
 		app.model.snappees = [];
 		localStorage.setItem("sviber.preferences", JSON.stringify(app.preferences));
 		app.refreshNow();
@@ -608,13 +607,13 @@ try {
 		const preferences = JSON.parse(localStorage.getItem("sviber.preferences"));
 		return {
 			model: app.model.editor.allowOutOfBound,
-			legacyModel: app.model.editor.allowOutOfBounds,
+			hasLegacyModel: Object.hasOwn(app.model.editor, "allowOutOfBounds"),
 			serialized: serializedEditor,
 			preferences,
 		};
 	});
 	assert.equal(persistedOutOfBoundsSetting.model, true);
-	assert.equal(persistedOutOfBoundsSetting.legacyModel, true);
+	assert.equal(persistedOutOfBoundsSetting.hasLegacyModel, false);
 	assert.equal(persistedOutOfBoundsSetting.serialized.allowOutOfBound, true);
 	assert.equal(Object.hasOwn(persistedOutOfBoundsSetting.serialized, "allowOutOfBounds"), false);
 	assert.equal(Object.hasOwn(persistedOutOfBoundsSetting.preferences, "allowOutOfBounds"), false);
@@ -644,7 +643,7 @@ try {
 			app.freeTransform = null;
 			app.previewBase = null;
 			const state = baseState();
-			state.editor.allowOutOfBounds = allow;
+			state.editor.allowOutOfBound = allow;
 			state.events = events;
 			state.snappees = snappees;
 			app.model.restore(state);
