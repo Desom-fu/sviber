@@ -1,6 +1,12 @@
 # PROMPT v13 implementation
 
-This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.4`.
+This release implements the additions in `PROMPT-v13.md` and the follow-up interaction/performance fixes released through `0.4.5`.
+
+## v0.4.5 inspector visibility and channel names
+
+- Inspector property rows already set `hidden` for inapplicable tip-point fields, but `.property-row { display: grid }` overrode the HTML `hidden` attribute, so absolute coordinates still appeared in relative mode and distance/direction still appeared in absolute mode.
+- `css/app.css` now has `.property-row[hidden] { display: none; }`. Relative mode shows distance and direction; absolute mode shows coordinates (and attachment when relevant). Browser regressions assert both `row.hidden` and `getComputedStyle(row).display`.
+- The inspector channel dropdown now lists channel names instead of 1-based ordinals.
 
 ## v0.4.4 free-transform clamp and inspector Enter
 
@@ -88,9 +94,9 @@ This release implements the additions in `PROMPT-v13.md` and the follow-up inter
 
 ## Verification
 
-- `npm test`: 176 tests passed.
+- `npm test`: 177 tests passed.
 - `node scripts/check-source-size.mjs`: passed.
-- `npm run build`: generated `build/sviber-0.4.4.nw` and the NW.js desktop directory.
+- `npm run build`: generated `build/sviber-0.4.5.nw` and the NW.js desktop directory.
 - `node --check js/macro-api.js` and `ruby -c js/macro-api.rb`: passed.
 - `ruby tests/ruby-macro-smoke.rb`: passed (including direction-bearing snappees, parametric expressions, rational timing, grouping, `b`/`b!`, and TipPoint checks).
 - `npm run verify:browser`: passed, including real JS/Ruby macro application, Ruby `hello world` console forwarding, 100k-event playback/editing benchmarks, interaction checks, and nonblank canvas summaries.

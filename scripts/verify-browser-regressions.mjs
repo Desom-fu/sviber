@@ -11,7 +11,10 @@ export async function runRegressionChecks(page) {
 			tipPointSpawnType: "chain", tipPointSpawnAbsolutePosition: false, tipPointSpawnTimeBeats: false, tipPointSpawnTime: 1 });
 		app.refreshNow();
 		const rows = () => Object.fromEntries([...document.querySelectorAll("#inspector-panel .property-row")]
-			.map(row => [row.querySelector("label")?.textContent || "", row.hidden]));
+			.map(row => [row.querySelector("label")?.textContent || "", {
+				hidden: row.hidden,
+				display: getComputedStyle(row).display,
+			}]));
 		const relativeSeconds = rows();
 		const event = app.model.events[0];
 		event.tipPointSpawnAbsolutePosition = true;
@@ -22,16 +25,45 @@ export async function runRegressionChecks(page) {
 		app.refreshNow();
 		return { relativeSeconds, absoluteBeats };
 	});
-	assert.equal(inspectorVisibility.relativeSeconds["生成距离"], false);
-	assert.equal(inspectorVisibility.relativeSeconds["生成方向"], false);
-	assert.equal(inspectorVisibility.relativeSeconds["绝对"], true);
-	assert.equal(inspectorVisibility.relativeSeconds["生成提前量（秒）"], false);
-	assert.equal(inspectorVisibility.relativeSeconds["生成提前量（拍）"], true);
-	assert.equal(inspectorVisibility.absoluteBeats["生成距离"], true);
-	assert.equal(inspectorVisibility.absoluteBeats["生成方向"], true);
-	assert.equal(inspectorVisibility.absoluteBeats["绝对"], false);
-	assert.equal(inspectorVisibility.absoluteBeats["生成提前量（秒）"], true);
-	assert.equal(inspectorVisibility.absoluteBeats["生成提前量（拍）"], false);
+	assert.equal(inspectorVisibility.relativeSeconds["生成距离"].hidden, false);
+	assert.equal(inspectorVisibility.relativeSeconds["生成距离"].display, "grid");
+	assert.equal(inspectorVisibility.relativeSeconds["生成方向"].hidden, false);
+	assert.equal(inspectorVisibility.relativeSeconds["生成方向"].display, "grid");
+	assert.equal(inspectorVisibility.relativeSeconds["绝对"].hidden, true);
+	assert.equal(inspectorVisibility.relativeSeconds["绝对"].display, "none");
+	assert.equal(inspectorVisibility.relativeSeconds["附着"].hidden, true);
+	assert.equal(inspectorVisibility.relativeSeconds["附着"].display, "none");
+	assert.equal(inspectorVisibility.relativeSeconds["生成提前量（秒）"].hidden, false);
+	assert.equal(inspectorVisibility.relativeSeconds["生成提前量（拍）"].hidden, true);
+	assert.equal(inspectorVisibility.absoluteBeats["生成距离"].hidden, true);
+	assert.equal(inspectorVisibility.absoluteBeats["生成距离"].display, "none");
+	assert.equal(inspectorVisibility.absoluteBeats["生成方向"].hidden, true);
+	assert.equal(inspectorVisibility.absoluteBeats["生成方向"].display, "none");
+	assert.equal(inspectorVisibility.absoluteBeats["绝对"].hidden, false);
+	assert.equal(inspectorVisibility.absoluteBeats["绝对"].display, "grid");
+	assert.equal(inspectorVisibility.absoluteBeats["生成提前量（秒）"].hidden, true);
+	assert.equal(inspectorVisibility.absoluteBeats["生成提前量（拍）"].hidden, false);
+	const channelLabels = await page.evaluate(() => {
+		const app = globalThis.sviber;
+		const snapshot = app.model.snapshot();
+		app.model.channels[0].name = "Lead";
+		app.model.addChannel(app.model.channels.length, { name: "Harmony" });
+		app.model.events = [];
+		app.model.addEvent("tap", {
+			time: [0, 0, 1], channel: app.model.channels[0].id, x: 0, y: 0, selected: true,
+		});
+		app.refreshNow();
+		const select = [...document.querySelectorAll("#inspector-panel .property-row")]
+			.find(row => row.querySelector("label")?.textContent === "通道")
+			?.querySelector("select");
+		const labels = [...(select?.options || [])].map(option => option.textContent);
+		app.model.restore(snapshot);
+		app.refreshNow();
+		return labels;
+	});
+	assert.ok(channelLabels.includes("Lead"), `channel dropdown missing names: ${JSON.stringify(channelLabels)}`);
+	assert.ok(channelLabels.includes("Harmony"), `channel dropdown missing names: ${JSON.stringify(channelLabels)}`);
+	assert.ok(!channelLabels.some(label => /^\d+$/.test(label)), `ordinal-only channel labels: ${JSON.stringify(channelLabels)}`);
 	await page.locator("#snappees-tab").click();
 	const snappeeScroll = await page.evaluate(() => {
 		const app = globalThis.sviber;

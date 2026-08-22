@@ -446,7 +446,7 @@ export class InspectorPanel {
 		group.append(this.#row("field.channel", makeSelect(document,
 			model.channels.map((item, index) => ({ item, index }))
 				.filter(({ item }) => item.active !== false)
-				.map(({ item, index }) => ({ value: item.id, label: String(index + 1) })), channel,
+				.map(({ item, index }) => ({ value: item.id, label: String(item.name || `Channel ${index + 1}`) })), channel,
 			value => this.onChange("channel", Number(value)))));
 
 		if (selected.every(event => MOVABLE_TYPES.has(event.type))) {

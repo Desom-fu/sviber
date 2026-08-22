@@ -39,7 +39,11 @@ test("v13 commands expose bar line and time dilation", () => {
 });
 
 test("v13 inspector hides inactive tip-point input rows and preserves panel scroll", async () => {
-	const panels = await readFile(new URL("../js/panels.js", import.meta.url), "utf8");
+	const [panels, css] = await Promise.all([
+		readFile(new URL("../js/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+	]);
+	assert.match(css, /\.property-row\[hidden\]\s*\{\s*display:\s*none;/);
 	assert.match(panels, /if \(control\?\.dataset\?\.hidden === "true"\) row\.hidden = true/);
 	assert.match(panels, /setControlHidden\(distanceControl, !spawnFieldsEnabled \|\| absolute !== false\)/);
 	assert.match(panels, /setControlHidden\(absoluteWrapper, !spawnFieldsEnabled \|\| absolute !== true \|\| attached === true\)/);
@@ -311,4 +315,24 @@ test("v0.4.4 clamps free-transform translate/scale and keeps inspector Enter fro
 	assert.match(panels, /onTransformChange\(index, next\)/);
 	assert.match(manual, /submits that element/);
 	assert.match(manual, /只提交该矩阵元素/);
+});
+
+test("v0.4.5 actually hides inapplicable tip-point inspector rows", async () => {
+	const [css, panels, regressions, manual] = await Promise.all([
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../js/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../scripts/verify-browser-regressions.mjs", import.meta.url), "utf8"),
+		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+	]);
+	assert.match(css, /\.property-row\[hidden\]\s*\{\s*display:\s*none;/);
+	assert.match(panels, /label: String\(item\.name \|\| `Channel \$\{index \+ 1\}`\)/);
+	assert.match(regressions, /getComputedStyle\(row\)\.display/);
+	assert.match(regressions, /relativeSeconds\["绝对"\]\.display, "none"/);
+	assert.match(regressions, /absoluteBeats\["生成距离"\]\.display, "none"/);
+	assert.match(regressions, /channelLabels.includes\("Lead"\)/);
+	assert.match(regressions, /ordinal-only channel labels/);
+	assert.match(manual, /unused fields are hidden/);
+	assert.match(manual, /不适用的输入行会隐藏/);
+	assert.match(manual, /channel dropdown lists channel names/);
+	assert.match(manual, /通道下拉菜单显示通道名称/);
 });

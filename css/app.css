@@ -564,14 +564,8 @@ textarea:focus-visible,
 	font-weight: 700;
 }
 
-.property-row {
-	display: grid;
-	grid-template-columns: minmax(74px, 42%) minmax(0, 1fr);
-	align-items: center;
-	gap: 7px;
-	min-height: 28px;
-	margin-bottom: 4px;
-}
+.property-row { display: grid; grid-template-columns: minmax(74px, 42%) minmax(0, 1fr); align-items: center; gap: 7px; min-height: 28px; margin-bottom: 4px; }
+.property-row[hidden] { display: none; }
 
 .property-row > label {
 	color: var(--text-muted);
