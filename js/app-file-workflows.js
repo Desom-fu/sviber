@@ -16,12 +16,18 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { SSCHARTER_VERSION } from "./live-hosting.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_CHARTER_KEY, LAST_OPEN_KEY, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_CHARTER_KEY, LAST_OPEN_KEY, RECENT_OPEN_KEY, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 
 export const withFileWorkflows = Base => class extends Base {
 	rememberLastOpen(kind, pathname) {
 		if (!globalThis.nw || !pathname) return;
-		try { localStorage.setItem(LAST_OPEN_KEY, JSON.stringify({ kind, path: String(pathname) })); } catch { /* Storage may be unavailable. */ }
+		const entry = {
+			kind, path: String(pathname), title: String(this.model?.metadata?.title || ""), at: Date.now(),
+		};
+		const list = this.recentOpens().filter(item => item.path !== entry.path);
+		list.unshift(entry);
+		try { localStorage.setItem(RECENT_OPEN_KEY, JSON.stringify(list.slice(0, 20))); } catch { /* Storage may be unavailable. */ }
+		try { localStorage.setItem(LAST_OPEN_KEY, JSON.stringify({ kind: entry.kind, path: entry.path })); } catch { /* Storage may be unavailable. */ }
 	}
 
 	async reopenLastDocument() {
@@ -343,19 +349,37 @@ export const withFileWorkflows = Base => class extends Base {
 	}
 
 	async requestLyricaImportOptions() {
+		const defaults = ChartModel.createDefault().metadata;
 		const values = await this.dialogs.form({
 			titleKey: "dialog.importLyrica",
-			values: { charter: this.lastCharter(), seed: 0, quantizationDenominator: 192 },
+			values: {
+				charter: this.lastCharter() || "RNOVA",
+				difficultyName: defaults.difficultyName || "Master",
+				difficultyColor: defaults.difficultyColor || difficultyColor("Master"),
+				difficulty: defaults.difficulty || "12",
+				difficultySup: defaults.difficultySup || "",
+				seed: 0,
+				quantizationDenominator: 192,
+			},
 			fields: [
 				{ id: "charter", type: "text", labelKey: "field.charter" },
+				{ id: "difficultyName", type: "text", labelKey: "field.difficultyName" },
+				{ id: "difficultyColor", type: "color", labelKey: "field.difficultyColor", required: true },
+				{ id: "difficulty", type: "text", labelKey: "field.difficulty" },
+				{ id: "difficultySup", type: "text", labelKey: "field.difficultySup" },
 				{ id: "seed", type: "text", labelKey: "field.prngSeed" },
 				{ id: "quantizationDenominator", type: "integer", labelKey: "field.quantizationDenominator", positive: true, min: 1 },
 			],
+			onChange: applyPresetDifficultyColor,
 		});
 		if (!values) return null;
 		this.rememberCharter(values.charter);
 		return {
 			charter: values.charter,
+			difficultyName: values.difficultyName,
+			difficultyColor: difficultyColor(values.difficultyName, values.difficultyColor),
+			difficulty: values.difficulty,
+			difficultySup: values.difficultySup,
 			seed: values.seed,
 			quantizationDenominator: values.quantizationDenominator,
 		};

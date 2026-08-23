@@ -18,6 +18,8 @@ const DEFINITIONS = [
 	define('file.newChart', null, null, {blockDuringPlayback: true}),
 	define('file.openProject', 'Ctrl+Shift+O', null, {desktopOnly: true, blockDuringPlayback: true}),
 	define('file.openChart', 'Ctrl+O', null, {blockDuringPlayback: true}),
+	define('file.openRecent', null, null, {blockDuringPlayback: true}),
+	define('file.openAutosave', null, null, {blockDuringPlayback: true}),
 	define('file.importFile', null, null, {blockDuringPlayback: true}),
 	define('file.setMusic', null, null, {blockDuringPlayback: true}),
 	define('file.setBackground', null, null, {blockDuringPlayback: true}),
@@ -142,6 +144,7 @@ const DEFINITIONS = [
 	define('timeline.pageBackward', 'PageDown', null, {allowWhenBlocked: true}),
 
 	define('macros.open', 'Ctrl+Alt+M', 'macros', {allowWhenBlocked: true}),
+	define('macros.run', null, null, {allowWhenBlocked: true, blockDuringPlayback: true}),
 
 	define('help.documentation', 'F1', null, {allowWhenBlocked: true}),
 	define('help.keyboardShortcuts', '?', null, {allowWhenBlocked: true}),
@@ -160,7 +163,7 @@ export const MENU_DEFINITION = Object.freeze([
 	Object.freeze({
 		id: 'file', labelKey: 'menu.file', mnemonic: 'f', items: Object.freeze([
 			item('file.newProject'), item('file.newChart'), separator,
-			item('file.openProject'), item('file.openChart'), separator,
+			item('file.openProject'), item('file.openChart'), item('file.openRecent'), item('file.openAutosave'), separator,
 			item('file.save'), item('file.saveAs'), item('file.saveProject'), separator,
 			item('file.importFile'), item('file.importClipboard'), separator,
 			item('file.saveLevel'), item('file.exportLyrica'), item('file.exportClipboard'), separator,
@@ -231,7 +234,7 @@ export const MENU_DEFINITION = Object.freeze([
 	}),
 	Object.freeze({
 		id: 'macros', labelKey: 'menu.macros', mnemonic: 'a', items: Object.freeze([
-			item('macros.open')
+			item('macros.open'), item('macros.run')
 		])
 	}),
 	Object.freeze({
@@ -352,7 +355,7 @@ function allowedWhileReadOnly(definition, context) {
 	if (typeof definition.allowWhenReadOnly === 'function') return Boolean(definition.allowWhenReadOnly(context, definition.id));
 	const id = definition.id;
 	if (id.startsWith('music.') || id.startsWith('timeline.') || id.startsWith('channel.select')) return true;
-	if (id === 'file.preferences' || id === 'macros.open' || id.startsWith('help.')) return true;
+	if (id === 'file.preferences' || id === 'macros.open' || id === 'macros.run' || id.startsWith('help.')) return true;
 	if (id.startsWith('edit.select') || id === 'edit.copy' || id === 'events.comment') return true;
 	return Boolean(context?.readOnlyCommandAllowed?.(id));
 }

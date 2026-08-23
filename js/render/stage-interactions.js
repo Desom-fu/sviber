@@ -22,6 +22,7 @@ function pointToSegmentsDistance(point, segments) {
 
 export const withStageInteractions = Base => class extends Base {
 	_drawHud(context, width, height, project, now) {
+		if (project.editor?.showHud === false) return;
 		const metadata = project.metadata || this.state;
 		const unit = width / 60;
 		const drawBackground = mirrored => {
@@ -288,7 +289,7 @@ export const withStageInteractions = Base => class extends Base {
 			}
 			return;
 		}
-		if (!hit && point.y >= this.surface.height - 18) {
+		if (!hit && point.y >= this.surface.height - 18 && project.editor?.showHud !== false) {
 			const bounds = this.callbacks.getTimeBounds?.() || [0, 10];
 			const current = currentSeconds(this.state, this.timing);
 			this.drag = { type: "progress", start: point, bounds, current,

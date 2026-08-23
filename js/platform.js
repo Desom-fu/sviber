@@ -828,10 +828,18 @@ export class AutosaveManager {
 		return this.recoverable().at(0) || null;
 	}
 
+	listed() {
+		return this.#readEntries(this.index.toSorted((left, right) => right - left));
+	}
+
 	recoverable() {
 		const manualSave = Number(this.storage.getItem(MANUAL_SAVE_KEY) || 0);
+		return this.#readEntries(this.index.filter(value => value > manualSave).toSorted((left, right) => right - left));
+	}
+
+	#readEntries(timestamps) {
 		const result = [];
-		for (const timestamp of this.index.filter(value => value > manualSave).toSorted((left, right) => right - left)) {
+		for (const timestamp of timestamps) {
 			try {
 				const value = this.storage.getItem(`${AUTOSAVE_PREFIX}${timestamp}`);
 				const recovery = value && JSON.parse(value);

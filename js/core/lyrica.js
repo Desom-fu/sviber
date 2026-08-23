@@ -8,8 +8,9 @@ export const LYRICA_NO_TIP_CHANNELS = Object.freeze([-100, -80]);
 export const LYRICA_NORMAL_CHANNELS = Object.freeze([-40, -20, 0]);
 export const LYRICA_MULTI_TIP_CHANNELS = Object.freeze([-60, -40, -20, 0]);
 export const LYRICA_BG_PATTERN_CHANNEL = 40;
-export const LYRICA_BG_NOTE_CHANNELS = Object.freeze([60, 80]);
-export const LYRICA_DISABLED_CHANNELS = Object.freeze([100, 120, 140, 160, 180]);
+export const LYRICA_BG_NOTE_CHANNELS = Object.freeze([60, 80, 100]);
+export const LYRICA_DISABLED_CHANNELS = Object.freeze([120, 140, 160, 180]);
+export const LYRICA_INACTIVE_IMPORT_CHANNELS = Object.freeze([100, 120, 140, 160, 180]);
 export const LYRICA_BPM_CHANNEL = 200;
 export const LYRICA_SLOW_SPAWN = 1.5;
 export const LYRICA_FAST_SPAWN = 1;
@@ -111,25 +112,7 @@ export function lyricaChannelCategory(channel) {
 }
 
 export function lyricaChannelName(channel) {
-	const names = {
-		[-100]: "No tip 1",
-		[-80]: "No tip 2",
-		[-60]: "Main",
-		[-40]: "Normal 1",
-		[-20]: "Normal 2",
-		0: "Normal 3",
-		20: "Independent",
-		40: "Background patterns",
-		60: "Background notes 1",
-		80: "Background notes 2",
-		100: "Disabled 1",
-		120: "Disabled 2",
-		140: "Disabled 3",
-		160: "Disabled 4",
-		180: "Disabled 5",
-		200: "BPM",
-	};
-	return names[Number(channel)] || `Lyrica ${channel}`;
+	return String(Number(channel));
 }
 
 export function decodeTipPointCodes(spawning, ending) {
@@ -431,7 +414,7 @@ export function importLyricaChart(text, options = {}) {
 		id: index,
 		name: lyricaChannelName(lyricaChannel),
 		lyricaChannel,
-		active: lyricaChannelCategory(lyricaChannel) !== "disabled",
+		active: !LYRICA_INACTIVE_IMPORT_CHANNELS.includes(lyricaChannel),
 	}));
 	const channelByLyrica = new Map(channels.map(channel => [channel.lyricaChannel, channel]));
 	const byChannel = new Map();
@@ -495,9 +478,11 @@ export function importLyricaChart(text, options = {}) {
 		metadata: {
 			title: parsed.header.title || "Untitled",
 			artist: parsed.header.artist || "",
-			charter: String(options.charter ?? ""),
-			difficultyName: "Master",
-			difficulty: "12",
+			charter: String(options.charter ?? "RNOVA"),
+			difficultyName: String(options.difficultyName || "Master"),
+			difficultyColor: String(options.difficultyColor || ""),
+			difficulty: String(options.difficulty ?? "12"),
+			difficultySup: String(options.difficultySup ?? ""),
 		},
 		timing: timing.toJSON(),
 		channels,

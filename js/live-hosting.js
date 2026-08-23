@@ -98,6 +98,7 @@ function handleWebSocketBytes(client, chunk, BufferRef) {
 
 export class LiveHosting {
 	constructor(options = {}) {
+		this.onClientClose = options.onClientClose || (() => {});
 		this.http = null;
 		this.crypto = null;
 		this.Buffer = null;
@@ -189,6 +190,7 @@ export class LiveHosting {
 				buffer: this.Buffer.alloc(0),
 				fragments: null,
 				socket,
+				address: String(request.socket?.remoteAddress || "").replace(/^::ffff:/, "") || "unknown",
 				send: value => socket.write(encodeWebSocketFrame(value, this.Buffer)),
 				pong: value => socket.write(encodeWebSocketFrame(value, this.Buffer, 0x0a)),
 				close: () => socket.end(encodeWebSocketFrame(this.Buffer.alloc(0), this.Buffer, 0x08)),
@@ -207,7 +209,10 @@ export class LiveHosting {
 				try { handleWebSocketBytes(client, chunk, this.Buffer); }
 				catch (error) { this.#reportError(error); client.close(); }
 			});
-			const remove = () => this.clients.delete(client);
+			const remove = () => {
+				if (!this.clients.delete(client)) return;
+				try { this.onClientClose(client); } catch { /* Notifications must not interrupt cleanup. */ }
+			};
 			socket.on("close", remove);
 			socket.on("error", error => { remove(); this.#reportError(error); });
 			if (head?.length) {

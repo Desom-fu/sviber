@@ -41,6 +41,9 @@ function makeRationalControl(documentRef, value, onChange) {
 		const values = controls.map(input => Number(input.value));
 		if (values.every(Number.isSafeInteger) && values[2] > 0) onChange(Rational.from(values).toJSON());
 	};
+	for (const input of controls) input.addEventListener("keydown", event => {
+		if (event.key === "Enter") { event.preventDefault(); emit(); }
+	});
 	wrapper.addEventListener("focusout", event => {
 		if (!wrapper.contains(event.relatedTarget)) emit();
 	});
@@ -60,12 +63,16 @@ function makeInput(documentRef, type, value, onChange, options = {}) {
 	}
 	if (options.step) input.step = options.step;
 	if (options.min != null) input.min = options.min;
-	input.addEventListener("change", () => {
+	const emit = () => {
 		if (type === "checkbox") onChange(input.checked);
 		else if (type === "number") {
 			const number = Number(input.value);
 			if (Number.isFinite(number)) onChange(number);
 		} else onChange(input.value);
+	};
+	input.addEventListener("change", emit);
+	if (type !== "checkbox") input.addEventListener("keydown", event => {
+		if (event.key === "Enter") { event.preventDefault(); emit(); }
 	});
 	return input;
 }
@@ -87,9 +94,13 @@ function makeExpressionControl(documentRef, value, onChange, options = {}) {
 	input.inputMode = "decimal";
 	input.value = value === MIXED ? "" : String(value ?? "");
 	input.placeholder = value === MIXED ? options.mixed || "-" : "";
-	input.addEventListener("change", () => {
+	const emit = () => {
 		const number = evaluateExpression(input.value);
 		if (number != null) onChange(number);
+	};
+	input.addEventListener("change", emit);
+	input.addEventListener("keydown", event => {
+		if (event.key === "Enter") { event.preventDefault(); emit(); }
 	});
 	return input;
 }
@@ -114,6 +125,9 @@ function makeAngleControl(documentRef, value, onChange, i18n) {
 		if (number != null) onChange(radians.checked ? number : number * Math.PI / 180);
 	};
 	input.addEventListener("change", emit);
+	input.addEventListener("keydown", event => {
+		if (event.key === "Enter") { event.preventDefault(); emit(); }
+	});
 	radians.addEventListener("change", () => {
 		const number = evaluateExpression(input.value);
 		if (number == null) return;

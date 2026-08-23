@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v54";
+const CACHE_VERSION = "sviber-v60";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -102,7 +102,7 @@ const APP_SHELL = [
 		"allow-out-of-bound.svg", "live-hosting.svg", "paste.svg",
 		"show-grouping-in-main-field.svg", "show-grouping-in-timeline.svg", "show-tip-points.svg",
 		"show-bg-events-in-timeline.svg", "show-bg-events-in-main-field.svg",
-		"rulers.svg", "bar-line.svg",
+		"show-hud.svg", "rulers.svg", "bar-line.svg",
 	].map(name => `svg/icons/${name}`),
 ];
 const CDN_ASSETS = [

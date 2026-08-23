@@ -13,8 +13,9 @@ import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
-import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
+import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_OPEN_KEY, RECENT_OPEN_KEY, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
 import { eventUsesChannel } from "./core/grouping.js";
+import { listRunnableMacros, runChosenMacro } from "./app-macro-bridge.js";
 
 export function toggledCreationMode(current, type) {
 	return current === type ? null : type;
@@ -49,6 +50,8 @@ export const withHistoryCommands = Base => class extends Base {
 		command("file.newChart", () => void this.newChart());
 		command("file.openProject", () => void this.openProject());
 		command("file.openChart", () => { this.exitModes(); document.getElementById("chart-file-input").click(); });
+		command("file.openRecent", () => void this.openRecent(), () => this.recentOpens().length > 0);
+		command("file.openAutosave", () => void this.openAutosave(), () => this.autosave.listed().length > 0);
 		command("file.importFile", () => { this.exitModes(); document.getElementById("open-file-input").click(); });
 		command("file.setMusic", () => { this.exitModes(); document.getElementById("music-file-input").click(); });
 		command("file.setBackground", () => { this.exitModes(); document.getElementById("background-file-input").click(); });
@@ -178,6 +181,7 @@ export const withHistoryCommands = Base => class extends Base {
 		command("timeline.pageForward", () => this.pageVisibleRange(-1));
 		command("timeline.pageBackward", () => this.pageVisibleRange(1));
 		command("macros.open", () => this.openMacros());
+		command("macros.run", () => void this.runMacroDialog(), () => !this.model.editor.readOnly);
 		command("help.documentation", () => this.help.openDocumentation());
 		command("help.keyboardShortcuts", () => void this.help.showKeyboardShortcuts(this.registry.definitions));
 		command("help.reportIssues", () => void this.help.reportIssues());
@@ -465,6 +469,106 @@ export const withHistoryCommands = Base => class extends Base {
 			if (index < 0 || target < 0 || target >= model.channels.length) return;
 			[model.channels[index], model.channels[target]] = [model.channels[target], model.channels[index]];
 		}, { lightweight: true, viewOnly: true, channelOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
+	}
+
+	recentOpens() {
+		try {
+			const parsed = JSON.parse(localStorage.getItem(RECENT_OPEN_KEY) || "[]");
+			if (Array.isArray(parsed) && parsed.length) {
+				return parsed.filter(item => item?.path && ["project", "chart"].includes(item.kind));
+			}
+		} catch { /* Ignore a damaged recent list. */ }
+		try {
+			const last = JSON.parse(localStorage.getItem(LAST_OPEN_KEY) || "null");
+			if (last?.path && ["project", "chart"].includes(last.kind)) return [last];
+		} catch { /* Ignore a damaged last-open record. */ }
+		return [];
+	}
+
+	async openRecent() {
+		this.exitModes();
+		const recent = this.recentOpens();
+		if (!recent.length) { this.toast?.show("toast.noRecentFiles"); return; }
+		const values = await this.dialogs.form({
+			titleKey: "dialog.openRecent",
+			values: { item: `${recent[0].kind}:${recent[0].path}` },
+			fields: [{
+				id: "item", type: "select", labelKey: "field.recentFile",
+				options: recent.map(item => ({
+					value: `${item.kind}:${item.path}`,
+					label: `${item.title || i18n.t("field.untitled")} — ${item.path}`,
+				})),
+			}],
+		});
+		if (!values) return;
+		const [kind, ...rest] = String(values.item).split(":");
+		const entry = { kind, path: rest.join(":") };
+		const opened = entry.kind === "project"
+			? await this.openProject({ directoryPath: entry.path })
+			: await this.openFile(await this.files.fileFromLocalPath(entry.path));
+		if (!opened) this.toast?.error("toast.openFailed", { message: i18n.t("toast.recentUnavailable") });
+	}
+
+	async openAutosave() {
+		this.exitModes();
+		const recoveries = this.autosave.listed();
+		if (!recoveries.length) { this.toast?.show("toast.noAutosaves"); return; }
+		const values = await this.dialogs.form({
+			titleKey: "dialog.openAutosave",
+			values: { recovery: String(recoveries[0].timestamp) },
+			fields: [{
+				id: "recovery", type: "select", labelKey: "field.autosave",
+				options: recoveries.map(entry => ({
+					value: String(entry.timestamp),
+					label: `${new Date(entry.timestamp).toLocaleString()} - ${entry.model.metadata.title || i18n.t("field.untitled")}`,
+				})),
+			}],
+		});
+		if (!values || !await this.confirmUnsaved()) return;
+		const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0];
+		await this.clearRuntimeMedia();
+		this.files.restoreLocalSourceContext(recovery.source);
+		this.installProject([{
+			id: "difficulty-0",
+			file: recovery.source?.chartFilename || uniqueChartFilename(recovery.model.metadata.difficultyName),
+			model: recovery.model,
+		}], { activeChart: "difficulty-0", name: recovery.source?.projectName || recovery.model.metadata.title, saved: false });
+		if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
+		this.refresh();
+	}
+
+	async runMacroDialog() {
+		this.exitModes();
+		if (this.model.editor.readOnly) return;
+		const lists = await listRunnableMacros(this);
+		const first = lists.global[0] || lists.project[0];
+		const values = await this.dialogs.form({
+			titleKey: "dialog.runMacro",
+			values: { scope: lists.global.length || !lists.project.length ? "global" : "project", macro: first?.id || "" },
+			fields: [
+				{ id: "scope", type: "radio", labelKey: "field.macroScope", options: [
+					{ value: "global", labelKey: "field.macroGlobal" },
+					{ value: "project", labelKey: "field.macroProject" },
+				] },
+				{ id: "macro", type: "select", labelKey: "field.macro", options: [...lists.global, ...lists.project].map(item => ({
+					value: item.id, label: item.label,
+				})) },
+			],
+			onChange: (next, dialogState) => {
+				const select = dialogState.entries.find(item => item.field.id === "macro")?.control?.element;
+				const scope = dialogState.entries.find(item => item.field.id === "scope")?.control?.element;
+				if (!select || !scope?.contains?.(dialogState.event?.target)) return;
+				select.replaceChildren(...(lists[next.scope] || []).map(item => {
+					const option = document.createElement("option");
+					option.value = item.id;
+					option.textContent = item.label;
+					return option;
+				}));
+			},
+		});
+		if (!values?.macro) return;
+		try { await runChosenMacro(this, values.macro); }
+		catch (error) { this.toast.error("toast.macroFailed", { message: localizedErrorMessage(error) }); }
 	}
 
 	async togglePlayback() {

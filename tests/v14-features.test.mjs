@@ -92,7 +92,7 @@ test("main-channel-determined spawn uses absolute position and event-time spawn 
 	assert.equal(codes.c, 1);
 	assert.equal(isLyricaFirstTipEvent({ b: 0, c: 0, time: 1, channel: -60 }, null), true);
 	assert.equal(isLyricaFirstTipEvent({ b: 0, c: 0, time: 1.2, channel: -60 }, { b: 5, c: 0, time: 0.5 }), false);
-	assert.equal(lyricaChannelCategory(100), "disabled");
+	assert.equal(lyricaChannelCategory(100), "bgNote");
 });
 
 test("Lyrica export puts sole tip points on independent and dumps overlapping multi chains", () => {

@@ -74,8 +74,7 @@ const DEFAULT_EDITOR = Object.freeze({
 	showGroupingInTimeline: true,
 	showGroupingInMainField: true,
 	showTipPoints: true,
-	showBgEventsInTimeline: true,
-	showBgEventsInMainField: true,
+	showBgEventsInTimeline: true, showBgEventsInMainField: true, showHud: true,
 	showRulers: false,
 	mainFieldPanX: 0,
 	mainFieldPanY: 0,
@@ -432,7 +431,7 @@ function normalizeEditor(editor, channels) {
 		timelineChannelOffset: Math.max(0, Math.min(Math.max(0, channels.length - 3), Math.round(finiteNumber(source.timelineChannelOffset, 0)))),
 		showGroupingInTimeline: source.showGroupingInTimeline !== false, showGroupingInMainField: source.showGroupingInMainField !== false,
 		showTipPoints: source.showTipPoints !== false, showBgEventsInTimeline: source.showBgEventsInTimeline !== false, showBgEventsInMainField: source.showBgEventsInMainField !== false,
-		showRulers: Boolean(source.showRulers),
+		showHud: source.showHud !== false, showRulers: Boolean(source.showRulers),
 		mainFieldPanX: finiteNumber(source.mainFieldPanX, 0), mainFieldPanY: finiteNumber(source.mainFieldPanY, 0),
 		mainFieldZoom: Math.max(0.1, Math.min(16, finiteNumber(source.mainFieldZoom, 1))),
 	};

@@ -55,9 +55,9 @@ export class SviberAppCore {
 		this.macroMessageHandler = event => void handleMacroMessage(this, event);
 		this.fullscreen = false;
 		this.liveHosting = new LiveHosting({ address: this.preferences.liveHostingAddress, reloadPort: this.preferences.liveReloadPort,
-			getLevel: () => this.hostedLevel(), onMessage: data => {
-				if (data.type === "connect") console.info(`Sunniesnow connected to sviber (${data.userAgent || "unknown client"}).`);
-			},
+			getLevel: () => this.hostedLevel(),
+			onMessage: (data, client) => { if (data.type === "connect") { client.sscharter = true; this.toast?.show("toast.liveHostingClientConnected", { address: client.address || "unknown" }); } },
+			onClientClose: client => { if (client.sscharter) this.toast?.show("toast.liveHostingClientDisconnected", { address: client.address || "unknown" }); },
 			onError: error => this.toast?.error("toast.liveHostingFailed", { message: String(error?.message || error) }),
 			onStop: () => { this.toast?.show("toast.liveHostingStopped"); this.refresh?.(); },
 		});
@@ -555,7 +555,7 @@ export class SviberAppCore {
 			["seek-back-after-playing", "seekBackAfterPlaying"], ["metronome", "metronome"],
 			["show-grouping-in-timeline", "showGroupingInTimeline"], ["show-grouping-in-main-field", "showGroupingInMainField"],
 			["show-tip-points", "showTipPoints"], ["show-bg-events-in-timeline", "showBgEventsInTimeline"],
-			["show-bg-events-in-main-field", "showBgEventsInMainField"], ["show-rulers", "showRulers"],
+			["show-bg-events-in-main-field", "showBgEventsInMainField"], ["show-hud", "showHud"], ["show-rulers", "showRulers"],
 			["allow-out-of-bound", "allowOutOfBound"], ["read-only", "readOnly"]]) {
 			const control = document.getElementById(id);
 			if (control) control.checked = Boolean(this.model.editor[property]);
@@ -638,7 +638,7 @@ export class SviberAppCore {
 		document.getElementById("difficulty-select")?.addEventListener("change", event => void this.switchDifficulty(event.target.value));
 		document.getElementById("difficulty-add")?.addEventListener("click", () => void this.newDifficulty());
 		document.getElementById("difficulty-delete")?.addEventListener("click", () => void this.deleteDifficulty());
-		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "show-bg-events-in-timeline", "show-bg-events-in-main-field", "show-rulers", "allow-out-of-bound"]) {
+		for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "show-grouping-in-timeline", "show-grouping-in-main-field", "show-tip-points", "show-bg-events-in-timeline", "show-bg-events-in-main-field", "show-hud", "show-rulers", "allow-out-of-bound"]) {
 			document.getElementById(id)?.addEventListener("change", event => {
 				if (id === "allow-out-of-bound") {
 					const checked = Boolean(event.target.checked);
@@ -655,7 +655,7 @@ export class SviberAppCore {
 					: id === "show-tip-points" ? "showTipPoints"
 					: id === "show-bg-events-in-timeline" ? "showBgEventsInTimeline"
 					: id === "show-bg-events-in-main-field" ? "showBgEventsInMainField"
-					: id === "show-rulers" ? "showRulers"
+					: id === "show-hud" ? "showHud" : id === "show-rulers" ? "showRulers"
 					: "metronome"] = Boolean(event.target.checked);
 				this.refresh();
 			});

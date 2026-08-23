@@ -21,6 +21,7 @@ export const SNAPPEE_COLORS = ["#00e0ad", "#3086ff", "#ff9d3d", "#d567ff", "#ff2
 export const PREFERENCES_KEY = "sviber.preferences";
 export const LAST_CHARTER_KEY = "sviber.lastCharter";
 export const LAST_OPEN_KEY = "sviber.lastOpen";
+export const RECENT_OPEN_KEY = "sviber.recentOpen";
 export const DEFAULT_PREFERENCES = Object.freeze({
 	theme: "system", language: "system", noteSpeed: 2,
 	seVolume: 1, musicVolume: 1, autoSaveInterval: 120,
