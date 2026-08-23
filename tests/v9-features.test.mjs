@@ -209,6 +209,27 @@ test("global shortcuts remain active when a status checkbox is focused", () => {
 	assert.equal(executions, 2);
 });
 
+test("Ctrl+Space does not activate a focused status checkbox", () => {
+	let executions = 0;
+	const registry = new CommandRegistry({
+		space: { id: "space", shortcut: "Space" },
+	});
+	registry.register("space", () => { executions += 1; });
+	const checkbox = {
+		closest() { return checkbox; },
+		matches(selector) { return selector === 'input[type="checkbox"], input[type="radio"]'; },
+	};
+	const event = {
+		key: " ", target: checkbox, defaultPrevented: false, isComposing: false,
+		ctrlKey: true, shiftKey: false, altKey: false, metaKey: false, repeat: false,
+		preventDefault() { this.defaultPrevented = true; },
+		stopImmediatePropagation() {},
+	};
+	assert.equal(registry.handleKeyboard(event, {}), false);
+	assert.equal(event.defaultPrevented, true);
+	assert.equal(executions, 0);
+});
+
 test("shift-dragging the stage never retargets another event", async () => {
 	const interactions = await readFile(new URL("../js/render/stage-interactions.js", import.meta.url), "utf8");
 	assert.match(interactions, /const shiftPrimary = event\.shiftKey[\s\S]*?findLast\(candidate => candidate\.selected/);

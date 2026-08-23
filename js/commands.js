@@ -329,6 +329,17 @@ export function isEditableTarget(target) {
 	return !editable.matches?.('input[type="checkbox"], input[type="radio"]');
 }
 
+export function isSpaceKey(event) {
+	return event?.key === ' ' || event?.key === 'Spacebar' || event?.code === 'Space';
+}
+
+export function suppressControlSpaceActivation(event, target = event?.target) {
+	if (!isSpaceKey(event) || event.isComposing || !(event.ctrlKey || event.metaKey)) return false;
+	if (isEditableTarget(target)) return false;
+	event.preventDefault();
+	return true;
+}
+
 function valueOf(value, context, fallback) {
 	if (typeof value === 'function') {
 		return value(context);
@@ -476,6 +487,7 @@ export class CommandRegistry {
 			void this.execute(definition.id, context, event);
 			return true;
 		}
+		suppressControlSpaceActivation(event, focusedTarget);
 		return false;
 	}
 
