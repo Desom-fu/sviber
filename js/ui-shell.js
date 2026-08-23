@@ -268,7 +268,7 @@ export class MenuBar {
 	}
 
 	updateState(id) {
-		const ids = id ? [id] : [...this.commandButtons.keys()];
+		const ids = Array.isArray(id) ? id : id ? [id] : [...this.commandButtons.keys()];
 		const context = this.contextProvider();
 		for (const commandId of ids) {
 			const buttons = this.commandButtons.get(commandId);
@@ -295,7 +295,8 @@ export class MenuBar {
 			this.setRootOpen(this.openIndex, false);
 		}
 		this.openIndex = index;
-		this.updateState(null);
+		this.updateState(this.definition[index].items
+			.filter(entry => entry.type === 'command').map(entry => entry.command));
 		this.setRootOpen(index, true);
 		if (options.focusFirst || options.focusLast) {
 			const items = this.focusableItems();

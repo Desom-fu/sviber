@@ -10,10 +10,12 @@ import {
 	TIP_POINT_SPAWN_TYPES,
 	TIP_POINT_ZOOM_DURATION,
 	buildTipPointGuides,
+	buildTipPointGuidesForOrderedEvents,
 	sunniesnowPatternVisualState,
 	sunniesnowTapDoubleLinePairs,
 	tipPointSpawnTime,
 } from "./stage-helpers.js";
+import { refreshDoubleTapTime } from "./double-tap-index.js";
 
 function upperBound(records, value, field) {
 	let low = 0;
@@ -48,6 +50,24 @@ function insertSorted(records, record, compare) {
 	records.splice(low, 0, record);
 }
 
+function mergeSorted(left, right, compare) {
+	const merged = [];
+	let leftIndex = 0;
+	let rightIndex = 0;
+	while (leftIndex < left.length && rightIndex < right.length) {
+		if (compare(left[leftIndex], right[rightIndex]) <= 0) merged.push(left[leftIndex++]);
+		else merged.push(right[rightIndex++]);
+	}
+	while (leftIndex < left.length) merged.push(left[leftIndex++]);
+	while (rightIndex < right.length) merged.push(right[rightIndex++]);
+	return merged;
+}
+
+function compareNoteRecords(left, right) {
+	return left.start - right.start || Rational.compare(left.event.time, right.event.time)
+		|| left.sequence - right.sequence;
+}
+
 export class IntervalIndex {
 	constructor(records, startField = "rangeStart", endField = "rangeEnd") {
 		this.startField = startField;
@@ -55,6 +75,7 @@ export class IntervalIndex {
 		this.records = [...records].sort((left, right) =>
 			left[startField] - right[startField] || (left.sequence ?? 0) - (right.sequence ?? 0));
 		this.pendingRecords = [];
+		this.invalidRecords = new Set();
 		this.size = 1;
 		while (this.size < this.records.length) this.size *= 2;
 		this.maximumEnds = new Float64Array(this.size * 2);
@@ -73,7 +94,7 @@ export class IntervalIndex {
 		const result = [];
 		this.#collect(1, 0, this.size, limit, beginning, result);
 		for (const record of this.pendingRecords) {
-			if (record[this.startField] <= ending && record[this.endField] >= beginning) result.push(record);
+			if (!this.invalidRecords.has(record) && record[this.startField] <= ending && record[this.endField] >= beginning) result.push(record);
 		}
 		if (this.pendingRecords.length) result.sort((left, right) =>
 			left[this.startField] - right[this.startField] || (left.sequence ?? 0) - (right.sequence ?? 0));
@@ -81,14 +102,40 @@ export class IntervalIndex {
 	}
 
 	add(record) {
+		this.invalidRecords.delete(record);
 		this.pendingRecords.push(record);
 		return record;
+	}
+
+	replace(oldRecord, newRecord) {
+		const pendingIndex = this.pendingRecords.indexOf(oldRecord);
+		if (pendingIndex >= 0) {
+			this.pendingRecords[pendingIndex] = newRecord;
+			this.invalidRecords.delete(oldRecord);
+			return true;
+		}
+		const index = this.records.indexOf(oldRecord);
+		if (index < 0 || this.records[index][this.startField] !== newRecord[this.startField]) return false;
+		this.records[index] = newRecord;
+		this.invalidRecords.delete(oldRecord);
+		let node = this.size + index;
+		this.maximumEnds[node] = newRecord[this.endField];
+		for (node >>= 1; node > 0; node >>= 1) {
+			this.maximumEnds[node] = Math.max(this.maximumEnds[node * 2], this.maximumEnds[node * 2 + 1]);
+		}
+		return true;
+	}
+
+	remove(record) {
+		this.invalidRecords.add(record);
+		this.pendingRecords = this.pendingRecords.filter(candidate => candidate !== record);
+		return true;
 	}
 
 	#collect(node, left, right, limit, beginning, result) {
 		if (left >= limit || this.maximumEnds[node] < beginning) return;
 		if (right - left === 1) {
-			if (left < this.records.length) result.push(this.records[left]);
+			if (left < this.records.length && !this.invalidRecords.has(this.records[left])) result.push(this.records[left]);
 			return;
 		}
 		const middle = (left + right) >> 1;
@@ -124,8 +171,6 @@ export class ChartRenderIndex {
 		this.eventSource = project.events;
 		this.flatEvents = flattenEvents(project.events || [], true);
 		this.leafEvents = this.flatEvents.filter(event => event.type !== "group");
-		this.leafEventsByChannel = new Map((project.channels || []).map(channel => [channel.id, []]));
-		for (const event of this.leafEvents) this.leafEventsByChannel.get(event.channel)?.push(event);
 		this.ancestorsById = new Map();
 		walkEvents(project.events || [], (event, ancestors) => this.ancestorsById.set(event.id, ancestors));
 		this.timing = timing;
@@ -193,12 +238,15 @@ export class ChartRenderIndex {
 		this.doubleTapPairs = this.#doubleTapPairs(activeProject.events);
 		this.doubleTapIds = new Set(this.doubleTapPairs.flatMap(record => [record.event1.id, record.event2.id]));
 		this.doubleTapIndex = new IntervalIndex(this.doubleTapPairs);
-		this.tapEventsByTime = new Map();
-		for (const event of activeProject.events) {
+		this.tapEventsByTime = new Map(); for (const event of activeProject.events) {
 			if (event.type !== "tap") continue;
 			const key = Rational.from(event.time).toString();
 			if (!this.tapEventsByTime.has(key)) this.tapEventsByTime.set(key, []);
 			this.tapEventsByTime.get(key).push(event);
+		}
+		this.doubleTapPairsByTime = new Map(); for (const pair of this.doubleTapPairs) {
+			const key = Rational.from(pair.event1.time).toString();
+			if (!this.doubleTapPairsByTime.has(key)) this.doubleTapPairsByTime.set(key, []); this.doubleTapPairsByTime.get(key).push(pair);
 		}
 		this.eventLaneOffsets = this.#eventLaneOffsets(this.leafEvents);
 		this.hitRecords = this.activeEventRecords.filter(record => NOTE_TYPES.has(record.event.type))
@@ -290,18 +338,15 @@ export class ChartRenderIndex {
 	}
 
 	#doubleTapPairs(events) {
-		return sunniesnowTapDoubleLinePairs(events).map(([event1, event2], sequence) =>
-			this.#doubleTapRecord(event1, event2, sequence));
+		return sunniesnowTapDoubleLinePairs(events).map(([event1, event2], sequence) => this.#doubleTapRecord(event1, event2, sequence));
 	}
 
 	#doubleTapRecord(event1, event2, sequence) {
 		const first = this.eventRecordMap.get(event1);
 		return {
 			event1, event2, sequence, start: first.start,
-			rangeStart: first.start - 1 / this.approachSpeed - 0.25,
-			rangeEnd: first.start + 1 / 3,
-			position1: first.position,
-			position2: this.eventRecordMap.get(event2)?.position,
+			rangeStart: first.start - 1 / this.approachSpeed - 0.25, rangeEnd: first.start + 1 / 3,
+			position1: first.position, position2: this.eventRecordMap.get(event2)?.position,
 		};
 	}
 
@@ -320,22 +365,154 @@ export class ChartRenderIndex {
 		return offsets;
 	}
 
-	#refreshTipGuides(channelId) {
-		const channel = this.project.channels.find(candidate => candidate.id === channelId);
-		if (!channel) return;
-		const guides = buildTipPointGuides({
-			...this.project, channels: [channel], events: this.leafEventsByChannel.get(channelId) || [],
-		}, this.timing).map(guide => ({
-			...guide,
-			rangeStart: guide.spawnTime,
-			rangeEnd: guide.endTime + TIP_POINT_ZOOM_DURATION,
-		}));
-		this.tipGuidesByChannel.set(channelId, guides);
+	#rebuildTipGuideIndexes() {
 		this.allTipGuides = this.project.channels.flatMap(item => this.tipGuidesByChannel.get(item.id) || []);
 		this.allTipGuides.forEach((guide, sequence) => { guide.sequence = sequence; });
 		this.timelineTipGuideIndex = new IntervalIndex(this.allTipGuides);
 		this.tipGuides = this.allTipGuides.filter(guide => this.activeChannelIds.has(guide.events[0]?.channel));
 		this.tipGuideIndex = new IntervalIndex(this.tipGuides);
+	}
+
+	#refreshTipGuides(channelId, rebuildIndexes = true) {
+		const channel = this.project.channels.find(candidate => candidate.id === channelId);
+		if (!channel) return;
+		const guides = buildTipPointGuidesForOrderedEvents(
+			(this.noteEventRecordsByChannel.get(channelId) || []).map(record => record.event), this.timing,
+		).map(guide => ({
+			...guide,
+			rangeStart: guide.spawnTime,
+			rangeEnd: guide.endTime + TIP_POINT_ZOOM_DURATION,
+		}));
+		this.tipGuidesByChannel.set(channelId, guides);
+		if (rebuildIndexes) this.#rebuildTipGuideIndexes();
+	}
+
+	#removeInheritedTipGuideEvents(events, channelId) {
+		const guides = this.tipGuidesByChannel.get(channelId) || [];
+		const remainingGuides = [];
+		for (const guide of guides) {
+			const remainingEvents = [];
+			const remainingTimes = [];
+			for (let index = 0; index < guide.events.length; index += 1) {
+				if (events.has(guide.events[index])) continue;
+				remainingEvents.push(guide.events[index]);
+				remainingTimes.push(guide.eventTimes[index]);
+			}
+			if (!remainingEvents.length) continue;
+			if (remainingEvents.length !== guide.events.length) {
+				guide.events = remainingEvents;
+				guide.eventTimes = remainingTimes;
+				guide.endTime = remainingTimes.at(-1);
+				guide.rangeEnd = guide.endTime + TIP_POINT_ZOOM_DURATION;
+			}
+			remainingGuides.push(guide);
+		}
+		this.tipGuidesByChannel.set(channelId, remainingGuides);
+	}
+
+	#removeInheritedTipGuideEvent(event, channelId) {
+		const guides = this.tipGuidesByChannel.get(channelId) || [];
+		const guideIndex = guides.findIndex(guide => guide.events.includes(event));
+		if (guideIndex < 0) return;
+		const guide = guides[guideIndex];
+		const eventIndex = guide.events.indexOf(event);
+		guide.events.splice(eventIndex, 1);
+		guide.eventTimes.splice(eventIndex, 1);
+		if (!guide.events.length) guides.splice(guideIndex, 1);
+		else {
+			guide.endTime = guide.eventTimes.at(-1);
+			guide.rangeEnd = guide.endTime + TIP_POINT_ZOOM_DURATION;
+		}
+	}
+
+	#addInheritedTipGuideEvents(addedRecords, channelId) {
+		const added = new Set(addedRecords);
+		const records = this.noteEventRecordsByChannel.get(channelId) || [];
+		let guides = this.tipGuidesByChannel.get(channelId) || [];
+		const chainGuides = new Map(guides
+			.filter(guide => guide.mode === "chain").map(guide => [guide.spawnSettings, guide]));
+		const chainAdditions = new Map();
+		const dropAdditions = [];
+		let mode = "none";
+		let settings = null;
+		for (const record of records) {
+			const event = record.event;
+			const declared = TIP_POINT_SPAWN_TYPES.has(event.tipPointSpawnType)
+				? event.tipPointSpawnType : "inherit";
+			if (declared !== "inherit") {
+				mode = declared;
+				settings = mode === "chain" || mode === "drop" ? event : null;
+			} else if (added.has(record) && settings) {
+				if (mode === "chain") {
+					const guide = chainGuides.get(settings);
+					if (guide) {
+						if (!chainAdditions.has(guide)) chainAdditions.set(guide, []);
+						chainAdditions.get(guide).push(record);
+					}
+				} else if (mode === "drop") {
+					dropAdditions.push({
+						mode, spawnSettings: settings, events: [event], eventTimes: [record.start],
+						spawnTime: tipPointSpawnTime(event, settings, this.timing), endTime: record.start,
+						rangeStart: tipPointSpawnTime(event, settings, this.timing),
+						rangeEnd: record.start + TIP_POINT_ZOOM_DURATION,
+					});
+				}
+			}
+		}
+		for (const [guide, additions] of chainAdditions) {
+			const existing = guide.events.map(event => this.eventRecordMap.get(event));
+			const merged = mergeSorted(existing, additions, compareNoteRecords);
+			guide.events = merged.map(record => record.event);
+			guide.eventTimes = merged.map(record => record.start);
+			guide.endTime = guide.eventTimes.at(-1);
+			guide.rangeEnd = guide.endTime + TIP_POINT_ZOOM_DURATION;
+		}
+		if (dropAdditions.length) {
+			const compareGuides = (left, right) => {
+				const leftRecord = this.eventRecordMap.get(left.events[0]);
+				const rightRecord = this.eventRecordMap.get(right.events[0]);
+				return Rational.compare(leftRecord.event.time, rightRecord.event.time)
+					|| leftRecord.sequence - rightRecord.sequence;
+			};
+			guides = mergeSorted(guides, dropAdditions, compareGuides);
+		}
+		this.tipGuidesByChannel.set(channelId, guides);
+	}
+
+	#addInheritedTipGuideEvent(record, channelId) {
+		const records = this.noteEventRecordsByChannel.get(channelId) || [];
+		const recordIndex = records.indexOf(record);
+		let mode = "none";
+		let settings = null;
+		for (let index = recordIndex - 1; index >= 0; index -= 1) {
+			const candidate = records[index].event;
+			const declared = TIP_POINT_SPAWN_TYPES.has(candidate.tipPointSpawnType)
+				? candidate.tipPointSpawnType : "inherit";
+			if (declared === "inherit") continue;
+			mode = declared;
+			if (mode === "chain" || mode === "drop") settings = candidate;
+			break;
+		}
+		if (!settings) return;
+		const guides = this.tipGuidesByChannel.get(channelId) || [];
+		if (mode === "chain") {
+			const guide = guides.find(candidate => candidate.mode === "chain" && candidate.spawnSettings === settings);
+			if (!guide) return;
+			const guideRecords = guide.events.map(event => this.eventRecordMap.get(event));
+			insertSorted(guideRecords, record, compareNoteRecords);
+			guide.events = guideRecords.map(item => item.event);
+			guide.eventTimes = guideRecords.map(item => item.start);
+			guide.endTime = guide.eventTimes.at(-1);
+			guide.rangeEnd = guide.endTime + TIP_POINT_ZOOM_DURATION;
+		} else if (mode === "drop") {
+			const spawnTime = tipPointSpawnTime(record.event, settings, this.timing);
+			insertSorted(guides, {
+				mode, spawnSettings: settings, events: [record.event], eventTimes: [record.start],
+				spawnTime, endTime: record.start, rangeStart: spawnTime,
+				rangeEnd: record.start + TIP_POINT_ZOOM_DURATION,
+			}, (left, right) => compareNoteRecords(
+				this.eventRecordMap.get(left.events[0]), this.eventRecordMap.get(right.events[0])));
+		}
 	}
 
 	#appendTipGuideEvent(record) {
@@ -345,8 +522,7 @@ export class ChartRenderIndex {
 		let high = records.length;
 		while (low < high) {
 			const middle = (low + high) >> 1;
-			const compared = Rational.compare(records[middle].event.time, record.event.time)
-				|| records[middle].sequence - record.sequence;
+			const compared = compareNoteRecords(records[middle], record);
 			if (compared <= 0) low = middle + 1; else high = middle;
 		}
 		records.splice(low, 0, record);
@@ -387,11 +563,7 @@ export class ChartRenderIndex {
 			});
 		}
 		this.tipGuidesByChannel.set(record.event.channel, channelGuides);
-		this.allTipGuides = this.project.channels.flatMap(item => this.tipGuidesByChannel.get(item.id) || []);
-		this.allTipGuides.forEach((guide, sequence) => { guide.sequence = sequence; });
-		this.timelineTipGuideIndex = new IntervalIndex(this.allTipGuides);
-		this.tipGuides = this.allTipGuides.filter(guide => this.activeChannelIds.has(guide.events[0]?.channel));
-		this.tipGuideIndex = new IntervalIndex(this.tipGuides);
+		this.#rebuildTipGuideIndexes();
 	}
 
 	recordFor(event) {
@@ -429,12 +601,249 @@ export class ChartRenderIndex {
 			this.#isActive(event) && event.type !== "comment"));
 	}
 
+	moveEventsToChannels(changes) {
+		if (this.eventSource !== this.project.events || !Array.isArray(changes) || !changes.length) return false;
+		const normalized = changes.map(change => ({
+			record: this.eventRecordMap.get(change.event),
+			event: change.event,
+			from: change.from,
+			to: change.to,
+		}));
+		if (normalized.some(change => !change.record || change.event.channel !== change.to
+			|| this.activeChannelIds.has(change.from) !== this.activeChannelIds.has(change.to))) return false;
+		const fullGuideChannels = new Set();
+		const noteChanges = normalized.filter(change => NOTE_TYPES.has(change.event.type));
+		for (const change of normalized) {
+			if (!NOTE_TYPES.has(change.event.type)) continue;
+			const declared = TIP_POINT_SPAWN_TYPES.has(change.event.tipPointSpawnType)
+				? change.event.tipPointSpawnType : "inherit";
+			if (declared !== "inherit") {
+				fullGuideChannels.add(change.from); fullGuideChannels.add(change.to);
+			}
+		}
+		const localGuideUpdate = fullGuideChannels.size === 0 && noteChanges.length <= 4;
+		if (localGuideUpdate) {
+			for (const change of noteChanges) this.#removeInheritedTipGuideEvent(change.event, change.from);
+		} else {
+			const incrementalRemovals = new Map();
+			for (const change of noteChanges) {
+				if (fullGuideChannels.has(change.from)) continue;
+				if (!incrementalRemovals.has(change.from)) incrementalRemovals.set(change.from, new Set());
+				incrementalRemovals.get(change.from).add(change.event);
+			}
+			for (const [channelId, events] of incrementalRemovals) {
+				this.#removeInheritedTipGuideEvents(events, channelId);
+			}
+		}
+		const touchedLanes = new Set();
+		const outgoingRecords = new Map();
+		const incomingRecords = new Map();
+		for (const change of normalized) {
+			const { event, record, from, to } = change;
+			const time = Rational.from(event.time).toString();
+			const oldLaneKey = `${from}:${time}`;
+			const newLaneKey = `${to}:${time}`;
+			const oldLane = this.laneEventsByKey.get(oldLaneKey) || [];
+			const oldLaneIndex = oldLane.indexOf(event);
+			if (oldLaneIndex >= 0) oldLane.splice(oldLaneIndex, 1);
+			const newLane = this.laneEventsByKey.get(newLaneKey) || [];
+			insertSorted(newLane, event, (left, right) =>
+				(this.eventRecordMap.get(left)?.sequence ?? 0) - (this.eventRecordMap.get(right)?.sequence ?? 0));
+			this.laneEventsByKey.set(newLaneKey, newLane);
+			touchedLanes.add(oldLaneKey); touchedLanes.add(newLaneKey);
+			if (!NOTE_TYPES.has(event.type)) continue;
+			if (!outgoingRecords.has(from)) outgoingRecords.set(from, new Set());
+			if (!incomingRecords.has(to)) incomingRecords.set(to, []);
+			outgoingRecords.get(from).add(record);
+			incomingRecords.get(to).push(record);
+		}
+		if (localGuideUpdate) {
+			for (const change of noteChanges) {
+				const oldRecords = this.noteEventRecordsByChannel.get(change.from) || [];
+				const oldIndex = oldRecords.indexOf(change.record);
+				if (oldIndex >= 0) oldRecords.splice(oldIndex, 1);
+				const newRecords = this.noteEventRecordsByChannel.get(change.to) || [];
+				insertSorted(newRecords, change.record, compareNoteRecords);
+				this.noteEventRecordsByChannel.set(change.to, newRecords);
+			}
+		} else {
+			const touchedNoteChannels = new Set([...outgoingRecords.keys(), ...incomingRecords.keys()]);
+			for (const channelId of touchedNoteChannels) {
+				const outgoing = outgoingRecords.get(channelId) || new Set();
+				const remaining = (this.noteEventRecordsByChannel.get(channelId) || [])
+					.filter(record => !outgoing.has(record));
+				const incoming = (incomingRecords.get(channelId) || []).sort(compareNoteRecords);
+				this.noteEventRecordsByChannel.set(channelId, mergeSorted(remaining, incoming, compareNoteRecords));
+			}
+		}
+		for (const key of touchedLanes) {
+			const lane = this.laneEventsByKey.get(key) || [];
+			if (!lane.length) this.laneEventsByKey.delete(key);
+			lane.forEach((event, index) =>
+				this.eventLaneOffsets.set(event.id, (index - (lane.length - 1) / 2) * 7));
+		}
+		if (localGuideUpdate) {
+			for (const change of noteChanges) this.#addInheritedTipGuideEvent(change.record, change.to);
+		} else {
+			const incrementalAdditions = new Map();
+			for (const change of noteChanges) {
+				if (fullGuideChannels.has(change.to)) continue;
+				if (!incrementalAdditions.has(change.to)) incrementalAdditions.set(change.to, []);
+				incrementalAdditions.get(change.to).push(change.record);
+			}
+			for (const [channelId, records] of incrementalAdditions) {
+				this.#addInheritedTipGuideEvents(records, channelId);
+			}
+		}
+		for (const channelId of fullGuideChannels) this.#refreshTipGuides(channelId, false);
+		if (normalized.some(change => NOTE_TYPES.has(change.event.type))) this.#rebuildTipGuideIndexes();
+		return true;
+	}
+	#replaceEventsIncremental(replacements) {
+		const insertBySequence = (records, record) => insertSorted(records, record, (left, right) => left.sequence - right.sequence);
+		const replaceOrInsert = (records, oldRecord, newRecord, include) => {
+			const index = records.indexOf(oldRecord);
+			if (include) {
+				if (index >= 0) records[index] = newRecord;
+				else insertBySequence(records, newRecord);
+			} else if (index >= 0) records.splice(index, 1);
+		};
+		const replaceSorted = (records, oldRecord, newRecord, include, compare) => {
+			const index = records.indexOf(oldRecord);
+			if (index >= 0 && include && compare(records[index], newRecord) === 0) { records[index] = newRecord; return;
+			} else if (index >= 0) records.splice(index, 1);
+			if (include) insertSorted(records, newRecord, compare);
+		};
+		const touchedLaneKeys = new Set(); const changedDoubleTapTimes = new Set(); let tipGuidesChanged = false;
+		for (const change of replacements) {
+			const { oldEvent, newEvent, oldRecord } = change;
+			const newRecord = this.#eventRecord(newEvent, oldRecord.sequence);
+			change.newRecord = newRecord;
+			const eventIndex = this.eventRecords.indexOf(oldRecord);
+			if (eventIndex >= 0) this.eventRecords[eventIndex] = newRecord;
+			const flatIndex = this.flatEvents.indexOf(oldEvent);
+			if (flatIndex >= 0) this.flatEvents[flatIndex] = newEvent;
+			const leafIndex = this.leafEvents.indexOf(oldEvent);
+			if (leafIndex >= 0) this.leafEvents[leafIndex] = newEvent;
+			this.eventById.set(newEvent.id, newEvent);
+			this.eventRecordMap.delete(oldEvent);
+			this.eventRecordMap.set(newEvent, newRecord);
+			const laneKey = `${newEvent.channel}:${Rational.from(newEvent.time).toString()}`;
+			const lane = this.laneEventsByKey.get(laneKey) || [];
+			const laneIndex = lane.indexOf(oldEvent);
+			if (laneIndex >= 0) lane[laneIndex] = newEvent;
+			else lane.push(newEvent);
+			this.laneEventsByKey.set(laneKey, lane);
+			touchedLaneKeys.add(laneKey);
+			const selectedEventIndex = this.selectedEvents.indexOf(oldEvent);
+			if (selectedEventIndex >= 0) this.selectedEvents[selectedEventIndex] = newEvent;
+			const selectedRecordIndex = this.selectedRecords.indexOf(oldRecord);
+			if (selectedRecordIndex >= 0) this.selectedRecords[selectedRecordIndex] = newRecord;
+			if (this.stageSelectedEvents.delete(oldEvent)) this.stageSelectedEvents.add(newEvent);
+			const oldActive = this.#isActive(oldEvent) && oldEvent.type !== "comment";
+			const newActive = this.#isActive(newEvent) && newEvent.type !== "comment";
+			const oldComment = oldEvent.type === "comment";
+			const newComment = newEvent.type === "comment";
+			const oldMovable = oldActive && MOVABLE_TYPES.has(oldEvent.type) && oldEvent.type !== "group";
+			const newMovable = newActive && MOVABLE_TYPES.has(newEvent.type) && newEvent.type !== "group";
+			const oldNote = oldActive && NOTE_TYPES.has(oldEvent.type);
+			const newNote = newActive && NOTE_TYPES.has(newEvent.type);
+			const oldTap = oldActive && oldEvent.type === "tap";
+			const newTap = newActive && newEvent.type === "tap";
+			replaceOrInsert(this.activeEventRecords, oldRecord, newRecord, newActive);
+			replaceOrInsert(this.commentRecords, oldRecord, newRecord, newComment);
+			replaceSorted(this.movableRecords, oldRecord, newRecord, newMovable,
+				(left, right) => left.sequence - right.sequence);
+			replaceSorted(this.scrollRecords, oldRecord, newRecord, newMovable,
+				(left, right) => left.start - right.start || left.sequence - right.sequence);
+			replaceSorted(this.patternRecords, oldRecord, newRecord, newActive && PATTERN_TYPES.has(newEvent.type),
+				(left, right) => left.start - right.start || left.sequence - right.sequence);
+			replaceSorted(this.hitRecords, oldRecord, newRecord, newNote,
+				(left, right) => left.start - right.start || left.event.id - right.event.id);
+			const oldHud = this.hudHitRecords.find(record => record.event === oldEvent);
+			const newHud = newNote ? { ...newRecord, hitTime: newEvent.type === "hold" ? newRecord.end : newRecord.start } : null;
+			if (oldHud) this.hudHitRecords.splice(this.hudHitRecords.indexOf(oldHud), 1);
+			if (newHud) insertSorted(this.hudHitRecords, newHud,
+				(left, right) => left.hitTime - right.hitTime || left.event.id - right.event.id);
+			const oldRelease = this.holdReleaseRecords.find(record => record.event === oldEvent);
+			if (oldRelease) this.holdReleaseRecords.splice(this.holdReleaseRecords.indexOf(oldRelease), 1);
+			if (newNote && newEvent.type === "hold") {
+				const release = { ...newRecord, releaseTime: newRecord.end };
+				insertSorted(this.holdReleaseRecords, release,
+					(left, right) => left.releaseTime - right.releaseTime || left.event.id - right.event.id);
+			}
+		const replaceIndex = (index, oldIncluded, newIncluded) => oldIncluded && newIncluded
+			? index.replace(oldRecord, newRecord) : oldIncluded ? index.remove(oldRecord) : newIncluded ? index.add(newRecord) : false;
+		replaceIndex(this.commentIndex, oldComment, newComment);
+		replaceIndex(this.movableIndex, oldMovable, newMovable);
+		replaceIndex(this.scrollIndex, oldMovable, newMovable);
+		replaceIndex(this.scrollDurationIndex, oldMovable && oldRecord.end > oldRecord.start,
+			newMovable && newRecord.end > newRecord.start);
+		replaceIndex(this.creationEchoIndex, oldMovable, newMovable);
+		replaceIndex(this.timelineIndex, oldEvent.type !== "group", newEvent.type !== "group");
+		const noteRecords = this.noteEventRecordsByChannel.get(newEvent.channel) || [];
+		if (oldNote && newNote) {
+			const index = noteRecords.indexOf(oldRecord);
+			if (index >= 0) noteRecords[index] = newRecord;
+		} else if (oldNote) {
+			const index = noteRecords.indexOf(oldRecord);
+			if (index >= 0) noteRecords.splice(index, 1);
+		} else if (newNote) insertSorted(noteRecords, newRecord, compareNoteRecords);
+		this.noteEventRecordsByChannel.set(newEvent.channel, noteRecords);
+		if (oldNote !== newNote) { tipGuidesChanged = true; this.#refreshTipGuides(newEvent.channel, false); }
+		else if (newNote) {
+			for (const guide of this.tipGuidesByChannel.get(newEvent.channel) || []) {
+				for (let index = 0; index < guide.events.length; index += 1)
+					if (guide.events[index] === oldEvent) guide.events[index] = newEvent;
+				if (guide.spawnSettings === oldEvent) guide.spawnSettings = newEvent;
+			}
+		}
+		if (oldTap || newTap) {
+			const key = Rational.from(newEvent.time).toString(); const taps = this.tapEventsByTime.get(key) || [];
+			const oldTapIndex = taps.indexOf(oldEvent); if (oldTapIndex >= 0) taps.splice(oldTapIndex, 1);
+			if (newTap) {
+				let insertAt = 0;
+				const sequence = newRecord.sequence;
+				while (insertAt < taps.length && (this.eventRecordMap.get(taps[insertAt])?.sequence ?? 0) < sequence) insertAt += 1;
+				taps.splice(insertAt, 0, newEvent);
+			}
+			if (taps.length) this.tapEventsByTime.set(key, taps); else this.tapEventsByTime.delete(key);
+			changedDoubleTapTimes.add(key);
+		}
+		}
+		for (const laneKey of touchedLaneKeys) {
+			const lane = this.laneEventsByKey.get(laneKey) || [];
+			lane.forEach((event, index) =>
+				this.eventLaneOffsets.set(event.id, (index - (lane.length - 1) / 2) * 7));
+		}
+		for (const key of changedDoubleTapTimes) refreshDoubleTapTime(this, key, (event1, event2, sequence) => this.#doubleTapRecord(event1, event2, sequence));
+		if (tipGuidesChanged) this.#rebuildTipGuideIndexes();
+		if (replacements.some(change => change.oldRecord.end + 10 >= this.maximumTime)) {
+			this.maximumTime = this.eventRecords.reduce((maximum, record) => Math.max(maximum, record.end + 10), 10);
+		} else {
+			for (const change of replacements) this.maximumTime = Math.max(this.maximumTime, change.newRecord.end + 10);
+		}
+		return true;
+	}
+	replaceEvents(changes) {
+		if (this.eventSource !== this.project.events || !Array.isArray(changes) || !changes.length) return false;
+		const replacements = changes.map(change => ({
+			oldEvent: change.oldEvent,
+			newEvent: change.newEvent,
+			oldRecord: this.eventRecordMap.get(change.oldEvent),
+		}));
+		if (replacements.some(change => !change.oldRecord || !change.newEvent || change.oldEvent.id !== change.newEvent.id)) return false;
+		if (replacements.every(change => change.oldEvent.channel === change.newEvent.channel
+			&& Rational.from(change.oldEvent.time).compare(Rational.from(change.newEvent.time)) === 0)) {
+			return this.#replaceEventsIncremental(replacements);
+		}
+		return false;
+	}
 	appendRootEvent(event) {
 		if (!event || this.eventSource !== this.project.events || this.eventById.has(event.id)) return false;
 		const sequence = this.eventRecords.length;
 		this.flatEvents.push(event);
 		this.leafEvents.push(event);
-		this.leafEventsByChannel.get(event.channel)?.push(event);
 		this.ancestorsById.set(event.id, []);
 		const record = this.#eventRecord(event, sequence);
 		this.eventRecords.push(record);
@@ -480,6 +889,8 @@ export class ChartRenderIndex {
 			if (previous) {
 				const pair = this.#doubleTapRecord(previous, event, this.doubleTapPairs.length);
 				this.doubleTapPairs.push(pair);
+				const pairs = this.doubleTapPairsByTime.get(key) || [];
+				pairs.push(pair); this.doubleTapPairsByTime.set(key, pairs);
 				this.doubleTapIds.add(previous.id); this.doubleTapIds.add(event.id);
 				this.doubleTapIndex.add(pair);
 			}
@@ -504,7 +915,7 @@ export class ChartRenderIndex {
 	scrollEventRecords(beginning, ending, maximum = Infinity) {
 		if (!Number.isFinite(maximum)) return this.scrollIndex.query(beginning, ending);
 		maximum = Math.max(1, Math.floor(maximum));
-		const records = this.scrollIndex.records;
+		const records = this.scrollIndex.records.filter(record => !this.scrollIndex.invalidRecords.has(record));
 		const first = lowerBound(records, beginning, "start");
 		const last = upperBound(records, ending, "start");
 		const pending = this.scrollIndex.pendingRecords.filter(record =>

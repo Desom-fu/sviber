@@ -2,7 +2,7 @@ import { i18n } from "./i18n.js"; import { CommandRegistry, isEditableTarget } f
 import { uniqueChartFilename } from "./core/project.js"; import { History } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
 import { AudioPlayer } from "./audio/player.js";
 import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule, collectIndexedHoldReleaseSchedule, collectReverseHitSchedule, collectIndexedReverseHitSchedule, collectMetronomeSchedule } from "./audio/scheduler.js";
-import { TimelineView } from "./render/timeline.js";
+import { hitAudioTime } from "./app-playback-scheduling.js"; import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { ScrollView } from "./render/scroll-view.js";
 import { ChartRenderIndex } from "./render/chart-index.js";
@@ -810,7 +810,7 @@ export class SviberAppCore {
 					this.scheduledHitIds, undefined, lateTolerance, loopBoundary);
 		for (const { event, delay } of schedule) {
 			this.scheduledHitIds.add(event.id);
-			if (playbackEditor.playSe !== false) void this.audio.playHit(event.type, delay);
+			if (playbackEditor.playSe !== false) { const audioTime = hitAudioTime(this.audio, delay); void (audioTime != null ? this.audio.playHitAt(event.type, audioTime) : this.audio.playHit(event.type, delay)); }
 			if (!reverse) this.stage.triggerHit(event, delay);
 		}
 		const releases = reverse ? [] : this.renderIndex

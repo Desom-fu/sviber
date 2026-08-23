@@ -243,3 +243,8 @@ export function tipSpawnDirectionSegment(firstPosition, spawnPosition, screenPoi
 		{ x: screenPoint.x, y: screenPoint.y },
 	];
 }
+
+export function timelineTipCheckpointSignature(layout, channelOffset, channels) {
+	return `${layout.channels.width}:${layout.channels.y}:${layout.channelHeight}:${channelOffset}:` +
+		(channels || []).map(channel => channel.id).join(",");
+}

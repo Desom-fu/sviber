@@ -232,15 +232,25 @@ export const withHistoryCommands = Base => class extends Base {
 		this.cancelPreview();
 		const chosen = selected(this.model).filter(event => event.type !== "group" && !PATTERN_TYPES.has(event.type));
 		if (!alreadyCreating && chosen.length) {
-			this.commit(i18n.t("history.editEvent", { type: eventTypeLabel(type) }), model => {
-				for (const event of model.allEvents().filter(item => item.selected && !PATTERN_TYPES.has(item.type))) {
-					const overrides = { ...event, id: event.id, selected: true };
-					if (type === "hold" && event.duration == null) overrides.duration = this.lastHoldDuration;
-					if (type === "bgNote" && event.duration == null) overrides.duration = this.lastBgNoteDuration;
-					if (type === "flick" && event.angle == null) overrides.angle = this.lastFlickAngle;
-					model.replaceEvent(event.id, createEvent(type, overrides));
-				}
+			const changes = chosen.map(event => {
+				const overrides = { ...event, id: event.id, selected: true };
+				if (type === "hold" && event.duration == null) overrides.duration = this.lastHoldDuration;
+				if (type === "bgNote" && event.duration == null) overrides.duration = this.lastBgNoteDuration;
+				if (type === "flick" && event.angle == null) overrides.angle = this.lastFlickAngle;
+				return { oldEvent: event, newEvent: createEvent(type, overrides) };
 			});
+			const currentIndex = this.renderIndex?.eventSource === this.model.events ? this.renderIndex : null;
+			const commitOptions = {
+				historyPatch: () => ({ kind: "replaceEvents", changes: changes.map(change => ({ id: change.newEvent.id, event: change.newEvent })), view: captureHistoryView(this.model) }),
+				lightweight: true, rebuildIndex: false, scheduleDirty: true, skipCommands: true,
+			};
+			this.commit(i18n.t("history.editEvent", { type: eventTypeLabel(type) }), model => {
+				for (const change of changes) {
+					model.replaceEvent(change.oldEvent.id, change.newEvent);
+				}
+				if (!currentIndex?.replaceEvents?.(changes)) commitOptions.rebuildIndex = true;
+				return changes;
+			}, commitOptions);
 			this.rememberCreationDefaults(selected(this.model));
 			return;
 		}
@@ -307,28 +317,47 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	canMoveSelectedChannel(direction) {
-		const chosen = selected(this.model);
-		if (!chosen.length) return false;
-		const moved = [...new Set(chosen.flatMap(event => event.type === "group"
-			? this.model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
+		const moved = this._selectedChannelLeaves();
+		if (!moved.length) return false;
+		const channelIndices = new Map(this.model.channels.map((channel, index) => [channel.id, index]));
 		return moved.every(event => {
-			const index = this.model.channels.findIndex(channel => channel.id === event.channel);
+			const index = channelIndices.get(event.channel);
 			const target = this.model.channels[index + direction];
 			return Boolean(target && target.active !== false);
 		});
 	}
 
+	_selectedChannelLeaves() {
+		if (this.renderIndex?.eventSource === this.model.events) {
+			return this.renderIndex.selectedEvents.filter(event => event.type !== "group");
+		}
+		const chosen = selected(this.model);
+		return [...new Set(chosen.flatMap(event => event.type === "group"
+			? this.model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
+	}
+
 	moveSelectedChannel(direction) {
-		this.commit(i18n.t("history.moveEvents"), model => {
-			const chosen = model.allEvents().filter(item => item.selected);
-			const moved = [...new Set(chosen.flatMap(event => event.type === "group"
-				? model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
-			for (const event of moved) {
-				const index = model.channels.findIndex(channel => channel.id === event.channel);
-				const target = model.channels[index + direction];
-				if (target?.active !== false) event.channel = target.id;
-			}
-		});
+		const moved = this._selectedChannelLeaves();
+		const channelIndices = new Map(this.model.channels.map((channel, index) => [channel.id, index]));
+		const changes = moved.map(event => ({
+			event, from: event.channel, to: this.model.channels[channelIndices.get(event.channel) + direction]?.id,
+		})).filter(change => change.to != null
+			&& this.model.channels[channelIndices.get(change.from) + direction]?.active !== false);
+		if (!changes.length || changes.length !== moved.length) return false;
+		const currentIndex = this.renderIndex?.eventSource === this.model.events ? this.renderIndex : null;
+		const commitOptions = {
+			historyPatch: updates => ({ kind: "setEventChannels", changes: updates }),
+			lightweight: true, selectionOnly: true, selectionSynced: true,
+			rebuildIndex: false, scheduleDirty: false, skipCommands: true,
+		};
+		const result = this.commit(i18n.t("history.moveEvents"), () => {
+			for (const change of changes) change.event.channel = change.to;
+			if (!currentIndex?.moveEventsToChannels?.(changes)) commitOptions.rebuildIndex = true;
+			return changes.map(change => ({ id: change.event.id, channel: change.to }));
+		}, commitOptions);
+		this.registry.notify("events.moveChannelAbove");
+		this.registry.notify("events.moveChannelBelow");
+		return result;
 	}
 
 	reverseSelectedTime() {

@@ -457,6 +457,22 @@ test("History append patches retain sequential note creation without full snapsh
 	assert.equal(history.current.nextIds.event, 3);
 });
 
+test("History channel patches retain selection and support nested events", () => {
+	const base = {
+		events: [{ id: 1, type: "group", selected: true, events: [
+			{ id: 2, type: "tap", channel: 0, selected: false },
+		] }],
+		snappees: [], channels: [{ id: 0 }, { id: 1 }], editor: { currentChannel: 0 }, nextIds: {},
+	};
+	const history = new History(base);
+	history.recordPatch({ kind: "setEventChannels", changes: [{ id: 2, channel: 1 }] }, "Move events");
+	assert.equal(history.current.events[0].events[0].channel, 1);
+	assert.equal(history.current.events[0].selected, true);
+	assert.equal(history.current.events[0].events[0].selected, false);
+	assert.equal(history.undo().events[0].events[0].channel, 0);
+	assert.equal(history.redo().events[0].events[0].channel, 1);
+});
+
 test("History materializes append patches before trimming their base snapshot", () => {
 	const history = new History({ events: [], snappees: [], channels: [], editor: {}, nextIds: {} }, { limit: 3 });
 	for (let id = 0; id < 4; id += 1) history.recordPatch({

@@ -40,6 +40,12 @@ test("v11 localization is loaded from matching JSON dictionaries", async () => {
 	assert.match(index, /data-i18n="footer\.javascriptLicense"/);
 });
 
+test("opening a menu updates only commands in that menu", async () => {
+	const source = await readFile(new URL("../js/ui-shell.js", import.meta.url), "utf8");
+	assert.match(source, /Array\.isArray\(id\)/);
+	assert.match(source, /this\.definition\[index\]\.items[\s\S]*?this\.updateState\(/);
+});
+
 test("layout toggles preserve the stage grid slot when hiding a side", async () => {
 	const [css, layout, editing, timeline] = await Promise.all([
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),

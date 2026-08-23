@@ -18,6 +18,7 @@ import {
 	relativeBeatColor,
 	timelineTipSegments,
 	tipSpawnDirectionSegment,
+	timelineTipCheckpointSignature,
 	timingFor,
 } from "./timeline-helpers.js";
 
@@ -485,8 +486,9 @@ export class TimelineView {
 			|| buildTipPointGuides(project, this.timing);
 		const activeChannelIds = this.renderIndex?.activeChannelIds
 			|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+		const checkpointSignature = timelineTipCheckpointSignature(layout, this.channelOffset, project.channels);
 		for (const guide of guides) {
-			const checkpoints = this.#tipPointCheckpoints(guide, layout, project, offsets);
+			const checkpoints = this.#tipPointCheckpoints(guide, layout, project, offsets, checkpointSignature);
 			if (!checkpoints) continue;
 			const firstPosition = this.renderIndex?.positionFor(guide.events[0])
 				|| resolveAttachedPosition(guide.events[0], project.snappees) || guide.events[0];
@@ -527,8 +529,7 @@ export class TimelineView {
 		}
 	}
 
-	#tipPointCheckpoints(guide, layout, project, offsets) {
-		const signature = `${layout.channels.width}:${layout.channels.y}:${layout.channelHeight}:${this.channelOffset}`;
+	#tipPointCheckpoints(guide, layout, project, offsets, signature) {
 		if (this.tipPointCheckpointCache?.index !== this.renderIndex
 			|| this.tipPointCheckpointCache.signature !== signature) {
 			this.tipPointCheckpointCache = { index: this.renderIndex, signature, guides: new WeakMap() };

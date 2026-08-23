@@ -19,6 +19,7 @@ import {
 import { TimingMap } from "../js/core/timing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
+import { hitAudioTime } from "../js/app-playback-scheduling.js";
 
 function wavBytes(sampleRate = 8000, sampleCount = 800) {
 	const buffer = new ArrayBuffer(44 + sampleCount * 2);
@@ -203,6 +204,11 @@ test("hit scheduling looks ahead in wall-clock time and excludes bgNote", () => 
 	assert.deepEqual(collectHitSchedule(events, timing, 0.1, 2, new Set([2])).map(({ event }) => event.id), [1, 3, 4]);
 });
 
+test("hit audio times use the Web Audio clock without replay delay", () => {
+	assert.equal(hitAudioTime({ context: { currentTime: 4 } }, 0.025), 4.025);
+	assert.equal(hitAudioTime({ context: null }, 0.025), null);
+});
+
 test("playback rescheduling excludes events that are already in the past", () => {
 	const events = [
 		{ id: 1, type: "tap", time: 0.09 },
@@ -345,13 +351,16 @@ test("AudioPlayer cancels only future hit sources while retaining active sources
 	await player.playHit("tap", 0);
 	await player.playHit("drag", 0.1);
 	assert.deepEqual(sources.map(source => source.starts), [[10], [10.1]]);
+	await player.playHitAt("tap", 9.5);
+	await player.playHitAt("tap", 10.25);
+	assert.deepEqual(sources.map(source => source.starts), [[10], [10.1], [10], [10.25]]);
 
 	player.cancelScheduledHitSounds();
-	assert.deepEqual(sources.map(source => source.stops), [0, 1]);
-	assert.equal(player.hitSources.size, 1);
+	assert.deepEqual(sources.map(source => source.stops), [0, 1, 0, 1]);
+	assert.equal(player.hitSources.size, 2);
 
 	player.cancelHitSounds();
-	assert.deepEqual(sources.map(source => source.stops), [1, 1]);
+	assert.deepEqual(sources.map(source => source.stops), [1, 1, 1, 1]);
 	assert.equal(player.hitSources.size, 0);
 });
 

@@ -226,48 +226,37 @@ export function tipPointSpawnTime(target, settings, timing) {
 	return timing.beatToSeconds(Rational.from(target.time).sub(duration));
 }
 
-export function buildTipPointGuides(project, timing) {
-	const eventsByChannel = new Map((project.channels || []).map(channel => [channel.id, []]));
-	for (let sequence = 0; sequence < (project.events || []).length; sequence += 1) {
-		const event = project.events[sequence];
-		if (NOTE_TYPES.has(event.type) && eventsByChannel.has(event.channel)) {
-			eventsByChannel.get(event.channel).push({ event, sequence, time: Rational.from(event.time) });
-		}
-	}
+export function buildTipPointGuidesForOrderedEvents(events, timing) {
 	const guides = [];
-	for (const channel of project.channels || []) {
-		const events = eventsByChannel.get(channel.id)
-			.sort((left, right) => left.time.compare(right.time) || left.sequence - right.sequence);
-		let previousMode = "none";
-		let previousSettings = null;
-		let activeChain = null;
-		for (const { event } of events) {
-			const declaredMode = TIP_POINT_SPAWN_TYPES.has(event.tipPointSpawnType)
-				? event.tipPointSpawnType
-				: "inherit";
-			const effectiveMode = declaredMode === "inherit" ? previousMode : declaredMode;
-			if (effectiveMode === "chain") {
-				if (declaredMode === "chain" || !activeChain) {
-					previousSettings = event;
-					activeChain = { mode: "chain", spawnSettings: event, events: [] };
-					guides.push(activeChain);
-				}
-				activeChain.events.push(event);
-			} else if (effectiveMode === "drop") {
-				if (declaredMode === "drop" || !previousSettings) previousSettings = event;
-				guides.push({ mode: "drop", spawnSettings: previousSettings, events: [event] });
-				activeChain = null;
-			} else {
-				activeChain = null;
-				if (effectiveMode === "none") previousSettings = null;
+	let previousMode = "none";
+	let previousSettings = null;
+	let activeChain = null;
+	for (const event of events || []) {
+		const declaredMode = TIP_POINT_SPAWN_TYPES.has(event.tipPointSpawnType)
+			? event.tipPointSpawnType
+			: "inherit";
+		const effectiveMode = declaredMode === "inherit" ? previousMode : declaredMode;
+		if (effectiveMode === "chain") {
+			if (declaredMode === "chain" || !activeChain) {
+				previousSettings = event;
+				activeChain = { mode: "chain", spawnSettings: event, events: [] };
+				guides.push(activeChain);
 			}
+			activeChain.events.push(event);
+		} else if (effectiveMode === "drop") {
+			if (declaredMode === "drop" || !previousSettings) previousSettings = event;
+			guides.push({ mode: "drop", spawnSettings: previousSettings, events: [event] });
+			activeChain = null;
+		} else {
+			activeChain = null;
+			if (effectiveMode === "none") previousSettings = null;
+		}
 
-			previousMode = effectiveMode;
-			if (declaredMode === "chain" || declaredMode === "drop") previousSettings = event;
-			if (declaredMode === "none") {
-				previousMode = "none";
-				previousSettings = null;
-			}
+		previousMode = effectiveMode;
+		if (declaredMode === "chain" || declaredMode === "drop") previousSettings = event;
+		if (declaredMode === "none") {
+			previousMode = "none";
+			previousSettings = null;
 		}
 	}
 	return guides.map((guide) => {
@@ -279,6 +268,22 @@ export function buildTipPointGuides(project, timing) {
 			endTime: eventTimes[eventTimes.length - 1],
 		};
 	});
+}
+
+export function buildTipPointGuides(project, timing) {
+	const eventsByChannel = new Map((project.channels || []).map(channel => [channel.id, []]));
+	for (let sequence = 0; sequence < (project.events || []).length; sequence += 1) {
+		const event = project.events[sequence];
+		if (NOTE_TYPES.has(event.type) && eventsByChannel.has(event.channel)) {
+			eventsByChannel.get(event.channel).push({ event, sequence, time: Rational.from(event.time) });
+		}
+	}
+	return (project.channels || []).flatMap(channel => buildTipPointGuidesForOrderedEvents(
+		eventsByChannel.get(channel.id)
+			.sort((left, right) => left.time.compare(right.time) || left.sequence - right.sequence)
+			.map(record => record.event),
+		timing,
+	));
 }
 
 export function tipPointDirection(checkpoints, index) {

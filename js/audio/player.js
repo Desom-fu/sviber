@@ -324,12 +324,15 @@ export class AudioPlayer extends EventTarget {
 		this.dispatchEvent(new CustomEvent("timeupdate", { detail: this.currentTime }));
 	}
 
-	async playHit(type = "tap", delay = 0) {
+	async playHit(type = "tap", delay = 0, scheduledAt = null) {
 		if (!HIT_SOUND_TYPES.has(type)) return null;
 		const generation = this.playbackGeneration;
 		const context = await this.ensureContext();
 		if (!context || generation !== this.playbackGeneration) return null;
-		const time = context.currentTime + Math.max(0, Number(delay) || 0);
+		const requestedTime = scheduledAt == null ? NaN : Number(scheduledAt);
+		const time = Number.isFinite(requestedTime)
+			? Math.max(context.currentTime, requestedTime)
+			: context.currentTime + Math.max(0, Number(delay) || 0);
 		const sampleType = type === "hold" ? "tap" : type;
 		if (!this.hitBuffers.has(sampleType)) {
 			const buffer = context.createBuffer(1, Math.floor(0.3 * context.sampleRate), context.sampleRate);
@@ -376,6 +379,10 @@ export class AudioPlayer extends EventTarget {
 		source.start(time);
 		source.stop(time + 0.05);
 		return record;
+	}
+
+	playHitAt(type = "tap", audioTime = 0) {
+		return this.playHit(type, 0, audioTime);
 	}
 
 	cancelHitSounds() {

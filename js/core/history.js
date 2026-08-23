@@ -133,11 +133,30 @@ export function applyHistoryView(state, view) {
 }
 
 export function applyHistoryPatch(state, patch) {
-	if (!state || patch?.kind !== "appendRootEvent") return state;
-	if (!Array.isArray(state.events)) state.events = [];
-	state.events.push(cloneSnapshot(patch.event));
-	if (!state.nextIds || typeof state.nextIds !== "object") state.nextIds = {};
-	state.nextIds.event = Math.max(Number(state.nextIds.event) || 0, Number(patch.nextEventId) || 0);
+	if (!state || !patch?.kind) return state;
+	if (patch.kind === "appendRootEvent") {
+		if (!Array.isArray(state.events)) state.events = [];
+		state.events.push(cloneSnapshot(patch.event));
+		if (!state.nextIds || typeof state.nextIds !== "object") state.nextIds = {};
+		state.nextIds.event = Math.max(Number(state.nextIds.event) || 0, Number(patch.nextEventId) || 0);
+	} else if (patch.kind === "setEventChannels") {
+		const channels = new Map((patch.changes || []).map(change => [change.id, change.channel]));
+		visitChartEvents(state.events, event => {
+			if (channels.has(event.id)) event.channel = channels.get(event.id);
+		});
+	} else if (patch.kind === "replaceEvents") {
+		const replacements = new Map((patch.changes || []).map(change => [change.id, cloneSnapshot(change.event)]));
+		const replace = events => {
+			if (!Array.isArray(events)) return;
+			for (let index = 0; index < events.length; index += 1) {
+				const event = events[index];
+				const replacement = replacements.get(event?.id);
+				if (replacement) events[index] = replacement;
+				if (events[index]?.type === "group") replace(events[index].events);
+			}
+		};
+		replace(state.events);
+	} else return state;
 	return applyHistoryView(state, patch.view);
 }
 
