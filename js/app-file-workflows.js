@@ -66,7 +66,6 @@ export const withFileWorkflows = Base => class extends Base {
 		if (result?.value === "save") return Boolean(await (globalThis.nw ? this.saveProject() : this.saveChart()));
 		return result?.value === "discard";
 	}
-
 	async confirmUnsavedChart() {
 		if (!this.dirty) return true;
 		const result = await this.dialogs.open({
@@ -81,7 +80,6 @@ export const withFileWorkflows = Base => class extends Base {
 		if (result?.value === "save") return Boolean(await this.saveChart());
 		return result?.value === "discard";
 	}
-
 	async switchDifficulty(id, options = {}) {
 		if (id === this.activeDifficultyId) return true;
 		const target = this.difficulties.find(entry => entry.id === id);
@@ -103,7 +101,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.refresh();
 		return true;
 	}
-
 	async newDifficulty() {
 		this.exitModes();
 		if (!await this.confirmUnsavedChart()) return null;
@@ -210,20 +207,16 @@ export const withFileWorkflows = Base => class extends Base {
 		this.refresh();
 		return true;
 	}
-
 	lastCharter() {
 		try { return localStorage.getItem(LAST_CHARTER_KEY) || ""; } catch { return ""; }
 	}
-
 	rememberCharter(value) {
 		try { localStorage.setItem(LAST_CHARTER_KEY, String(value || "")); } catch { /* Storage may be unavailable. */ }
 	}
-
 	async newChart() {
 		if (globalThis.nw) return this.newDifficulty();
 		return this.newProject({ chartOnly: true });
 	}
-
 	async newProject(options = {}) {
 		this.exitModes();
 		if (!await this.confirmUnsaved()) return;
@@ -257,7 +250,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.updateDirty();
 		this.refresh();
 	}
-
 	async showChartProperties(newChart = false) {
 		const values = await this.dialogs.form({
 			titleKey: newChart ? "dialog.newChart" : "dialog.chartProperties",
@@ -291,7 +283,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.syncProjectHistorySharedFields({ excludeDifficultyId: this.activeDifficultyId, media: false });
 		return values;
 	}
-
 	async showPreferences() {
 		const values = await this.dialogs.form({
 			titleKey: "dialog.preferences",
@@ -330,7 +321,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.refresh();
 		return this.preferences;
 	}
-
 	startAutosave() {
 		this.autosave.setInterval(this.preferences.autoSaveInterval * 1000);
 		this.autosave.start(() => {
@@ -345,7 +335,6 @@ export const withFileWorkflows = Base => class extends Base {
 			}
 		});
 	}
-
 	async requestLyricaImportOptions() {
 		const defaults = ChartModel.createDefault().metadata;
 		const values = await this.dialogs.form({
@@ -382,7 +371,6 @@ export const withFileWorkflows = Base => class extends Base {
 			quantizationDenominator: values.quantizationDenominator,
 		};
 	}
-
 	async requestImportOptions(document) {
 		if (document?.lyrica || document?.sviber) return {};
 		const values = await this.dialogs.form({
@@ -410,7 +398,6 @@ export const withFileWorkflows = Base => class extends Base {
 			largestDenominator: values.largestDenominator,
 		};
 	}
-
 	async clearRuntimeMedia() {
 		await this.audio.unload();
 		this.files.clearCurrentAssets();
@@ -418,7 +405,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.backgroundUrl = null;
 		this.stage.setBackground(null);
 	}
-
 	async decodeBackground(file) {
 		if (this.backgroundUrl) URL.revokeObjectURL(this.backgroundUrl);
 		this.backgroundUrl = URL.createObjectURL(file);
@@ -431,7 +417,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.stage.setBackground(image);
 		return image;
 	}
-
 	async syncMediaFromModel() {
 		this.syncProjectSharedFields();
 		const musicReference = this.projectMusic;
@@ -475,12 +460,10 @@ export const withFileWorkflows = Base => class extends Base {
 		}
 		this.refresh();
 	}
-
 	queueMediaSync() {
 		this.mediaSync = this.mediaSync.catch(() => {}).then(() => this.syncMediaFromModel());
 		return this.mediaSync;
 	}
-
 	async openProject(options = {}) {
 		this.exitModes();
 		if (!options.skipUnsaved && !await this.confirmUnsaved()) return null;
@@ -514,10 +497,32 @@ export const withFileWorkflows = Base => class extends Base {
 			return null;
 		}
 	}
-
+	activateProjectChart(model, filename) {
+		let target = this.difficulties.find(entry => entry.file.toLowerCase() === filename.toLowerCase());
+		if (!target) {
+			target = { id: `difficulty-${this.nextDifficultyId++}`, file: filename, model, history: null, savedSignature: null };
+			this.difficulties.push(target); this.projectDirty = true;
+		}
+		target.model = model; this.syncProjectSharedFields();
+		target.history = new History(model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
+		target.savedSignature = this.modelSignature(model);
+		this.activeDifficultyId = target.id; this.model = model; this.history = target.history; this.savedSignature = target.savedSignature;
+		this.difficultyUiSignature = ""; this.updateDirty(); this.refresh();
+		return target;
+	}
 	async openFile(file, options = {}) {
 		if (!file || !options.skipUnsaved && !await this.confirmUnsaved()) return;
 		try {
+			const sourcePath = this.files.localPathFor?.(file) || "";
+			const containingProject = await this.files.containingProjectPath?.(sourcePath);
+			if (containingProject && !this.files.projectChartFilename(sourcePath)) {
+				const opened = await this.openProject({ directoryPath: containingProject, skipUnsaved: true, silent: options.silent });
+				if (!opened) return null;
+				const filename = this.files.projectChartFilename(sourcePath);
+				const target = this.difficulties.find(entry => entry.file.toLowerCase() === filename.toLowerCase());
+				if (target) await this.switchDifficulty(target.id, { skipSavePrompt: true });
+				return opened;
+			}
 			const parsed = await this.files.parseFile(file);
 			if (!parsed) return;
 			let model;
@@ -531,6 +536,13 @@ export const withFileWorkflows = Base => class extends Base {
 				const importOptions = await this.requestImportOptions(parsed.document);
 				if (importOptions == null) return;
 				model = ChartModel.import(parsed.document, importOptions);
+			}
+			const projectFilename = this.files.projectChartFilename(parsed.chartPath);
+			if (projectFilename) {
+				this.activateProjectChart(model, projectFilename);
+				this.rememberLastOpen("project", this.files.projectPath);
+				if (!options.silent) this.toast.show("toast.opened");
+				return parsed;
 			}
 			this.installProject([{
 				id: "difficulty-0",
@@ -564,7 +576,6 @@ export const withFileWorkflows = Base => class extends Base {
 			return null;
 		}
 	}
-
 	async loadMusic(file, record = true, options = {}) {
 		if (!file) return;
 		try {
@@ -591,7 +602,6 @@ export const withFileWorkflows = Base => class extends Base {
 			this.toast.error("toast.musicLoadFailed", { message: localizedErrorMessage(error) });
 		}
 	}
-
 	async loadBackground(file, record = true, options = {}) {
 		if (!file) return;
 		try {
@@ -614,7 +624,6 @@ export const withFileWorkflows = Base => class extends Base {
 			this.toast.error("toast.backgroundLoadFailed", { message: localizedErrorMessage(error) });
 		}
 	}
-
 	async exportLyrica() {
 		try {
 			const text = exportLyricaChart(this.model);
@@ -630,7 +639,6 @@ export const withFileWorkflows = Base => class extends Base {
 			return null;
 		}
 	}
-
 	async saveChart() {
 		try {
 			if (this.freeTransform) this.finishFreeTransform();

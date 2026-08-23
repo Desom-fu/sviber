@@ -935,6 +935,8 @@ test("project folders round-trip all difficulties and level export contains only
 		const reopened = await reopenedManager.openProject({ directoryPath: directory });
 		assert.equal(reopened.manifest.activeChart, "master");
 		assert.deepEqual(reopened.charts.map(entry => entry.document.difficultyName), ["Hard", "Master"]);
+		assert.equal(await reopenedManager.containingProjectPath(path.join(directory, "master.json")), directory);
+		assert.equal(reopenedManager.projectChartFilename(path.join(directory, "master.json")), "master.json");
 		assert.equal(reopened.musicFile.name, "song.ogg");
 		assert.equal(reopened.imageFile.name, "cover.png");
 		reopenedManager.rememberAsset("song.ogg", reopened.musicFile, "music");
@@ -972,7 +974,7 @@ test("project folders round-trip all difficulties and level export contains only
 			charts: [{ id: "hard", file: "hard.json", model: hard }],
 		});
 		assert.deepEqual((await readdir(directory)).sort(), [
-			"hard.json", "keep-me.txt", "replacement.ogg", "replacement.png", PROJECT_FILENAME,
+			"cover.png", "hard.json", "keep-me.txt", "master.json", "replacement.ogg", "replacement.png", "song.ogg", PROJECT_FILENAME,
 		].sort());
 	} finally {
 		if (previousNw === undefined) delete globalThis.nw;

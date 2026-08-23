@@ -119,6 +119,25 @@ test("switching clean difficulties does not create a dirty project", () => {
 	assert.equal(app.dirty, false);
 });
 
+test("opening a chart from the project folder adds it without dropping other difficulties", async () => {
+	const WorkflowApp = withFileWorkflows(class {});
+	const app = new WorkflowApp();
+	const master = ChartModel.createDefault({ metadata: { title: "Project", difficultyName: "Master" } });
+	const special = ChartModel.createDefault({ metadata: { title: "Project", difficultyName: "Special" } });
+	app.files = { projectPath: "C:/project", projectChartFilename: () => "Special.json" };
+	app.difficulties = [{ id: "difficulty-0", file: "Master.json", model: master, history: {}, savedSignature: null }];
+	app.activeDifficultyId = "difficulty-0"; app.model = master; app.projectTitle = "Project"; app.projectArtist = "";
+	app.projectMusic = ""; app.projectImage = ""; app.nextDifficultyId = 1; app.projectDirty = false;
+	app.modelSignature = SviberAppCore.prototype.modelSignature.bind(app);
+	app.syncProjectSharedFields = SviberAppCore.prototype.syncProjectSharedFields.bind(app);
+	app.updateDirty = () => {}; app.refresh = () => {}; app.rememberLastOpen = () => {};
+	app.confirmUnsaved = async () => true; app.requestImportOptions = async () => ({});
+	app.toast = { show() {} }; app.files.parseFile = async () => ({ document: JSON.parse(special.serialize()), chartPath: "C:/project/Special.json" });
+	await app.openFile({ name: "Special.json" }, { silent: true });
+	assert.deepEqual(app.difficulties.map(entry => entry.file), ["Master.json", "Special.json"]);
+	assert.equal(app.model.metadata.difficultyName, "Special");
+});
+
 test("v0.3.2 selection clicks toggle without changing modifier semantics", () => {
 	assert.equal(eventClickSelectionMode({ selected: false }), "replace");
 	assert.equal(eventClickSelectionMode({ selected: true }), "remove");

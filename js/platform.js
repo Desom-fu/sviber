@@ -4,7 +4,6 @@ import {
 	createProjectManifest,
 	exportSunniesnowChartDocument,
 	normalizeProjectManifest,
-	projectManagedFiles,
 	sanitizeFileStem,
 } from "./core/project.js";
 
@@ -215,6 +214,27 @@ export class FileManager {
 		const pathname = file?.path || file?.sviberPath;
 		return modules && pathname ? modules.path.resolve(String(pathname)) : "";
 	}
+	projectChartFilename(pathname) {
+		const modules = nwModules();
+		if (!modules || !this.projectPath || !pathname) return "";
+		const root = modules.path.resolve(this.projectPath);
+		const resolved = modules.path.resolve(String(pathname));
+		return modules.path.dirname(resolved).toLowerCase() === root.toLowerCase() && resolved.toLowerCase().endsWith(".json")
+			&& resolved.toLowerCase() !== modules.path.resolve(root, PROJECT_FILENAME).toLowerCase()
+			? modules.path.basename(resolved) : "";
+	}
+	async containingProjectPath(pathname) {
+		const modules = nwModules();
+		if (!modules || !pathname) return "";
+		const resolved = modules.path.resolve(String(pathname));
+		const directory = modules.path.dirname(resolved);
+		const filename = modules.path.basename(resolved).toLowerCase();
+		try {
+			const text = await modules.fs.promises.readFile(modules.path.join(directory, PROJECT_FILENAME), "utf8");
+			const manifest = normalizeProjectManifest(JSON.parse(text));
+			return manifest.charts.some(entry => entry.file.toLowerCase() === filename) ? directory : "";
+		} catch { return ""; }
+	}
 
 	assetReference(file) {
 		return this.localPathFor(file) || String(file?.name || "");
@@ -344,18 +364,6 @@ export class FileManager {
 		return filename;
 	}
 
-	async #readExistingProjectManifest(directory) {
-		try {
-			const file = await this.#readDirectoryFile(directory, PROJECT_FILENAME, "application/json");
-			return normalizeProjectManifest(JSON.parse(await file.text()));
-		} catch (error) {
-			if (error?.code === "ENOENT" || error?.name === "NotFoundError") return null;
-			// A damaged or unrelated manifest must never authorize deleting files.
-			if (error instanceof SyntaxError || error instanceof TypeError) return null;
-			throw error;
-		}
-	}
-
 	async #removeDirectoryFile(directory, filename) {
 		if (directory.type === "nw") {
 			const modules = nwModules();
@@ -411,7 +419,6 @@ export class FileManager {
 		directory ||= await this.chooseProjectDirectory();
 		if (!directory) return null;
 		if (!Array.isArray(project?.charts) || !project.charts.length) throw new Error("A project must contain at least one difficulty.");
-		const previousManifest = await this.#readExistingProjectManifest(directory);
 		const music = this.#projectAssetName(this.musicFile, project.music, "music");
 		const image = this.#projectAssetName(this.imageFile, project.image, "cover");
 		const manifest = createProjectManifest({
@@ -430,12 +437,6 @@ export class FileManager {
 		if (image && this.imageFile) await this.#writeDirectoryFile(directory, image, this.imageFile);
 		await this.#writeDirectoryFile(directory, PROJECT_FILENAME,
 			new Blob([`${JSON.stringify(manifest, null, 2)}\n`], { type: "application/json" }));
-		if (previousManifest) {
-			const currentFiles = new Set(Array.from(projectManagedFiles(manifest), value => value.toLowerCase()));
-			for (const filename of projectManagedFiles(previousManifest)) {
-				if (!currentFiles.has(filename.toLowerCase())) await this.#removeDirectoryFile(directory, filename);
-			}
-		}
 		this.#adoptProjectDirectory(directory, manifest);
 		if (this.musicFile) this.rememberAsset(music, this.musicFile, "music");
 		if (this.imageFile) this.rememberAsset(image, this.imageFile, "image");
