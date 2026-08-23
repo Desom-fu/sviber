@@ -1,12 +1,57 @@
 import { clampAffineToChartBounds, resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
 import { snapshotsEqual, captureHistoryView } from "./core/history.js";
 
+function withoutFlags(value) {
+	if (!value || typeof value !== "object") return value;
+	const copy = { ...value };
+	delete copy.active;
+	delete copy.selected;
+	return copy;
+}
+
+const FULL_REFRESH_FIELDS = ["metadata", "media", "timing"];
+
+function panelRefreshState(model) {
+	return {
+		metadata: JSON.stringify(model.metadata),
+		media: `${model.music}\u0000${model.image}`,
+		timing: JSON.stringify(model.timing?.toJSON?.() ?? model.timing),
+		channels: (model.channels || []).map(channel => JSON.stringify(channel)).join("\u0001"),
+		snappeeFlags: (model.snappees || []).map(snappee => `${snappee.id}:${Boolean(snappee.active)}:${Boolean(snappee.selected)}`).join("\u0001"),
+		snappeeContent: (model.snappees || []).map(snappee => JSON.stringify(withoutFlags(snappee))).join("\u0001"),
+		clips: (model.clips || []).map(clip => `${clip.name}:${clip.data?.events?.length || 0}`).join("\u0001"),
+	};
+}
+
 export const withFreeTransform = Base => class extends Base {
+	_resolveCommitRefresh(options, before) {
+		const after = panelRefreshState(this.model);
+		const resolved = { ...options };
+		if (options.fullRefresh === true || FULL_REFRESH_FIELDS.some(field => before[field] !== after[field])) {
+			resolved.fullRefresh = true;
+			return resolved;
+		}
+		if (before.channels !== after.channels) {
+			resolved.activeChannels = true;
+			resolved.channelOnly = true;
+			resolved.channelLayout = true;
+		}
+		if (before.snappeeFlags !== after.snappeeFlags) resolved.snappeeOnly = true;
+		if (before.snappeeContent !== after.snappeeContent) resolved.snappeeContent = true;
+		if (before.clips !== after.clips) resolved.clipsOnly = true;
+		return resolved;
+	}
+
+	_refreshAfterCommit(options) {
+		if (options.fullRefresh) this.refresh();
+		else this._refreshLightweight({ ...options, lightweight: true });
+	}
+
 	_refreshLightweight(options = {}) {
 		if (options.selectionOnly && !options.selectionSynced) this.renderIndex?.syncSelection?.();
 		if (options.activeChannels) this.renderIndex?.setActiveChannels?.(this.model.channels);
 		this.refreshInteractionPreview?.({ rebuildIndex: options.rebuildIndex !== false, stageOnly: options.stageOnly });
-		if (options.snappeeOnly || options.viewOnly) {
+		if ((options.snappeeOnly || options.viewOnly) && !options.snappeeContent) {
 			this.snappeesPanel?.syncFlags?.(this.model, { readOnly: this.model.editor.readOnly });
 		}
 		if (options.channelOnly) {
@@ -16,6 +61,9 @@ export const withFreeTransform = Base => class extends Base {
 			const height = 88 + Math.min(3, Math.max(1, this.model.channels.length)) * 48;
 			document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${height}px`);
 		}
+		if (options.channelState) this.registry?.notifyAll?.();
+		if (options.clipsOnly) this.clipsPanel?.render?.(this.model, { readOnly: this.model.editor.readOnly });
+		if (options.snappeeContent) this.snappeesPanel?.render?.(this.model, { readOnly: this.model.editor.readOnly });
 		if (!options.skipInspector) {
 			this.inspectorPanel?.render(this.model, {
 				transform: this.freeTransform?.matrix || null,
@@ -48,11 +96,13 @@ export const withFreeTransform = Base => class extends Base {
 	_finishCommit(label, mutation, options = {}, previewScheduleDirty = false) {
 		const patchCommit = typeof options.historyPatch === "function";
 		const viewOnly = !patchCommit && Boolean(options.selectionOnly || options.viewOnly);
+		const refreshBaseline = panelRefreshState(this.model);
 		const selectionBefore = this.stageMoveAttachmentException
 			? new Set(this.model.allEvents().filter(event => event.selected).map(event => event.id))
 			: null;
 		const before = viewOnly || patchCommit ? null : this.model.snapshot();
 		const result = mutation(this.model);
+		const refreshOptions = this._resolveCommitRefresh(options, refreshBaseline);
 		this._normalizeGroupSelectionScope?.();
 		if (selectionBefore) this._reconcileStageMoveAttachmentException?.(selectionBefore);
 		let recorded = true;
@@ -65,16 +115,14 @@ export const withFreeTransform = Base => class extends Base {
 			const after = this.model.snapshot();
 			if (snapshotsEqual(after, before)) {
 				if (previewScheduleDirty) this._invalidatePlaybackSchedule();
-				if (options.lightweight) this._refreshLightweight(options); else this.refresh();
+				this._refreshAfterCommit(refreshOptions);
 				return result;
 			}
 			recorded = this.history.record(after, label, options.metadata ?? null, { force: true, owned: true });
 		}
 		if (!recorded) {
 			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
-			if (!viewOnly) {
-				if (options.lightweight) this._refreshLightweight(options); else this.refresh();
-			}
+			if (!viewOnly) this._refreshAfterCommit(refreshOptions);
 			return result;
 		}
 		if (options.dirty !== false) {
@@ -84,7 +132,7 @@ export const withFreeTransform = Base => class extends Base {
 		if (previewScheduleDirty || options.scheduleDirty === true
 			|| options.scheduleDirty !== false && !viewOnly) this._invalidatePlaybackSchedule();
 		if (!viewOnly) this.broadcastLiveChartUpdate?.();
-		if (options.lightweight) this._refreshLightweight(options); else this.refresh();
+		this._refreshAfterCommit(refreshOptions);
 		return result;
 	}
 	refreshInteractionPreview(options = {}) {

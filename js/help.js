@@ -221,7 +221,7 @@ export class HelpController {
 				dialogClass: "keyboard-shortcuts-dialog",
 				buttons: [{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false }] });
 		} finally {
-			cleanup.forEach(dispose => dispose?.());
+			setTimeout(() => cleanup.forEach(dispose => dispose?.()), 0);
 		}
 	}
 }

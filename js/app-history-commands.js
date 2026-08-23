@@ -420,7 +420,14 @@ export const withHistoryCommands = Base => class extends Base {
 		this.exitModes();
 		this.commit(i18n.t("history.createChannel"), model => {
 			const index = model.channels.findIndex(channel => channel.id === model.editor.currentChannel);
-			model.addChannel(index + relative);
+			return model.addChannel(index + relative);
+		}, {
+			lightweight: true, rebuildIndex: false, activeChannels: true, channelOnly: true,
+			channelLayout: true, channelState: true, scheduleDirty: false, skipInspector: true,
+			historyPatch: (channel, model) => ({
+				kind: "addChannel", channel, index: model.channels.findIndex(candidate => candidate.id === channel?.id),
+				nextChannelId: channel?.id + 1, view: captureHistoryView(model),
+			}),
 		});
 	}
 

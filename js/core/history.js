@@ -154,6 +154,16 @@ export function applyHistoryPatch(state, patch) {
 		state.events.push(cloneSnapshot(patch.event));
 		if (!state.nextIds || typeof state.nextIds !== "object") state.nextIds = {};
 		state.nextIds.event = Math.max(Number(state.nextIds.event) || 0, Number(patch.nextEventId) || 0);
+	} else if (patch.kind === "addChannel") {
+		if (!Array.isArray(state.channels)) state.channels = [];
+		const channel = patch.channel;
+		if (channel && !state.channels.some(candidate => candidate?.id === channel.id)) {
+			const index = Math.max(0, Math.min(state.channels.length, Number(patch.index) || 0));
+			state.channels.splice(index, 0, cloneSnapshot(channel));
+		}
+		if (!state.nextIds || typeof state.nextIds !== "object") state.nextIds = {};
+		state.nextIds.channel = Math.max(Number(state.nextIds.channel) || 0,
+			Number(patch.nextChannelId) || Number(channel?.id) + 1 || 0);
 	} else if (patch.kind === "setEventChannels") {
 		const channels = new Map((patch.changes || []).map(change => [change.id, change.channel]));
 		visitChartEvents(state.events, event => {

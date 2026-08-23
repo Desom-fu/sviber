@@ -333,6 +333,31 @@ test("view-only commits do not cancel playback hits", () => {
 	assert.equal(app.full, undefined);
 });
 
+test("commits use incremental refresh by default and reserve full refresh for panel domains", () => {
+	const App = withFreeTransform(class {
+		refresh() { this.full = true; }
+		_invalidatePlaybackSchedule() {}
+	});
+	const makeApp = () => {
+		const app = new App();
+		app._refreshLightweight = function () { this.light = true; };
+		app.model = {
+			value: 0, music: "", image: "", metadata: { title: "t" }, channels: [], snappees: [], clips: [],
+			snapshot() { return { value: this.value }; }, allEvents() { return []; },
+		};
+		app.history = { record: () => true };
+		return app;
+	};
+	const incremental = makeApp();
+	incremental._finishCommit("edit", model => { model.value = 1; });
+	assert.equal(incremental.light, true);
+	assert.equal(incremental.full, undefined);
+	const full = makeApp();
+	full._finishCommit("metadata", model => { model.metadata.title = "next"; });
+	assert.equal(full.full, true);
+	assert.equal(full.light, undefined);
+});
+
 test("stopping playback keeps a visible range locked after playback starts", () => {
 	const app = {
 		playbackScheduleInvalidated: true,
