@@ -11,6 +11,7 @@ import { findNearestSnapPoint, isPointWithinChartBounds } from "../js/core/geome
 import { withChartTools } from "../js/app-chart-tools.js";
 import { withEventEditing } from "../js/app-event-editing.js";
 import { withFileWorkflows } from "../js/app-file-workflows.js";
+import { SviberAppCore } from "../js/app-core.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { withStageInteractions } from "../js/render/stage-interactions.js";
 import { toggledCreationMode } from "../js/app-history-commands.js";
@@ -99,6 +100,23 @@ test("timeline channel offset round-trips and clamps to visible channels", () =>
 		channels: [{ id: 0 }, { id: 1 }], editor: { timelineChannelOffset: 5 },
 	});
 	assert.equal(clamped.editor.timelineChannelOffset, 0);
+});
+
+test("switching clean difficulties does not create a dirty project", () => {
+	const app = Object.create(SviberAppCore.prototype);
+	const first = ChartModel.createDefault({ metadata: { title: "Project", artist: "Artist", difficultyName: "Easy" } });
+	const second = ChartModel.createDefault({ metadata: { title: "Project", artist: "Artist", difficultyName: "Hard" } });
+	app.installProject([
+		{ id: "difficulty-1", file: "easy.json", model: first },
+		{ id: "difficulty-2", file: "hard.json", model: second },
+	], { activeChart: "difficulty-1", name: "Project", title: "Project", artist: "Artist", saved: true });
+	assert.equal(app.dirty, false);
+	app.activeDifficultyId = "difficulty-2";
+	app.model = app.difficulties[1].model;
+	app.history = app.difficulties[1].history;
+	app.savedSignature = app.difficulties[1].savedSignature;
+	app.updateDirty();
+	assert.equal(app.dirty, false);
 });
 
 test("v0.3.2 selection clicks toggle without changing modifier semantics", () => {

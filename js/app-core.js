@@ -411,8 +411,8 @@ export class SviberAppCore {
 		this.projectImage = String(options.image ?? this.model.image ?? "");
 		this.syncProjectSharedFields();
 		this.syncProjectHistorySharedFields();
-		this.projectDirty = options.saved === false;
-		this.difficultyUiSignature = "";
+		if (options.saved !== false) this.difficulties.forEach(entry => entry.savedSignature = this.modelSignature(entry.model));
+		this.projectDirty = options.saved === false; this.difficultyUiSignature = "";
 		this.updateDirty();
 	}
 	markSaved() {
@@ -774,7 +774,7 @@ export class SviberAppCore {
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
-			this._syncCheckedCommands?.(); this.refreshInteractionPreview?.({ rebuildIndex: false });
+			this._syncCheckedCommands?.(); this._refreshDifficultyUi?.(); this.refreshInteractionPreview?.({ rebuildIndex: false });
 		};
 		this.audio.addEventListener("pause", finish);
 		this.audio.addEventListener("ended", finish);
