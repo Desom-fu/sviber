@@ -94,6 +94,6 @@ test("documentation and release metadata describe the current v10 behavior", asy
 	assert.match(rubyApi, /def puts\(\*values\)/);
 	assert.match(sandbox, /SviberMacroInternals\.load_json/);
 	assert.match(sandbox, /consolePrint: false/);
-	assert.equal(JSON.parse(packageJson).version, "0.5.3");
-	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v53"/);
+	assert.equal(JSON.parse(packageJson).version, "0.5.4");
+	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v54"/);
 });

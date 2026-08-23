@@ -1579,6 +1579,8 @@ Arrange the channel assignment so that there are as few events having to be put 
 When choosing Lyrica tip point spawn types, never choose those involving randomness,
 and choose the one whose spawn position is the closest to the spawn position in the sviber chart.
 Do not take spawn time into account when choosing Lyrica spawn types.
+When exporting tap notes, use type `2` if two or more taps share the same time (official 多押 taps);
+otherwise use type `1`.
 
 #### Open project folder in file explorer
 
@@ -2225,6 +2227,10 @@ but not a 2D box),
 the free transform cannot start.
 
 When doing the free transform, the inspection panel shows numbers for the transformation matrix.
+Arrange the six number inputs as a 2&times;3 matrix following the CSS/Canvas affine convention:
+$$
+\begin{pmatrix}a&c&t_x\\ b&d&t_y\end{pmatrix}.
+$$
 The numbers update as the user does the transform.
 The user can manually edit them.
 Hitting <kbd>Enter</kbd> while editing a matrix element does not confirm the free transform
@@ -2238,7 +2244,7 @@ The tip point spawn positions should also change.
 
 Show a popup form to enter information for a transformation matrix.
 It is a 2D affine transform matrix, with 6 degrees of freedom,
-so there are 6 input fields.
+so there are 6 input fields arranged as the same 2&times;3 CSS/Canvas matrix as in the inspection panel.
 Grayed out if no events are selected.
 
 Notice that the `flick` events' directions should also change when doing the transform.
@@ -3438,7 +3444,8 @@ these are the event types:
 | Type number | Type | Argument meaning |
 |-|-|-|
 | `0` | Drag | |
-| `1`, `2` | Tap | |
+| `1` | Tap | Solo tap |
+| `2` | Tap | Simultaneous tap (多押); official charts use this when two or more taps share a time |
 | `3` | Flick | Angle in degrees (zero is upward, clockwise) |
 | `4` | Hold | Duration in seconds |
 

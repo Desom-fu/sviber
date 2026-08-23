@@ -1,6 +1,6 @@
 import { Rational } from "./core/rational.js";
 import { eventTime } from "./core/grouping.js";
-import { resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
+import { AFFINE_MATRIX_GRID, resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
 
 const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
 const DURATION_TYPES = new Set(["hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment"]);
@@ -384,15 +384,16 @@ export class InspectorPanel {
 			const wrapper = document.createElement("div");
 			wrapper.className = "matrix-input";
 			const keys = ["field.matrixA", "field.matrixB", "field.matrixC", "field.matrixD", "field.matrixTx", "field.matrixTy"];
-			context.transform.forEach((value, index) => {
+			const inputs = context.transform.map((value, index) => {
 				const input = makeInput(document, "number", value, next => {
 					const applied = this.onTransformChange(index, next);
 					if (Number.isFinite(applied) && applied !== next) input.value = applied;
 				}, { step: "any" });
 				input.setAttribute("aria-label", this.i18n.t(keys[index]));
 				input.title = this.i18n.t(keys[index]);
-				wrapper.append(input);
+				return input;
 			});
+			for (const index of AFFINE_MATRIX_GRID) wrapper.append(inputs[index]);
 			transformGroup.append(this.#row("field.transform", wrapper));
 			this.element.append(transformGroup);
 		}

@@ -692,9 +692,29 @@ function eventDurationSeconds(timing, event) {
 	try { return Math.max(0, timing.durationToSeconds(event.time, event.duration)); } catch { return 0; }
 }
 
-function lyricaTypeFields(event, timing) {
+function tapTimeKey(event) {
+	try { return JSON.stringify(Rational.from(event.time).toJSON()); } catch { return String(event.time); }
+}
+
+function simultaneousTapTypes(events) {
+	const buckets = new Map();
+	for (const event of events) {
+		if (event.type !== "tap") continue;
+		const key = tapTimeKey(event);
+		if (!buckets.has(key)) buckets.set(key, []);
+		buckets.get(key).push(event.id);
+	}
+	const types = new Map();
+	for (const ids of buckets.values()) {
+		const type = ids.length > 1 ? 2 : 1;
+		for (const id of ids) types.set(id, type);
+	}
+	return types;
+}
+
+function lyricaTypeFields(event, timing, tapType = 1) {
 	if (event.type === "drag") return { type: 0, arg: 0, text: "" };
-	if (event.type === "tap") return { type: 1, arg: 0, text: event.text || "" };
+	if (event.type === "tap") return { type: tapType, arg: 0, text: event.text || "" };
 	if (event.type === "flick") return { type: 3, arg: sviberFlickAngleToLyrica(event.angle), text: event.text || "" };
 	if (event.type === "hold") return { type: 4, arg: eventDurationSeconds(timing, event), text: event.text || "" };
 	if (event.type === "bgNote") {
@@ -750,12 +770,13 @@ export function exportLyricaChart(model) {
 
 	const exported = [];
 	const mainAssigned = [];
+	const tapTypes = simultaneousTapTypes(events);
 	const ordered = events
 		.map((event, sequence) => ({ event, sequence }))
 		.sort((left, right) => eventSeconds(timing, left.event) - eventSeconds(timing, right.event) || left.sequence - right.sequence);
 	for (const { event } of ordered) {
 		if (event.type === "comment") continue;
-		const fields = lyricaTypeFields(event, timing);
+		const fields = lyricaTypeFields(event, timing, tapTypes.get(event.id) || 1);
 		if (!fields) continue;
 		const position = eventPosition(event, snappees);
 		const time = eventSeconds(timing, event);

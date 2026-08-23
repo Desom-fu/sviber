@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { ChartModel } from "../js/core/chart-model.js";
 import { fillInheritedTipPointParams, inheritedTipPointSource } from "../js/core/tip-point.js";
-import { clampAffineToChartBounds, applyTransform, isPointWithinChartBounds } from "../js/core/geometry.js";
+import { AFFINE_MATRIX_GRID, clampAffineToChartBounds, applyTransform, isPointWithinChartBounds } from "../js/core/geometry.js";
 import { TimingMap } from "../js/core/timing.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/commands.js";
 import { canonicalizeRationalTuple, validateField } from "../js/ui-fields.js";
@@ -142,6 +142,28 @@ test("Lyrica export puts sole tip points on independent and dumps overlapping mu
 	assert.equal(packed.assigned.length, 4);
 	assert.equal(packed.dumped.length, 1);
 	assert.equal(packed.dumped[0].events.length, 2);
+	assert.ok(parsed.events.some(event => Math.abs(event.time - 0.5) < 1e-6 && event.type === 1), "solo taps export as type 1");
+	assert.ok(parsed.events.some(event => event.type === 2), "overlapping same-time taps export as type 2");
+});
+
+test("Lyrica export uses type 2 for simultaneous taps", () => {
+	const model = ChartModel.createDefault({
+		metadata: { title: "Multi", artist: "A" },
+		timing: { offset: 0, initialBpm: 120 },
+		channels: [{ id: 0, name: "A" }, { id: 1, name: "B" }],
+		events: [
+			{ id: 1, type: "tap", time: [1, 0, 1], channel: 0, x: -20, y: 0, tipPointSpawnType: "none" },
+			{ id: 2, type: "tap", time: [1, 0, 1], channel: 1, x: 20, y: 0, tipPointSpawnType: "none" },
+			{ id: 3, type: "tap", time: [2, 0, 1], channel: 0, x: 0, y: 0, tipPointSpawnType: "none" },
+		],
+	});
+	const parsed = parseLyricaChart(exportLyricaChart(model));
+	const atFirstBeat = parsed.events.filter(event => Math.abs(event.time - 0.5) < 1e-6);
+	const atSecondBeat = parsed.events.filter(event => Math.abs(event.time - 1) < 1e-6);
+	assert.equal(atFirstBeat.length, 2);
+	assert.ok(atFirstBeat.every(event => event.type === 2));
+	assert.equal(atSecondBeat.length, 1);
+	assert.equal(atSecondBeat[0].type, 1);
 });
 
 test("v14 commands move Channel items, add Lyrica export, bar-line icon, and shortcut 0", () => {
@@ -233,6 +255,11 @@ test("v14 help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0
 	assert.match(help, /Rulers/);
 	assert.match(help, /pause button/);
 	assert.match(help, /<kbd>0<\/kbd>/);
+	assert.match(help, /a c tx \/ b d ty/);
+	assert.match(help, /type 2/);
+	assert.deepEqual([...AFFINE_MATRIX_GRID], [0, 2, 4, 1, 3, 5]);
+	assert.match(await readFile(new URL("../js/ui-fields.js", import.meta.url), "utf8"), /AFFINE_MATRIX_GRID/);
+	assert.match(await readFile(new URL("../js/panels.js", import.meta.url), "utf8"), /AFFINE_MATRIX_GRID/);
 	assert.match(core, /channel\.select/);
 	assert.match(core, /scrollChannelsBy/);
 	assert.match(notes, /_drawRulers/);

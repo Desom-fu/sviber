@@ -1,5 +1,6 @@
 import {i18n as defaultI18n} from './i18n.js';
 import {nextControlId} from './ui-shared.js';
+import {AFFINE_MATRIX_GRID} from './core/geometry.js';
 import {Rational} from './core/rational.js';
 
 export const MIXED_VALUE = Symbol('mixed-value');
@@ -443,7 +444,7 @@ export function createFieldControl(field, value, environment = {}) {
 			group.className = 'matrix-input';
 			const inputs = matrix.slice(0, 6).map(itemValue => makeInput(documentRef, field.numeric ? 'number' : 'text', itemValue, field));
 			while (inputs.length < 6) inputs.push(makeInput(documentRef, field.numeric ? 'number' : 'text', 0, field));
-			group.append(...inputs);
+			for (const index of AFFINE_MATRIX_GRID) group.append(inputs[index]);
 			element = group;
 			read = () => inputs.map(input => field.numeric ? Number(input.value) : input.value);
 			focus = () => inputs[0].focus();

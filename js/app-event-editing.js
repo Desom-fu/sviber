@@ -891,18 +891,13 @@ const withEventEditingBase = Base => class extends Base {
 		this.exitModes();
 		const values = await this.dialogs.form({
 			titleKey: "dialog.transformMatrix",
-			values: { a: 1, b: 0, c: 0, d: 1, tx: 0, ty: 0 },
+			values: { matrix: [1, 0, 0, 1, 0, 0] },
 			fields: [
-				{ id: "a", type: "number", labelKey: "field.matrixA", required: true, step: "any" },
-				{ id: "b", type: "number", labelKey: "field.matrixB", required: true, step: "any" },
-				{ id: "c", type: "number", labelKey: "field.matrixC", required: true, step: "any" },
-				{ id: "d", type: "number", labelKey: "field.matrixD", required: true, step: "any" },
-				{ id: "tx", type: "number", labelKey: "field.matrixTx", required: true, step: "any" },
-				{ id: "ty", type: "number", labelKey: "field.matrixTy", required: true, step: "any" },
+				{ id: "matrix", type: "matrix", labelKey: "field.transform", numeric: true, required: true },
 			],
 		});
 		if (!values) return;
-		this.applyTransformToSelection([values.a, values.b, values.c, values.d, values.tx, values.ty]);
+		this.applyTransformToSelection(values.matrix);
 	}
 	editSelectedProperty(property, value) {
 		const historyLabel = i18n.t("history.editEvent", { type: "" });

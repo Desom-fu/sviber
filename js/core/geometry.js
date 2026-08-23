@@ -1,4 +1,5 @@
 export const IDENTITY_TRANSFORM = Object.freeze([1, 0, 0, 1, 0, 0]);
+export const AFFINE_MATRIX_GRID = Object.freeze([0, 2, 4, 1, 3, 5]);
 export const CHART_BOUNDS = Object.freeze({ minX: -100, maxX: 100, minY: -50, maxY: 50 });
 
 const TAU = Math.PI * 2;
