@@ -131,6 +131,7 @@ test("opening a chart from the project folder adds it without dropping other dif
 	app.modelSignature = SviberAppCore.prototype.modelSignature.bind(app);
 	app.syncProjectSharedFields = SviberAppCore.prototype.syncProjectSharedFields.bind(app);
 	app.updateDirty = () => {}; app.refresh = () => {}; app.rememberLastOpen = () => {};
+	app.syncMediaFromModel = async () => {};
 	app.confirmUnsaved = async () => true; app.requestImportOptions = async () => ({});
 	app.toast = { show() {} }; app.files.parseFile = async () => ({ document: JSON.parse(special.serialize()), chartPath: "C:/project/Special.json" });
 	await app.openFile({ name: "Special.json" }, { silent: true });

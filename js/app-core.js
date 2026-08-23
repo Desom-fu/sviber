@@ -129,6 +129,7 @@ export class SviberAppCore {
 		this.nextDifficultyId = 1;
 		this.activeDifficultyId = "difficulty-0";
 		this.projectName = this.model.metadata.title;
+		this.editingProject = false;
 		this.projectTitle = this.model.metadata.title;
 		this.projectArtist = this.model.metadata.artist;
 		this.projectMusic = String(this.model.music || "");
@@ -147,7 +148,7 @@ export class SviberAppCore {
 		await i18n.ready;
 		i18n.apply(document);
 		const difficultySwitcher = document.querySelector(".difficulty-switcher");
-		if (difficultySwitcher) difficultySwitcher.hidden = !globalThis.nw;
+		if (difficultySwitcher) difficultySwitcher.hidden = true;
 		this.tooltip.bind(document);
 		this._bindTabs();
 		this._registerCommands();
@@ -319,8 +320,6 @@ export class SviberAppCore {
 		this.syncActiveDifficultyState();
 		return {
 			name: this.projectName || this.model.metadata.title,
-			music: this.projectMusic,
-			image: this.projectImage,
 			activeChart: this.activeDifficultyId,
 			charts: this.difficulties.map(entry => ({ id: entry.id, file: entry.file, model: entry.model })),
 		};
@@ -329,8 +328,6 @@ export class SviberAppCore {
 		for (const entry of this.difficulties) {
 			entry.model.metadata.title = this.projectTitle;
 			entry.model.metadata.artist = this.projectArtist;
-			entry.model.music = this.projectMusic;
-			entry.model.image = this.projectImage;
 		}
 		this.model.metadata.title = this.projectTitle;
 		this.model.metadata.artist = this.projectArtist;
@@ -340,17 +337,12 @@ export class SviberAppCore {
 	syncProjectHistorySharedFields(options = {}) {
 		const excludeDifficultyId = options.excludeDifficultyId ?? null;
 		const metadata = options.metadata !== false;
-		const media = options.media !== false;
 		for (const entry of this.difficulties) {
 			if (entry.id === excludeDifficultyId) continue;
 			entry.history.transformStates(state => {
 				if (metadata) {
 					state.metadata.title = this.projectTitle;
 					state.metadata.artist = this.projectArtist;
-				}
-				if (media) {
-					state.music = this.projectMusic;
-					state.image = this.projectImage;
 				}
 				return state;
 			});
@@ -361,6 +353,8 @@ export class SviberAppCore {
 		const artist = String(snapshot.metadata?.artist ?? this.projectArtist);
 		const metadataChanged = title !== this.projectTitle || artist !== this.projectArtist;
 		this.model.restore(snapshot);
+		this.projectMusic = String(this.model.music || "");
+		this.projectImage = String(this.model.image || "");
 		this._normalizeGroupSelectionScope();
 		this._invalidatePlaybackSchedule();
 		if (metadataChanged) {
@@ -407,8 +401,8 @@ export class SviberAppCore {
 		this.projectName = String(options.name || this.model.metadata.title || "Untitled");
 		this.projectTitle = String(options.title ?? this.model.metadata.title ?? "Untitled");
 		this.projectArtist = String(options.artist ?? this.model.metadata.artist ?? "");
-		this.projectMusic = String(options.music ?? this.model.music ?? "");
-		this.projectImage = String(options.image ?? this.model.image ?? "");
+		this.projectMusic = String(this.model.music ?? "");
+		this.projectImage = String(this.model.image ?? "");
 		this.syncProjectSharedFields();
 		this.syncProjectHistorySharedFields();
 		if (options.saved !== false) this.difficulties.forEach(entry => entry.savedSignature = this.modelSignature(entry.model));
@@ -486,6 +480,7 @@ export class SviberAppCore {
 	_refreshDifficultyUi() {
 		const select = document.getElementById("difficulty-select");
 		if (!select) return;
+		select.closest(".difficulty-switcher").hidden = !(globalThis.nw && this.editingProject);
 		const signature = JSON.stringify({
 			language: i18n.language,
 			active: this.activeDifficultyId,
@@ -630,8 +625,12 @@ export class SviberAppCore {
 		for (const item of tabs) item.tab.addEventListener("click", () => setTab(item.id));
 	}
 	_bindInputs() {
-		document.getElementById("open-file-input").addEventListener("change", event => void this.openFile(event.target.files[0]).finally(() => { event.target.value = ""; }));
-		document.getElementById("chart-file-input").addEventListener("change", event => void this.openFile(event.target.files[0]).finally(() => { event.target.value = ""; }));
+		document.getElementById("open-file-input").addEventListener("change", event => void this.openFile(event.target.files[0], {
+			offerAddToProject: true,
+		}).finally(() => { event.target.value = ""; }));
+		document.getElementById("chart-file-input").addEventListener("change", event => void this.openFile(event.target.files[0], {
+			offerAddToProject: true,
+		}).finally(() => { event.target.value = ""; }));
 		document.getElementById("music-file-input").addEventListener("change", event => void this.loadMusic(event.target.files[0]).finally(() => { event.target.value = ""; }));
 		document.getElementById("background-file-input").addEventListener("change", event => void this.loadBackground(event.target.files[0]).finally(() => { event.target.value = ""; }));
 		document.getElementById("difficulty-select")?.addEventListener("change", event => void this.switchDifficulty(event.target.value));
@@ -970,6 +969,7 @@ export class SviberAppCore {
 				file: recovery.source?.chartFilename || uniqueChartFilename(recovery.model.metadata.difficultyName),
 				model: recovery.model,
 			}], { activeChart: "difficulty-0", name: recovery.source?.projectName || recovery.model.metadata.title, saved: false });
+			this.editingProject = Boolean(globalThis.nw && recovery.source?.projectPath);
 			if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
 			return true;
 		} else { this.autosave.markManualSave(); return false; }

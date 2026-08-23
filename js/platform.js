@@ -267,6 +267,14 @@ export class FileManager {
 		return modules.path.resolve(value);
 	}
 
+	resolveChartAssetReference(reference, chartPath) {
+		const modules = nwModules();
+		const value = String(reference || "");
+		if (!modules || !value) return value;
+		if (modules.path.isAbsolute(value)) return modules.path.normalize(value);
+		return chartPath ? modules.path.resolve(modules.path.dirname(chartPath), value) : modules.path.resolve(value);
+	}
+
 	async fileForAsset(reference, kind) {
 		const key = String(reference || "");
 		if (!key) return null;
@@ -299,16 +307,7 @@ export class FileManager {
 			const pathname = await pickNwDirectoryPath();
 			return pathname ? { type: "nw", path: modules.path.resolve(pathname) } : null;
 		}
-		if (globalThis.showDirectoryPicker) {
-			try {
-				const handle = await globalThis.showDirectoryPicker({ mode: "readwrite" });
-				return handle ? { type: "browser", handle } : null;
-			} catch (error) {
-				if (error.name === "AbortError") return null;
-				throw error;
-			}
-		}
-		throw new Error("Project folders are unavailable in this browser.");
+		throw new Error("Project folders are available only in the desktop app.");
 	}
 
 	#currentProjectDirectory() {
@@ -317,10 +316,27 @@ export class FileManager {
 		return null;
 	}
 
-	async copyAssetIntoProject(file, fallback) {
+	async copyAssetIntoProject(file, fallback, existingReference = "") {
 		const directory = this.#currentProjectDirectory();
 		if (!directory || !file) return "";
-		const filename = sanitizeFilename(file.name, fallback);
+		const existingName = String(existingReference || "");
+		if (existingName && sanitizeFilename(existingName, fallback) === existingName
+			&& await this.#directoryFileExists(directory, existingName)) return existingName;
+		const preferred = sanitizeFilename(file.name, fallback);
+		const sourcePath = this.localPathFor(file);
+		let filename = preferred;
+		let suffix = 2;
+		while (await this.#directoryFileExists(directory, filename)) {
+			if (directory.type === "nw" && sourcePath) {
+				const modules = nwModules();
+				if (modules.path.resolve(sourcePath).toLowerCase()
+					=== modules.path.resolve(directory.path, filename).toLowerCase()) break;
+			}
+			const dot = preferred.lastIndexOf(".");
+			const stem = dot > 0 ? preferred.slice(0, dot) : preferred;
+			const extensionPart = dot > 0 ? preferred.slice(dot) : "";
+			filename = `${stem}-${suffix++}${extensionPart}`;
+		}
 		await this.#writeDirectoryFile(directory, filename, file);
 		return filename;
 	}
@@ -345,6 +361,23 @@ export class FileManager {
 		}
 		const handle = await directory.handle.getFileHandle(filename);
 		return handle.getFile();
+	}
+
+	async #directoryFileExists(directory, filename) {
+		if (directory.type === "nw") {
+			const modules = nwModules();
+			try {
+				await modules.fs.promises.access(modules.path.resolve(directory.path, filename));
+				return true;
+			} catch { return false; }
+		}
+		try {
+			await directory.handle.getFileHandle(filename);
+			return true;
+		} catch (error) {
+			if (error?.name === "NotFoundError") return false;
+			throw error;
+		}
 	}
 
 	async #writeDirectoryFile(directory, filename, value) {
@@ -379,14 +412,17 @@ export class FileManager {
 		}
 	}
 
-	#adoptProjectDirectory(directory, manifest) {
+	#adoptProjectDirectory(directory, projectName = "") {
 		this.projectDirectoryHandle = directory.type === "browser" ? directory.handle : null;
 		this.projectPath = directory.type === "nw" ? directory.path : "";
-		this.projectName = manifest.name;
+		const modules = nwModules();
+		this.projectName = String(projectName || (directory.type === "nw"
+			? modules?.path.basename(directory.path) : directory.handle?.name) || "Untitled");
 		this.clearChartTarget();
 	}
 
 	async openProject(options = {}) {
+		if (!nwModules()) throw new Error("Project folders are available only in the desktop app.");
 		const directory = this.#directoryFromOptions(options) || await this.chooseProjectDirectory();
 		if (!directory) return null;
 		const manifestFile = await this.#readDirectoryFile(directory, PROJECT_FILENAME, "application/json");
@@ -396,50 +432,108 @@ export class FileManager {
 			const file = await this.#readDirectoryFile(directory, entry.file, "application/json");
 			charts.push({ ...entry, document: JSON.parse(await file.text()) });
 		}
-		const musicFile = manifest.music
-			? await this.#readDirectoryFile(directory, manifest.music, MIME_TYPES[extension(manifest.music)] || "audio/*")
-			: null;
-		const imageFile = manifest.image
-			? await this.#readDirectoryFile(directory, manifest.image, MIME_TYPES[extension(manifest.image)] || "image/*")
-			: null;
-		this.#adoptProjectDirectory(directory, manifest);
-		return { manifest, charts, musicFile, imageFile };
+		this.assetFiles.clear();
+		this.clearCurrentAssets();
+		this.#adoptProjectDirectory(directory, options.projectName);
+		return { manifest, charts, projectName: this.projectName };
 	}
 
-	#projectAssetName(file, reference, fallback) {
-		if (file?.name) return sanitizeFilename(file.name, fallback);
-		const value = String(reference || "");
-		if (value && !value.includes("/") && !value.includes("\\")) return sanitizeFilename(value, fallback);
-		return "";
+	#uniqueProjectFilename(preferred, usedNames) {
+		const sanitized = sanitizeFilename(preferred, "asset");
+		const dot = sanitized.lastIndexOf(".");
+		const stem = dot > 0 ? sanitized.slice(0, dot) : sanitized;
+		const extensionPart = dot > 0 ? sanitized.slice(dot) : "";
+		let filename = sanitized;
+		let suffix = 2;
+		while (usedNames.has(filename.toLowerCase())) filename = `${stem}-${suffix++}${extensionPart}`;
+		usedNames.add(filename.toLowerCase());
+		return filename;
+	}
+
+	async #directoryFilenames(directory) {
+		if (directory.type !== "nw") return [];
+		const modules = nwModules();
+		try { return await modules.fs.promises.readdir(directory.path); }
+		catch (error) {
+			if (error?.code === "ENOENT") return [];
+			throw error;
+		}
+	}
+
+	#isSameDirectoryFile(directory, filename, file) {
+		const modules = nwModules();
+		const sourcePath = this.localPathFor(file);
+		if (!modules || directory.type !== "nw" || !sourcePath) return false;
+		return modules.path.resolve(sourcePath).toLowerCase()
+			=== modules.path.resolve(directory.path, filename).toLowerCase();
+	}
+
+	async #assertNewProjectDestination(directory) {
+		if (await this.#directoryFileExists(directory, PROJECT_FILENAME)) {
+			throw new Error(`The selected directory already contains ${PROJECT_FILENAME}.`);
+		}
 	}
 
 	async saveProject(project, options = {}) {
+		if (!nwModules()) throw new Error("Project folders are available only in the desktop app.");
 		let directory = !options.saveAs && this.#currentProjectDirectory();
+		const existingDirectory = Boolean(directory);
 		directory ||= this.#directoryFromOptions(options);
 		directory ||= await this.chooseProjectDirectory();
 		if (!directory) return null;
+		if (!existingDirectory) await this.#assertNewProjectDestination(directory);
 		if (!Array.isArray(project?.charts) || !project.charts.length) throw new Error("A project must contain at least one difficulty.");
-		const music = this.#projectAssetName(this.musicFile, project.music, "music");
-		const image = this.#projectAssetName(this.imageFile, project.image, "cover");
+		const existingNames = new Set((await this.#directoryFilenames(directory)).map(name => name.toLowerCase()));
+		const usedNames = new Set([...existingNames, PROJECT_FILENAME.toLowerCase()]);
+		if (!existingDirectory) {
+			for (const entry of project.charts) entry.file = this.#uniqueProjectFilename(entry.file, usedNames);
+		} else {
+			for (const entry of project.charts) usedNames.add(String(entry.file).toLowerCase());
+		}
+		const chartNames = new Set([PROJECT_FILENAME.toLowerCase(), ...project.charts.map(entry => String(entry.file).toLowerCase())]);
+		const assetNames = new Set();
+		const savedAssets = new Map();
+		for (const entry of project.charts) {
+			for (const [field, fallback] of [["music", "music"], ["image", "cover"]]) {
+				const reference = String(entry.model[field] || "");
+				if (!reference) continue;
+				const resolved = this.resolveAssetPath(reference) || reference;
+				let asset = savedAssets.get(resolved.toLowerCase());
+				if (!asset) {
+					const file = await this.fileForAsset(reference, field);
+					if (!file) throw new Error(`Unable to read project ${field}: ${reference}.`);
+					const preferred = sanitizeFilename(file.name || reference, fallback);
+					const key = preferred.toLowerCase();
+					const projectReference = existingDirectory && sanitizeFilename(reference, fallback) === reference
+						&& reference.toLowerCase() === key && existingNames.has(key);
+					const reuse = (projectReference || this.#isSameDirectoryFile(directory, preferred, file))
+						&& !chartNames.has(key) && !assetNames.has(key);
+					const filename = reuse ? preferred : this.#uniqueProjectFilename(preferred, usedNames);
+					usedNames.add(filename.toLowerCase());
+					assetNames.add(filename.toLowerCase());
+					await this.#writeDirectoryFile(directory, filename, file);
+					asset = { filename, file };
+					savedAssets.set(resolved.toLowerCase(), asset);
+				}
+				entry.model[field] = asset.filename;
+			}
+		}
 		const manifest = createProjectManifest({
-			name: project.name,
-			music,
-			image,
 			charts: project.charts,
 			activeChart: project.activeChart,
 		});
 		for (const entry of project.charts) {
-			entry.model.music = music;
-			entry.model.image = image;
 			await this.#writeDirectoryFile(directory, entry.file, new Blob([entry.model.serialize(2)], { type: "application/json" }));
 		}
-		if (music && this.musicFile) await this.#writeDirectoryFile(directory, music, this.musicFile);
-		if (image && this.imageFile) await this.#writeDirectoryFile(directory, image, this.imageFile);
 		await this.#writeDirectoryFile(directory, PROJECT_FILENAME,
 			new Blob([`${JSON.stringify(manifest, null, 2)}\n`], { type: "application/json" }));
-		this.#adoptProjectDirectory(directory, manifest);
-		if (this.musicFile) this.rememberAsset(music, this.musicFile, "music");
-		if (this.imageFile) this.rememberAsset(image, this.imageFile, "image");
+		this.#adoptProjectDirectory(directory, project.name);
+		this.assetFiles.clear();
+		for (const asset of savedAssets.values()) this.assetFiles.set(asset.filename, asset.file);
+		this.musicReference = String(project.charts.find(entry => entry.id === project.activeChart)?.model.music || "");
+		this.imageReference = String(project.charts.find(entry => entry.id === project.activeChart)?.model.image || "");
+		this.musicFile = this.assetFiles.get(this.musicReference) || null;
+		this.imageFile = this.assetFiles.get(this.imageReference) || null;
 		return {
 			location: directory.type === "nw" ? directory.path : directory.handle.name,
 			manifest,
@@ -493,6 +587,13 @@ export class FileManager {
 			throw new Error("Project macro files are available only in an NW.js project.");
 		}
 		await this.#removeDirectoryFile(directory, String(filename));
+	}
+
+	async deleteProjectChart(filename) {
+		const directory = this.#currentProjectDirectory();
+		if (!directory) return false;
+		await this.#removeDirectoryFile(directory, String(filename));
+		return true;
 	}
 
 	async listProjectFiles(extension = ".js") {
@@ -583,9 +684,16 @@ export class FileManager {
 
 	async saveChart(model, options = {}) {
 		const filename = `${sanitizeFilename(model.metadata.title)}-${sanitizeFilename(model.metadata.difficultyName)}.json`;
-		const blob = new Blob([model.serialize(2)], { type: "application/json" });
 		const modules = nwModules();
 		if (!options.saveAs && modules && this.projectPath && options.projectFilename) {
+			for (const [field, fallback] of [["music", "music"], ["image", "cover"]]) {
+				const reference = String(model[field] || "");
+				if (!reference) continue;
+				const file = await this.fileForAsset(reference, field);
+				if (!file) throw new Error(`Unable to read project ${field}: ${reference}.`);
+				model[field] = await this.copyAssetIntoProject(file, fallback, reference);
+			}
+			const blob = new Blob([model.serialize(2)], { type: "application/json" });
 			const pathname = modules.path.resolve(this.projectPath, sanitizeFilename(options.projectFilename));
 			if (modules.path.dirname(pathname) !== modules.path.resolve(this.projectPath)) throw new Error("Invalid project chart filename.");
 			await writeLocalFile(modules.fs, pathname, blob);
@@ -593,8 +701,16 @@ export class FileManager {
 			this.chartFilename = modules.path.basename(pathname);
 			return pathname;
 		}
+		const standalone = model.clone();
+		if (modules) {
+			standalone.music = this.resolveAssetPath(model.music) || String(model.music || "");
+			standalone.image = this.resolveAssetPath(model.image) || String(model.image || "");
+		}
+		const blob = new Blob([standalone.serialize(2)], { type: "application/json" });
 		if (!options.saveAs && modules && this.chartPath) {
 			await writeLocalFile(modules.fs, this.chartPath, blob);
+			model.music = standalone.music;
+			model.image = standalone.image;
 			return this.chartPath;
 		}
 		if (!options.saveAs && this.fileHandle) {
@@ -608,6 +724,10 @@ export class FileManager {
 			this.fileHandle = null;
 			this.chartPath = modules.path.resolve(pathname);
 			this.chartFilename = modules.path.basename(pathname);
+			if (!this.projectPath) {
+				model.music = standalone.music;
+				model.image = standalone.image;
+			}
 			return this.chartPath;
 		}
 		if (globalThis.showSaveFilePicker) {
@@ -631,7 +751,6 @@ export class FileManager {
 		await globalThis.sviberDependenciesReady;
 		if (!globalThis.JSZip) throw new Error("JSZip is unavailable.");
 		if (!Array.isArray(project?.charts) || !project.charts.length) throw new Error("A level must contain at least one difficulty.");
-		if (!this.musicFile) throw new Error("A Sunniesnow level must contain a music file.");
 		const zip = new JSZip();
 		const usedNames = new Set();
 		const reserveName = (name, label) => {
@@ -648,13 +767,27 @@ export class FileManager {
 			const chart = exportSunniesnowChartDocument(entry.model, options);
 			zip.file(filename, `${JSON.stringify(chart, null, 2)}\n`);
 		}
-		const musicName = sanitizeFilename(this.musicFile.name, "music");
-		reserveName(musicName, "music");
-		zip.file(musicName, new Uint8Array(await this.musicFile.arrayBuffer()));
-		if (this.imageFile) {
-			const imageName = sanitizeFilename(this.imageFile.name, "cover");
-			reserveName(imageName, "cover");
-			zip.file(imageName, new Uint8Array(await this.imageFile.arrayBuffer()));
+		const packagedAssets = new Map();
+		for (const entry of project.charts) {
+			for (const [field, fallback] of [["music", "music"], ["image", "cover"]]) {
+				const reference = String(entry.model[field] || "");
+				if (!reference) continue;
+				const resolved = this.resolveAssetPath(reference) || reference;
+				if (packagedAssets.has(resolved.toLowerCase())) continue;
+				const file = await this.fileForAsset(reference, field);
+				if (!file) throw new Error(`Unable to read referenced ${field}: ${reference}.`);
+				let assetName = sanitizeFilename(file.name || reference, fallback);
+				if (usedNames.has(assetName.toLowerCase())) {
+					const dot = assetName.lastIndexOf(".");
+					const stem = dot > 0 ? assetName.slice(0, dot) : assetName;
+					const extensionPart = dot > 0 ? assetName.slice(dot) : "";
+					let suffix = 2;
+					while (usedNames.has(assetName.toLowerCase())) assetName = `${stem}-${suffix++}${extensionPart}`;
+				}
+				reserveName(assetName, field);
+				zip.file(assetName, new Uint8Array(await file.arrayBuffer()));
+				packagedAssets.set(resolved.toLowerCase(), assetName);
+			}
 		}
 		const blob = await zip.generateAsync({
 			type: "blob",

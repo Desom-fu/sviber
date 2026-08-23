@@ -239,7 +239,8 @@ export function localizedErrorMessage(error) {
 	if (/JSZip is unavailable/i.test(message)) return i18n.t("error.zipUnavailable");
 	if (/does not contain a JSON chart/i.test(message)) return i18n.t("error.levelMissingChart");
 	if (/selected chart was not found/i.test(message)) return i18n.t("error.levelChartMissing");
-	if (/Project folders are unavailable/i.test(message)) return i18n.t("error.projectFoldersUnavailable");
+	if (/Project folders (?:are unavailable|are available only)/i.test(message)) return i18n.t("error.projectFoldersUnavailable");
+	if (/already contains sviber-project\.json/i.test(message)) return i18n.t("error.projectManifestExists");
 	if (/sviber-project\.json|ENOENT|NotFoundError/i.test(message)) return i18n.t("error.projectManifestMissing");
 	if (/must contain a music file/i.test(message)) return i18n.t("error.levelMusicRequired");
 	if (/Clipboard access is unavailable/i.test(message)) return i18n.t("error.clipboardUnavailable");

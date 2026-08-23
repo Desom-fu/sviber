@@ -14,7 +14,7 @@ sviber 是面向 [Sunniesnow](https://sunniesnow.github.io/game-unstable) 的浏
 
 ## 在浏览器中从源码运行
 
-需要当前版本的 Node.js、npm 和现代浏览器。工程文件夹流程需要支持 File System Access API 的 Chromium 内核浏览器；不支持该 API 时请使用桌面版。
+需要当前版本的 Node.js、npm 和现代浏览器。网页版本一次只编辑一张独立谱面；工程文件夹仅由 NW.js 桌面版支持。
 
 ```powershell
 git clone https://github.com/Desom-fu/sviber.git

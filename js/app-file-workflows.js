@@ -17,7 +17,6 @@ import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { SSCHARTER_VERSION } from "./live-hosting.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_CHARTER_KEY, LAST_OPEN_KEY, RECENT_OPEN_KEY, loadPreferences, storePreferences, resolvePreferenceLanguage, applyThemePreference, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
-
 export const withFileWorkflows = Base => class extends Base {
 	rememberLastOpen(kind, pathname) {
 		if (!globalThis.nw || !pathname) return;
@@ -29,7 +28,6 @@ export const withFileWorkflows = Base => class extends Base {
 		try { localStorage.setItem(RECENT_OPEN_KEY, JSON.stringify(list.slice(0, 20))); } catch { /* Storage may be unavailable. */ }
 		try { localStorage.setItem(LAST_OPEN_KEY, JSON.stringify({ kind: entry.kind, path: entry.path })); } catch { /* Storage may be unavailable. */ }
 	}
-
 	async reopenLastDocument() {
 		if (!globalThis.nw) return false;
 		let recent;
@@ -63,7 +61,7 @@ export const withFileWorkflows = Base => class extends Base {
 				{ id: "cancel", labelKey: "dialog.cancel", cancel: true, value: "cancel", validate: false },
 			],
 		});
-		if (result?.value === "save") return Boolean(await (globalThis.nw ? this.saveProject() : this.saveChart()));
+		if (result?.value === "save") return Boolean(await (this.editingProject ? this.saveProject() : this.saveChart()));
 		return result?.value === "discard";
 	}
 	async confirmUnsavedChart() {
@@ -96,9 +94,12 @@ export const withFileWorkflows = Base => class extends Base {
 		this.model = target.model;
 		this.history = target.history;
 		this.savedSignature = target.savedSignature;
+		this.projectMusic = String(this.model.music || "");
+		this.projectImage = String(this.model.image || "");
 		this.difficultyUiSignature = "";
 		this.updateDirty();
 		this.refresh();
+		await this.queueMediaSync();
 		return true;
 	}
 	async newDifficulty() {
@@ -154,58 +155,44 @@ export const withFileWorkflows = Base => class extends Base {
 		await this.switchDifficulty(id, { skipSavePrompt: true });
 		return id;
 	}
-
 	async deleteDifficulty() {
-		if (!this.files.projectPath && !this.files.projectDirectoryHandle) return false;
+		if (!this.editingProject || this.difficulties.length <= 1) return false;
 		const activeIndex = this.difficulties.findIndex(entry => entry.id === this.activeDifficultyId);
 		if (activeIndex < 0) return false;
-		const confirmed = await this.dialogs.confirm({
+		const values = await this.dialogs.form({
 			titleKey: "dialog.deleteChart",
-			messageKey: "dialog.deleteChartMessage",
+			values: { deleteFile: true },
+			fields: [{ id: "deleteFile", type: "checkbox", labelKey: "field.deleteChartFile" }],
 		});
-		if (!confirmed) return false;
-		this.difficulties.splice(activeIndex, 1);
+		if (!values) return false;
+		const [deleted] = this.difficulties.splice(activeIndex, 1);
+		if (values.deleteFile) await this.files.deleteProjectChart(deleted.file);
 		this.projectDirty = true;
 		const next = this.difficulties[activeIndex] || this.difficulties[activeIndex - 1];
-		if (next) {
-			this.activeDifficultyId = next.id;
-			this.model = next.model;
-			this.history = next.history;
-			this.savedSignature = next.savedSignature;
-		} else {
-			const metadata = {
-				...this.model.metadata,
-				title: this.projectTitle || "New chart",
-				artist: this.projectArtist || "",
-				difficultyName: "Master",
-				difficultyColor: difficultyColor("Master"),
-				difficulty: "12",
-				difficultySup: "",
-				charter: this.lastCharter(),
-			};
-			this.model = ChartModel.createDefault({
-				metadata,
-				timing: { offset: 0, initialBpm: 120, bpmChanges: [] },
-				music: this.projectMusic,
-				image: this.projectImage,
-			});
-			this.model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
-			this.activeDifficultyId = `difficulty-${this.nextDifficultyId++}`;
-			this.history = new History(this.model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
-			this.difficulties.push({
-				id: this.activeDifficultyId,
-				file: uniqueChartFilename(this.model.metadata.difficultyName, this.difficulties.map(entry => entry.file)),
-				model: this.model,
-				history: this.history,
-				savedSignature: null,
-			});
-			this.savedSignature = null;
-		}
+		this.activeDifficultyId = next.id;
+		this.model = next.model;
+		this.history = next.history;
+		this.savedSignature = next.savedSignature;
+		this.projectMusic = String(this.model.music || "");
+		this.projectImage = String(this.model.image || "");
 		this.difficultyUiSignature = "";
 		this.syncProjectSharedFields();
 		this.updateDirty();
 		this.refresh();
+		await this.queueMediaSync();
 		return true;
+	}
+	async closeDocument() {
+		this.exitModes(); if (!await this.confirmUnsaved()) return false;
+		await this.clearRuntimeMedia();
+		this.files.clearProjectTarget();
+		this.editingProject = false;
+		const model = ChartModel.createDefault();
+		model.snappees[0].name = i18n.t("snappee.preset.playfieldGrid");
+		this.installProject([{ id: "difficulty-0", file: uniqueChartFilename(model.metadata.difficultyName), model }], {
+			activeChart: "difficulty-0", name: model.metadata.title, saved: true,
+		});
+		this.markProjectSaved(); this.refresh(); return true;
 	}
 	lastCharter() {
 		try { return localStorage.getItem(LAST_CHARTER_KEY) || ""; } catch { return ""; }
@@ -214,10 +201,11 @@ export const withFileWorkflows = Base => class extends Base {
 		try { localStorage.setItem(LAST_CHARTER_KEY, String(value || "")); } catch { /* Storage may be unavailable. */ }
 	}
 	async newChart() {
-		if (globalThis.nw) return this.newDifficulty();
+		if (this.editingProject) return this.newDifficulty();
 		return this.newProject({ chartOnly: true });
 	}
 	async newProject(options = {}) {
+		if (!options.chartOnly && !globalThis.nw) return;
 		this.exitModes();
 		if (!await this.confirmUnsaved()) return;
 		const defaults = ChartModel.createDefault();
@@ -245,6 +233,7 @@ export const withFileWorkflows = Base => class extends Base {
 			name: model.metadata.title,
 			saved: false,
 		});
+		this.editingProject = !options.chartOnly;
 		this.files.clearProjectTarget();
 		await this.clearRuntimeMedia();
 		this.updateDirty();
@@ -437,7 +426,6 @@ export const withFileWorkflows = Base => class extends Base {
 				}
 			}
 		}
-
 		const imageReference = this.projectImage;
 		if (imageReference !== this.files.imageReference) {
 			if (this.backgroundUrl) URL.revokeObjectURL(this.backgroundUrl);
@@ -465,6 +453,7 @@ export const withFileWorkflows = Base => class extends Base {
 		return this.mediaSync;
 	}
 	async openProject(options = {}) {
+		if (!globalThis.nw) return null;
 		this.exitModes();
 		if (!options.skipUnsaved && !await this.confirmUnsaved()) return null;
 		try {
@@ -477,13 +466,13 @@ export const withFileWorkflows = Base => class extends Base {
 			await this.clearRuntimeMedia();
 			this.installProject(charts, {
 				activeChart: parsed.manifest.activeChart,
-				name: parsed.manifest.name,
-				music: parsed.manifest.music,
-				image: parsed.manifest.image,
+				name: parsed.projectName,
 				saved: true,
 			});
-			if (parsed.musicFile) await this.loadMusic(parsed.musicFile, false, { reference: parsed.manifest.music });
-			if (parsed.imageFile) await this.loadBackground(parsed.imageFile, false, { reference: parsed.manifest.image });
+			this.editingProject = true;
+			this.projectMusic = String(this.model.music || "");
+			this.projectImage = String(this.model.image || "");
+			await this.syncMediaFromModel();
 			this.markProjectSaved();
 			this.rememberLastOpen("project", this.files.projectPath);
 			if (!options.silent) this.toast.show("toast.projectOpened");
@@ -497,25 +486,34 @@ export const withFileWorkflows = Base => class extends Base {
 			return null;
 		}
 	}
-	activateProjectChart(model, filename) {
+	activateProjectChart(model, filename, options = {}) {
 		let target = this.difficulties.find(entry => entry.file.toLowerCase() === filename.toLowerCase());
 		if (!target) {
 			target = { id: `difficulty-${this.nextDifficultyId++}`, file: filename, model, history: null, savedSignature: null };
 			this.difficulties.push(target); this.projectDirty = true;
 		}
-		target.model = model; this.syncProjectSharedFields();
+		target.model = model;
 		target.history = new History(model.snapshot(), { initialLabel: i18n.t("history.initial"), limit: 1000 });
-		target.savedSignature = this.modelSignature(model);
+		target.savedSignature = options.saved === false ? null : this.modelSignature(model);
 		this.activeDifficultyId = target.id; this.model = model; this.history = target.history; this.savedSignature = target.savedSignature;
+		this.projectMusic = String(model.music || "");
+		this.projectImage = String(model.image || "");
+		this.syncProjectSharedFields();
 		this.difficultyUiSignature = ""; this.updateDirty(); this.refresh();
 		return target;
 	}
+	async confirmAddToProject() {
+		return this.dialogs.confirm({ titleKey: "dialog.addChartToProject", messageKey: "dialog.addChartToProjectMessage" });
+	}
 	async openFile(file, options = {}) {
-		if (!file || !options.skipUnsaved && !await this.confirmUnsaved()) return;
+		if (!file) return;
 		try {
 			const sourcePath = this.files.localPathFor?.(file) || "";
+			const projectOpen = Boolean(globalThis.nw && this.editingProject);
+			const addToProject = Boolean(projectOpen && options.offerAddToProject && await this.confirmAddToProject());
+			if (!options.skipUnsaved && !await (addToProject ? this.confirmUnsavedChart() : this.confirmUnsaved())) return;
 			const containingProject = await this.files.containingProjectPath?.(sourcePath);
-			if (containingProject && !this.files.projectChartFilename(sourcePath)) {
+			if (containingProject && !projectOpen && !addToProject) {
 				const opened = await this.openProject({ directoryPath: containingProject, skipUnsaved: true, silent: options.silent });
 				if (!opened) return null;
 				const filename = this.files.projectChartFilename(sourcePath);
@@ -538,8 +536,20 @@ export const withFileWorkflows = Base => class extends Base {
 				model = ChartModel.import(parsed.document, importOptions);
 			}
 			const projectFilename = this.files.projectChartFilename(parsed.chartPath);
-			if (projectFilename) {
-				this.activateProjectChart(model, projectFilename);
+			if (addToProject || (!options.offerAddToProject && projectFilename)) {
+				if (addToProject && parsed.chartPath) {
+					model.music = this.files.resolveChartAssetReference(model.music, parsed.chartPath);
+					model.image = this.files.resolveChartAssetReference(model.image, parsed.chartPath);
+				}
+				const filename = projectFilename || uniqueChartFilename(model.metadata.difficultyName,
+					this.difficulties.map(entry => entry.file));
+				this.activateProjectChart(model, filename, { saved: !addToProject });
+				if (addToProject) this.projectDirty = true;
+				if (parsed.fromLevel) {
+					if (parsed.musicFile) await this.loadMusic(parsed.musicFile, true);
+					if (parsed.imageFile) await this.loadBackground(parsed.imageFile, true);
+				} else await this.syncMediaFromModel();
+				this.updateDirty();
 				this.rememberLastOpen("project", this.files.projectPath);
 				if (!options.silent) this.toast.show("toast.opened");
 				return parsed;
@@ -549,14 +559,11 @@ export const withFileWorkflows = Base => class extends Base {
 				file: uniqueChartFilename(model.metadata.difficultyName),
 				model,
 			}], { activeChart: "difficulty-0", name: model.metadata.title, saved: true });
+			this.editingProject = false;
 			this.files.clearProjectTarget();
 			this.files.adoptChartSource(parsed);
 			await this.clearRuntimeMedia();
 			if (parsed.fromLevel) {
-				this.projectMusic = "";
-				this.projectImage = "";
-				this.syncProjectSharedFields();
-				this.syncProjectHistorySharedFields({ metadata: false });
 				if (parsed.musicFile) await this.loadMusic(parsed.musicFile, false);
 				if (parsed.imageFile) await this.loadBackground(parsed.imageFile, false);
 			} else if (this.files.supportsLocalPaths) {
@@ -657,29 +664,29 @@ export const withFileWorkflows = Base => class extends Base {
 			return null;
 		}
 	}
-
 	async saveProject() {
+		if (!globalThis.nw) return null;
 		try {
 			if (this.freeTransform) this.finishFreeTransform();
 			const result = await this.files.saveProject(this.projectSnapshot());
 			if (!result) return null;
-			this.projectName = result.manifest.name;
-			this.projectMusic = result.manifest.music;
-			this.projectImage = result.manifest.image;
+			for (const saved of result.manifest.charts) { const entry = this.difficulties.find(item => item.id === saved.id); if (entry) entry.file = saved.file; }
+			this.projectName = this.files.projectName || this.projectName;
+			this.editingProject = true; this.difficultyUiSignature = "";
+			this.projectMusic = String(this.model.music || "");
+			this.projectImage = String(this.model.image || "");
 			this.syncProjectSharedFields();
-			this.syncProjectHistorySharedFields({ metadata: false });
 			this.markProjectSaved();
 			for (const entry of this.difficulties) entry.history.markCurrent("save");
 			this.autosave.markManualSave();
 			this.toast.show("toast.projectSaved");
-			this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipCommands: true });
+			this.refresh();
 			return result.location;
 		} catch (error) {
 			this.toast.error("toast.projectSaveFailed", { message: localizedErrorMessage(error) });
 			return null;
 		}
 	}
-
 	async saveChartAs() {
 		try {
 			if (this.freeTransform) this.finishFreeTransform();
@@ -696,12 +703,11 @@ export const withFileWorkflows = Base => class extends Base {
 			return null;
 		}
 	}
-
 	async saveLevel() {
 		try {
 			if (this.freeTransform) this.finishFreeTransform();
 			const project = this.projectSnapshot();
-			if (!globalThis.nw) project.charts = project.charts.filter(entry => entry.id === this.activeDifficultyId);
+			if (!this.editingProject) project.charts = project.charts.filter(entry => entry.id === this.activeDifficultyId);
 			const filename = await this.files.saveLevel(project);
 			if (filename) this.toast.show("toast.levelExported");
 			return filename;
@@ -710,20 +716,31 @@ export const withFileWorkflows = Base => class extends Base {
 			return null;
 		}
 	}
-
 	async importClipboard() {
 		try {
 			const text = await navigator.clipboard.readText();
 			const document = JSON.parse(text);
-			if (!await this.confirmUnsaved()) return;
+			const addToProject = Boolean(this.editingProject && await this.confirmAddToProject());
+			if (!await (addToProject ? this.confirmUnsavedChart() : this.confirmUnsaved())) return;
 			const options = await this.requestImportOptions(document);
 			if (options == null) return;
 			const model = ChartModel.import(document, options);
+			if (addToProject) {
+				this.activateProjectChart(model, uniqueChartFilename(model.metadata.difficultyName,
+					this.difficulties.map(entry => entry.file)), { saved: false });
+				this.projectDirty = true;
+				await this.syncMediaFromModel();
+				this.updateDirty();
+				this.toast.show("toast.pasted");
+				this.refresh();
+				return;
+			}
 			this.installProject([{
 				id: "difficulty-0",
 				file: uniqueChartFilename(model.metadata.difficultyName),
 				model,
 			}], { activeChart: "difficulty-0", name: model.metadata.title, saved: false });
+			this.editingProject = false;
 			this.files.clearProjectTarget();
 			await this.clearRuntimeMedia();
 			if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
@@ -734,7 +751,6 @@ export const withFileWorkflows = Base => class extends Base {
 			this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) });
 		}
 	}
-
 	async exportClipboard() {
 		try {
 			await this.files.exportClipboard(this.model);
@@ -743,7 +759,6 @@ export const withFileWorkflows = Base => class extends Base {
 			this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) });
 		}
 	}
-
 	async copyEvents() {
 		const chosen = selected(this.model).filter(event => !this.model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
 		if (!chosen.length) return;
@@ -781,7 +796,6 @@ export const withFileWorkflows = Base => class extends Base {
 		};
 		try { await navigator.clipboard.writeText(JSON.stringify(this.internalClipboard)); } catch { /* Internal clipboard remains available. */ }
 	}
-
 	async hostedLevel() {
 		if (!this.files.musicFile) return null;
 		const project = this.projectSnapshot();
@@ -792,7 +806,6 @@ export const withFileWorkflows = Base => class extends Base {
 		if (!BufferRef) throw new Error("Node Buffer is unavailable.");
 		return BufferRef.from(await blob.arrayBuffer());
 	}
-
 	broadcastLiveChartUpdate() {
 		if (!this.liveHosting?.server || !(this.liveHosting.reloadPort > 0)) return;
 		const entry = this.activeDifficultyState?.();
@@ -805,7 +818,6 @@ export const withFileWorkflows = Base => class extends Base {
 		});
 		this.liveHosting.broadcast({ type: "update", onlyCharts: true });
 	}
-
 	async setLiveHosting(enabled) {
 		if (!globalThis.nw) return false;
 		try {
@@ -827,7 +839,6 @@ export const withFileWorkflows = Base => class extends Base {
 			return false;
 		}
 	}
-
 	async showTimingDialog() {
 		const values = await this.dialogs.form({ titleKey: "command.timing.offsetAndBpm",
 			values: { offset: this.model.timing.offset, initialBpm: this.model.timing.initialBpm },
@@ -841,19 +852,16 @@ export const withFileWorkflows = Base => class extends Base {
 			model.timing.setInitialBpm(values.initialBpm);
 		});
 	}
-
 	async saveEventsToClip() {
 		const chosen = selected(this.model).filter(event => !this.model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
 		if (!chosen.length) return;
 		await this.copyEvents();
 		this.commit(i18n.t("history.saveClip"), model => model.addClip(deepClone(this.internalClipboard)));
 	}
-
 	async cutEvents() {
 		await this.copyEvents();
 		this.deleteSelected();
 	}
-
 	async pasteEvents(duplicateSnappees = false, options = {}) {
 		const internalData = this.internalClipboard;
 		let data = internalData;
@@ -946,7 +954,6 @@ export const withFileWorkflows = Base => class extends Base {
 			}
 		});
 	}
-
 	async showPasteOptions() {
 		const values = await this.dialogs.form({ titleKey: "dialog.pasteOptions", values: { duplicateChannels: false, duplicateSnappees: false },
 			fields: [
@@ -955,19 +962,16 @@ export const withFileWorkflows = Base => class extends Base {
 			] });
 		if (values) await this.pasteEvents(false, values);
 	}
-
 	async copyTiming() {
 		try { await navigator.clipboard.writeText(JSON.stringify(this.model.timing.toJSON())); }
 		catch (error) { this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) }); }
 	}
-
 	async pasteTiming() {
 		try {
 			const data = JSON.parse(await navigator.clipboard.readText());
 			this.commit(i18n.t("history.editTiming"), model => { model.timing = new TimingMap(data); });
 		} catch (error) { this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) }); }
 	}
-
 	async pasteClip(index) {
 		const clip = this.model.clips?.[index];
 		if (!clip?.data) return;
@@ -975,7 +979,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.internalClipboard = deepClone(clip.data);
 		try { await this.pasteEvents(false); } finally { this.internalClipboard = previous; }
 	}
-
 	moveClip(index, direction) {
 		this.commit(i18n.t("history.editClip"), model => {
 			const target = index + direction;
@@ -983,7 +986,6 @@ export const withFileWorkflows = Base => class extends Base {
 			[model.clips[index], model.clips[target]] = [model.clips[target], model.clips[index]];
 		});
 	}
-
 	async editClip(index) {
 		const clip = this.model.clips?.[index];
 		if (!clip) return;
@@ -992,9 +994,7 @@ export const withFileWorkflows = Base => class extends Base {
 		if (!values) return;
 		this.commit(i18n.t("history.editClip"), model => { if (model.clips[index]) model.clips[index].name = String(values.name); });
 	}
-
 	deleteClip(index) {
 		this.commit(i18n.t("history.deleteClip"), model => { if (index >= 0) model.clips.splice(index, 1); });
 	}
-
 };

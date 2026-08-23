@@ -66,8 +66,9 @@ export const withHistoryCommands = Base => class extends Base {
 			() => Boolean(globalThis.nw && this.files.projectPath));
 		command("file.chartProperties", () => void this.showChartProperties(false));
 		command("file.deleteChart", () => void this.deleteDifficulty(), () => Boolean(
-			this.files.projectPath || this.files.projectDirectoryHandle,
+			this.editingProject && this.difficulties.length > 1,
 		));
+		command("file.close", () => void this.closeDocument());
 		command("file.preferences", () => void this.showPreferences());
 
 		command("edit.undo", () => this.undo(), () => this.history.canUndo);
@@ -622,6 +623,7 @@ export const withHistoryCommands = Base => class extends Base {
 			file: recovery.source?.chartFilename || uniqueChartFilename(recovery.model.metadata.difficultyName),
 			model: recovery.model,
 		}], { activeChart: "difficulty-0", name: recovery.source?.projectName || recovery.model.metadata.title, saved: false });
+		this.editingProject = Boolean(globalThis.nw && recovery.source?.projectPath);
 		if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
 		this.refresh();
 	}

@@ -18,7 +18,7 @@ const DEFINITIONS = [
 	define('file.newChart', null, null, {blockDuringPlayback: true}),
 	define('file.openProject', 'Ctrl+Shift+O', null, {desktopOnly: true, blockDuringPlayback: true}),
 	define('file.openChart', 'Ctrl+O', null, {blockDuringPlayback: true}),
-	define('file.openRecent', null, null, {blockDuringPlayback: true}),
+	define('file.openRecent', null, null, {desktopOnly: true, blockDuringPlayback: true}),
 	define('file.openAutosave', null, null, {blockDuringPlayback: true}),
 	define('file.importFile', null, null, {blockDuringPlayback: true}),
 	define('file.setMusic', null, null, {blockDuringPlayback: true}),
@@ -33,6 +33,7 @@ const DEFINITIONS = [
 	define('file.openProjectFolder', null, null, {desktopOnly: true}),
 	define('file.chartProperties', null, null, {blockDuringPlayback: true}),
 	define('file.deleteChart', null, null, {desktopOnly: true, blockDuringPlayback: true}),
+	define('file.close', null, null, {blockDuringPlayback: true}),
 	define('file.preferences', 'Ctrl+/', null, {allowInInput: true, blockDuringPlayback: true}),
 
 	define('edit.undo', 'Ctrl+Z'),
@@ -169,7 +170,8 @@ export const MENU_DEFINITION = Object.freeze([
 			item('file.saveLevel'), item('file.exportLyrica'), item('file.exportClipboard'), separator,
 			item('file.setMusic'), item('file.setBackground'), separator,
 			item('file.openProjectFolder'), separator,
-			item('file.chartProperties'), separator, item('file.deleteChart'), separator, item('file.preferences')
+			item('file.chartProperties'), separator, item('file.deleteChart'), separator,
+			item('file.close'), separator, item('file.preferences')
 		])
 	}),
 	Object.freeze({

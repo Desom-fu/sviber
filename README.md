@@ -14,7 +14,7 @@ Release builds are architecture-specific: Windows provides x86, x86_64, and aarc
 
 ## Run from source in a browser
 
-Requirements: a current Node.js release with npm and a modern browser. The project-folder workflow requires a Chromium-based browser with the File System Access API; use the desktop app when that API is unavailable.
+Requirements: a current Node.js release with npm and a modern browser. The web build edits one standalone chart at a time; project folders are supported only by the NW.js desktop app.
 
 ```powershell
 git clone https://github.com/Desom-fu/sviber.git

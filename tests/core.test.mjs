@@ -862,9 +862,6 @@ test("chart export does not enforce external JSON Schema required fields", () =>
 
 test("project manifests preserve ordered difficulties and reject unsafe paths", () => {
 	const manifest = createProjectManifest({
-		name: "Song",
-		music: "song.ogg",
-		image: "cover.png",
 		activeChart: "master",
 		charts: [
 			{ id: "hard", file: "hard.json" },
@@ -877,11 +874,9 @@ test("project manifests preserve ordered difficulties and reject unsafe paths", 
 		...manifest,
 		charts: [{ id: "bad", file: "charts/bad.json" }],
 	}), /project folder root/);
-	assert.deepEqual([...projectManagedFiles(manifest)].sort(), ["cover.png", "hard.json", "master.json", "song.ogg"]);
-	assert.throws(() => normalizeProjectManifest({
-		...manifest,
-		music: "hard.json",
-	}), /conflicts with a difficulty chart/);
+	assert.deepEqual([...projectManagedFiles(manifest)].sort(), ["hard.json", "master.json"]);
+	assert.deepEqual(Object.keys(manifest).sort(), ["activeChart", "charts"]);
+	assert.deepEqual(normalizeProjectManifest({ ...manifest, format: "sviber-project", version: 1 }), manifest);
 });
 
 test("project folders round-trip all difficulties and level export contains only strict root charts", async () => {
@@ -912,21 +907,24 @@ test("project folders round-trip all difficulties and level export contains only
 		const master = makeChart("Master", "12", 25);
 		const music = Object.assign(new Blob([new Uint8Array([1, 2, 3])], { type: "audio/ogg" }), { name: "song.ogg" });
 		const cover = Object.assign(new Blob([new Uint8Array([4, 5, 6])], { type: "image/png" }), { name: "cover.png" });
+		const alternateMusic = Object.assign(new Blob([new Uint8Array([7, 8, 9])], { type: "audio/ogg" }), { name: "alternate.ogg" });
 		const manager = new FileManager();
 		manager.rememberAsset("source-song.ogg", music, "music");
 		manager.rememberAsset("source-cover.png", cover, "image");
+		manager.rememberAsset("source-alternate.ogg", alternateMusic);
+		hard.music = "source-song.ogg";
+		hard.image = "source-cover.png";
+		master.music = "source-alternate.ogg";
+		master.image = "source-cover.png";
 		const result = await manager.saveProject({
 			name: "Folder Song",
-			music: "source-song.ogg",
-			image: "source-cover.png",
 			activeChart: "master",
 			charts: [
 				{ id: "hard", file: "hard.json", model: hard },
 				{ id: "master", file: "master.json", model: master },
 			],
 		}, { directoryPath: directory });
-		assert.equal(result.manifest.music, "song.ogg");
-		assert.equal(result.manifest.image, "cover.png");
+		assert.deepEqual(Object.keys(result.manifest).sort(), ["activeChart", "charts"]);
 		const diskManifest = JSON.parse(await readFile(path.join(directory, PROJECT_FILENAME), "utf8"));
 		assert.deepEqual(diskManifest.charts.map(entry => entry.file), ["hard.json", "master.json"]);
 		assert.ok(JSON.parse(await readFile(path.join(directory, "hard.json"), "utf8")).sviber);
@@ -937,15 +935,13 @@ test("project folders round-trip all difficulties and level export contains only
 		assert.deepEqual(reopened.charts.map(entry => entry.document.difficultyName), ["Hard", "Master"]);
 		assert.equal(await reopenedManager.containingProjectPath(path.join(directory, "master.json")), directory);
 		assert.equal(reopenedManager.projectChartFilename(path.join(directory, "master.json")), "master.json");
-		assert.equal(reopened.musicFile.name, "song.ogg");
-		assert.equal(reopened.imageFile.name, "cover.png");
-		reopenedManager.rememberAsset("song.ogg", reopened.musicFile, "music");
-		reopenedManager.rememberAsset("cover.png", reopened.imageFile, "image");
-
 		const models = reopened.charts.map(entry => ({ ...entry, model: ChartModel.import(entry.document) }));
+		assert.deepEqual(models.map(entry => [entry.model.music, entry.model.image]), [
+			["song.ogg", "cover.png"], ["alternate.ogg", "cover.png"],
+		]);
 		const levelBlob = await reopenedManager.createLevelArchive({ name: "Folder Song", charts: models });
 		const archive = await JSZip.loadAsync(await levelBlob.arrayBuffer());
-		assert.deepEqual(Object.keys(archive.files).sort(), ["cover.png", "hard.json", "master.json", "song.ogg"]);
+		assert.deepEqual(Object.keys(archive.files).sort(), ["alternate.ogg", "cover.png", "hard.json", "master.json", "song.ogg"]);
 		for (const filename of ["hard.json", "master.json"]) {
 			const chart = JSON.parse(await archive.file(filename).async("text"));
 			assert.equal(Object.hasOwn(chart, "sviber"), false);
@@ -954,27 +950,20 @@ test("project folders round-trip all difficulties and level export contains only
 				"difficultyName", "difficultySup", "events", "title",
 			].sort());
 		}
-		const conflictingMusic = Object.assign(new Blob([new Uint8Array([1])], { type: "audio/ogg" }), { name: "hard.json" });
-		reopenedManager.rememberAsset("hard.json", conflictingMusic, "music");
-		await assert.rejects(
-			() => reopenedManager.createLevelArchive({ name: "Folder Song", charts: models }),
-			/Duplicate Sunniesnow level filename/,
-		);
-
 		await writeFile(path.join(directory, "keep-me.txt"), "user file");
 		const replacementMusic = Object.assign(new Blob([new Uint8Array([7, 8, 9])], { type: "audio/ogg" }), { name: "replacement.ogg" });
 		const replacementCover = Object.assign(new Blob([new Uint8Array([10, 11, 12])], { type: "image/png" }), { name: "replacement.png" });
 		manager.rememberAsset("replacement.ogg", replacementMusic, "music");
 		manager.rememberAsset("replacement.png", replacementCover, "image");
+		hard.music = "replacement.ogg";
+		hard.image = "replacement.png";
 		await manager.saveProject({
 			name: "Folder Song",
-			music: "replacement.ogg",
-			image: "replacement.png",
 			activeChart: "hard",
 			charts: [{ id: "hard", file: "hard.json", model: hard }],
 		});
 		assert.deepEqual((await readdir(directory)).sort(), [
-			"cover.png", "hard.json", "keep-me.txt", "master.json", "replacement.ogg", "replacement.png", "song.ogg", PROJECT_FILENAME,
+			"alternate.ogg", "cover.png", "hard.json", "keep-me.txt", "master.json", "replacement.ogg", "replacement.png", "song.ogg", PROJECT_FILENAME,
 		].sort());
 	} finally {
 		if (previousNw === undefined) delete globalThis.nw;
