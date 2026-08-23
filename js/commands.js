@@ -424,8 +424,10 @@ export class CommandRegistry {
 				}
 			}
 		}
-		record.checked = checked;
-		this.notify(id);
+		if (record.checked !== checked) {
+			record.checked = checked;
+			this.notify(id);
+		}
 		return this;
 	}
 

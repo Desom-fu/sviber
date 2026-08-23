@@ -68,7 +68,7 @@ export const withFileWorkflows = Base => class extends Base {
 	}
 
 	async confirmUnsavedChart() {
-		if (this.modelSignature() === this.savedSignature) return true;
+		if (!this.dirty) return true;
 		const result = await this.dialogs.open({
 			titleKey: "dialog.unsaved",
 			messageKey: "dialog.unsavedChartMessage",
@@ -289,8 +289,6 @@ export const withFileWorkflows = Base => class extends Base {
 		this.projectArtist = values.artist;
 		this.syncProjectSharedFields();
 		this.syncProjectHistorySharedFields({ excludeDifficultyId: this.activeDifficultyId, media: false });
-		this.updateDirty();
-		this.refresh();
 		return values;
 	}
 
@@ -587,7 +585,7 @@ export const withFileWorkflows = Base => class extends Base {
 				this.updateDirty();
 			}
 			this.toast.show("toast.musicLoaded");
-			this.refresh();
+			this._refreshLightweight?.({ rebuildIndex: false, skipCommands: true });
 		} catch (error) {
 			console.error(error);
 			this.toast.error("toast.musicLoadFailed", { message: localizedErrorMessage(error) });
@@ -610,7 +608,7 @@ export const withFileWorkflows = Base => class extends Base {
 				this.updateDirty();
 			}
 			this.toast.show("toast.backgroundLoaded");
-			this.refresh();
+			this._refreshLightweight?.({ rebuildIndex: false, skipCommands: true });
 		} catch (error) {
 			console.error(error);
 			this.toast.error("toast.backgroundLoadFailed", { message: localizedErrorMessage(error) });
@@ -644,7 +642,7 @@ export const withFileWorkflows = Base => class extends Base {
 			this.history.markCurrent("save");
 			this.autosave.markManualSave();
 			this.toast.show("toast.saved");
-			this.refresh();
+			this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipCommands: true });
 			return location;
 		} catch (error) {
 			this.toast.error("toast.saveFailed", { message: localizedErrorMessage(error) });
@@ -666,7 +664,7 @@ export const withFileWorkflows = Base => class extends Base {
 			for (const entry of this.difficulties) entry.history.markCurrent("save");
 			this.autosave.markManualSave();
 			this.toast.show("toast.projectSaved");
-			this.refresh();
+			this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipCommands: true });
 			return result.location;
 		} catch (error) {
 			this.toast.error("toast.projectSaveFailed", { message: localizedErrorMessage(error) });
@@ -679,13 +677,11 @@ export const withFileWorkflows = Base => class extends Base {
 			if (this.freeTransform) this.finishFreeTransform();
 			const location = await this.files.saveChart(this.model, { saveAs: true });
 			if (!location) return null;
-			this.savedSignature = this.modelSignature();
-			this.syncActiveDifficultyState();
+			this.markSaved();
 			this.history.markCurrent("save");
 			this.autosave.markManualSave();
-			this.updateDirty();
 			this.toast.show("toast.saved");
-			this.refresh();
+			this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipCommands: true });
 			return location;
 		} catch (error) {
 			this.toast.error("toast.saveFailed", { message: localizedErrorMessage(error) });

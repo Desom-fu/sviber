@@ -71,6 +71,16 @@ test("v11 command surfaces remove duplicate channel rename and add shortcuts and
 	assert.equal(TOOLBAR_ITEMS.includes("macros.open"), true);
 });
 
+test("checked commands notify the UI only when their state changes", () => {
+	const registry = new CommandRegistry({ toggle: { id: "toggle" } });
+	let notifications = 0;
+	registry.subscribe(() => { notifications += 1; });
+	registry.setChecked("toggle", false);
+	registry.setChecked("toggle", true);
+	registry.setChecked("toggle", true);
+	assert.equal(notifications, 1);
+});
+
 test("difficulty selector focus preserves Space and numeric shortcuts", () => {
 	let executions = 0;
 	const registry = new CommandRegistry({

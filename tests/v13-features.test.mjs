@@ -289,7 +289,7 @@ test("v0.4.3 snaps dragged pen handles and orients snappee previews like the sta
 	assert.match(panels, /y: offsetY \+ \(maxY - point\.y\) \* scale/);
 	assert.doesNotMatch(panels, /y: offsetY \+ \(point\.y - minY\) \* scale/);
 	assert.match(history, /recordView\(view, label/);
-	assert.match(transform, /history\.recordView\(captureHistoryView\(this\.model\)/);
+	assert.match(transform, /history\.recordView\(captureHistoryView\(this\.model[\s\S]*?selectedEventIds/);
 	assert.match(editing, /this\.history\.recordView\(captureHistoryView\(this\.model\)/);
 	assert.doesNotMatch(editing, /history\.record\(this\.model\.snapshot\(\), i18n\.t\("history\.selection"\)/);
 	assert.match(editing, /viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false/);

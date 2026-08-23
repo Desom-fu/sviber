@@ -3,7 +3,7 @@ import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js";
 import { ChartModel, DIFFICULTY_COLORS, EVENT_TYPES, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
 import { uniqueChartFilename } from "./core/project.js";
-import { History } from "./core/history.js";
+import { History, captureHistoryView } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
@@ -37,7 +37,7 @@ export const withHistoryCommands = Base => class extends Base {
 		this.creationMode = null;
 		this.curveDraft = null;
 		this.restoreHistorySnapshot(this.history.goTo(index));
-		this.curveDraft = deepClone(this.history.currentEntry.metadata?.curveDraft || null);
+		this.curveDraft = deepClone(this.history.currentMetadata?.curveDraft || null);
 		this.updateDirty();
 		this.queueMediaSync();
 		this.refresh();
@@ -192,13 +192,13 @@ export const withHistoryCommands = Base => class extends Base {
 		if (this.freeTransform) this.cancelFreeTransform();
 		this.cancelPreview();
 		const previousMode = this.creationMode;
-		const creationAction = this.history.currentEntry.metadata?.creationMode;
+		const creationAction = this.history.currentMetadata?.creationMode;
 		this.creationMode = creationAction ? previousMode || creationAction : null;
 		this.curveDraft = null;
 		const snapshot = this.history.undo();
 		if (!snapshot) return;
 		this.restoreHistorySnapshot(snapshot);
-		this.curveDraft = deepClone(this.history.currentEntry.metadata?.curveDraft || null);
+		this.curveDraft = deepClone(this.history.currentMetadata?.curveDraft || null);
 		this.updateDirty();
 		this.queueMediaSync();
 		this.refresh();
@@ -214,7 +214,7 @@ export const withHistoryCommands = Base => class extends Base {
 		const snapshot = this.history.redo();
 		if (!snapshot) return;
 		this.restoreHistorySnapshot(snapshot);
-		this.curveDraft = deepClone(this.history.currentEntry.metadata?.curveDraft || null);
+		this.curveDraft = deepClone(this.history.currentMetadata?.curveDraft || null);
 		this.updateDirty();
 		this.queueMediaSync();
 		this.refresh();
@@ -245,7 +245,7 @@ export const withHistoryCommands = Base => class extends Base {
 			return;
 		}
 		this.creationMode = nextMode;
-		this.refresh();
+		this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipHistory: true });
 	}
 
 	createPositionedEvent(type, preview) {
@@ -265,11 +265,25 @@ export const withHistoryCommands = Base => class extends Base {
 			overrides.x = position.x;
 			overrides.y = position.y;
 		}
-		this.commit(i18n.t("history.createEvent", { type: eventTypeLabel(type) }), model => {
-			for (const event of model.allEvents()) event.selected = false;
-			model.addEvent(type, overrides);
-		}, { metadata: { creationMode: type } });
-		this.rememberCreationDefaults(selected(this.model));
+		const created = this.commit(i18n.t("history.createEvent", { type: eventTypeLabel(type) }), model => {
+			const currentIndex = this.renderIndex?.eventSource === model.events ? this.renderIndex : null;
+			for (const event of currentIndex?.selectedEvents || model.allEvents().filter(event => event.selected)) {
+				event.selected = false;
+			}
+			const event = model.addEvent(type, overrides);
+			currentIndex?.appendRootEvent?.(event);
+			currentIndex?.replaceSelection?.([event]);
+			return event;
+		}, {
+			metadata: { creationMode: type },
+			historyPatch: (event, model) => ({
+				kind: "appendRootEvent", event, nextEventId: event.id + 1,
+				view: captureHistoryView(model, { selectedEventIds: [event.id] }),
+			}),
+			lightweight: true, selectionOnly: true, selectionSynced: true,
+			rebuildIndex: false, skipCommands: true,
+		});
+		if (created) this.rememberCreationDefaults([created]);
 	}
 
 	deleteSelected() {
@@ -360,7 +374,7 @@ export const withHistoryCommands = Base => class extends Base {
 		if (!channel || channel.active === false) return false;
 		this.model.editor.currentChannel = id;
 		this.timeline.revealChannel(id);
-		this.refresh();
+		this._refreshLightweight?.({ rebuildIndex: false, channelOnly: true, skipInspector: true, skipHistory: true, skipCommands: true });
 		return true;
 	}
 
@@ -468,7 +482,7 @@ export const withHistoryCommands = Base => class extends Base {
 			const target = index + direction;
 			if (index < 0 || target < 0 || target >= model.channels.length) return;
 			[model.channels[index], model.channels[target]] = [model.channels[target], model.channels[index]];
-		}, { lightweight: true, viewOnly: true, channelOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
+		}, { lightweight: true, viewOnly: true, channelOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false, skipCommands: true });
 	}
 
 	recentOpens() {
@@ -604,7 +618,7 @@ export const withHistoryCommands = Base => class extends Base {
 		marks.sort((left, right) => left.compare(right));
 		this.model.editor.abLoopMarks = marks.map(mark => mark.toJSON());
 		this._syncAudioLoop();
-		this.refresh();
+		this.refreshInteractionPreview?.({ rebuildIndex: false });
 		return true;
 	}
 
@@ -659,7 +673,7 @@ export const withHistoryCommands = Base => class extends Base {
 		const speed = Math.max(0.1, Math.min(4, Math.round(Number(value) * 100) / 100));
 		this.model.editor.speed = speed;
 		this.audio.setRate(speed);
-		this.refresh();
+		this._syncCheckedCommands?.(); this.refreshInteractionPreview?.({ rebuildIndex: false });
 	}
 
 };

@@ -12,7 +12,7 @@ const withEventEditingBase = Base => class extends Base {
 		if (!this.creationMode && !this.curveDraft) return false;
 		this.creationMode = null; this.curveDraft = null;
 		this.cancelPreview();
-		this.refresh();
+		this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipHistory: true });
 		return true;
 	}
 	_timelineCallbacks() {
@@ -111,24 +111,33 @@ const withEventEditingBase = Base => class extends Base {
 		};
 	}
 	selectEvents(ids, mode = "replace") {
-		this.cancelSelectionPreview();
-		const indexIsCurrent = this.renderIndex?.eventSource === this.model.events
-			&& this.renderIndex.eventById.size === this.model.allEvents().length;
-		const activeChannels = indexIsCurrent ? this.renderIndex.activeChannelIds
-			: new Set(this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
-		const eventById = indexIsCurrent ? this.renderIndex.eventById
-			: new Map(this.model.allEvents().map(event => [event.id, event]));
-		const targets = new Set([...ids].filter(id => mode === "remove"
-			|| eventUsesChannel(eventById.get(id), activeChannels)));
-		if (mode === "replace" && indexIsCurrent && this.renderIndex.selectedEventIds?.size === targets.size
-			&& [...targets].every(id => this.renderIndex.selectedEventIds.has(id))) return;
+		this.cancelSelectionPreview(); const indexIsCurrent = this.renderIndex?.eventSource === this.model.events && !this.renderQueued;
+		const activeChannels = indexIsCurrent ? this.renderIndex.activeChannelIds : new Set(this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+		const eventById = indexIsCurrent ? this.renderIndex.eventById : new Map(this.model.allEvents().map(event => [event.id, event]));
+		const targets = new Set([...ids].filter(id => mode === "remove" || eventUsesChannel(eventById.get(id), activeChannels)));
+		const directSelection = indexIsCurrent ? this.renderIndex.selectedEvents.filter(event => event.selected) : null; const directIds = directSelection ? new Set(directSelection.map(event => event.id)) : null;
+		if (mode === "replace" && directIds?.size === targets.size && [...targets].every(id => directIds.has(id))) return;
+		let nextSelection = null; if (indexIsCurrent) { const targetEvents = [...targets].map(id => eventById.get(id)).filter(Boolean);
+			if (mode === "replace") nextSelection = targetEvents;
+			else if (mode === "add") nextSelection = [...directSelection, ...targetEvents.filter(event => !directIds.has(event.id))];
+			else nextSelection = directSelection.filter(event => !targets.has(event.id));
+		}
 		this.commit(i18n.t("history.selection"), model => {
-			for (const event of model.allEvents()) {
+			if (indexIsCurrent) {
+				if (mode === "replace") for (const event of directSelection) event.selected = false;
+				for (const id of targets) {
+					const event = eventById.get(id);
+					if (event) event.selected = mode !== "remove";
+				}
+				this.renderIndex.replaceSelection(nextSelection);
+			} else for (const event of model.allEvents()) {
 				if (mode === "replace") event.selected = targets.has(event.id);
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false, allowPlaying: true, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: false });
+		}, { dirty: false, allowPlaying: true, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true,
+			selectionSynced: indexIsCurrent, selectedEventIds: nextSelection?.map(event => event.id),
+			rebuildIndex: false, skipCommands: true });
 	}
 	enterGroupSelection(id) {
 		const event = this.model.findEvent(id);
@@ -140,7 +149,7 @@ const withEventEditingBase = Base => class extends Base {
 		this.groupSelectionScope = nextGroup?.id ?? this.groupSelectionScope;
 		this.commit(i18n.t("history.selection"), model => {
 			for (const candidate of model.allEvents()) candidate.selected = candidate.id === target.id;
-		}, { dirty: false, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: true });
+		}, { dirty: false, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: true, skipCommands: true });
 		return true;
 	}
 	_reconcileStageMoveAttachmentException(selectionBefore) {
@@ -235,7 +244,7 @@ const withEventEditingBase = Base => class extends Base {
 		this._normalizeGroupSelectionScope();
 		if (!changed) return;
 		this.history.recordView(captureHistoryView(this.model), i18n.t("history.selection"));
-		this._refreshLightweight({ selectionOnly: true, rebuildIndex: false });
+		this._refreshLightweight({ selectionOnly: true, rebuildIndex: false, skipCommands: true });
 	}
 	cancelSelectionPreview() {
 		const preview = this.selectionPreview;
@@ -280,7 +289,7 @@ const withEventEditingBase = Base => class extends Base {
 				else if (mode === "add" && targets.has(event.id)) event.selected = true;
 				else if (mode === "remove" && targets.has(event.id)) event.selected = false;
 			}
-		}, { dirty: false, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: false });
+		}, { dirty: false, allowReadOnly: true, scheduleDirty: false, lightweight: true, selectionOnly: true, rebuildIndex: false, skipCommands: true });
 	}
 	seekBeat(beat, channel = null, clearSelection = false, options = {}) {
 		if (this.audio.playing) this.audio.pause();
@@ -299,9 +308,10 @@ const withEventEditingBase = Base => class extends Base {
 			this.stage.requestRender();
 			this.scrollView?.requestRender();
 			this.requestStatusUpdate();
-		} else {
-			this.refresh();
-		}
+		} else this._refreshLightweight?.({
+			rebuildIndex: false, selectionOnly: clearSelection, channelOnly: channel != null,
+			skipHistory: true, skipCommands: true,
+		});
 	}
 	setVisibleRange(beginning, end, includeCurrent = false) {
 		const bounds = this.timeBounds(includeCurrent);
@@ -349,7 +359,7 @@ const withEventEditingBase = Base => class extends Base {
 			if (channels[index].active === false) continue;
 			this.model.editor.currentChannel = channels[index].id;
 			this.timeline.revealChannel(channels[index].id);
-			this.refresh();
+			this._refreshLightweight?.({ rebuildIndex: false, channelOnly: true, skipInspector: true, skipHistory: true, skipCommands: true });
 			return true;
 		}
 		return false;
@@ -799,11 +809,12 @@ const withEventEditingBase = Base => class extends Base {
 	}
 	finishFreeTransform() {
 		if (!this.freeTransform) return false;
-		const changed = !snapshotsEqual(this.freeTransform.base, this.model.snapshot());
+		const after = this.model.snapshot();
+		const changed = !snapshotsEqual(this.freeTransform.base, after);
 		this.freeTransform = null;
 		if (changed) {
-			this.history.record(this.model.snapshot(), i18n.t("history.transform"));
-			this.updateDirty();
+			this.history.record(after, i18n.t("history.transform"), null, { force: true, owned: true });
+			this.syncActiveDifficultyState?.(); this.dirty = true;
 		}
 		this.refresh();
 		return changed;
@@ -825,7 +836,7 @@ const withEventEditingBase = Base => class extends Base {
 				snappee.active = Boolean(active);
 				if (!active) snappee.selected = false;
 			}
-		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
+		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false, skipCommands: true });
 	}
 	attachSelected() {
 		if (!this.model.snappees.some(snappee => snappee.active !== false)) return;

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { collectIndexedHitSchedule } from "../js/audio/scheduler.js";
+import { ChartModel } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartRenderIndex } from "../js/render/chart-index.js";
 import { eventDrawLayer } from "../js/render/timeline-helpers.js";
@@ -59,6 +60,36 @@ test("render index caches selection, lane offsets, and duration overlap", () => 
 	assert.deepEqual(index.timelineRecords(3, 3).map(record => record.event.id), [1]);
 	assert.equal(index.hudHitCount(1), 1);
 	assert.equal(index.hudHitCount(5), 2);
+});
+
+test("render index incrementally appends a created root note", () => {
+	const model = ChartModel.createDefault({
+		snappees: [],
+		events: [{ id: 1, type: "tap", time: [1, 0, 1], channel: 0, x: -10, y: 0, selected: true }],
+		nextIds: { event: 2 },
+	});
+	const index = new ChartRenderIndex(model, model.timing);
+	model.events[0].selected = false;
+	const created = model.addEvent("tap", { time: [1, 0, 1], channel: 0, x: 10, y: 0, selected: true });
+	assert.equal(index.appendRootEvent(created), true);
+	index.replaceSelection([created]);
+	assert.deepEqual(index.timelineRecords(0, 2).map(record => record.event.id), [1, 2]);
+	assert.deepEqual(index.selectedEvents.map(event => event.id), [2]);
+	assert.equal(index.doubleTapPairs.length, 1);
+	assert.equal(index.eventLaneOffsets.get(1), -3.5);
+	assert.equal(index.eventLaneOffsets.get(2), 3.5);
+});
+
+test("incremental selection expands groups without directly selecting descendants", () => {
+	const model = ChartModel.createDefault({ events: [{
+		id: 1, type: "group", selected: true, events: [
+			{ id: 2, type: "tap", time: [0, 0, 1], channel: 0, x: 0, y: 0, selected: false },
+		],
+	}] });
+	const index = new ChartRenderIndex(model, model.timing);
+	index.replaceSelection([model.events[0]]);
+	assert.deepEqual(index.selectedEvents.map(event => event.id), [1, 2]);
+	assert.equal(model.events[0].events[0].selected, false);
 });
 
 test("creation echoes use an indexed one-over-speed interval after event end", () => {

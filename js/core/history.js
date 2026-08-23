@@ -92,9 +92,11 @@ function applyIdOrder(items, ids) {
 	return ordered;
 }
 
-export function captureHistoryView(model) {
-	const selectedEventIds = [];
-	visitChartEvents(model?.events, event => { if (event?.selected) selectedEventIds.push(event.id); });
+export function captureHistoryView(model, options = {}) {
+	const selectedEventIds = Array.isArray(options.selectedEventIds) ? [...options.selectedEventIds] : [];
+	if (!Array.isArray(options.selectedEventIds)) {
+		visitChartEvents(model?.events, event => { if (event?.selected) selectedEventIds.push(event.id); });
+	}
 	return {
 		selectedEventIds,
 		snappees: (model?.snappees || []).map(snappee => ({
@@ -128,6 +130,15 @@ export function applyHistoryView(state, view) {
 		if (Object.hasOwn(view, "allowOutOfBound")) state.editor.allowOutOfBound = Boolean(view.allowOutOfBound);
 	}
 	return state;
+}
+
+export function applyHistoryPatch(state, patch) {
+	if (!state || patch?.kind !== "appendRootEvent") return state;
+	if (!Array.isArray(state.events)) state.events = [];
+	state.events.push(cloneSnapshot(patch.event));
+	if (!state.nextIds || typeof state.nextIds !== "object") state.nextIds = {};
+	state.nextIds.event = Math.max(Number(state.nextIds.event) || 0, Number(patch.nextEventId) || 0);
+	return applyHistoryView(state, patch.view);
 }
 
 export function historyViewsEqual(left, right) {
@@ -181,13 +192,13 @@ export class History {
 		return this.current;
 	}
 
-	_makeEntry(state, label, metadata) {
+	_makeEntry(state, label, metadata, cloneState = true) {
 		return {
 			id: this._nextId++,
 			label: String(label ?? "Edit"),
 			timestamp: Date.now(),
 			metadata: metadata == null ? null : this.clone(metadata),
-			state: this.clone(state),
+			state: cloneState ? this.clone(state) : state,
 		};
 	}
 
@@ -195,6 +206,7 @@ export class History {
 		const entry = this._entries[index];
 		if (!entry) return null;
 		if (entry.view) return entry.view;
+		if (entry.patch?.view) return entry.patch.view;
 		if (entry.state) return captureHistoryView(entry.state);
 		return null;
 	}
@@ -207,7 +219,12 @@ export class History {
 		if (baseIndex < 0 || this._entries[baseIndex].state == null) {
 			throw new Error("history is missing a base snapshot");
 		}
-		return applyHistoryView(this.clone(this._entries[baseIndex].state), entry.view);
+		let state = this.clone(this._entries[baseIndex].state);
+		for (let cursor = baseIndex + 1; cursor <= index; cursor += 1) {
+			const next = this._entries[cursor];
+			state = next.patch ? applyHistoryPatch(state, next.patch) : applyHistoryView(state, next.view);
+		}
+		return state;
 	}
 
 	_materializeInPlace(index) {
@@ -216,6 +233,7 @@ export class History {
 		const next = { ...entry, state: this._resolvedState(index) };
 		delete next.kind;
 		delete next.view;
+		delete next.patch;
 		this._entries[index] = next;
 	}
 
@@ -228,11 +246,13 @@ export class History {
 	}
 
 	record(state, label = "Edit", metadata = null, options = {}) {
-		const snapshot = this.clone(state);
-		const baseline = this._entries[this._cursor].state ?? this._resolvedState(this._cursor);
-		if (!options.force && this.equals(baseline, snapshot)) return false;
+		const snapshot = options.owned ? state : this.clone(state);
+		if (!options.force) {
+			const baseline = this._entries[this._cursor].state ?? this._resolvedState(this._cursor);
+			if (this.equals(baseline, snapshot)) return false;
+		}
 		if (this._cursor < this._entries.length - 1) this._entries.length = this._cursor + 1;
-		this._entries.push(this._makeEntry(snapshot, label, metadata));
+		this._entries.push(this._makeEntry(snapshot, label, metadata, !options.owned));
 		this._cursor = this._entries.length - 1;
 		this._trim();
 		return true;
@@ -255,6 +275,23 @@ export class History {
 		return true;
 	}
 
+	recordPatch(patch, label = "Edit", metadata = null) {
+		if (!patch || typeof patch !== "object") throw new TypeError("history patch must be an object");
+		if (this._cursor < this._entries.length - 1) this._entries.length = this._cursor + 1;
+		this._entries.push({
+			id: this._nextId++,
+			label: String(label ?? "Edit"),
+			timestamp: Date.now(),
+			metadata: metadata == null ? null : this.clone(metadata),
+			kind: "patch",
+			patch: this.clone(patch),
+			state: null,
+		});
+		this._cursor = this._entries.length - 1;
+		this._trim();
+		return true;
+	}
+
 	push(state, label = "Edit", metadata = null) {
 		return this.record(state, label, metadata);
 	}
@@ -270,6 +307,7 @@ export class History {
 		};
 		delete next.kind;
 		delete next.view;
+		delete next.patch;
 		this._entries[this._cursor] = next;
 		return this.current;
 	}
@@ -336,7 +374,7 @@ export class History {
 	}
 
 	get currentEntry() {
-		const { state, view, ...entry } = this._entries[this._cursor];
+		const { state, view, patch, ...entry } = this._entries[this._cursor];
 		return {
 			...this.clone(entry),
 			...(view == null ? {} : { view: this.clone(view) }),
@@ -344,8 +382,12 @@ export class History {
 		};
 	}
 
+	get currentMetadata() {
+		return this.clone(this._entries[this._cursor]?.metadata ?? null);
+	}
+
 	get entries() {
-		return this._entries.map(({ state, ...entry }, index) => ({
+		return this._entries.map(({ state, patch, ...entry }, index) => ({
 			...this.clone(entry),
 			index,
 			active: index === this._cursor,

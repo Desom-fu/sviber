@@ -68,8 +68,6 @@ function applyMacroState(app, source, message) {
 		app.projectMusic = next.music;
 		app.projectImage = next.image;
 		app.syncProjectSharedFields();
-		app.updateDirty();
-		app.refresh();
 		reply(source, { type: "sviber-macro-apply-result", requestId: message.requestId, ok: true });
 	} catch (error) {
 		reply(source, {
@@ -194,8 +192,6 @@ export async function runChosenMacro(app, macroId) {
 	app.projectMusic = next.music;
 	app.projectImage = next.image;
 	app.syncProjectSharedFields();
-	app.updateDirty();
-	app.refresh();
 	app.toast?.show("toast.macroRan");
 }
 

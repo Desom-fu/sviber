@@ -435,6 +435,38 @@ test("History view records overlay selection without storing another full snapsh
 	assert.equal(history.current.events[0].selected, true);
 });
 
+test("History append patches retain sequential note creation without full snapshots", () => {
+	const base = {
+		events: [], snappees: [], channels: [{ id: 0 }],
+		editor: { currentTime: [0, 0, 1], currentChannel: 0 },
+		nextIds: { event: 0 },
+	};
+	const history = new History(base);
+	for (let id = 0; id < 3; id += 1) {
+		const event = { id, type: "tap", time: [id, 0, 1], channel: 0, x: id, y: 0, selected: true };
+		history.recordPatch({
+			kind: "appendRootEvent", event, nextEventId: id + 1,
+			view: captureHistoryView({ ...base, events: [event] }, { selectedEventIds: [id] }),
+		}, "Create tap");
+	}
+	assert.deepEqual(history._entries.slice(1).map(entry => entry.state), [null, null, null]);
+	assert.deepEqual(history.current.events.map(event => event.id), [0, 1, 2]);
+	assert.equal(history.current.events.at(-1).selected, true);
+	assert.deepEqual(history.undo().events.map(event => event.id), [0, 1]);
+	assert.deepEqual(history.redo().events.map(event => event.id), [0, 1, 2]);
+	assert.equal(history.current.nextIds.event, 3);
+});
+
+test("History materializes append patches before trimming their base snapshot", () => {
+	const history = new History({ events: [], snappees: [], channels: [], editor: {}, nextIds: {} }, { limit: 3 });
+	for (let id = 0; id < 4; id += 1) history.recordPatch({
+		kind: "appendRootEvent", event: { id, type: "tap" }, nextEventId: id + 1, view: { selectedEventIds: [id] },
+	});
+	assert.equal(history.length, 3);
+	assert.deepEqual(history.current.events.map(event => event.id), [0, 1, 2, 3]);
+	assert.deepEqual(history.undo().events.map(event => event.id), [0, 1, 2]);
+});
+
 test("History view records materialize when the retained window loses its base snapshot", () => {
 	const history = new History({
 		events: [{ id: 1, type: "tap", selected: false }],

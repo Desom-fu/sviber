@@ -416,9 +416,8 @@ export class SviberAppCore {
 		this.updateDirty();
 	}
 	markSaved() {
-		this.savedSignature = this.modelSignature();
-		this.syncActiveDifficultyState();
-		this.updateDirty();
+		this.savedSignature = this.modelSignature(); this.syncActiveDifficultyState();
+		const active = this.activeDifficultyState(); this.dirty = this.projectDirty || this.difficulties.some(entry => entry !== active && this.modelSignature(entry.model) !== entry.savedSignature);
 	}
 	updateDirty() {
 		this.syncActiveDifficultyState();
@@ -643,7 +642,7 @@ export class SviberAppCore {
 				if (id === "allow-out-of-bound") {
 					const checked = Boolean(event.target.checked);
 					this.commit(i18n.t("history.allowOutOfBounds"), model => { model.editor.allowOutOfBound = checked; },
-						{ lightweight: true, viewOnly: true, dirty: false, rebuildIndex: false, stageOnly: true, skipInspector: true });
+						{ lightweight: true, viewOnly: true, dirty: false, rebuildIndex: false, stageOnly: true, skipInspector: true, skipCommands: true });
 					return;
 				}
 				this.model.editor[id === "lock-visible-range" ? "lockVisibleRange"
@@ -730,7 +729,8 @@ export class SviberAppCore {
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
 			this._scheduleHits(this.audio.currentTime, 0);
-			this.refresh();
+			this._syncCheckedCommands?.(); this._refreshDifficultyUi?.();
+			this.refreshInteractionPreview?.({ rebuildIndex: false });
 		});
 		this.audio.addEventListener("loop", event => {
 			this.audio.cancelScheduledHitSounds();
@@ -774,7 +774,7 @@ export class SviberAppCore {
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
-			this.refresh();
+			this._syncCheckedCommands?.(); this.refreshInteractionPreview?.({ rebuildIndex: false });
 		};
 		this.audio.addEventListener("pause", finish);
 		this.audio.addEventListener("ended", finish);
@@ -879,7 +879,7 @@ export class SviberAppCore {
 					if (this.freeTransform) event.preventDefault();
 					this.exitModes();
 					for (const snappee of this.model.snappees) snappee.selected = false;
-					this.refresh();
+					this._refreshLightweight?.({ rebuildIndex: false, snappeeOnly: true, skipInspector: true, skipHistory: true });
 				}
 			} else if (event.key === "Enter" && this.freeTransform && !this.dialogs.active) {
 				if (isEditableTarget(event.target)) return;

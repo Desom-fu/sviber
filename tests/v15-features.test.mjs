@@ -73,6 +73,7 @@ test("autosave listed entries include older saves", () => {
 	const manager = new AutosaveManager({ storage: fake, interval: 0 });
 	const first = manager.save(ChartModel.createDefault({ metadata: { title: "One" } }));
 	manager.markManualSave();
+	fake.setItem("sviber.manualSaveTime", first);
 	const second = manager.save(ChartModel.createDefault({ metadata: { title: "Two" } }));
 	assert.equal(manager.recoverable().length, 1);
 	assert.equal(manager.listed().length, 2);

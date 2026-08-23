@@ -2,7 +2,7 @@ import { i18n } from "./i18n.js";
 import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "./ui.js";
 import { ChartModel, DIFFICULTY_COLORS, EVENT_TYPES, connectSelectedTipPointChain, createEvent } from "./core/chart-model.js";
-import { History } from "./core/history.js";
+import { History, captureHistoryView } from "./core/history.js";
 import { Rational } from "./core/rational.js";
 import { TimingMap } from "./core/timing.js";
 import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, isPointWithinChartBounds, multiplyTransforms, penCommandsFromNodes, resolveAttachedPosition, sampleSnappee, transformAngle } from "./core/geometry.js";
@@ -416,7 +416,7 @@ export const withChartTools = Base => class extends Base {
 		this.commit(i18n.t("history.editSnappee"), model => {
 			const snappee = model.snappees.find(item => item.id === id);
 			if (snappee) { snappee.active = !snappee.active; if (!snappee.active) snappee.selected = false; }
-		}, { allowReadOnly: true, lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
+		}, { allowReadOnly: true, lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false, skipCommands: true });
 	}
 
 	duplicateSnappee(id) {
@@ -433,7 +433,7 @@ export const withChartTools = Base => class extends Base {
 			const target = index + Math.sign(Number(direction));
 			if (index < 0 || !Number.isInteger(target) || target < 0 || target >= model.snappees.length) return;
 			[model.snappees[index], model.snappees[target]] = [model.snappees[target], model.snappees[index]];
-		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
+		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false, skipCommands: true });
 	}
 
 	async deleteSnappee(id) {
@@ -456,9 +456,9 @@ export const withChartTools = Base => class extends Base {
 			name: this.defaultSnappeeName(type),
 			color: SNAPPEE_COLORS[this.model.snappees.length % SNAPPEE_COLORS.length],
 		};
-		this.history.record(this.model.snapshot(), i18n.t("history.editSnappee"),
+		this.history.recordView(captureHistoryView(this.model), i18n.t("history.editSnappee"),
 			{ curveDraft: deepClone(this.curveDraft) }, { force: true });
-		this.refresh();
+		this._refreshLightweight?.({ rebuildIndex: false, stageOnly: true, skipInspector: true });
 	}
 
 	startPenNode(point) {
@@ -474,7 +474,7 @@ export const withChartTools = Base => class extends Base {
 		const node = { x: Number(point.x), y: Number(point.y), incoming: null, outgoing: null };
 		this.curveDraft.penNodes.push(node);
 		this.curveDraft.points.push({ x: node.x, y: node.y });
-		this.refresh();
+		this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 		return this.curveDraft.penNodes.length - 1;
 	}
 
@@ -492,7 +492,7 @@ export const withChartTools = Base => class extends Base {
 		}
 		if (record) {
 			this.recordCurveDraftAction();
-			this.refresh();
+			this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 		} else this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
@@ -503,14 +503,14 @@ export const withChartTools = Base => class extends Base {
 		node[kind] = { x: Number(point.x), y: Number(point.y) };
 		if (record) {
 			this.recordCurveDraftAction();
-			this.refresh();
+			this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 		} else this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
 	recordPenNode() {
 		if (this.curveDraft?.type !== "penCurve") return;
 		this.recordCurveDraftAction();
-		this.refresh();
+		this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
 	addCurvePoint(point, finish = false) {
@@ -530,7 +530,7 @@ export const withChartTools = Base => class extends Base {
 		}
 		if (this.curveDraft.type === "circularArcCurve" && this.curveDraft.points.length >= 3) finish = true;
 		this.recordCurveDraftAction();
-		if (finish) this.finishCurveDraft(); else this.refresh();
+		if (finish) this.finishCurveDraft(); else this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
 	activateCurveDraftPoint(index) {
@@ -546,7 +546,7 @@ export const withChartTools = Base => class extends Base {
 
 	recordCurveDraftAction() {
 		if (!this.curveDraft) return;
-		this.history.record(this.model.snapshot(), i18n.t("history.editSnappee"),
+		this.history.recordView(captureHistoryView(this.model), i18n.t("history.editSnappee"),
 			{ curveDraft: deepClone(this.curveDraft) }, { force: true });
 	}
 
@@ -574,12 +574,16 @@ export const withChartTools = Base => class extends Base {
 		}
 		this.curveDraft.points[index] = { x: Number(point.x), y: Number(point.y) };
 		if (record) this.recordCurveDraftAction();
-		this.refresh();
+		this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
 	finishCurveDraft() {
 		const draft = this.curveDraft;
-		if (!draft || draft.points.length < 2) { this.curveDraft = null; this.refresh(); return; }
+		if (!draft || draft.points.length < 2) {
+			this.curveDraft = null;
+			this._refreshLightweight?.({ rebuildIndex: false, stageOnly: true, skipInspector: true, skipHistory: true });
+			return;
+		}
 		let data;
 		if (draft.type === "bezierCurve") {
 			data = { name: draft.name, color: draft.color, degree: draft.points.length - 1,

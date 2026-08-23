@@ -50,7 +50,7 @@ export const withViewControls = Base => class extends Base {
 		}
 		if (this.audio.playing) { editor.timeSnapped = false; editor.currentTime = target; this.audio.seek(target); }
 		else { editor.timeSnapped = true; editor.currentTime = this.timing().secondsToSnappedBeat(target, editor.subdivision).toJSON(); this.audio.seek(this.currentSeconds()); }
-		this.refresh();
+		this.refreshInteractionPreview?.({ rebuildIndex: false });
 	}
 	panScrollView(seconds, final, drag = {}) {
 		const target = Number(seconds);
@@ -63,7 +63,7 @@ export const withViewControls = Base => class extends Base {
 		}
 		if (final && !this.audio.playing) { editor.timeSnapped = true; editor.currentTime = this.timing().secondsToSnappedBeat(target, editor.subdivision).toJSON(); this.audio.seek(this.currentSeconds()); }
 		else { editor.timeSnapped = false; editor.currentTime = target; this.audio.seek(target); }
-		this.refresh();
+		this.refreshInteractionPreview?.({ rebuildIndex: false });
 	}
 	toggleBarLine() {
 		const beat = this.currentBeat();
