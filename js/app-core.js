@@ -434,7 +434,7 @@ export class SviberAppCore {
 		this.previewScheduleDirty ||= Boolean(options.scheduleDirty); if (!options.incremental) this.model.restore(this.previewBase);
 		mutation(this.model);
 		if (options.scheduleDirty) this._invalidatePlaybackSchedule();
-		if (options.lightweight) this.refreshInteractionPreview({ rebuildIndex: options.rebuildIndex !== false });
+		if (options.lightweight) this.refreshInteractionPreview({ rebuildIndex: options.positionOnly ? false : options.rebuildIndex !== false, positions: options.positionOnly, positionEvents: options.positionEvents || (options.positionOnly ? this.renderIndex?.selectedEvents : null) });
 		else this.refresh();
 	}
 	cancelPreview() {

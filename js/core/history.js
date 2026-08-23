@@ -156,6 +156,17 @@ export function applyHistoryPatch(state, patch) {
 			}
 		};
 		replace(state.events);
+	} else if (patch.kind === "removeEvents") {
+		const removed = new Set((patch.eventIds || []).map(Number));
+		const remove = events => {
+			if (!Array.isArray(events)) return;
+			for (let index = events.length - 1; index >= 0; index -= 1) {
+				const event = events[index];
+				if (removed.has(event?.id)) { events.splice(index, 1); continue; }
+				if (event?.type === "group") remove(event.events);
+			}
+		};
+		remove(state.events);
 	} else return state;
 	return applyHistoryView(state, patch.view);
 }

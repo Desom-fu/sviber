@@ -448,7 +448,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewPosition(primaryId, point) {
-		this.preview(i18n.t("history.moveEvents"), model => this._applyPositionMove(model, primaryId, point), { lightweight: true, incremental: true });
+		this.preview(i18n.t("history.moveEvents"), model => this._applyPositionMove(model, primaryId, point), { lightweight: true, incremental: true, positionOnly: true });
 	}
 	movePosition(primaryId, point) {
 		const base = this.previewBase || this.model.snapshot();
@@ -461,7 +461,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewGroupAnchor(primaryId, point) {
-		this.preview(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point), { lightweight: true, incremental: true });
+		this.preview(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point), { lightweight: true, incremental: true, positionOnly: true });
 	}
 	moveGroupAnchor(primaryId, point) {
 		this.commit(i18n.t("history.moveEvents"), model => this._applyGroupAnchorMove(model, primaryId, point));
@@ -603,7 +603,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewTipSpawn(id, point) {
-		this.preview(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point), { lightweight: true, incremental: true });
+		this.preview(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point), { lightweight: true, incremental: true, positionOnly: true });
 	}
 	setTipSpawn(id, point) {
 		this.commit(i18n.t("history.editEvent", { type: "" }), model => this._applyTipSpawn(model, id, point));
@@ -635,7 +635,7 @@ const withEventEditingBase = Base => class extends Base {
 		}
 	}
 	previewSnappeeHandle(id, index, point) {
-		this.preview(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point), { lightweight: true, incremental: true });
+		this.preview(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point), { lightweight: true, incremental: true, positionOnly: true });
 	}
 	setSnappeeHandle(id, index, point) {
 		this.commit(i18n.t("history.editSnappee"), model => this._applySnappeeHandle(model, id, index, point));
@@ -646,7 +646,7 @@ const withEventEditingBase = Base => class extends Base {
 			return this._applyTransformMutation(model, [1, 0, 0, 1, movement.x, movement.y], {
 				snappeeId: id, onlySnappee: true,
 			});
-		}, { lightweight: true });
+		}, { lightweight: true, positionOnly: true });
 	}
 	moveSnappee(id, delta) {
 		this.commit(i18n.t("history.editSnappee"), model => {

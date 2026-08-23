@@ -112,6 +112,45 @@ test("render index incrementally moves notes between channels", () => {
 	assert.equal(index.eventLaneOffsets.get(2), 0);
 });
 
+test("render index removes nested events without rebuilding event records", () => {
+	const model = ChartModel.createDefault({
+		events: [{ id: 1, type: "group", events: [
+			{ id: 2, type: "tap", time: [1, 0, 1], channel: 0, x: 0, y: 0, selected: true },
+			{ id: 3, type: "hold", time: [2, 0, 1], duration: [2, 0, 1], channel: 0, x: 10, y: 0 },
+		] }, { id: 4, type: "tap", time: [2, 0, 1], channel: 0, x: 20, y: 0 }],
+	});
+	const index = new ChartRenderIndex(model, model.timing);
+	const recordsBefore = new Map(index.eventRecords.map(record => [record.event.id, record]));
+	model.events[0].events.splice(0, 1);
+	assert.equal(index.removeEvents([recordsBefore.get(2).event]), true);
+	assert.deepEqual(index.eventRecords.map(record => record.event.id), [1, 3, 4]);
+	assert.equal(index.recordFor(recordsBefore.get(2).event), undefined);
+	assert.deepEqual(index.hitRecords.map(record => record.event.id), [3, 4]);
+	assert.deepEqual(index.timelineRecords(0, 10).map(record => record.event.id), [3, 4]);
+	assert.equal(index.eventLaneOffsets.get(3), -3.5);
+	assert.equal(index.eventLaneOffsets.get(4), 3.5);
+});
+
+test("render index toggles active channels without rebuilding event records", () => {
+	const model = ChartModel.createDefault({
+		channels: [{ id: 0 }, { id: 1 }],
+		events: [
+			{ id: 1, type: "tap", time: [1, 0, 1], channel: 0, x: 0, y: 0 },
+			{ id: 2, type: "tap", time: [1, 0, 1], channel: 1, x: 10, y: 0 },
+		],
+	});
+	const index = new ChartRenderIndex(model, model.timing);
+	const firstRecord = index.recordFor(model.events[0]);
+	model.channels[1].active = false;
+	assert.equal(index.setActiveChannels(model.channels), true);
+	assert.equal(index.recordFor(model.events[0]), firstRecord);
+	assert.deepEqual(index.hitRecords.map(record => record.event.id), [1]);
+	assert.deepEqual(index.activeTipGuides(0), []);
+	model.channels[1].active = true;
+	assert.equal(index.setActiveChannels(model.channels), true);
+	assert.deepEqual(index.hitRecords.map(record => record.event.id), [1, 2]);
+});
+
 test("render index replaces a note type without rebuilding the event source", () => {
 	const model = ChartModel.createDefault({
 		events: [

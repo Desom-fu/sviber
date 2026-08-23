@@ -473,6 +473,21 @@ test("History channel patches retain selection and support nested events", () =>
 	assert.equal(history.redo().events[0].events[0].channel, 1);
 });
 
+test("History remove patches delete nested events and restore them on undo", () => {
+	const base = {
+		events: [{ id: 1, type: "group", selected: false, events: [
+			{ id: 2, type: "tap", channel: 0, selected: true },
+			{ id: 3, type: "hold", channel: 0, selected: false },
+		] }, { id: 4, type: "tap", channel: 0, selected: false }],
+		snappees: [], channels: [{ id: 0 }], editor: { currentChannel: 0 }, nextIds: { event: 5 },
+	};
+	const history = new History(base);
+	history.recordPatch({ kind: "removeEvents", eventIds: [2], view: { selectedEventIds: [] } }, "Delete events");
+	assert.deepEqual(history.current.events[0].events.map(event => event.id), [3]);
+	assert.deepEqual(history.undo().events[0].events.map(event => event.id), [2, 3]);
+	assert.deepEqual(history.redo().events[0].events.map(event => event.id), [3]);
+});
+
 test("History materializes append patches before trimming their base snapshot", () => {
 	const history = new History({ events: [], snappees: [], channels: [], editor: {}, nextIds: {} }, { limit: 3 });
 	for (let id = 0; id < 4; id += 1) history.recordPatch({

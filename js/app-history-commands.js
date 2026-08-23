@@ -14,7 +14,7 @@ import { StageView } from "./render/stage.js";
 import { AutosaveManager, FileManager } from "./platform.js";
 import { HistoryPanel, InspectorPanel, SnappeesPanel } from "./panels.js";
 import { MOVABLE_TYPES, DURATION_TYPES, PATTERN_TYPES, SNAPPEE_COLORS, LAST_OPEN_KEY, RECENT_OPEN_KEY, loadPreferences, storePreferences, deepClone, formatTime, formatBeat, evaluateExpression, selected, allowsOutOfBounds, pointAllowed, attachedMoveAllowed, attachedNotesStayWithinBounds, mutateSnappeeWithinBounds, constrainPastedEvent, difficultyColor, eventTypeLabel, localizedErrorMessage, localizedImportWarning, metadataFields, applyPresetDifficultyColor } from "./app-helpers.js";
-import { eventUsesChannel } from "./core/grouping.js";
+import { eventUsesChannel, flattenEvents } from "./core/grouping.js";
 import { listRunnableMacros, runChosenMacro } from "./app-macro-bridge.js";
 
 export function toggledCreationMode(current, type) {
@@ -298,12 +298,38 @@ export const withHistoryCommands = Base => class extends Base {
 
 	deleteSelected() {
 		this.commit(i18n.t("history.deleteEvents"), model => {
-		const removeSelected = items => (items || []).flatMap(event => {
-			if (event.type === "group") event.events = removeSelected(event.events);
-			return event.selected || event.type === "group" && !event.events.length ? [] : [event];
+			const currentIndex = this.renderIndex?.eventSource === model.events ? this.renderIndex : null;
+			const removed = [];
+			const removeSelected = items => {
+				const kept = [];
+				for (const event of items || []) {
+					if (event.type === "group" && event.selected) {
+						removed.push(...flattenEvents([event], true));
+						continue;
+					}
+					if (event.type === "group") {
+						const children = removeSelected(event.events);
+						event.events.splice(0, event.events.length, ...children);
+						if (!event.events.length) { removed.push(event); continue; }
+					}
+					if (event.selected) removed.push(event);
+					else kept.push(event);
+				}
+				return kept;
+			};
+			const kept = removeSelected(model.events);
+			model.events.splice(0, model.events.length, ...kept);
+			currentIndex?.removeEvents?.(removed);
+			return removed;
+		}, {
+			allowReadOnly: this.model.editor.readOnly && selected(this.model).every(event => event.type === "comment"),
+			historyPatch: (removed, model) => ({
+				kind: "removeEvents", eventIds: (removed || []).map(event => event.id),
+				view: captureHistoryView(model),
+			}),
+			lightweight: true, selectionOnly: true, selectionSynced: true,
+			rebuildIndex: false, scheduleDirty: true,
 		});
-		model.events = removeSelected(model.events);
-		}, { allowReadOnly: this.model.editor.readOnly && selected(this.model).every(event => event.type === "comment") });
 	}
 
 	groupSelected() {
@@ -454,7 +480,8 @@ export const withHistoryCommands = Base => class extends Base {
 			const above = model.channels.slice(0, index).reverse().find(candidate => candidate.active !== false);
 			const below = model.channels.slice(index + 1).find(candidate => candidate.active !== false);
 			model.editor.currentChannel = (above || below || channel).id;
-		}, { allowReadOnly: true });
+		}, { allowReadOnly: true, lightweight: true, activeChannels: true, rebuildIndex: false,
+			selectionOnly: true, selectionSynced: true, scheduleDirty: true, skipCommands: true });
 	}
 
 	duplicateChannel(id) {

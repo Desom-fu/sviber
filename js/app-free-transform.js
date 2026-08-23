@@ -4,6 +4,7 @@ import { snapshotsEqual, captureHistoryView } from "./core/history.js";
 export const withFreeTransform = Base => class extends Base {
 	_refreshLightweight(options = {}) {
 		if (options.selectionOnly && !options.selectionSynced) this.renderIndex?.syncSelection?.();
+		if (options.activeChannels) this.renderIndex?.setActiveChannels?.(this.model.channels);
 		this.refreshInteractionPreview?.({ rebuildIndex: options.rebuildIndex !== false, stageOnly: options.stageOnly });
 		if (options.snappeeOnly || options.viewOnly) {
 			this.snappeesPanel?.syncFlags?.(this.model, { readOnly: this.model.editor.readOnly });
@@ -36,7 +37,8 @@ export const withFreeTransform = Base => class extends Base {
 			return false;
 		}
 		this.freeTransform.matrix = matrix;
-		this.refreshInteractionPreview();
+		this.refreshInteractionPreview({ rebuildIndex: false, positions: true,
+			positionEvents: this.transformationTargets(this.model).affectedEvents });
 		return true;
 	}
 	_finishCommit(label, mutation, options = {}, previewScheduleDirty = false) {
@@ -84,6 +86,7 @@ export const withFreeTransform = Base => class extends Base {
 	refreshInteractionPreview(options = {}) {
 		if (typeof this._rebuildRenderIndex !== "function" || !this.timeline) return this.refresh?.();
 		const rebuildIndex = options.rebuildIndex !== false;
+		if (!rebuildIndex && options.positions) this.renderIndex?.refreshPositions?.(options.positionEvents);
 		if (rebuildIndex) {
 			this._rebuildRenderIndex();
 			const view = this.viewState();
