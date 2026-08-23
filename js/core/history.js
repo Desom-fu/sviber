@@ -105,6 +105,7 @@ export function captureHistoryView(model) {
 		channelIds: (model?.channels || []).map(channel => channel.id),
 		currentTime: cloneSnapshot(model?.editor?.currentTime ?? null),
 		currentChannel: model?.editor?.currentChannel ?? null,
+		allowOutOfBound: Boolean(model?.editor?.allowOutOfBound),
 	};
 }
 
@@ -124,6 +125,7 @@ export function applyHistoryView(state, view) {
 	if (state.editor) {
 		if (Object.hasOwn(view, "currentTime")) state.editor.currentTime = cloneSnapshot(view.currentTime);
 		if (Object.hasOwn(view, "currentChannel")) state.editor.currentChannel = view.currentChannel;
+		if (Object.hasOwn(view, "allowOutOfBound")) state.editor.allowOutOfBound = Boolean(view.allowOutOfBound);
 	}
 	return state;
 }
@@ -132,6 +134,7 @@ export function historyViewsEqual(left, right) {
 	if (left === right) return true;
 	if (!left || !right) return false;
 	if (left.currentChannel !== right.currentChannel) return false;
+	if (Boolean(left.allowOutOfBound) !== Boolean(right.allowOutOfBound)) return false;
 	if (!snapshotsEqual(left.currentTime, right.currentTime)) return false;
 	const leftIds = left.selectedEventIds || [];
 	const rightIds = right.selectedEventIds || [];

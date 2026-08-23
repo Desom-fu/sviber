@@ -412,7 +412,7 @@ test("History view records overlay selection without storing another full snapsh
 		...base,
 		events: [{ id: 1, type: "tap", selected: true }, { id: 2, type: "tap", selected: false }],
 		snappees: [{ id: 7, selected: true, active: false }],
-		editor: { currentTime: [1, 0, 1], currentChannel: 3 },
+		editor: { currentTime: [1, 0, 1], currentChannel: 3, allowOutOfBound: true },
 	});
 	assert.equal(history.recordView(selected, "Selection"), true);
 	assert.equal(history._entries.at(-1).state, null);
@@ -423,6 +423,7 @@ test("History view records overlay selection without storing another full snapsh
 	assert.equal(history.current.events[1].selected, false);
 	assert.equal(history.undo().events[0].selected, false);
 	assert.equal(history.redo().snappees[0].selected, true);
+	assert.equal(history.current.editor.allowOutOfBound, true);
 	history.record({
 		...base,
 		events: [{ id: 1, type: "tap", selected: true, x: 4 }, { id: 2, type: "tap", selected: false }],

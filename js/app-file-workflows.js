@@ -814,12 +814,12 @@ export const withFileWorkflows = Base => class extends Base {
 				this.liveHosting.stop();
 				this.toast.show("toast.liveHostingStopped");
 			}
-			this.refresh();
+			this.requestStatusUpdate();
 			return true;
 		} catch (error) {
 			this.liveHosting.stop();
 			this.toast.error("toast.liveHostingFailed", { message: String(error?.message || error) });
-			this.refresh();
+			this.requestStatusUpdate();
 			return false;
 		}
 	}

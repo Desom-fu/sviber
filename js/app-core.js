@@ -185,7 +185,7 @@ export class SviberAppCore {
 		this.model.editor.readOnly = next;
 		try { this.macroWindow?.postMessage({ type: "sviber-macro-read-only", readOnly: next }, "*"); }
 		catch { /* The macro popup may have closed. */ }
-		this.refresh();
+		this.refreshReadOnlyUi?.(next); this.requestStatusUpdate();
 		return next;
 	}
 	_isFullscreen() {
@@ -642,9 +642,8 @@ export class SviberAppCore {
 			document.getElementById(id)?.addEventListener("change", event => {
 				if (id === "allow-out-of-bound") {
 					const checked = Boolean(event.target.checked);
-					this.commit(i18n.t("history.allowOutOfBounds"), model => {
-						model.editor.allowOutOfBound = checked;
-					});
+					this.commit(i18n.t("history.allowOutOfBounds"), model => { model.editor.allowOutOfBound = checked; },
+						{ lightweight: true, viewOnly: true, dirty: false, rebuildIndex: false, stageOnly: true, skipInspector: true });
 					return;
 				}
 				this.model.editor[id === "lock-visible-range" ? "lockVisibleRange"
@@ -657,7 +656,8 @@ export class SviberAppCore {
 					: id === "show-bg-events-in-main-field" ? "showBgEventsInMainField"
 					: id === "show-hud" ? "showHud" : id === "show-rulers" ? "showRulers"
 					: "metronome"] = Boolean(event.target.checked);
-				this.refresh();
+				const viewOptions = { "show-grouping-in-timeline": { timeline: true }, "show-grouping-in-main-field": { stage: true }, "show-tip-points": { timeline: true, stage: true, scroll: true }, "show-bg-events-in-timeline": { timeline: true, scroll: true }, "show-bg-events-in-main-field": { stage: true }, "show-hud": { stage: true }, "show-rulers": { stage: true } }[id] || {};
+				this.refreshStatusViews(viewOptions);
 			});
 		}
 		document.getElementById("read-only")?.addEventListener("change", event => this.setReadOnly(event.target.checked));

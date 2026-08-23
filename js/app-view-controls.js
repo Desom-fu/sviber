@@ -2,6 +2,24 @@ import { i18n } from "./i18n.js";
 import { Rational } from "./core/rational.js";
 
 export const withViewControls = Base => class extends Base {
+	refreshStatusViews(options = {}) {
+		const view = this.viewState();
+		for (const [name, enabled] of [["timeline", options.timeline], ["stage", options.stage], ["scrollView", options.scroll]]) {
+			if (!enabled || !this[name]) continue;
+			this[name].setState(view, { render: false });
+			this[name].requestRender();
+		}
+		this.requestStatusUpdate();
+	}
+	refreshReadOnlyUi(readOnly) {
+		this.inspectorPanel.render(this.model, { transform: this.freeTransform?.matrix || null });
+		this.snappeesPanel.render(this.model, { readOnly });
+		this.channelsPanel.render(this.model, { readOnly });
+		this.clipsPanel.render(this.model, { readOnly });
+		this.historyPanel.render(this.history, { readOnly });
+		this._refreshDifficultyUi();
+		this.registry.notifyAll();
+	}
 	setMainFieldPan(x, y) {
 		this.model.editor.mainFieldPanX = Number(x) || 0;
 		this.model.editor.mainFieldPanY = Number(y) || 0;

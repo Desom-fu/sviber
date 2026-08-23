@@ -96,3 +96,17 @@ test("v15 help and inspector Enter apply the focused field", async () => {
 	assert.match(zh, /运行宏/);
 	assert.match(panels, /event\.key === "Enter"/);
 });
+
+test("status controls use targeted refreshes instead of rebuilding the editor", async () => {
+	const [core, viewControls, workflows] = await Promise.all([
+		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-view-controls.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8"),
+	]);
+	const statusBinding = core.slice(core.indexOf("for (const id of [\"lock-visible-range\""), core.indexOf("document.getElementById(\"read-only\")"));
+	assert.match(viewControls, /refreshStatusViews\(options = \{\}\)/);
+	assert.match(statusBinding, /refreshStatusViews\(viewOptions\)/);
+	assert.doesNotMatch(statusBinding, /this\.refresh\(\)/);
+	assert.match(statusBinding, /lightweight: true, viewOnly: true, dirty: false/);
+	assert.match(workflows, /this\.requestStatusUpdate\(\);[\s\S]*?return true;/);
+});
