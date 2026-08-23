@@ -464,7 +464,7 @@ export const withHistoryCommands = Base => class extends Base {
 			const target = index + direction;
 			if (index < 0 || target < 0 || target >= model.channels.length) return;
 			[model.channels[index], model.channels[target]] = [model.channels[target], model.channels[index]];
-		});
+		}, { lightweight: true, viewOnly: true, channelOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
 	}
 
 	async togglePlayback() {

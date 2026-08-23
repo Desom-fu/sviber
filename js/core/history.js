@@ -78,6 +78,20 @@ function visitChartEvents(events, visit) {
 	}
 }
 
+function applyIdOrder(items, ids) {
+	if (!Array.isArray(items) || !Array.isArray(ids)) return items;
+	const remaining = new Map(items.map(item => [item.id, item]));
+	const ordered = [];
+	for (const id of ids) {
+		const item = remaining.get(id);
+		if (!item) continue;
+		ordered.push(item);
+		remaining.delete(id);
+	}
+	for (const item of remaining.values()) ordered.push(item);
+	return ordered;
+}
+
 export function captureHistoryView(model) {
 	const selectedEventIds = [];
 	visitChartEvents(model?.events, event => { if (event?.selected) selectedEventIds.push(event.id); });
@@ -88,6 +102,7 @@ export function captureHistoryView(model) {
 			selected: Boolean(snappee.selected),
 			active: snappee.active !== false,
 		})),
+		channelIds: (model?.channels || []).map(channel => channel.id),
 		currentTime: cloneSnapshot(model?.editor?.currentTime ?? null),
 		currentChannel: model?.editor?.currentChannel ?? null,
 	};
@@ -104,6 +119,8 @@ export function applyHistoryView(state, view) {
 		snappee.selected = Boolean(overlay.selected);
 		snappee.active = overlay.active !== false;
 	}
+	if (Array.isArray(view.snappees)) state.snappees = applyIdOrder(state.snappees, view.snappees.map(item => item.id));
+	if (Array.isArray(view.channelIds)) state.channels = applyIdOrder(state.channels, view.channelIds);
 	if (state.editor) {
 		if (Object.hasOwn(view, "currentTime")) state.editor.currentTime = cloneSnapshot(view.currentTime);
 		if (Object.hasOwn(view, "currentChannel")) state.editor.currentChannel = view.currentChannel;
@@ -130,6 +147,14 @@ export function historyViewsEqual(left, right) {
 		const second = rightSnappees[index];
 		if (first.id !== second.id || Boolean(first.selected) !== Boolean(second.selected)
 			|| (first.active !== false) !== (second.active !== false)) return false;
+	}
+	const leftChannels = left.channelIds;
+	const rightChannels = right.channelIds;
+	if (leftChannels && rightChannels) {
+		if (leftChannels.length !== rightChannels.length) return false;
+		for (let index = 0; index < leftChannels.length; index += 1) {
+			if (leftChannels[index] !== rightChannels[index]) return false;
+		}
 	}
 	return true;
 }

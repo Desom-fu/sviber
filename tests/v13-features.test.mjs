@@ -292,11 +292,14 @@ test("v0.4.3 snaps dragged pen handles and orients snappee previews like the sta
 	assert.match(transform, /history\.recordView\(captureHistoryView\(this\.model\)/);
 	assert.match(editing, /this\.history\.recordView\(captureHistoryView\(this\.model\)/);
 	assert.doesNotMatch(editing, /history\.record\(this\.model\.snapshot\(\), i18n\.t\("history\.selection"\)/);
-	assert.match(editing, /viewOnly: true, snappeeOnly: true/);
+	assert.match(editing, /viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false/);
 	assert.match(tools, /snappeesPanel\?\.syncFlags\?/);
 	assert.match(tools, /selectSnappee\(id\) \{[\s\S]*?refreshInteractionPreview\?/);
 	assert.doesNotMatch(tools, /selectSnappee\(id\) \{[\s\S]*?this\.refresh\(\);[\s\S]*?toggleSnappee/);
-	assert.match(tools, /viewOnly: true, snappeeOnly: true/);
+	assert.match(tools, /viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false/);
+	assert.match(tools, /moveSnappeeInList[\s\S]*?scheduleDirty: false/);
+	assert.match(await readFile(new URL("../js/app-history-commands.js", import.meta.url), "utf8"),
+		/moveChannel[\s\S]*?channelOnly: true[\s\S]*?scheduleDirty: false/);
 	assert.match(panels, /syncFlags\(model, context = \{\}\)/);
 	assert.match(panels, /dataset\.historyId/);
 });

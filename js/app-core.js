@@ -293,6 +293,11 @@ export class SviberAppCore {
 		this.scheduledHoldReleaseIds.clear();
 		this.playbackScheduleInvalidated = true;
 	}
+	_flushInvalidatedPlaybackSchedule() {
+		if (!this.playbackScheduleInvalidated || !this.audio?.playing) return;
+		this.playbackScheduleInvalidated = false;
+		this._scheduleHits(this.audio.currentTime, 0);
+	}
 	modelSignature(model = this.model) {
 		const snapshot = model.snapshot();
 		delete snapshot.editor;

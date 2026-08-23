@@ -469,6 +469,25 @@ test("History view records materialize when the retained window loses its base s
 	assert.equal(history.current.events[0].selected, true);
 });
 
+test("History view records restore snappee and channel order", () => {
+	const base = {
+		events: [],
+		snappees: [{ id: 1, selected: false, active: true }, { id: 2, selected: false, active: true }],
+		channels: [{ id: 10, name: "A" }, { id: 20, name: "B" }],
+		editor: { currentTime: [0, 0, 1], currentChannel: 10 },
+	};
+	const history = new History(base);
+	assert.equal(history.recordView(captureHistoryView({
+		...base,
+		snappees: [base.snappees[1], base.snappees[0]],
+		channels: [base.channels[1], base.channels[0]],
+	}), "Reorder"), true);
+	assert.deepEqual(history.current.snappees.map(item => item.id), [2, 1]);
+	assert.deepEqual(history.current.channels.map(item => item.id), [20, 10]);
+	assert.deepEqual(history.undo().snappees.map(item => item.id), [1, 2]);
+	assert.deepEqual(history.current.channels.map(item => item.id), [10, 20]);
+});
+
 test("new charts create and activate only the rectangular default snappee", () => {
 	const snappees = createDefaultSnappees();
 	assert.equal(snappees.length, 1);

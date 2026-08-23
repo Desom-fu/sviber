@@ -5,6 +5,7 @@ import test from "node:test";
 import { COMMAND_DEFINITIONS, CommandRegistry } from "../js/commands.js";
 import { SviberAppCore } from "../js/app-core.js";
 import { withEventEditing } from "../js/app-event-editing.js";
+import { withFreeTransform } from "../js/app-free-transform.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { ChartModel, createEvent } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
@@ -290,6 +291,46 @@ test("invalidated playback skips stale ticks but permits the zero-tolerance rebu
 	assert.deepEqual(hitCalls, [["tap", 0.05]]);
 	assert.equal(effectCalls.length, 1);
 	assert.deepEqual([...app.scheduledHitIds], [1]);
+});
+
+test("invalidated lightweight refresh rebuilds the hit schedule", () => {
+	const scheduled = [];
+	const app = {
+		playbackScheduleInvalidated: true,
+		audio: { playing: true, currentTime: 1.25 },
+		timeline: {},
+		stage: { requestRender() {} },
+		scrollView: { requestRender() {} },
+		_rebuildRenderIndex() {},
+		viewState() { return {}; },
+		requestStatusUpdate() {},
+		_scheduleHits(time, tolerance) { scheduled.push([time, tolerance]); },
+		_flushInvalidatedPlaybackSchedule: SviberAppCore.prototype._flushInvalidatedPlaybackSchedule,
+	};
+	const PreviewApp = withFreeTransform(class {});
+	PreviewApp.prototype.refreshInteractionPreview.call(app, { rebuildIndex: false, stageOnly: true });
+	assert.deepEqual(scheduled, [[1.25, 0]]);
+	assert.equal(app.playbackScheduleInvalidated, false);
+});
+
+test("view-only commits do not cancel playback hits", () => {
+	const App = withFreeTransform(class {
+		_invalidatePlaybackSchedule() { this.cancelled = true; }
+		refresh() { this.full = true; }
+	});
+	const app = new App();
+	app.model = {
+		editor: {},
+		allEvents() { return []; },
+		metadata: { title: "t", difficultyName: "d" },
+		snappees: [{ id: 1, active: true }],
+	};
+	app.history = { recordView: () => true };
+	app._refreshLightweight = function () { this.light = true; };
+	app._finishCommit("toggle", () => {}, { lightweight: true, viewOnly: true, scheduleDirty: false });
+	assert.equal(app.cancelled, undefined);
+	assert.equal(app.light, true);
+	assert.equal(app.full, undefined);
 });
 
 test("stopping playback keeps a visible range locked after playback starts", () => {

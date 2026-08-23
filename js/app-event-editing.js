@@ -825,7 +825,7 @@ const withEventEditingBase = Base => class extends Base {
 				snappee.active = Boolean(active);
 				if (!active) snappee.selected = false;
 			}
-		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true });
+		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
 	}
 	attachSelected() {
 		if (!this.model.snappees.some(snappee => snappee.active !== false)) return;

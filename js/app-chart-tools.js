@@ -416,7 +416,7 @@ export const withChartTools = Base => class extends Base {
 		this.commit(i18n.t("history.editSnappee"), model => {
 			const snappee = model.snappees.find(item => item.id === id);
 			if (snappee) { snappee.active = !snappee.active; if (!snappee.active) snappee.selected = false; }
-		}, { allowReadOnly: true, lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true });
+		}, { allowReadOnly: true, lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
 	}
 
 	duplicateSnappee(id) {
@@ -433,7 +433,7 @@ export const withChartTools = Base => class extends Base {
 			const target = index + Math.sign(Number(direction));
 			if (index < 0 || !Number.isInteger(target) || target < 0 || target >= model.snappees.length) return;
 			[model.snappees[index], model.snappees[target]] = [model.snappees[target], model.snappees[index]];
-		});
+		}, { lightweight: true, viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false });
 	}
 
 	async deleteSnappee(id) {

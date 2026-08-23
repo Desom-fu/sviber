@@ -8,6 +8,9 @@ export const withFreeTransform = Base => class extends Base {
 		if (options.snappeeOnly || options.viewOnly) {
 			this.snappeesPanel?.syncFlags?.(this.model, { readOnly: this.model.editor.readOnly });
 		}
+		if (options.channelOnly) {
+			this.channelsPanel?.render?.(this.model, { readOnly: this.model.editor.readOnly });
+		}
 		if (!options.skipInspector) {
 			this.inspectorPanel?.render(this.model, {
 				transform: this.freeTransform?.matrix || null,
@@ -68,7 +71,8 @@ export const withFreeTransform = Base => class extends Base {
 			if (viewOnly) this.dirty = true;
 			else this.updateDirty();
 		}
-		if (options.scheduleDirty !== false || previewScheduleDirty) this._invalidatePlaybackSchedule();
+		if (previewScheduleDirty || options.scheduleDirty === true
+			|| options.scheduleDirty !== false && !viewOnly) this._invalidatePlaybackSchedule();
 		if (!viewOnly) this.broadcastLiveChartUpdate?.();
 		if (options.lightweight) this._refreshLightweight(options); else this.refresh();
 		return result;
@@ -90,6 +94,7 @@ export const withFreeTransform = Base => class extends Base {
 			this.scrollView?.requestRender();
 		}
 		this.requestStatusUpdate();
+		this._flushInvalidatedPlaybackSchedule?.();
 	}
 	startFreeTransform() {
 		if (this.freeTransform) { this.finishFreeTransform(); return true; }
