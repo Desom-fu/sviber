@@ -119,3 +119,16 @@ export function removeEventsFromIndex(index, removedEvents) {
 	index.maximumTime = index.eventRecords.reduce((maximum, record) => Math.max(maximum, record.end + 10), 10);
 	return true;
 }
+
+export function removeChannelFromIndex(index, channelId, removedEvents) {
+	removeEventsFromIndex(index, removedEvents || []);
+	index.tipGuidesByChannel.delete(channelId);
+	index.noteEventRecordsByChannel.delete(channelId);
+	index.allTipGuides = index.project.channels.flatMap(channel => index.tipGuidesByChannel.get(channel.id) || []);
+	index.allTipGuides.forEach((guide, sequence) => { guide.sequence = sequence; });
+	index.timelineTipGuideIndex = new IntervalIndex(index.allTipGuides);
+	index.tipGuides = index.allTipGuides.filter(guide => index.activeChannelIds.has(guide.events[0]?.channel));
+	index.tipGuideIndex = new IntervalIndex(index.tipGuides);
+	index.setActiveChannels(index.project.channels);
+	return channelId != null;
+}

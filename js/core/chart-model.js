@@ -776,7 +776,7 @@ export class ChartModel {
 			}
 			return [event];
 		});
-		this.events = prune(this.events);
+		this.events.splice(0, this.events.length, ...prune(this.events));
 		if (this.editor.currentChannel === id) {
 			const above = this.channels.slice(0, index).reverse().find(channel => channel.active !== false);
 			const below = this.channels.slice(index).find(channel => channel.active !== false);

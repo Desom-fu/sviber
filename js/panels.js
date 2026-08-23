@@ -947,6 +947,18 @@ export class HistoryPanel {
 				const label = button.querySelector(".history-label");
 				if (label) label.textContent = this.i18n.localize(entry.label);
 			}
+			const markers = button.querySelector(".history-markers");
+			if (markers) {
+				markers.replaceChildren();
+				for (const kind of ["save", "autosave"]) {
+					if (!entry.metadata?.historyMarkers?.[kind]) continue;
+					const image = document.createElement("img");
+					image.src = `svg/icons/${kind === "save" ? "save" : "auto-save"}.svg`;
+					image.className = `history-marker is-${kind}`;
+					image.alt = this.i18n.t(`history.marker.${kind}`);
+					markers.append(image);
+				}
+			}
 			if (entry.active) current = button;
 		}
 		current?.scrollIntoView({ block: "nearest" });

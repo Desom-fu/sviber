@@ -16,7 +16,7 @@ import {
 	tipPointSpawnTime,
 } from "./stage-helpers.js";
 import { refreshDoubleTapTime } from "./double-tap-index.js";
-import { removeEventsFromIndex } from "./chart-index-removal.js";
+import { removeChannelFromIndex, removeEventsFromIndex } from "./chart-index-removal.js";
 function upperBound(records, value, field) {
 	let low = 0;
 	let high = records.length;
@@ -862,6 +862,7 @@ export class ChartRenderIndex {
 		return true;
 	}
 	removeEvents(events) { return removeEventsFromIndex(this, events); }
+	removeChannel(channelId, events) { return removeChannelFromIndex(this, channelId, events); }
 	setActiveChannels(channels) {
 		const next = new Set((channels || []).filter(channel => channel.active !== false).map(channel => channel.id));
 		if (next.size === this.activeChannelIds.size && [...next].every(id => this.activeChannelIds.has(id))) return false;

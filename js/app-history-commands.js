@@ -480,7 +480,7 @@ export const withHistoryCommands = Base => class extends Base {
 			const above = model.channels.slice(0, index).reverse().find(candidate => candidate.active !== false);
 			const below = model.channels.slice(index + 1).find(candidate => candidate.active !== false);
 			model.editor.currentChannel = (above || below || channel).id;
-		}, { allowReadOnly: true, lightweight: true, activeChannels: true, rebuildIndex: false,
+		}, { allowReadOnly: true, lightweight: true, activeChannels: true, channelOnly: true, rebuildIndex: false,
 			selectionOnly: true, selectionSynced: true, scheduleDirty: true, skipCommands: true });
 	}
 
@@ -504,7 +504,20 @@ export const withHistoryCommands = Base => class extends Base {
 	async deleteChannel(id) {
 		if (this.model.channels.length <= 1) return;
 		if (!await this.dialogs.confirm({ titleKey: "dialog.deleteChannel", messageKey: "dialog.deleteChannelMessage" })) return;
-		this.commit(i18n.t("history.deleteChannel"), model => model.removeChannel(id));
+		const currentIndex = this.renderIndex?.eventSource === this.model.events ? this.renderIndex : null;
+		this.commit(i18n.t("history.deleteChannel"), model => {
+			const before = model.allEvents();
+			const removed = model.removeChannel(id);
+			if (!removed) return removed;
+			const remaining = new Set(model.allEvents().map(event => event.id));
+			currentIndex?.removeChannel?.(id, before.filter(event => !remaining.has(event.id)));
+			return removed;
+		}, {
+			lightweight: true, rebuildIndex: false, channelOnly: true, channelLayout: true, scheduleDirty: true,
+			historyPatch: (_removed, model) => ({
+				kind: "removeChannel", channelId: id, view: captureHistoryView(model),
+			}),
+		});
 	}
 
 	async editChannel(id) {
@@ -524,8 +537,7 @@ export const withHistoryCommands = Base => class extends Base {
 	}
 
 	async deleteCurrentChannel() {
-		if (!await this.dialogs.confirm({ titleKey: "dialog.deleteChannel", messageKey: "dialog.deleteChannelMessage" })) return;
-		this.commit(i18n.t("history.deleteChannel"), model => model.removeChannel(model.editor.currentChannel));
+		return this.deleteChannel(this.model.editor.currentChannel);
 	}
 
 	moveCurrentChannel(direction) {

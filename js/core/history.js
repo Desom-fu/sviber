@@ -78,6 +78,21 @@ function visitChartEvents(events, visit) {
 	}
 }
 
+function removeChannelEvents(events, channelId) {
+	if (!Array.isArray(events)) return;
+	for (let index = events.length - 1; index >= 0; index -= 1) {
+		const event = events[index];
+		if (event?.channel === channelId) {
+			events.splice(index, 1);
+			continue;
+		}
+		if (event?.type === "group") {
+			removeChannelEvents(event.events, channelId);
+			if (!event.events?.length) events.splice(index, 1);
+		}
+	}
+}
+
 function applyIdOrder(items, ids) {
 	if (!Array.isArray(items) || !Array.isArray(ids)) return items;
 	const remaining = new Map(items.map(item => [item.id, item]));
@@ -167,6 +182,11 @@ export function applyHistoryPatch(state, patch) {
 			}
 		};
 		remove(state.events);
+	} else if (patch.kind === "removeChannel") {
+		const channels = state.channels || [];
+		const index = channels.findIndex(channel => channel?.id === patch.channelId);
+		if (index >= 0) channels.splice(index, 1);
+		removeChannelEvents(state.events, patch.channelId);
 	} else return state;
 	return applyHistoryView(state, patch.view);
 }

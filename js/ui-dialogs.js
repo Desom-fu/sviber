@@ -317,8 +317,10 @@ export class DialogManager {
 			else this.appElement.setAttribute('aria-hidden', active.previousAriaHidden);
 		}
 		this.active = null;
-		this.onStateChange?.(false);
-		active.previousFocus?.focus?.();
+		queueMicrotask(() => {
+			this.onStateChange?.(false);
+			active.previousFocus?.focus?.();
+		});
 	}
 
 	flash() {

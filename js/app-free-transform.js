@@ -12,6 +12,10 @@ export const withFreeTransform = Base => class extends Base {
 		if (options.channelOnly) {
 			this.channelsPanel?.render?.(this.model, { readOnly: this.model.editor.readOnly });
 		}
+		if (options.channelLayout) {
+			const height = 88 + Math.min(3, Math.max(1, this.model.channels.length)) * 48;
+			document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${height}px`);
+		}
 		if (!options.skipInspector) {
 			this.inspectorPanel?.render(this.model, {
 				transform: this.freeTransform?.matrix || null,

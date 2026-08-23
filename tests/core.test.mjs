@@ -488,6 +488,26 @@ test("History remove patches delete nested events and restore them on undo", () 
 	assert.deepEqual(history.redo().events[0].events.map(event => event.id), [3]);
 });
 
+test("History channel patches remove nested events and preserve the active view", () => {
+	const base = {
+		events: [{ id: 1, type: "group", selected: false, events: [
+			{ id: 2, type: "tap", channel: 7, selected: true },
+			{ id: 3, type: "hold", channel: 8, selected: false },
+		] }, { id: 4, type: "tap", channel: 8, selected: false }],
+		snappees: [], channels: [{ id: 7 }, { id: 8 }], editor: { currentChannel: 8 }, nextIds: {},
+	};
+	const history = new History(base);
+	history.recordPatch({ kind: "removeChannel", channelId: 7,
+		view: { selectedEventIds: [], channelIds: [8], currentChannel: 8 } }, "Delete channel");
+	assert.deepEqual(history.current.channels.map(channel => channel.id), [8]);
+	assert.deepEqual(history.current.events.map(event => event.id), [1, 4]);
+	assert.deepEqual(history.current.events[0].events.map(event => event.id), [3]);
+	const restored = history.undo();
+	assert.deepEqual(restored.channels.map(channel => channel.id), [7, 8]);
+	assert.deepEqual(restored.events[0].events.map(event => event.id), [2, 3]);
+	assert.deepEqual(history.redo().channels.map(channel => channel.id), [8]);
+});
+
 test("History materializes append patches before trimming their base snapshot", () => {
 	const history = new History({ events: [], snappees: [], channels: [], editor: {}, nextIds: {} }, { limit: 3 });
 	for (let id = 0; id < 4; id += 1) history.recordPatch({
