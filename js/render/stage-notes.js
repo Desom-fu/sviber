@@ -584,7 +584,7 @@ export const withStageNotes = Base => class extends Base {
 	}
 
 	_tipPointCheckpoints(guide, project, mapping) {
-		const signature = `${mapping.originX}:${mapping.originY}:${mapping.scale}`;
+		const signature = `${mapping.originX}:${mapping.originY}:${mapping.scale}:${this.renderIndex?.timelineTipRevision ?? 0}`;
 		if (this.tipPointScreenCache?.index !== this.renderIndex
 			|| this.tipPointScreenCache.signature !== signature) {
 			this.tipPointScreenCache = { index: this.renderIndex, signature, guides: new WeakMap() };

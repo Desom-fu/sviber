@@ -6,6 +6,7 @@ import { ChartModel, createEvent } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartRenderIndex } from "../js/render/chart-index.js";
 import { StageViewCore } from "../js/render/stage-core.js";
+import { withStageNotes } from "../js/render/stage-notes.js";
 import { eventDrawLayer, timelineTipCheckpointSignature } from "../js/render/timeline-helpers.js";
 
 function largeProject(eventCount = 10_000) {
@@ -215,6 +216,32 @@ test("double-tap lines use positions updated during a lightweight drag", () => {
 	context.moves.length = 0;
 	StageViewCore.prototype._drawDoubleLines.call(view, context, project, { scale: 1, toScreen: point => point }, 1.1);
 	assert.deepEqual(context.moves, [[-5, 0], [35, 0]]);
+});
+
+test("main-field tip points follow notes after a lightweight position refresh", () => {
+	const event1 = {
+		id: 1, type: "tap", channel: 0, time: [1, 0, 1], x: 0, y: 0,
+		tipPointSpawnType: "chain", tipPointSpawnTime: 1, tipPointSpawnDistance: 0, tipPointSpawnAngle: 0,
+	};
+	const event2 = {
+		id: 2, type: "tap", channel: 0, time: [2, 0, 1], x: 20, y: 0,
+		tipPointSpawnType: "inherit", tipPointSpawnTime: 1,
+	};
+	const project = { channels: [{ id: 0 }], snappees: [], events: [event1, event2], editor: { showTipPoints: true } };
+	const renderIndex = new ChartRenderIndex(project, new TimingMap({ initialBpm: 60 }));
+	const NotesStage = withStageNotes(class {});
+	const view = new NotesStage();
+	view.renderIndex = renderIndex;
+	const mapping = { originX: 0, originY: 0, scale: 1, toScreen: point => ({ x: point.x, y: point.y }) };
+	const guide = renderIndex.tipGuides[0];
+	const before = view._tipPointCheckpoints(guide, project, mapping);
+	assert.equal(before.at(-1).x, 20);
+	event2.x = 55;
+	event2.y = 12;
+	renderIndex.refreshPositions([event2]);
+	const after = view._tipPointCheckpoints(guide, project, mapping);
+	assert.equal(after.at(-1).x, 55);
+	assert.equal(after.at(-1).y, 12);
 });
 
 test("timeline tip checkpoint cache signature changes with channel order", () => {

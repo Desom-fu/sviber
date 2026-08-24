@@ -909,7 +909,7 @@ export class ChartRenderIndex {
 		for (const record of records) {
 			record.position = MOVABLE_TYPES.has(record.event.type) ? this.#resolve(record.event) : null;
 			record.tipSpawnPosition = this.#resolve(record.event, "tipPointSpawn");
-		}
+		} this.timelineTipRevision += 1;
 	}
 	positionFor(event) {
 		return this.eventRecordMap.get(event)?.position || resolveAttachedPosition(event, this.project.snappees);
