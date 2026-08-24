@@ -126,7 +126,7 @@
 
 				<h2 id="en-playback">Playback</h2>
 				<h3 id="en-forward">Forward and reverse playback</h3>
-				<p>Forward playback follows the chart timing and plays music, note sounds, hit effects, and the constant-tone metronome when enabled. Hit effects disappear immediately when the music stops. Reverse playback moves time backward, leaves music muted, and can still play note sounds and metronome clicks; it does not play hit effects. Inactive channels never contribute to playback.</p>
+				<p>Forward playback follows the chart timing and plays music, note sounds, hit effects, and the constant-tone metronome when enabled. Starting at a time never replays note sounds or hit effects from before that exact time. Hit effects disappear immediately when the music stops. Reverse playback moves time backward, leaves music muted, and can still play note sounds and metronome clicks; it does not play hit effects. Inactive channels never contribute to playback.</p>
 				<h3 id="en-loop">A-B looping</h3>
 				<p>With two marks, the earlier mark is A and the later mark is B. Forward playback returns to A at B without an audible gap; reverse playback returns to B at A. Boundary notes and metronome clicks are scheduled once per pass. If a loop jump leaves the visible range, the range moves by the minimum amount unless it is locked.</p>
 				<h3 id="en-play-settings">Playback settings and seeking</h3>
@@ -309,7 +309,7 @@ puts "created #{copies.length} copy"</code></pre>
 
 				<h2 id="zh-playback">播放</h2>
 				<h3 id="zh-forward">正向与反向播放</h3>
-				<p>正向播放按谱面定时播放音乐、音符音效、命中特效以及启用时的恒定音色节拍器。音乐停止时命中特效立即消失。反向播放让时间倒退、音乐静音，但仍可播放音符音效和节拍器，不播放命中特效。停用通道不会参与播放。</p>
+				<p>正向播放按谱面定时播放音乐、音符音效、命中特效以及启用时的恒定音色节拍器。从某个时间开始播放时，不会重放该精确时间之前的音符音效或命中特效。音乐停止时命中特效立即消失。反向播放让时间倒退、音乐静音，但仍可播放音符音效和节拍器，不播放命中特效。停用通道不会参与播放。</p>
 				<h3 id="zh-loop">A-B 循环</h3>
 				<p>两个标记中较早者为 A、较晚者为 B。正向播放到 B 时无可感知空隙地回到 A；反向播放到 A 时回到 B。边界音符和节拍器每轮只调度一次。循环跳转使当前时间离开可见范围时，若未锁定则以最小幅度移动范围。</p>
 				<h3 id="zh-play-settings">播放设置与寻拍</h3>

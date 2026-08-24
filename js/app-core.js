@@ -718,7 +718,7 @@ export class SviberAppCore {
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
-			this._scheduleHits(time);
+			this._scheduleHits(time, 0);
 			this._syncCheckedCommands(); this._refreshDifficultyUi(); this.refreshPlaybackFrame();
 		});
 		this.audio.addEventListener("directionchange", () => {

@@ -293,6 +293,11 @@ test("invalidated playback skips stale ticks but permits the zero-tolerance rebu
 	assert.deepEqual([...app.scheduledHitIds], [1]);
 });
 
+test("starting playback schedules only events at or after the exact start time", async () => {
+	const core = await readFile(new URL("../js/app-core.js", import.meta.url), "utf8");
+	assert.match(core, /this\.audio\.addEventListener\("play",[\s\S]*?this\._scheduleHits\(time, 0\)/);
+});
+
 test("invalidated lightweight refresh rebuilds the hit schedule", () => {
 	const scheduled = [];
 	const app = {
