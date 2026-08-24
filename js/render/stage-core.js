@@ -681,8 +681,13 @@ export class StageViewCore {
 				if (relativeTime < -1 / approachSpeed) {
 					progress = (relativeTime - fadeStart) / 0.25;
 				} else if (relativeTime > 0) alpha = (1 - relativeTime / (1 / 3)) ** 2;
-				const position1 = pair.position1 || resolveAttachedPosition(event1, project.snappees) || event1;
-				const position2 = pair.position2 || resolveAttachedPosition(event2, project.snappees) || event2;
+				// Pair positions are cached for indexed playback, but dragging updates the
+				// event records in place. Read the current indexed positions first so the
+				// line follows a moved tap during lightweight interaction previews.
+				const position1 = this.renderIndex?.positionFor(event1)
+					|| pair.position1 || resolveAttachedPosition(event1, project.snappees) || event1;
+				const position2 = this.renderIndex?.positionFor(event2)
+					|| pair.position2 || resolveAttachedPosition(event2, project.snappees) || event2;
 				const point1 = mapping.toScreen(position1);
 				const point2 = mapping.toScreen(position2);
 				const beginning = {

@@ -51,7 +51,9 @@ export const withHistoryCommands = Base => class extends Base {
 		command("file.openProject", () => void this.openProject());
 		command("file.openChart", () => { this.exitModes(); document.getElementById("chart-file-input").click(); });
 		command("file.openRecent", () => void this.openRecent(), () => this.recentOpens().length > 0);
-		command("file.openAutosave", () => void this.openAutosave(), () => this.autosave.listed().length > 0);
+		// Checking the index is enough to enable the command. Parsing every recovery
+		// document here made opening the File menu scale with autosave payload size.
+		command("file.openAutosave", () => void this.openAutosave(), () => this.autosave.index.length > 0);
 		command("file.importFile", () => { this.exitModes(); document.getElementById("open-file-input").click(); });
 		command("file.setMusic", () => { this.exitModes(); document.getElementById("music-file-input").click(); });
 		command("file.setBackground", () => { this.exitModes(); document.getElementById("background-file-input").click(); });

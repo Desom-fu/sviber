@@ -1,6 +1,6 @@
 # Sviber v16 实现说明
 
-本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录 v0.7.0 的代码、配置、测试和帮助文档改动。
+本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录 v0.7.1 的代码、配置、测试和帮助文档改动。
 
 ## 文件菜单与生命周期
 
@@ -39,7 +39,13 @@
 
 - `json/i18n.en-US.json`、`json/i18n.zh-CN.json` 增加关闭、加入工程、删除磁盘文件、工程桌面限制及相关错误/提示文本。
 - `docs/index.html` 的中英文工程、文件菜单、媒体路径、关卡导出和保存格式章节已与 v16 行为同步；`README.md` 与 `README.zh-CN.md` 明确网页仅支持独立谱面。
-- `package.json`、`package-lock.json` 更新为 `0.7.0`；Service Worker 缓存版本更新为 `sviber-v070`。
+- `package.json`、`package-lock.json` 更新为 `0.7.1`；Service Worker 缓存版本更新为 `sviber-v071`。
+
+## v0.7.1 回归修复
+
+- 撤回事件编辑时，历史视图现在保存和恢复 `timeSnapped`、`currentTime`、`visibleRangeBeginning`、`visibleRangeEnd`，因此会回到上一次编辑的时间条位置和对应拍数/秒数模式（`js/core/history.js`）。新增 `tests/history-regressions.test.mjs` 覆盖该场景。
+- 主编辑区双押 tap 的连线在轻量拖动预览中优先从 `ChartRenderIndex.positionFor()` 读取实时位置，而不是沿用建立双押索引时的缓存坐标（`js/render/stage-core.js`）。`tests/render-index.test.mjs` 验证拖动后两端坐标均更新。
+- 文件菜单中的自动保存命令启用检查只读取时间戳索引，不在菜单打开期间解析全部恢复文档（`js/app-history-commands.js`）；`tests/v16-features.test.mjs` 验证该路径不会调用完整恢复列表解析。
 
 ## 验证覆盖
 

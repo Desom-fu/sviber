@@ -10,6 +10,7 @@ import { ChartModel } from "../js/core/chart-model.js";
 import { createProjectManifest, PROJECT_FILENAME } from "../js/core/project.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../js/commands.js";
 import { FileManager } from "../js/platform.js";
+import { withHistoryCommands } from "../js/app-history-commands.js";
 
 test("v16 File menu adds Close and disables Open recent on the web", () => {
 	assert.ok(COMMAND_DEFINITIONS["file.close"]);
@@ -19,6 +20,22 @@ test("v16 File menu adds Close and disables Open recent on the web", () => {
 	assert.ok(fileItems.some(item => item.command === "file.close"));
 	assert.ok(fileItems.findIndex(item => item.command === "file.close")
 		> fileItems.findIndex(item => item.command === "file.deleteChart"));
+});
+
+test("File menu autosave availability reads only the lightweight index", () => {
+	const definitions = new Map();
+	const CommandApp = withHistoryCommands(class {});
+	const app = new CommandApp();
+	app.registry = { register(id, definition) { definitions.set(id, definition); } };
+	let indexReads = 0;
+	app.autosave = {
+		get index() { indexReads += 1; return [123]; },
+		listed() { throw new Error("opening the File menu must not parse recovery documents"); },
+	};
+	app.recentOpens = () => [];
+	app._registerCommands();
+	assert.equal(definitions.get("file.openAutosave").enabled(), true);
+	assert.equal(indexReads, 1);
 });
 
 test("v16 project manifest contains only chart membership and active chart", () => {

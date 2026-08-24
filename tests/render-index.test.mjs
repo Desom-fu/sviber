@@ -5,6 +5,7 @@ import { collectIndexedHitSchedule } from "../js/audio/scheduler.js";
 import { ChartModel, createEvent } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartRenderIndex } from "../js/render/chart-index.js";
+import { StageViewCore } from "../js/render/stage-core.js";
 import { eventDrawLayer, timelineTipCheckpointSignature } from "../js/render/timeline-helpers.js";
 
 function largeProject(eventCount = 10_000) {
@@ -174,6 +175,31 @@ test("render index replaces a note type without rebuilding the event source", ()
 	assert.equal(index.doubleTapPairs.length, 1);
 	assert.equal(index.doubleTapIds.has(1), true);
 	assert.equal(index.doubleTapIds.has(2), true);
+});
+
+test("double-tap lines use positions updated during a lightweight drag", () => {
+	const event1 = { id: 1, type: "tap", channel: 0, time: [1, 0, 1], x: -20, y: 0 };
+	const event2 = { id: 2, type: "tap", channel: 0, time: [1, 0, 1], x: 20, y: 0 };
+	const project = { channels: [{ id: 0 }], snappees: [], events: [event1, event2] };
+	const timing = new TimingMap({ initialBpm: 60 });
+	const renderIndex = new ChartRenderIndex(project, timing);
+	const context = {
+		moves: [], save() {}, restore() {}, beginPath() {}, stroke() {},
+		setLineDash() {}, moveTo(x, y) { this.moves.push([x, y]); }, lineTo(x, y) { this.moves.push([x, y]); },
+	};
+	const view = {
+		renderIndex,
+		state: { preferences: { noteSpeed: 4 } },
+		timing,
+	};
+	StageViewCore.prototype._drawDoubleLines.call(view, context, project, { scale: 1, toScreen: point => point }, 1.1);
+	assert.deepEqual(context.moves, [[-20, 0], [20, 0]]);
+	event1.x = -5;
+	event2.x = 35;
+	renderIndex.refreshPositions([event1, event2]);
+	context.moves.length = 0;
+	StageViewCore.prototype._drawDoubleLines.call(view, context, project, { scale: 1, toScreen: point => point }, 1.1);
+	assert.deepEqual(context.moves, [[-5, 0], [35, 0]]);
 });
 
 test("timeline tip checkpoint cache signature changes with channel order", () => {

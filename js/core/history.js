@@ -121,6 +121,9 @@ export function captureHistoryView(model, options = {}) {
 		})),
 		channelIds: (model?.channels || []).map(channel => channel.id),
 		currentTime: cloneSnapshot(model?.editor?.currentTime ?? null),
+		timeSnapped: model?.editor?.timeSnapped !== false,
+		visibleRangeBeginning: model?.editor?.visibleRangeBeginning ?? null,
+		visibleRangeEnd: model?.editor?.visibleRangeEnd ?? null,
 		currentChannel: model?.editor?.currentChannel ?? null,
 		allowOutOfBound: Boolean(model?.editor?.allowOutOfBound),
 	};
@@ -140,7 +143,14 @@ export function applyHistoryView(state, view) {
 	if (Array.isArray(view.snappees)) state.snappees = applyIdOrder(state.snappees, view.snappees.map(item => item.id));
 	if (Array.isArray(view.channelIds)) state.channels = applyIdOrder(state.channels, view.channelIds);
 	if (state.editor) {
+		if (Object.hasOwn(view, "timeSnapped")) state.editor.timeSnapped = Boolean(view.timeSnapped);
 		if (Object.hasOwn(view, "currentTime")) state.editor.currentTime = cloneSnapshot(view.currentTime);
+		if (Object.hasOwn(view, "visibleRangeBeginning") && view.visibleRangeBeginning != null) {
+			state.editor.visibleRangeBeginning = Number(view.visibleRangeBeginning);
+		}
+		if (Object.hasOwn(view, "visibleRangeEnd") && view.visibleRangeEnd != null) {
+			state.editor.visibleRangeEnd = Number(view.visibleRangeEnd);
+		}
 		if (Object.hasOwn(view, "currentChannel")) state.editor.currentChannel = view.currentChannel;
 		if (Object.hasOwn(view, "allowOutOfBound")) state.editor.allowOutOfBound = Boolean(view.allowOutOfBound);
 	}
@@ -206,6 +216,9 @@ export function historyViewsEqual(left, right) {
 	if (!left || !right) return false;
 	if (left.currentChannel !== right.currentChannel) return false;
 	if (Boolean(left.allowOutOfBound) !== Boolean(right.allowOutOfBound)) return false;
+	if (Boolean(left.timeSnapped) !== Boolean(right.timeSnapped)) return false;
+	if (left.visibleRangeBeginning !== right.visibleRangeBeginning
+		|| left.visibleRangeEnd !== right.visibleRangeEnd) return false;
 	if (!snapshotsEqual(left.currentTime, right.currentTime)) return false;
 	const leftIds = left.selectedEventIds || [];
 	const rightIds = right.selectedEventIds || [];
