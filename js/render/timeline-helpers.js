@@ -244,7 +244,7 @@ export function tipSpawnDirectionSegment(firstPosition, spawnPosition, screenPoi
 	];
 }
 
-export function timelineTipCheckpointSignature(layout, channelOffset, channels) {
+export function timelineTipCheckpointSignature(layout, channelOffset, channels, revision = 0) {
 	return `${layout.channels.width}:${layout.channels.y}:${layout.channelHeight}:${channelOffset}:` +
-		(channels || []).map(channel => channel.id).join(",");
+		`${(channels || []).map(channel => channel.id).join(",")}:${revision}`;
 }

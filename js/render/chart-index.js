@@ -160,7 +160,7 @@ export class ChartRenderIndex {
 		this.ancestorsById = new Map();
 		walkEvents(project.events || [], (event, ancestors) => this.ancestorsById.set(event.id, ancestors));
 		this.timing = timing;
-		this.selectionScope = options.selectionScope ?? null;
+		this.selectionScope = options.selectionScope ?? null; this.timelineTipRevision = 0;
 		this.approachSpeed = Number(options.noteSpeed) > 0
 			? Number(options.noteSpeed) : SUNNIESNOW_SKIN.approachSpeed;
 		this.snappeeSamples = new Map();
@@ -345,6 +345,7 @@ export class ChartRenderIndex {
 		this.timelineTipGuideIndex = new IntervalIndex(this.allTipGuides);
 		this.tipGuides = this.allTipGuides.filter(guide => this.activeChannelIds.has(guide.events[0]?.channel));
 		this.tipGuideIndex = new IntervalIndex(this.tipGuides);
+		this.timelineTipRevision += 1;
 	}
 	#refreshTipGuides(channelId, rebuildIndexes = true) {
 		const channel = this.project.channels.find(candidate => candidate.id === channelId);

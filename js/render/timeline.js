@@ -21,7 +21,6 @@ import {
 	timelineTipCheckpointSignature,
 	timingFor,
 } from "./timeline-helpers.js";
-
 export { timelineTipConnector } from "./timeline-helpers.js";
 
 const ZERO_DURATION_TYPES = new Set(["bgNote", "comment"]);
@@ -486,7 +485,7 @@ export class TimelineView {
 			|| buildTipPointGuides(project, this.timing);
 		const activeChannelIds = this.renderIndex?.activeChannelIds
 			|| new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
-		const checkpointSignature = timelineTipCheckpointSignature(layout, this.channelOffset, project.channels);
+		const checkpointSignature = timelineTipCheckpointSignature(layout, this.channelOffset, project.channels, this.renderIndex?.timelineTipRevision);
 		for (const guide of guides) {
 			const checkpoints = this.#tipPointCheckpoints(guide, layout, project, offsets, checkpointSignature);
 			if (!checkpoints) continue;

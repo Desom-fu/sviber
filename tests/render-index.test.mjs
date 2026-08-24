@@ -102,6 +102,10 @@ test("render index incrementally moves notes between channels", () => {
 		],
 	});
 	const index = new ChartRenderIndex(model, model.timing);
+	const layout = { channels: { width: 800, y: 40 }, channelHeight: 48 };
+	const initialSignature = timelineTipCheckpointSignature(
+		layout, 0, model.channels, index.timelineTipRevision,
+	);
 	const moved = model.events[1];
 	moved.channel = 1;
 	assert.equal(index.moveEventsToChannels([{ event: moved, from: 0, to: 1 }]), true);
@@ -109,8 +113,19 @@ test("render index incrementally moves notes between channels", () => {
 	assert.deepEqual(index.noteEventRecordsByChannel.get(1).map(record => record.event.id), [2]);
 	assert.deepEqual(index.tipGuidesByChannel.get(0)[0].events.map(event => event.id), [1]);
 	assert.equal(index.tipGuidesByChannel.get(1).length, 0);
+	assert.deepEqual(index.timelineTipGuides(-10, 10)[0].events.map(event => event.id), [1]);
 	assert.equal(index.eventLaneOffsets.get(1), 0);
 	assert.equal(index.eventLaneOffsets.get(2), 0);
+	const movedDownSignature = timelineTipCheckpointSignature(
+		layout, 0, model.channels, index.timelineTipRevision,
+	);
+	assert.notEqual(movedDownSignature, initialSignature);
+	moved.channel = 0;
+	assert.equal(index.moveEventsToChannels([{ event: moved, from: 1, to: 0 }]), true);
+	assert.deepEqual(index.timelineTipGuides(-10, 10)[0].events.map(event => event.id), [1, 2]);
+	assert.notEqual(timelineTipCheckpointSignature(
+		layout, 0, model.channels, index.timelineTipRevision,
+	), movedDownSignature);
 });
 
 test("render index removes nested events without rebuilding event records", () => {
