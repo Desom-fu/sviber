@@ -122,7 +122,7 @@ export const withFreeTransform = Base => class extends Base {
 		}
 		if (!recorded) {
 			if (previewScheduleDirty) this._invalidatePlaybackSchedule();
-			if (!viewOnly) this._refreshAfterCommit(refreshOptions);
+			this._refreshAfterCommit(refreshOptions);
 			return result;
 		}
 		if (options.dirty !== false) {

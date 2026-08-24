@@ -120,6 +120,10 @@ export function captureHistoryView(model, options = {}) {
 			active: snappee.active !== false,
 		})),
 		channelIds: (model?.channels || []).map(channel => channel.id),
+		channels: (model?.channels || []).map(channel => ({
+			id: channel.id,
+			active: channel.active !== false,
+		})),
 		currentTime: cloneSnapshot(model?.editor?.currentTime ?? null),
 		timeSnapped: model?.editor?.timeSnapped !== false,
 		visibleRangeBeginning: model?.editor?.visibleRangeBeginning ?? null,
@@ -142,6 +146,14 @@ export function applyHistoryView(state, view) {
 	}
 	if (Array.isArray(view.snappees)) state.snappees = applyIdOrder(state.snappees, view.snappees.map(item => item.id));
 	if (Array.isArray(view.channelIds)) state.channels = applyIdOrder(state.channels, view.channelIds);
+	if (Array.isArray(view.channels)) {
+		const channelOverlays = new Map(view.channels.map(item => [item.id, item]));
+		for (const channel of state.channels || []) {
+			const overlay = channelOverlays.get(channel.id);
+			if (!overlay) continue;
+			channel.active = overlay.active !== false;
+		}
+	}
 	if (state.editor) {
 		if (Object.hasOwn(view, "timeSnapped")) state.editor.timeSnapped = Boolean(view.timeSnapped);
 		if (Object.hasOwn(view, "currentTime")) state.editor.currentTime = cloneSnapshot(view.currentTime);
@@ -241,6 +253,16 @@ export function historyViewsEqual(left, right) {
 		if (leftChannels.length !== rightChannels.length) return false;
 		for (let index = 0; index < leftChannels.length; index += 1) {
 			if (leftChannels[index] !== rightChannels[index]) return false;
+		}
+	}
+	const leftChannelFlags = left.channels || [];
+	const rightChannelFlags = right.channels || [];
+	if (leftChannelFlags.length || rightChannelFlags.length) {
+		if (leftChannelFlags.length !== rightChannelFlags.length) return false;
+		for (let index = 0; index < leftChannelFlags.length; index += 1) {
+			const first = leftChannelFlags[index];
+			const second = rightChannelFlags[index];
+			if (first.id !== second.id || (first.active !== false) !== (second.active !== false)) return false;
 		}
 	}
 	return true;

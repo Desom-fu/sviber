@@ -1,6 +1,6 @@
 # Sviber v16 实现说明
 
-本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录至 v0.7.8 的代码、配置、测试和帮助文档改动。
+本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录至 v0.7.9 的代码、配置、测试和帮助文档改动。
 
 ## 文件菜单与生命周期
 
@@ -39,7 +39,7 @@
 
 - `json/i18n.en-US.json`、`json/i18n.zh-CN.json` 增加关闭、加入工程、删除磁盘文件、工程桌面限制及相关错误/提示文本。
 - `docs/index.html` 的中英文工程、文件菜单、媒体路径、关卡导出和保存格式章节已与 v16 行为同步；`README.md` 与 `README.zh-CN.md` 明确网页仅支持独立谱面。
-- `package.json`、`package-lock.json` 更新为 `0.7.8`；Service Worker 缓存版本更新为 `sviber-v078`。
+- `package.json`、`package-lock.json` 更新为 `0.7.9`；Service Worker 缓存版本更新为 `sviber-v079`。
 
 ## v0.7.1 回归修复
 
@@ -84,6 +84,11 @@
 
 - 主编辑区轻量拖动只刷新事件坐标，游标轨迹屏幕缓存仍按旧坐标绘制。`refreshPositions` 现在递增 `timelineTipRevision`，主编辑区缓存签名纳入该修订号，拖动时游标会跟着音符走。
 - `tests/render-index.test.mjs` 覆盖拖动后游标检查点更新。
+
+## v0.7.9 回归修复
+
+- 停用通道走轻量 view 历史，但视图里不记录 `channel.active`。再启用时历史认为没变化，界面也不刷新，通道会卡在停用。视图现在保存并恢复通道启用状态；历史未写入时也会刷新。
+- `tests/history-regressions.test.mjs` 覆盖停用后再启用同一通道。
 
 ## 验证覆盖
 
