@@ -298,6 +298,7 @@ test("starting playback schedules only events at or after the exact start time",
 	const core = await readFile(new URL("../js/app-core.js", import.meta.url), "utf8");
 	assert.match(core, /this\.playbackOrigin\.scheduleStartTime = time/);
 	assert.match(core, /excludeHitsBeforePlaybackOrigin\(this, time\)/);
+	assert.match(core, /this\.audio\.armPlaybackSource\(\)/);
 	assert.match(core, /collectAppHitSchedules\(/);
 });
 

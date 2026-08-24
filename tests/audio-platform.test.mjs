@@ -207,6 +207,14 @@ test("hit scheduling looks ahead in wall-clock time and excludes bgNote", () => 
 test("hit audio times use the Web Audio clock without replay delay", () => {
 	assert.equal(hitAudioTime({ context: { currentTime: 4 } }, 0.025), 4.025);
 	assert.equal(hitAudioTime({ context: null }, 0.025), null);
+	assert.equal(hitAudioTime({
+		playing: true, direction: 1, rate: 1, startedAt: 8, startedPosition: 10,
+		context: { currentTime: 8.04 },
+	}, 0, 10), 8);
+	assert.ok(Math.abs(hitAudioTime({
+		playing: true, direction: 1, rate: 2, startedAt: 3, startedPosition: 5,
+		context: { currentTime: 3.1 },
+	}, 0, 5.4) - 3.2) < 1e-12);
 });
 
 test("playback late tolerance never crosses the current playback start", () => {
@@ -298,6 +306,7 @@ test("AudioPlayer preserves negative pre-roll and schedules the music source at 
 		await player.play();
 		assert.deepEqual(starts, [[6, 0]]);
 		assert.equal(player.currentTime, -2);
+		assert.equal(player.startedAt, 5);
 		context.currentTime = 5.5;
 		assert.equal(player.currentTime, -1);
 		player.pause();
@@ -393,6 +402,58 @@ test("AudioPlayer cancels only future hit sources while retaining active sources
 	player.cancelHitSounds();
 	assert.deepEqual(sources.map(source => source.stops), [1, 1, 1, 1]);
 	assert.equal(player.hitSources.size, 0);
+});
+
+test("playback start arms the music clock before scheduling the note at the playhead", async () => {
+	const musicStarts = [];
+	const hitStarts = [];
+	const context = {
+		currentTime: 20,
+		sampleRate: 1000,
+		state: "running",
+		destination: {},
+		createBuffer(_channels, length) {
+			return { length, copyToChannel() {} };
+		},
+		createBufferSource() {
+			return {
+				playbackRate: { value: 1 },
+				connect() {}, disconnect() {}, stop() {},
+				start(...args) {
+					if (this.buffer?.duration === 10) musicStarts.push([context.currentTime, ...args]);
+					else hitStarts.push([context.currentTime, args[0]]);
+				},
+			};
+		},
+		createGain() {
+			return { gain: { setValueAtTime() {}, value: 1 }, connect() {}, disconnect() {} };
+		},
+	};
+	const previousRequest = globalThis.requestAnimationFrame;
+	const previousCancel = globalThis.cancelAnimationFrame;
+	globalThis.requestAnimationFrame = () => 1;
+	globalThis.cancelAnimationFrame = () => {};
+	try {
+		const player = new AudioPlayer();
+		player.context = context;
+		player.gain = context.createGain();
+		player.seGain = context.createGain();
+		player.buffer = { duration: 10 };
+		player.position = 4;
+		player.addEventListener("play", () => {
+			context.currentTime = 20.03;
+			player.armPlaybackSource();
+			const audioTime = hitAudioTime(player, 0, 4);
+			void player.playHitAt("tap", audioTime);
+		});
+		await player.play();
+		assert.equal(player.startedAt, 20.03);
+		assert.deepEqual(musicStarts, [[20.03, 20.03, 4]]);
+		assert.deepEqual(hitStarts, [[20.03, 20.03]]);
+	} finally {
+		globalThis.requestAnimationFrame = previousRequest;
+		globalThis.cancelAnimationFrame = previousCancel;
+	}
 });
 
 test("AudioPlayer uses a constant, louder metronome tone", async () => {

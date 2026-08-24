@@ -7,9 +7,18 @@ import {
 	collectReverseHitSchedule,
 } from "./audio/scheduler.js";
 
-export function hitAudioTime(audio, delay) {
+export function hitAudioTime(audio, delay, chartTime = null) {
 	const now = Number(audio?.context?.currentTime);
-	return Number.isFinite(now) ? now + Math.max(0, Number(delay) || 0) : null;
+	if (!Number.isFinite(now)) return null;
+	const startedAt = Number(audio?.startedAt);
+	const startedPosition = Number(audio?.startedPosition);
+	const hitTime = Number(chartTime);
+	const rate = Math.max(0.1, Number(audio?.rate) || 1);
+	if (audio?.playing && Number.isFinite(startedAt) && Number.isFinite(startedPosition) && Number.isFinite(hitTime)) {
+		const direction = audio.direction < 0 ? -1 : 1;
+		return startedAt + (hitTime - startedPosition) * direction / rate;
+	}
+	return now + Math.max(0, Number(delay) || 0);
 }
 
 export function playbackLateTolerance(currentTime, requestedTolerance, startTime, direction = 1) {

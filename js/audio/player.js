@@ -202,10 +202,16 @@ export class AudioPlayer extends EventTarget {
 		if (this.direction < 0 && this.position <= Math.min(0, this.loopRange?.[0] ?? 0)) {
 			this.position = this.loopRange?.[1] ?? this.duration;
 		}
-		this.#startSource();
-		if (wasPlaying) this.dispatchEvent(new CustomEvent("directionchange", { detail: this.direction }));
-		else {
+		if (this.context) {
+			this.startedAt = this.context.currentTime;
+			this.startedPosition = this.position;
+		}
+		if (wasPlaying) {
+			this.#startSource();
+			this.dispatchEvent(new CustomEvent("directionchange", { detail: this.direction }));
+		} else {
 			this.dispatchEvent(new CustomEvent("play", { detail: { direction: this.direction } }));
+			if (!this.source) this.#startSource({ preserveClock: true });
 			this.#tick();
 		}
 	}
@@ -239,10 +245,17 @@ export class AudioPlayer extends EventTarget {
 		this.#emitTime();
 	}
 
-	#startSource() {
+	armPlaybackSource() {
+		if (!this.playing || !this.context || this.source) return;
+		this.#startSource();
+	}
+
+	#startSource({ preserveClock = false } = {}) {
 		if (!this.context) return;
-		this.startedAt = this.context.currentTime;
-		this.startedPosition = this.position;
+		if (!preserveClock) {
+			this.startedAt = this.context.currentTime;
+			this.startedPosition = this.position;
+		}
 		this.lastLoopCycle = 0;
 		if (!this.buffer || this.direction < 0) return;
 		const source = this.context.createBufferSource();
@@ -270,8 +283,8 @@ export class AudioPlayer extends EventTarget {
 				this.#emitTime();
 			}
 		};
-		const startAt = this.context.currentTime + Math.max(0, -this.position / this.rate);
-		const offset = Math.min(Math.max(0, this.position), Math.max(0, this.buffer.duration - 0.001));
+		const startAt = this.startedAt + Math.max(0, -this.startedPosition / this.rate);
+		const offset = Math.min(Math.max(0, this.startedPosition), Math.max(0, this.buffer.duration - 0.001));
 		source.start(startAt, offset);
 		this.source = source;
 	}
@@ -326,9 +339,16 @@ export class AudioPlayer extends EventTarget {
 
 	async playHit(type = "tap", delay = 0, scheduledAt = null) {
 		if (!HIT_SOUND_TYPES.has(type)) return null;
+		if (this.context && this.context.state !== "suspended") return this.#startHit(type, delay, scheduledAt);
 		const generation = this.playbackGeneration;
 		const context = await this.ensureContext();
 		if (!context || generation !== this.playbackGeneration) return null;
+		return this.#startHit(type, delay, scheduledAt);
+	}
+
+	#startHit(type, delay, scheduledAt) {
+		const context = this.context;
+		if (!context) return null;
 		const requestedTime = scheduledAt == null ? NaN : Number(scheduledAt);
 		const time = Number.isFinite(requestedTime)
 			? Math.max(context.currentTime, requestedTime)

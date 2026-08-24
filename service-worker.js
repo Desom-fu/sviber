@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v076";
+const CACHE_VERSION = "sviber-v077";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [

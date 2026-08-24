@@ -719,6 +719,7 @@ export class SviberAppCore {
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
 			excludeHitsBeforePlaybackOrigin(this, time);
+			this.audio.armPlaybackSource();
 			this._scheduleHits(time, 0);
 			this._syncCheckedCommands(); this._refreshDifficultyUi(); this.refreshPlaybackFrame();
 		});
@@ -801,9 +802,9 @@ export class SviberAppCore {
 		if (this.playbackScheduleInvalidated && lateTolerance !== 0) return;
 		const { reverse, schedule, releases, loopRange } = collectAppHitSchedules(this, current, lateTolerance);
 		const playbackEditor = this.model?.editor || {};
-		for (const { event, delay } of schedule) {
+		for (const { event, delay, hitTime } of schedule) {
 			this.scheduledHitIds.add(event.id);
-			if (playbackEditor.playSe !== false) { const audioTime = hitAudioTime(this.audio, delay); void (audioTime != null ? this.audio.playHitAt(event.type, audioTime) : this.audio.playHit(event.type, delay)); }
+			if (playbackEditor.playSe !== false) { const audioTime = hitAudioTime(this.audio, delay, hitTime); void (audioTime != null ? this.audio.playHitAt(event.type, audioTime) : this.audio.playHit(event.type, delay)); }
 			if (!reverse) this.stage.triggerHit(event, delay);
 		}
 		for (const { event, delay } of releases) {
