@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { COMMAND_DEFINITIONS, CommandRegistry } from "../js/commands.js";
+import { excludeHitsBeforePlaybackOrigin } from "../js/app-playback-scheduling.js";
 import { SviberAppCore } from "../js/app-core.js";
 import { withEventEditing } from "../js/app-event-editing.js";
 import { withFreeTransform } from "../js/app-free-transform.js";
@@ -296,7 +297,8 @@ test("invalidated playback skips stale ticks but permits the zero-tolerance rebu
 test("starting playback schedules only events at or after the exact start time", async () => {
 	const core = await readFile(new URL("../js/app-core.js", import.meta.url), "utf8");
 	assert.match(core, /this\.playbackOrigin\.scheduleStartTime = time/);
-	assert.match(core, /playbackLateTolerance\(current, lateTolerance,[\s\S]*?scheduleTolerance/);
+	assert.match(core, /excludeHitsBeforePlaybackOrigin\(this, time\)/);
+	assert.match(core, /collectAppHitSchedules\(/);
 });
 
 test("playback scheduling never backfills before the playback epoch", () => {
@@ -315,6 +317,59 @@ test("playback scheduling never backfills before the playback epoch", () => {
 	SviberAppCore.prototype._scheduleHits.call(app, 10.016);
 	assert.deepEqual(hitCalls, [["tap", 0]]);
 	assert.deepEqual([...app.scheduledHitIds], [2]);
+});
+
+test("playback start does not play notes between a lagging audio clock and the editor epoch", () => {
+	const earlier = { id: 1, type: "tap" };
+	const later = { id: 2, type: "tap" };
+	const hitCalls = [];
+	const effectCalls = [];
+	const app = {
+		playbackScheduleInvalidated: false,
+		playbackOrigin: { scheduleStartTime: 10 },
+		renderIndex: {
+			hitRecords: [{ event: earlier, start: 9.985 }, { event: later, start: 10.05 }],
+			holdReleaseRecords: [],
+		},
+		audio: { direction: 1, rate: 1, loopRange: null, playHit: (...args) => hitCalls.push(args) },
+		model: { editor: {}, allEvents() { return []; } },
+		stage: { triggerHit: (...args) => effectCalls.push(args) },
+		scheduledHitIds: new Set(), scheduledHoldReleaseIds: new Set(), scheduledMetronomeBeats: new Set(),
+	};
+	excludeHitsBeforePlaybackOrigin(app, 10);
+	SviberAppCore.prototype._scheduleHits.call(app, 9.97);
+	assert.equal(hitCalls.length, 1);
+	assert.equal(hitCalls[0][0], "tap");
+	assert.ok(Math.abs(hitCalls[0][1] - 0.08) < 1e-12);
+	assert.equal(effectCalls.length, 1);
+	assert.deepEqual([...app.scheduledHitIds].sort((left, right) => left - right), [1, 2]);
+});
+
+test("starting at beat 137 does not fire notes at 136+23/24", () => {
+	const timing = new TimingMap({ initialBpm: 180 });
+	const start = timing.beatToSeconds(137);
+	const noteTime = timing.beatToSeconds([136, 23, 24]);
+	const hitCalls = [];
+	const effectCalls = [];
+	const notes = [{ id: 1, type: "tap" }, { id: 2, type: "tap" }];
+	const app = {
+		playbackScheduleInvalidated: false,
+		playbackOrigin: { scheduleStartTime: start },
+		renderIndex: {
+			hitRecords: notes.map(event => ({ event, start: noteTime })),
+			holdReleaseRecords: [],
+		},
+		audio: { direction: 1, rate: 1, loopRange: null, playHit: (...args) => hitCalls.push(args) },
+		model: { editor: {}, allEvents() { return []; } },
+		stage: { triggerHit: (...args) => effectCalls.push(args) },
+		scheduledHitIds: new Set(), scheduledHoldReleaseIds: new Set(), scheduledMetronomeBeats: new Set(),
+	};
+	excludeHitsBeforePlaybackOrigin(app, start);
+	SviberAppCore.prototype._scheduleHits.call(app, start - 0.02);
+	SviberAppCore.prototype._scheduleHits.call(app, start + 0.016);
+	assert.deepEqual(hitCalls, []);
+	assert.deepEqual(effectCalls, []);
+	assert.deepEqual([...app.scheduledHitIds].sort((left, right) => left - right), [1, 2]);
 });
 
 test("invalidated lightweight refresh rebuilds the hit schedule", () => {

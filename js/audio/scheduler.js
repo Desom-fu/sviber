@@ -12,17 +12,30 @@ function lowerBound(records, value, field) {
 	return low;
 }
 
+function scheduleMinimum(currentTime, lateTolerance, minimumTime) {
+	const lateFloor = currentTime - Math.max(0, Number(lateTolerance) || 0);
+	const bound = Number(minimumTime);
+	return Number.isFinite(bound) ? Math.max(lateFloor, bound) : lateFloor;
+}
+
+function scheduleMaximum(currentTime, lateTolerance, maximumTime) {
+	const lateCeil = currentTime + Math.max(0, Number(lateTolerance) || 0);
+	const bound = Number(maximumTime);
+	return Number.isFinite(bound) ? Math.min(lateCeil, bound) : lateCeil;
+}
+
 function collectIndexedSchedule(records, field, outputField, currentTime, playbackRate, scheduledIds,
-	lookAhead, lateTolerance, maximumTime = Infinity) {
+	lookAhead, lateTolerance, maximumTime = Infinity, minimumTime = -Infinity) {
 	const rate = Math.max(0.1, Number(playbackRate) || 1);
 	const horizon = currentTime + Math.max(0, lookAhead) * rate;
 	const result = [];
-	const minimum = currentTime - Math.max(0, Number(lateTolerance) || 0);
+	const minimum = scheduleMinimum(currentTime, lateTolerance, minimumTime);
 	for (let index = lowerBound(records, minimum, field); index < records.length; index += 1) {
 		const record = records[index];
 		const scheduledTime = record[field];
 		if (scheduledTime > horizon + 1e-8) break;
 		if (scheduledTime >= maximumTime - 1e-8) break;
+		if (scheduledTime < minimum - 1e-8) continue;
 		if (scheduledIds.has(record.event.id)) continue;
 		result.push({
 			event: record.event,
@@ -34,14 +47,15 @@ function collectIndexedSchedule(records, field, outputField, currentTime, playba
 }
 
 export function collectHitSchedule(events, timing, currentTime, playbackRate, scheduledIds,
-	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity) {
+	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity, minimumTime = -Infinity) {
 	const rate = Math.max(0.1, Number(playbackRate) || 1);
 	const horizon = currentTime + Math.max(0, lookAhead) * rate;
+	const minimum = scheduleMinimum(currentTime, lateTolerance, minimumTime);
 	const result = [];
 	for (const event of events) {
 		if (!HIT_SOUND_TYPES.has(event.type) || scheduledIds.has(event.id)) continue;
 		const hitTime = timing.beatToSeconds(event.time);
-		if (hitTime < currentTime - Math.max(0, Number(lateTolerance) || 0)
+		if (hitTime < minimum - 1e-8
 			|| hitTime > horizon + 1e-8 || hitTime >= maximumTime - 1e-8) continue;
 		result.push({ event, delay: Math.max(0, (hitTime - currentTime) / rate), hitTime });
 	}
@@ -49,14 +63,15 @@ export function collectHitSchedule(events, timing, currentTime, playbackRate, sc
 }
 
 export function collectHoldReleaseSchedule(events, timing, currentTime, playbackRate, scheduledIds,
-	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity) {
+	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity, minimumTime = -Infinity) {
 	const rate = Math.max(0.1, Number(playbackRate) || 1);
 	const horizon = currentTime + Math.max(0, lookAhead) * rate;
+	const minimum = scheduleMinimum(currentTime, lateTolerance, minimumTime);
 	const result = [];
 	for (const event of events) {
 		if (event.type !== "hold" || scheduledIds.has(event.id)) continue;
 		const releaseTime = timing.beatToSeconds(event.time) + timing.durationToSeconds(event.time, event.duration);
-		if (releaseTime < currentTime - Math.max(0, Number(lateTolerance) || 0)
+		if (releaseTime < minimum - 1e-8
 			|| releaseTime > horizon + 1e-8 || releaseTime >= maximumTime - 1e-8) continue;
 		result.push({ event, delay: Math.max(0, (releaseTime - currentTime) / rate), releaseTime });
 	}
@@ -64,22 +79,22 @@ export function collectHoldReleaseSchedule(events, timing, currentTime, playback
 }
 
 export function collectIndexedHitSchedule(records, currentTime, playbackRate, scheduledIds,
-	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity) {
+	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity, minimumTime = -Infinity) {
 	return collectIndexedSchedule(records, "start", "hitTime", currentTime, playbackRate,
-		scheduledIds, lookAhead, lateTolerance, maximumTime);
+		scheduledIds, lookAhead, lateTolerance, maximumTime, minimumTime);
 }
 
 export function collectIndexedHoldReleaseSchedule(records, currentTime, playbackRate, scheduledIds,
-	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity) {
+	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, maximumTime = Infinity, minimumTime = -Infinity) {
 	return collectIndexedSchedule(records, "releaseTime", "releaseTime", currentTime, playbackRate,
-		scheduledIds, lookAhead, lateTolerance, maximumTime);
+		scheduledIds, lookAhead, lateTolerance, maximumTime, minimumTime);
 }
 
 function collectReverseRecords(records, field, currentTime, playbackRate, scheduledIds,
-	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, minimumTime = -Infinity) {
+	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, minimumTime = -Infinity, maximumTime = Infinity) {
 	const rate = Math.max(0.1, Number(playbackRate) || 1);
 	const horizon = currentTime - Math.max(0, lookAhead) * rate;
-	const maximum = currentTime + Math.max(0, Number(lateTolerance) || 0);
+	const maximum = scheduleMaximum(currentTime, lateTolerance, maximumTime);
 	const result = [];
 	for (let index = lowerBound(records, horizon, field); index < records.length; index += 1) {
 		const record = records[index];
@@ -93,19 +108,19 @@ function collectReverseRecords(records, field, currentTime, playbackRate, schedu
 }
 
 export function collectReverseHitSchedule(events, timing, currentTime, playbackRate, scheduledIds,
-	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, minimumTime = -Infinity) {
+	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, minimumTime = -Infinity, maximumTime = Infinity) {
 	const records = events
 		.filter(event => HIT_SOUND_TYPES.has(event.type))
 		.map(event => ({ event, start: timing.beatToSeconds(event.time) }))
 		.sort((left, right) => left.start - right.start || left.event.id - right.event.id);
 	return collectReverseRecords(records, "start", currentTime, playbackRate, scheduledIds,
-		lookAhead, lateTolerance, minimumTime);
+		lookAhead, lateTolerance, minimumTime, maximumTime);
 }
 
 export function collectIndexedReverseHitSchedule(records, currentTime, playbackRate, scheduledIds,
-	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, minimumTime = -Infinity) {
+	lookAhead = HIT_LOOKAHEAD_SECONDS, lateTolerance = 0.02, minimumTime = -Infinity, maximumTime = Infinity) {
 	return collectReverseRecords(records, "start", currentTime, playbackRate, scheduledIds,
-		lookAhead, lateTolerance, minimumTime);
+		lookAhead, lateTolerance, minimumTime, maximumTime);
 }
 
 export function collectMetronomeSchedule(timing, currentTime, playbackRate, direction, scheduledBeats,

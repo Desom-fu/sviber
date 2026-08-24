@@ -1,6 +1,6 @@
 # Sviber v16 实现说明
 
-本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录 v0.7.5 的代码、配置、测试和帮助文档改动。
+本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录至 v0.7.6 的代码、配置、测试和帮助文档改动。
 
 ## 文件菜单与生命周期
 
@@ -39,7 +39,7 @@
 
 - `json/i18n.en-US.json`、`json/i18n.zh-CN.json` 增加关闭、加入工程、删除磁盘文件、工程桌面限制及相关错误/提示文本。
 - `docs/index.html` 的中英文工程、文件菜单、媒体路径、关卡导出和保存格式章节已与 v16 行为同步；`README.md` 与 `README.zh-CN.md` 明确网页仅支持独立谱面。
-- `package.json`、`package-lock.json` 更新为 `0.7.5`；Service Worker 缓存版本更新为 `sviber-v075`。
+- `package.json`、`package-lock.json` 更新为 `0.7.6`；Service Worker 缓存版本更新为 `sviber-v076`。
 
 ## v0.7.1 回归修复
 
@@ -67,6 +67,12 @@
 
 - 修正播放首帧仍使用迟到补偿导致的二次漏播：调度器记录本次播放起点，并将正向播放的迟到窗口限制在起点之后；因此起播点前的音符不会在首帧或后续帧触发音效和命中特效。
 - `js/app-playback-scheduling.js` 提供方向感知的迟到容差限制；`tests/audio-platform.test.mjs` 与 `tests/v8-features.test.mjs` 覆盖容差计算和实际 `_scheduleHits` 过滤结果。
+
+## v0.7.6 回归修复
+
+- 对齐 game-unstable 的 `Level.adjustProgress` / `SeWithMusic.adjustProgress`：起播或寻点后，起播点之前的音符视为已处理，调度硬下界为该拍数对应时间，而不是只收缩迟到容差。
+- 因此当音频时钟略落后于编辑器起点时，夹在两者之间的音符（例如从 137 拍起播时的 `136+23/24`）不会再被当成即将到来的命中而放出音效和特效。
+- `tests/audio-platform.test.mjs` 与 `tests/v8-features.test.mjs` 覆盖该拍数复现和落后时钟场景。
 
 ## 验证覆盖
 

@@ -19,7 +19,7 @@ import {
 import { TimingMap } from "../js/core/timing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
-import { hitAudioTime, playbackLateTolerance } from "../js/app-playback-scheduling.js";
+import { hitAudioTime, playbackLateTolerance, playbackOriginBound, markHitsBeforePlaybackOrigin } from "../js/app-playback-scheduling.js";
 
 function wavBytes(sampleRate = 8000, sampleCount = 800) {
 	const buffer = new ArrayBuffer(44 + sampleCount * 2);
@@ -213,6 +213,31 @@ test("playback late tolerance never crosses the current playback start", () => {
 	assert.ok(Math.abs(playbackLateTolerance(10.01, 0.02, 10) - 0.01) < 1e-12);
 	assert.equal(playbackLateTolerance(10.03, 0.02, 10), 0.02);
 	assert.ok(Math.abs(playbackLateTolerance(9.99, 0.02, 10, -1) - 0.01) < 1e-12);
+});
+
+test("hit collection never schedules notes before the playback origin", () => {
+	const timing = new TimingMap({ initialBpm: 180 });
+	const start = timing.beatToSeconds(137);
+	const events = [
+		{ id: 1, type: "tap", time: [136, 23, 24] },
+		{ id: 2, type: "tap", time: [136, 23, 24] },
+		{ id: 3, type: "tap", time: 137 },
+	];
+	assert.equal(playbackOriginBound(start), start);
+	assert.deepEqual(
+		collectHitSchedule(events, timing, start - 0.02, 1, new Set(), 0.1, 0.02, Infinity, start)
+			.map(({ event }) => event.id),
+		[3],
+	);
+	const records = events.map(event => ({ event, start: timing.beatToSeconds(event.time) }));
+	assert.deepEqual(
+		collectIndexedHitSchedule(records, start - 0.02, 1, new Set(), 0.1, 0.02, Infinity, start)
+			.map(({ event }) => event.id),
+		[3],
+	);
+	const scheduled = new Set();
+	markHitsBeforePlaybackOrigin(records, scheduled, start);
+	assert.deepEqual([...scheduled].sort((left, right) => left - right), [1, 2]);
 });
 
 test("playback rescheduling excludes events that are already in the past", () => {
