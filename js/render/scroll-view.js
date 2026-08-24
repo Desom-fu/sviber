@@ -20,6 +20,10 @@ import { eventClickSelectionMode } from "./selection.js";
 
 const DURATION_TYPES = TIMELINE_DURATION_TYPES;
 
+export function scrollPanTarget(startSeconds, pointerDeltaY, timeScale) {
+	return Number(startSeconds) + Number(pointerDeltaY) / Math.max(0.1, Number(timeScale) || 1);
+}
+
 function lowerBound(values, target) {
 	let low = 0;
 	let high = values.length;
@@ -423,15 +427,15 @@ export class ScrollView {
 				const current = this.surface.toLocal(moveEvent);
 				this.pointerMoved ||= Math.hypot(current.x - this.drag.start.x, current.y - this.drag.start.y) > 3;
 				if (!this.pointerMoved) return;
-				const delta = -(current.y - this.drag.start.y) / this.drag.timeScale;
-				this.callbacks.onScrollPan?.(this.drag.startSeconds + delta, false, this.drag);
+				const target = scrollPanTarget(this.drag.startSeconds, current.y - this.drag.start.y, this.drag.timeScale);
+				this.callbacks.onScrollPan?.(target, false, this.drag);
 			};
 			const up = upEvent => {
 				document.removeEventListener("pointermove", move);
 				document.removeEventListener("pointerup", up);
 				const current = this.surface.toLocal(upEvent);
-				const delta = -(current.y - this.drag.start.y) / this.drag.timeScale;
-				this.callbacks.onScrollPan?.(this.drag.startSeconds + delta, true, this.drag);
+				const target = scrollPanTarget(this.drag.startSeconds, current.y - this.drag.start.y, this.drag.timeScale);
+				this.callbacks.onScrollPan?.(target, true, this.drag);
 				this.drag = null;
 				this.requestRender();
 			};
@@ -457,6 +461,7 @@ export class ScrollView {
 				x: Math.min(this.drag.x, current.x), y: Math.min(this.drag.y, current.y),
 				width: Math.abs(current.x - this.drag.x), height: Math.abs(current.y - this.drag.y),
 			};
+			this.callbacks.onPreviewBoxSelect?.(this.#eventsInBox(this.drag.x, this.drag.y, current.x, current.y), this.drag.mode);
 			this.requestRender();
 		};
 		const up = upEvent => {
@@ -464,14 +469,13 @@ export class ScrollView {
 			document.removeEventListener("pointerup", up);
 			const current = this.surface.toLocal(upEvent);
 			if (this.pointerMoved) {
-				const x1 = Math.min(this.drag.x, current.x);
-				const x2 = Math.max(this.drag.x, current.x);
-				const y1 = Math.min(this.drag.y, current.y);
-				const y2 = Math.max(this.drag.y, current.y);
-				this.callbacks.onSelectEvents?.(this.#eventsInBox(x1, y1, x2, y2), this.drag.mode);
+				const ids = this.#eventsInBox(this.drag.x, this.drag.y, current.x, current.y);
+				if (this.callbacks.onBoxSelect) this.callbacks.onBoxSelect(ids, this.drag.mode);
+				else this.callbacks.onSelectEvents?.(ids, this.drag.mode);
 			}
 			this.drag = null;
 			this.selectionBox = null;
+			this.callbacks.onEndPreview?.();
 			this.requestRender();
 		};
 		document.addEventListener("pointermove", move);

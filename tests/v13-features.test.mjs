@@ -4,6 +4,7 @@ import test from "node:test";
 import { ChartModel } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/commands.js";
+import { scrollPanTarget } from "../js/render/scroll-view.js";
 
 test("bar lines drive rational beat lines and snapping", () => {
 	const timing = new TimingMap({ initialBpm: 120, barLines: [{ time: [1, 2, 3] }] });
@@ -234,6 +235,24 @@ test("v13 global main-field zoom and live-hosting lifecycle follow the prompt", 
 	assert.match(hosting, /this\.onStop\(\)/);
 	assert.match(timeline, /fillText\(line\.beat\.toString\(\)/);
 	assert.match(scrollView, /text: line\.beat\.toString\(\)/);
+});
+
+test("falling preview pans with the pointer and previews box selection", async () => {
+	const [scrollView, core] = await Promise.all([
+		readFile(new URL("../js/render/scroll-view.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
+	]);
+	assert.match(scrollView, /scrollPanTarget\(\s*this\.drag\.startSeconds,[\s\S]*?current\.y - this\.drag\.start\.y/);
+	assert.match(scrollView, /return Number\(startSeconds\) \+ Number\(pointerDeltaY\)/);
+	assert.match(scrollView, /onPreviewBoxSelect\?\.\(this\.#eventsInBox\(this\.drag\.x, this\.drag\.y, current\.x, current\.y\)/);
+	assert.match(scrollView, /onBoxSelect\(ids, this\.drag\.mode\)/);
+	assert.match(core, /onPreviewBoxSelect: \(ids, mode\) => this\.previewSelection\(ids, mode\)/);
+	assert.match(core, /onBoxSelect: \(ids, mode\) => this\.finishSelectionPreview\(ids, mode\)/);
+});
+
+test("falling preview maps downward pointer motion to forward time", () => {
+	assert.equal(scrollPanTarget(10, 25, 5), 15);
+	assert.equal(scrollPanTarget(10, -25, 5), 5);
 });
 
 test("v0.4.2 drops bgNote angle and avoids long-session full snapshots/refreshes", async () => {

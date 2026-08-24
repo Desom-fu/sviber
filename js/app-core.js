@@ -86,8 +86,8 @@ export class SviberAppCore {
 		this.stage = new StageView(document.getElementById("stage-surface"), this._stageCallbacks());
 		this.scrollView = new ScrollView(document.getElementById("scroll-surface"), {
 			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
-			onScrollPan: (seconds, final, drag) => this.panScrollView?.(seconds, final, drag),
-			getTimelineWidth: () => this.timeline.surface.width,
+			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode), onBoxSelect: (ids, mode) => this.finishSelectionPreview(ids, mode), onEndPreview: () => this.endInteractionPreview(),
+			onScrollPan: (seconds, final, drag) => this.panScrollView?.(seconds, final, drag), getTimelineWidth: () => this.timeline.surface.width,
 		});
 		this.inspectorPanel = new InspectorPanel({
 			i18n, tooltip: this.tooltip,
