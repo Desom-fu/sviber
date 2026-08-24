@@ -19,7 +19,7 @@ import {
 import { TimingMap } from "../js/core/timing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
-import { hitAudioTime } from "../js/app-playback-scheduling.js";
+import { hitAudioTime, playbackLateTolerance } from "../js/app-playback-scheduling.js";
 
 function wavBytes(sampleRate = 8000, sampleCount = 800) {
 	const buffer = new ArrayBuffer(44 + sampleCount * 2);
@@ -207,6 +207,12 @@ test("hit scheduling looks ahead in wall-clock time and excludes bgNote", () => 
 test("hit audio times use the Web Audio clock without replay delay", () => {
 	assert.equal(hitAudioTime({ context: { currentTime: 4 } }, 0.025), 4.025);
 	assert.equal(hitAudioTime({ context: null }, 0.025), null);
+});
+
+test("playback late tolerance never crosses the current playback start", () => {
+	assert.ok(Math.abs(playbackLateTolerance(10.01, 0.02, 10) - 0.01) < 1e-12);
+	assert.equal(playbackLateTolerance(10.03, 0.02, 10), 0.02);
+	assert.ok(Math.abs(playbackLateTolerance(9.99, 0.02, 10, -1) - 0.01) < 1e-12);
 });
 
 test("playback rescheduling excludes events that are already in the past", () => {

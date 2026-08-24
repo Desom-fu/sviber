@@ -2,7 +2,7 @@ import { i18n } from "./i18n.js"; import { CommandRegistry, isEditableTarget } f
 import { uniqueChartFilename } from "./core/project.js"; import { History } from "./core/history.js"; import { Rational } from "./core/rational.js"; import { TimingMap } from "./core/timing.js";
 import { AudioPlayer } from "./audio/player.js";
 import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule, collectIndexedHoldReleaseSchedule, collectReverseHitSchedule, collectIndexedReverseHitSchedule, collectMetronomeSchedule } from "./audio/scheduler.js";
-import { hitAudioTime } from "./app-playback-scheduling.js"; import { TimelineView } from "./render/timeline.js";
+import { hitAudioTime, playbackLateTolerance } from "./app-playback-scheduling.js"; import { TimelineView } from "./render/timeline.js";
 import { StageView } from "./render/stage.js";
 import { ScrollView } from "./render/scroll-view.js";
 import { ChartRenderIndex } from "./render/chart-index.js";
@@ -715,7 +715,7 @@ export class SviberAppCore {
 				visibleRangeBeginning: editor.visibleRangeBeginning,
 				visibleRangeEnd: editor.visibleRangeEnd,
 			};
-			this.scheduledHitIds.clear();
+			this.playbackOrigin.scheduleStartTime = time; this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
 			this._scheduleHits(time, 0);
@@ -792,21 +792,21 @@ export class SviberAppCore {
 	}
 	_scheduleHits(current, lateTolerance = 0.02) {
 		if (this.playbackScheduleInvalidated && lateTolerance !== 0) return;
-		const reverse = this.audio.direction < 0;
+		const reverse = this.audio.direction < 0; const scheduleTolerance = playbackLateTolerance(current, lateTolerance, this.playbackOrigin?.scheduleStartTime, this.audio.direction);
 		const playbackEditor = this.model?.editor || {};
 		const loopRange = this.audio.loopRange;
 		const loopBoundary = loopRange ? loopRange[reverse ? 0 : 1] : reverse ? -Infinity : Infinity;
 		const schedule = reverse
 			? this.renderIndex
 				? collectIndexedReverseHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
-					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
+					this.scheduledHitIds, undefined, scheduleTolerance, loopBoundary)
 				: collectReverseHitSchedule(this.model.allEvents({ includeGroups: false }), this.timing(), current, this.audio.rate,
-					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
+					this.scheduledHitIds, undefined, scheduleTolerance, loopBoundary)
 			: this.renderIndex
 				? collectIndexedHitSchedule(this.renderIndex.hitRecords, current, this.audio.rate,
-					this.scheduledHitIds, undefined, lateTolerance, loopBoundary)
+					this.scheduledHitIds, undefined, scheduleTolerance, loopBoundary)
 				: collectHitSchedule(this.model.allEvents({ includeGroups: false }), this.timing(), current, this.audio.rate,
-					this.scheduledHitIds, undefined, lateTolerance, loopBoundary);
+				this.scheduledHitIds, undefined, scheduleTolerance, loopBoundary);
 		for (const { event, delay } of schedule) {
 			this.scheduledHitIds.add(event.id);
 			if (playbackEditor.playSe !== false) { const audioTime = hitAudioTime(this.audio, delay); void (audioTime != null ? this.audio.playHitAt(event.type, audioTime) : this.audio.playHit(event.type, delay)); }
@@ -814,9 +814,9 @@ export class SviberAppCore {
 		}
 		const releases = reverse ? [] : this.renderIndex
 			? collectIndexedHoldReleaseSchedule(this.renderIndex.holdReleaseRecords,
-				current, this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance, loopBoundary)
+				current, this.audio.rate, this.scheduledHoldReleaseIds, undefined, scheduleTolerance, loopBoundary)
 			: collectHoldReleaseSchedule(this.model.allEvents({ includeGroups: false }), this.timing(), current,
-				this.audio.rate, this.scheduledHoldReleaseIds, undefined, lateTolerance, loopBoundary);
+				this.audio.rate, this.scheduledHoldReleaseIds, undefined, scheduleTolerance, loopBoundary);
 		for (const { event, delay } of releases) {
 			this.scheduledHoldReleaseIds.add(event.id);
 			this.stage.triggerHit(event, delay);

@@ -1,6 +1,6 @@
 # Sviber v16 实现说明
 
-本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录 v0.7.4 的代码、配置、测试和帮助文档改动。
+本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录 v0.7.5 的代码、配置、测试和帮助文档改动。
 
 ## 文件菜单与生命周期
 
@@ -39,7 +39,7 @@
 
 - `json/i18n.en-US.json`、`json/i18n.zh-CN.json` 增加关闭、加入工程、删除磁盘文件、工程桌面限制及相关错误/提示文本。
 - `docs/index.html` 的中英文工程、文件菜单、媒体路径、关卡导出和保存格式章节已与 v16 行为同步；`README.md` 与 `README.zh-CN.md` 明确网页仅支持独立谱面。
-- `package.json`、`package-lock.json` 更新为 `0.7.4`；Service Worker 缓存版本更新为 `sviber-v074`。
+- `package.json`、`package-lock.json` 更新为 `0.7.5`；Service Worker 缓存版本更新为 `sviber-v075`。
 
 ## v0.7.1 回归修复
 
@@ -62,6 +62,11 @@
 
 - 播放启动时使用零迟到容差调度音效和命中特效，避免把起播时间之前的音符误判为迟到事件；运行中的时间帧仍保留迟到补偿，保证正常播放调度不受影响。
 - `tests/v8-features.test.mjs` 增加播放启动调度接线回归测试，`tests/audio-platform.test.mjs` 已覆盖零迟到容差不会调度过去事件。
+
+## v0.7.5 回归修复
+
+- 修正播放首帧仍使用迟到补偿导致的二次漏播：调度器记录本次播放起点，并将正向播放的迟到窗口限制在起点之后；因此起播点前的音符不会在首帧或后续帧触发音效和命中特效。
+- `js/app-playback-scheduling.js` 提供方向感知的迟到容差限制；`tests/audio-platform.test.mjs` 与 `tests/v8-features.test.mjs` 覆盖容差计算和实际 `_scheduleHits` 过滤结果。
 
 ## 验证覆盖
 

@@ -295,7 +295,26 @@ test("invalidated playback skips stale ticks but permits the zero-tolerance rebu
 
 test("starting playback schedules only events at or after the exact start time", async () => {
 	const core = await readFile(new URL("../js/app-core.js", import.meta.url), "utf8");
-	assert.match(core, /this\.audio\.addEventListener\("play",[\s\S]*?this\._scheduleHits\(time, 0\)/);
+	assert.match(core, /this\.playbackOrigin\.scheduleStartTime = time/);
+	assert.match(core, /playbackLateTolerance\(current, lateTolerance,[\s\S]*?scheduleTolerance/);
+});
+
+test("playback scheduling never backfills before the playback epoch", () => {
+	const oldEvent = { id: 1, type: "tap" };
+	const currentEvent = { id: 2, type: "tap" };
+	const hitCalls = [];
+	const app = {
+		playbackScheduleInvalidated: false,
+		playbackOrigin: { scheduleStartTime: 10 },
+		renderIndex: { hitRecords: [{ event: oldEvent, start: 9.99 }, { event: currentEvent, start: 10.01 }], holdReleaseRecords: [] },
+		audio: { direction: 1, rate: 1, loopRange: null, playHit: (...args) => hitCalls.push(args) },
+		model: { editor: {}, allEvents() { return []; } },
+		stage: { triggerHit() {} },
+		scheduledHitIds: new Set(), scheduledHoldReleaseIds: new Set(), scheduledMetronomeBeats: new Set(),
+	};
+	SviberAppCore.prototype._scheduleHits.call(app, 10.016);
+	assert.deepEqual(hitCalls, [["tap", 0]]);
+	assert.deepEqual([...app.scheduledHitIds], [2]);
 });
 
 test("invalidated lightweight refresh rebuilds the hit schedule", () => {
