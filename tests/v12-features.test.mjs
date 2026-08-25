@@ -140,14 +140,13 @@ test("timeline channel offset round-trips and clamps to visible channels", () =>
 	assert.equal(clamped.editor.timelineChannelOffset, 0);
 });
 
-test("timeline scrollbar track jump seeks current time and moves the visible range", () => {
+function scrollbarApp(editor) {
 	const App = withEventEditing(class {});
 	const app = new App();
 	app.model = ChartModel.createDefault({
 		timing: { offset: 0, initialBpm: 120, bpmChanges: [], barLines: [] },
-		editor: { currentTime: [4, 0, 1], timeSnapped: true, subdivision: 4, visibleRangeBeginning: 1, visibleRangeEnd: 3 },
+		editor: { timeSnapped: true, subdivision: 4, ...editor },
 	});
-	app.currentSeconds = () => 2;
 	app.timing = () => new TimingMap(app.model.timing);
 	app.timeBounds = () => [0, 60];
 	app.audio = { playing: false, seek() {} };
@@ -155,10 +154,25 @@ test("timeline scrollbar track jump seeks current time and moves the visible ran
 	app.stage = { requestRender() {} };
 	app.scrollView = { requestRender() {} };
 	app.refreshInteractionPreview = () => {};
+	return app;
+}
+
+test("timeline scrollbar track jump seeks current time and moves the visible range", () => {
+	const app = scrollbarApp({ currentTime: [4, 0, 1], visibleRangeBeginning: 1, visibleRangeEnd: 3 });
+	app.currentSeconds = () => 2;
 	app.seekScrollbar(10);
 	assert.equal(app.model.editor.visibleRangeBeginning, 9);
 	assert.equal(app.model.editor.visibleRangeEnd, 11);
 	assert.deepEqual(app.model.editor.currentTime, [20, 0, 1]);
+});
+
+test("timeline scrollbar track jump moves only the visible range when current time is outside it", () => {
+	const app = scrollbarApp({ currentTime: [4, 0, 1], visibleRangeBeginning: 10, visibleRangeEnd: 12 });
+	app.currentSeconds = () => 2;
+	app.seekScrollbar(20);
+	assert.equal(app.model.editor.visibleRangeBeginning, 19);
+	assert.equal(app.model.editor.visibleRangeEnd, 21);
+	assert.deepEqual(app.model.editor.currentTime, [4, 0, 1]);
 });
 
 test("timeline zoom is centered on current time after zooming to the full range", () => {

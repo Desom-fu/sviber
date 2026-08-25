@@ -57,10 +57,12 @@ export const withViewControls = Base => class extends Base {
 		const current = this.currentSeconds();
 		const beginning = Number(editor.visibleRangeBeginning);
 		const end = Number(editor.visibleRangeEnd);
-		this.seekProgress({
-			seconds, followRange: true, beginning, end,
-			startSeconds: current >= beginning && current <= end ? current : (beginning + end) / 2,
-		});
+		if (current >= beginning && current <= end) {
+			this.seekProgress({ seconds, followRange: true, beginning, end, startSeconds: current });
+			return;
+		}
+		const span = Math.max(0.001, end - beginning);
+		this.setVisibleRange(seconds - span / 2, seconds + span / 2, true);
 	}
 	panScrollView(seconds, final, drag = {}) {
 		const target = Number(seconds);
