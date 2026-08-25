@@ -423,10 +423,16 @@ test("free transform follows v12 degenerate-box and modifier rules", () => {
 	app.exitModes = () => {};
 	app.refresh = () => {};
 	app.model = ChartModel.createDefault({ events: [
+		{ id: 1, type: "tap", selected: true, x: 0, y: 0 },
+	] });
+	assert.equal(app.startFreeTransform(), false);
+	app.model = ChartModel.createDefault({ events: [
 		{ id: 1, type: "tap", selected: true, x: 0, y: -10 },
 		{ id: 2, type: "tap", selected: true, x: 0, y: 10 },
 	] });
-	assert.equal(app.startFreeTransform(), false);
+	assert.equal(app.startFreeTransform(), true);
+	assert.deepEqual(app.freeTransform.bounds, { minX: -0.5, maxX: 0.5, minY: -10, maxY: 10 });
+	app.cancelFreeTransform();
 	app.model = ChartModel.createDefault({ events: [
 		{ id: 1, type: "tap", selected: true, x: -10, y: -10 },
 		{ id: 2, type: "tap", selected: true, x: 10, y: 10 },
@@ -482,11 +488,12 @@ test("free transform recursively includes attached descendants of a selected gro
 	assert.notDeepEqual(app.model.snappees[0].transformation, before);
 });
 
-test("selected groups can free-transform a line of events while ordinary degenerate selections stay blocked", () => {
+test("line-shaped note selections and groups can free-transform while a single note stays blocked", () => {
 	const EditingApp = withEventEditing(class {});
 	const app = new EditingApp();
 	app.refresh = () => {};
 	app.exitModes = () => {};
+	app.commit = (_label, mutation) => mutation(app.model);
 	app.model = ChartModel.createDefault({ events: [{
 		id: 10, type: "group", channel: 0, time: [0, 0, 1], x: 0, y: 0, selected: true,
 		events: [
@@ -501,7 +508,50 @@ test("selected groups can free-transform a line of events while ordinary degener
 		{ id: 20, type: "tap", channel: 0, time: [0, 0, 1], x: 0, y: -20, selected: true },
 		{ id: 21, type: "tap", channel: 0, time: [1, 0, 1], x: 0, y: 20, selected: true },
 	] });
+	assert.equal(app.startFreeTransform(), true);
+	assert.deepEqual(app.freeTransform.bounds, { minX: -0.5, maxX: 0.5, minY: -20, maxY: 20 });
+	app.cancelFreeTransform();
+	app.model = ChartModel.createDefault({ events: [
+		{ id: 30, type: "tap", channel: 0, time: [0, 0, 1], x: 0, y: 0, selected: true },
+	] });
 	assert.equal(app.startFreeTransform(), false);
+});
+
+test("detached collinear notes can still free-transform", () => {
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	app.refresh = () => {};
+	app.exitModes = () => {};
+	app.commit = (_label, mutation) => mutation(app.model);
+	app.model = ChartModel.createDefault({
+		snappees: [{
+			id: 0, type: "rectangularMesh", name: "Playfield", color: "#00e0ad",
+			transformation: [1, 0, 0, 1, 0, 0], active: true,
+			topLeftX: -20, topLeftY: 20, bottomRightX: 20, bottomRightY: -20,
+			horizontalTiles: 4, verticalTiles: 2,
+		}],
+		events: [
+			{ id: 1, type: "tap", selected: true, attached: true, snappee: 0, snapPoint: [0, 0],
+				channel: 0, time: [0, 0, 1] },
+			{ id: 2, type: "tap", selected: true, attached: true, snappee: 0, snapPoint: [1, 0],
+				channel: 0, time: [1, 0, 1] },
+			{ id: 3, type: "tap", selected: true, attached: true, snappee: 0, snapPoint: [2, 0],
+				channel: 0, time: [2, 0, 1] },
+			{ id: 4, type: "tap", selected: true, attached: true, snappee: 0, snapPoint: [3, 0],
+				channel: 0, time: [3, 0, 1] },
+		],
+	});
+	assert.equal(app.startFreeTransform(), true);
+	app.cancelFreeTransform();
+	app.detachSelected();
+	for (const event of app.model.allEvents()) {
+		assert.equal(event.attached, false);
+		assert.equal(event.y, 20);
+	}
+	assert.equal(new Set(app.model.allEvents().map(event => event.x)).size, 4);
+	assert.equal(app.startFreeTransform(), true);
+	assert.equal(app.freeTransform.bounds.minY, 19.5);
+	assert.equal(app.freeTransform.bounds.maxY, 20.5);
 });
 
 test("free transform translate and scale clamp to the chart boundary", () => {

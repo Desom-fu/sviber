@@ -161,11 +161,17 @@ export const withFreeTransform = Base => class extends Base {
 		const bounds = this.transformSelectionBounds();
 		if (!bounds) return false;
 		const rawPoints = this._freeTransformAnchorPoints();
+		if (!rawPoints.length) return false;
 		const xs = rawPoints.map(point => point.x);
 		const ys = rawPoints.map(point => point.y);
-		const hasSelectedGroup = this.model.allEvents().some(event => event.selected && event.type === "group");
-		if (!rawPoints.length || !hasSelectedGroup && (Math.max(...xs) - Math.min(...xs) <= 1e-9
-			|| Math.max(...ys) - Math.min(...ys) <= 1e-9)) return false;
+		const degenerate = Math.max(...xs) - Math.min(...xs) <= 1e-9
+			|| Math.max(...ys) - Math.min(...ys) <= 1e-9;
+		if (degenerate) {
+			const hasSelectedGroup = this.model.allEvents().some(event => event.selected && event.type === "group");
+			const noteCount = this.transformationTargets().affectedEvents
+				.filter(event => event.type !== "group").length;
+			if (!hasSelectedGroup && noteCount < 2) return false;
+		}
 		const anchorLocal = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 };
 		this.freeTransform = {
 			base: this.model.snapshot(), bounds, anchor: { ...anchorLocal }, anchorLocal,
