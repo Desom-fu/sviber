@@ -140,6 +140,34 @@ test("timeline channel offset round-trips and clamps to visible channels", () =>
 	assert.equal(clamped.editor.timelineChannelOffset, 0);
 });
 
+test("timeline scrollbar track jump seeks current time and moves the visible range", () => {
+	const App = withEventEditing(class {});
+	const app = new App();
+	app.model = ChartModel.createDefault({
+		timing: { offset: 0, initialBpm: 120, bpmChanges: [], barLines: [] },
+		editor: { currentTime: [4, 0, 1], timeSnapped: true, subdivision: 4, visibleRangeBeginning: 1, visibleRangeEnd: 3 },
+	});
+	app.currentSeconds = () => 2;
+	app.timing = () => new TimingMap(app.model.timing);
+	app.timeBounds = () => [0, 60];
+	app.audio = { playing: false, seek() {} };
+	app.timeline = { requestRender() {} };
+	app.stage = { requestRender() {} };
+	app.scrollView = { requestRender() {} };
+	app.refreshInteractionPreview = () => {};
+	app.seekScrollbar(10);
+	assert.equal(app.model.editor.visibleRangeBeginning, 9);
+	assert.equal(app.model.editor.visibleRangeEnd, 11);
+	assert.deepEqual(app.model.editor.currentTime, [20, 0, 1]);
+});
+
+test("timeline scrollbar track click jumps instead of paging", async () => {
+	const source = await readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8");
+	assert.match(source, /#scrollSeek\(point\.x, hit, true\)/);
+	assert.match(source, /onScrollbarJump\?\.\(seconds\)/);
+	assert.doesNotMatch(source, /onPageVisibleRange\?\.\(direction\)/);
+});
+
 test("switching clean difficulties does not create a dirty project", () => {
 	const app = Object.create(SviberAppCore.prototype);
 	const first = ChartModel.createDefault({ metadata: { title: "Project", artist: "Artist", difficultyName: "Easy" } });

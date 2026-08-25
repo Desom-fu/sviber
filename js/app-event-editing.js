@@ -53,6 +53,7 @@ const withEventEditingBase = Base => class extends Base {
 			onEndPreview: () => this.endInteractionPreview(),
 			onVisibleRange: (beginning, end) => this.setVisibleRange(beginning, end),
 			onPageVisibleRange: direction => this.pageVisibleRange(direction),
+			onScrollbarJump: seconds => this.seekScrollbar(seconds),
 			onEditBpm: index => void this.showBpmDialog(index),
 			onMainFieldZoom: factor => this.setMainFieldZoom(factor),
 			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey),

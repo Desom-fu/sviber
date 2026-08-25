@@ -664,7 +664,7 @@ export class TimelineView {
 		this.hitRegions.push({ type: "scroll-range", x: Math.min(beginningX, endingX), y: rectangle.y + 5,
 			width: Math.abs(endingX - beginningX), height: rectangle.height - 10, bounds, rectangle });
 		this.hitRegions.push({ type: "scroll-track", x: rectangle.x, y: rectangle.y,
-			width: rectangle.width, height: rectangle.height, bounds, rectangle, beginningX, endingX });
+			width: rectangle.width, height: rectangle.height, bounds, rectangle });
 	}
 
 	#drawChannelScrollbar(context, layout, project) {
@@ -776,8 +776,7 @@ export class TimelineView {
 			};
 		} else if (hit?.type?.startsWith("scroll-")) {
 			if (hit.type === "scroll-track") {
-				const direction = point.x < Math.min(hit.beginningX, hit.endingX) ? -1 : 1;
-				this.callbacks.onPageVisibleRange?.(direction);
+				this.#scrollSeek(point.x, hit, true);
 				return;
 			}
 			this.drag = { type: hit.type, hit, start: point,
@@ -930,9 +929,10 @@ export class TimelineView {
 		(this.callbacks.onPreviewSeekBeat || this.callbacks.onSeekBeat)?.(beat.toJSON(), null, false);
 	}
 
-	#scrollSeek(x, hit) {
-		const progress = Math.max(0, Math.min(1, (x - hit.rectangle.x) / hit.rectangle.width));
+	#scrollSeek(x, hit, jumpRange = false) {
+		const progress = Math.max(0, Math.min(1, (x - hit.rectangle.x) / Math.max(1, hit.rectangle.width)));
 		const seconds = hit.bounds[0] + progress * (hit.bounds[1] - hit.bounds[0]);
+		if (jumpRange) { this.callbacks.onScrollbarJump?.(seconds); return; }
 		const project = projectState(this.state);
 		const beat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
 		(this.callbacks.onPreviewSeekBeat || this.callbacks.onSeekBeat)?.(beat.toJSON(), null, false);

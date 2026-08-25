@@ -52,6 +52,16 @@ export const withViewControls = Base => class extends Base {
 		else { editor.timeSnapped = true; editor.currentTime = this.timing().secondsToSnappedBeat(target, editor.subdivision).toJSON(); this.audio.seek(this.currentSeconds()); }
 		this.refreshInteractionPreview?.({ rebuildIndex: false });
 	}
+	seekScrollbar(seconds) {
+		const editor = this.model.editor;
+		const current = this.currentSeconds();
+		const beginning = Number(editor.visibleRangeBeginning);
+		const end = Number(editor.visibleRangeEnd);
+		this.seekProgress({
+			seconds, followRange: true, beginning, end,
+			startSeconds: current >= beginning && current <= end ? current : (beginning + end) / 2,
+		});
+	}
 	panScrollView(seconds, final, drag = {}) {
 		const target = Number(seconds);
 		if (!Number.isFinite(target)) return;
