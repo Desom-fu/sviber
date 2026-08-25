@@ -141,4 +141,24 @@ searchClear.addEventListener("click", () => {
 	applySearch();
 	searchInput.focus();
 });
+
+function scrollToHash() {
+	const id = decodeURIComponent(location.hash.replace(/^#/, ""));
+	if (!id) return;
+	const target = document.getElementById(id);
+	if (target) target.scrollIntoView({ behavior: "auto", block: "start" });
+}
+
+document.addEventListener("click", event => {
+	const link = event.target.closest("a[href^='#']");
+	if (!link) return;
+	const id = decodeURIComponent(link.hash.replace(/^#/, ""));
+	const target = id && document.getElementById(id);
+	if (!target) return;
+	event.preventDefault();
+	if (location.hash !== link.hash) history.pushState(null, "", link.hash);
+	target.scrollIntoView({ behavior: "smooth", block: "start" });
+});
+
 setLanguage(requestedLanguage());
+scrollToHash();

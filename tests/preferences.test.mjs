@@ -117,19 +117,28 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 });
 
 test("preferences dialog uses Sunniesnow volume sliders and the manual does not page-scroll sideways", async () => {
-	const [workflows, player, manual, styles] = await Promise.all([
+	const [workflows, player, manual, styles, docsScript] = await Promise.all([
 		readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/audio/player.js", import.meta.url), "utf8"),
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.css", import.meta.url), "utf8"),
+		readFile(new URL("../docs/docs.js", import.meta.url), "utf8"),
 	]);
 	assert.match(workflows, /id: "seVolume", type: "slider"[\s\S]*min: 0, max: 2, step: 0\.05/);
 	assert.match(workflows, /id: "musicVolume", type: "slider"[\s\S]*min: 0, max: 2, step: 0\.05/);
 	assert.match(player, /Math\.max\(0, Math\.min\(2, parsed\)\)/);
 	assert.match(manual, /range slider from 0 to 2 in steps of 0\.05/);
 	assert.match(manual, /0 到 2 的滑块，步进 0\.05/);
-	assert.match(styles, /overflow-x:\s*hidden/);
+	assert.match(styles, /html \{[^}]*overflow:\s*hidden/);
+	assert.match(styles, /body \{[^}]*overflow:\s*hidden/);
+	assert.match(styles, /body \{[^}]*flex-direction:\s*column/);
+	assert.match(styles, /\.contents \{[^}]*overflow:\s*auto/);
+	assert.match(styles, /\.manual \{[^}]*overflow-x:\s*hidden/);
+	assert.match(styles, /\.manual \{[^}]*overflow-y:\s*auto/);
+	assert.match(styles, /\.manual \{[^}]*min-width:\s*0/);
 	assert.match(styles, /table-layout:\s*fixed/);
-	assert.match(styles, /\.manual \{[\s\S]*min-width:\s*0/);
 	assert.doesNotMatch(styles, /td \{ min-width: 110px/);
+	assert.doesNotMatch(styles, /html \{[^}]*overflow-x:\s*hidden/);
+	assert.match(docsScript, /function scrollToHash/);
+	assert.match(docsScript, /scrollIntoView/);
 });

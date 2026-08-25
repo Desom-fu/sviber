@@ -59,6 +59,34 @@ export async function runPreferenceAndLicenseChecks(browser, baseUrl, outputDire
 			theme: document.documentElement.dataset.theme,
 			page: getComputedStyle(document.documentElement).getPropertyValue("--page").trim(),
 		})), { theme: "dark", page: "#151719" });
+		const docsChrome = await docsPage.evaluate(() => {
+			const header = document.querySelector(".doc-header");
+			const nav = document.querySelector(".contents");
+			const manual = document.querySelector(".manual");
+			const before = {
+				headerTop: header.getBoundingClientRect().top,
+				navTop: nav.getBoundingClientRect().top,
+				navLeft: nav.getBoundingClientRect().left,
+			};
+			manual.scrollTop = Math.min(1400, Math.max(0, manual.scrollHeight - manual.clientHeight));
+			return {
+				before,
+				after: {
+					headerTop: header.getBoundingClientRect().top,
+					navTop: nav.getBoundingClientRect().top,
+					navLeft: nav.getBoundingClientRect().left,
+				},
+				manualScroll: manual.scrollTop,
+				pageScroll: window.scrollY,
+				pageOverflowX: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+			};
+		});
+		assert.equal(docsChrome.after.headerTop, docsChrome.before.headerTop);
+		assert.equal(docsChrome.after.navTop, docsChrome.before.navTop);
+		assert.equal(docsChrome.after.navLeft, docsChrome.before.navLeft);
+		assert.ok(docsChrome.manualScroll > 100, `manual did not scroll: ${docsChrome.manualScroll}`);
+		assert.equal(docsChrome.pageScroll, 0);
+		assert.equal(docsChrome.pageOverflowX, false);
 		assert.deepEqual(await macroPage.evaluate(() => ({
 			theme: document.documentElement.dataset.theme,
 			surface: getComputedStyle(document.documentElement).getPropertyValue("--surface").trim(),
