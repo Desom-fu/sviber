@@ -18,6 +18,8 @@ import { toggledCreationMode } from "../js/app-history-commands.js";
 import { eventClickSelectionMode } from "../js/render/selection.js";
 import { flickAngleChanges } from "../js/render/flick-angle.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../js/commands.js";
+import { TIMELINE_EVENT_COLORS } from "../js/render/timeline-helpers.js";
+import { drawClipThumbnail } from "../js/panels.js";
 import { HelpController } from "../js/help.js";
 import { I18n } from "../js/i18n.js";
 
@@ -49,8 +51,44 @@ test("clip thumbnails resolve attached content and use the dedicated five-action
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 	]);
 	assert.match(panels, /drawClipThumbnail[\s\S]*resolveAttachedPosition\(event, data\?\.snappees/);
+	assert.match(panels, /drawTimelineEventIcon\(context, event, 0, 0, TIMELINE_EVENT_COLORS\[event\.type\]/);
 	assert.match(styles, /\.snappee-item\.clip-item\s*\{[\s\S]*grid-template-columns:\s*42px minmax\(0, 1fr\) repeat\(5, 25px\)/);
 	assert.match(styles, /\.snappee-item\.clip-item \.snappee-name\s*\{[^}]*padding-inline-start:\s*8px/);
+});
+
+test("clip thumbnails draw timeline icons and colors for each note type", () => {
+	const fills = [];
+	const strokes = [];
+	const context = {
+		fillStyle: "",
+		strokeStyle: "",
+		save() {},
+		restore() {},
+		scale() {},
+		translate() {},
+		fillRect() {},
+		beginPath() {},
+		arc() {},
+		moveTo() {},
+		lineTo() {},
+		closePath() {},
+		fill() { fills.push(this.fillStyle); },
+		stroke() { strokes.push(this.strokeStyle); },
+		fillText() {},
+	};
+	const canvas = { style: {}, getContext: () => context };
+	drawClipThumbnail(canvas, {
+		events: [
+			{ type: "tap", x: 0, y: 0 },
+			{ type: "hold", x: 20, y: 0 },
+			{ type: "drag", x: 40, y: 0 },
+			{ type: "flick", x: 0, y: 20 },
+		],
+	});
+	assert.ok(fills.includes(TIMELINE_EVENT_COLORS.tap));
+	assert.ok(fills.includes(TIMELINE_EVENT_COLORS.hold));
+	assert.ok(fills.includes(TIMELINE_EVENT_COLORS.flick));
+	assert.ok(strokes.includes(TIMELINE_EVENT_COLORS.drag));
 });
 
 test("live reload uses the sscharter WebSocket handshake contract", async () => {

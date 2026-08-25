@@ -1,6 +1,6 @@
 # Sviber v16 实现说明
 
-本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录至 v0.7.10 的代码、配置、测试和帮助文档改动。
+本文逐项对应 `PROMPT-v15.md` 与 `PROMPT-v16.md` 的新增/修改内容，记录至 v0.7.11 的代码、配置、测试和帮助文档改动。
 
 ## 文件菜单与生命周期
 
@@ -39,7 +39,7 @@
 
 - `json/i18n.en-US.json`、`json/i18n.zh-CN.json` 增加关闭、加入工程、删除磁盘文件、工程桌面限制及相关错误/提示文本。
 - `docs/index.html` 的中英文工程、文件菜单、媒体路径、关卡导出和保存格式章节已与 v16 行为同步；`README.md` 与 `README.zh-CN.md` 明确网页仅支持独立谱面。
-- `package.json`、`package-lock.json` 更新为 `0.7.10`；Service Worker 缓存版本更新为 `sviber-v0710`。
+- `package.json`、`package-lock.json` 更新为 `0.7.11`；Service Worker 缓存版本更新为 `sviber-v0711`。
 
 ## v0.7.1 回归修复
 
@@ -94,6 +94,11 @@
 
 - 历史视图已保存时间条可见范围，但未保存时间轴通道纵向偏移。撤回/重做时横向拍数会回去，上下滚动却停在后来的位置。`timelineChannelOffset` 现在随视图一起保存和恢复。
 - `tests/history-regressions.test.mjs` 覆盖撤回后通道纵向偏移回到上一次摆放时的位置。
+
+## v0.7.11 回归修复
+
+- 片段缩略图原先把所有事件画成同色圆点。现在使用时间轴同一套 `drawTimelineEventIcon` 和颜色，tap/hold/drag/flick 及背景类事件与时间轴一致。
+- `tests/v12-features.test.mjs` 覆盖缩略图按种类使用时间轴图标和颜色。
 
 ## 验证覆盖
 

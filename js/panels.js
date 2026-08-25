@@ -1,6 +1,7 @@
 import { Rational } from "./core/rational.js";
 import { eventTime } from "./core/grouping.js";
 import { AFFINE_MATRIX_GRID, resolveAttachedPosition, sampleSnappee } from "./core/geometry.js";
+import { TIMELINE_EVENT_COLORS, drawTimelineEventIcon } from "./render/timeline-helpers.js";
 
 const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
 const DURATION_TYPES = new Set(["hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram", "comment"]);
@@ -267,7 +268,7 @@ function setControlHidden(control, hidden) {
 	return control;
 }
 
-function drawClipThumbnail(canvas, data, size = 42) {
+export function drawClipThumbnail(canvas, data, size = 42) {
 	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
 	canvas.width = size * ratio;
 	canvas.height = size * ratio;
@@ -295,15 +296,15 @@ function drawClipThumbnail(canvas, data, size = 42) {
 	const span = Math.max(maxX - minX, maxY - minY, 1);
 	const centerX = (minX + maxX) / 2;
 	const centerY = (minY + maxY) / 2;
-	context.strokeStyle = "#d5dade";
-	context.fillStyle = "#50c8bd";
-	context.lineWidth = 1;
+	const iconScale = size / 72;
 	for (const { event, position } of events) {
 		const x = size / 2 + (position.x - centerX) / span * (size - 10);
 		const y = size / 2 - (position.y - centerY) / span * (size - 10);
-		context.beginPath();
-		context.arc(x, y, Math.max(1.5, size / 14), 0, Math.PI * 2);
-		context.fill();
+		context.save();
+		context.translate(x, y);
+		context.scale(iconScale, iconScale);
+		drawTimelineEventIcon(context, event, 0, 0, TIMELINE_EVENT_COLORS[event.type] || "#d5dade");
+		context.restore();
 	}
 }
 
