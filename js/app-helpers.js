@@ -34,15 +34,14 @@ function preferenceChoice(value, choices, fallback) {
 
 function normalizePreferences(source = {}) {
 	const noteSpeed = Number(source.noteSpeed);
-	const volume = (value, fallback) => Number.isFinite(Number(value))
-		? Math.max(0, Math.min(1, Number(value))) : fallback;
+	const finiteNumber = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 	const autoSaveInterval = Number(source.autoSaveInterval);
 	return {
 		theme: preferenceChoice(source.theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme),
 		language: preferenceChoice(source.language, ["system", "en-US", "zh-CN"], DEFAULT_PREFERENCES.language),
 		noteSpeed: noteSpeed > 0 ? noteSpeed : DEFAULT_PREFERENCES.noteSpeed,
-		seVolume: volume(source.seVolume, DEFAULT_PREFERENCES.seVolume),
-		musicVolume: volume(source.musicVolume, DEFAULT_PREFERENCES.musicVolume),
+		seVolume: finiteNumber(source.seVolume, DEFAULT_PREFERENCES.seVolume),
+		musicVolume: finiteNumber(source.musicVolume, DEFAULT_PREFERENCES.musicVolume),
 		autoSaveInterval: Number.isFinite(autoSaveInterval) && autoSaveInterval >= 0
 			? autoSaveInterval : DEFAULT_PREFERENCES.autoSaveInterval,
 		liveHostingAddress: String(source.liveHostingAddress || DEFAULT_PREFERENCES.liveHostingAddress),

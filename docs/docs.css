@@ -53,12 +53,16 @@
 html {
 	scroll-behavior: smooth;
 	background: var(--page);
+	overflow-x: hidden;
+	max-width: 100%;
 }
 
 body {
 	margin: 0;
 	background: var(--page);
 	color: var(--text);
+	overflow-x: hidden;
+	max-width: 100%;
 }
 
 button,
@@ -165,8 +169,11 @@ select {
 
 .doc-layout {
 	display: grid;
-	grid-template-columns: 260px minmax(0, 1fr);
+	grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+	width: 100%;
+	max-width: 100%;
 	min-height: calc(100vh - 48px);
+	overflow-x: hidden;
 }
 
 .contents {
@@ -208,8 +215,11 @@ select {
 }
 
 .manual {
-	width: min(1040px, 100%);
-	padding: 34px clamp(24px, 5vw, 64px) 80px;
+	min-width: 0;
+	width: 100%;
+	max-width: 100%;
+	padding: 34px clamp(16px, 3vw, 48px) 80px;
+	overflow-wrap: anywhere;
 }
 
 article[hidden] { display: none; }
@@ -265,17 +275,25 @@ kbd {
 	font: 0.92em "Cascadia Code", Consolas, monospace;
 }
 
-code { padding: 1px 4px; }
+code { padding: 1px 4px; overflow-wrap: anywhere; word-break: break-word; }
 
 kbd {
 	padding: 1px 5px;
 	box-shadow: inset 0 -1px var(--border);
 }
 
+pre {
+	max-width: 100%;
+	overflow-wrap: anywhere;
+	white-space: pre-wrap;
+}
+
 table {
 	width: 100%;
+	max-width: 100%;
 	margin: 10px 0 22px;
 	border-collapse: collapse;
+	table-layout: fixed;
 	background: var(--surface);
 	font-size: 13px;
 }
@@ -287,6 +305,8 @@ td {
 	vertical-align: top;
 	text-align: left;
 	line-height: 1.45;
+	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 th {
@@ -340,11 +360,13 @@ td { color: var(--body-text); }
 	h1 { font-size: 28px; }
 
 	table {
-		display: block;
-		overflow-x: auto;
+		display: table;
+		width: 100%;
+		table-layout: fixed;
+		overflow-x: visible;
 		white-space: normal;
 	}
 
 	th,
-	td { min-width: 110px; }
+	td { min-width: 0; }
 }
