@@ -30,6 +30,7 @@ export class StageViewCore {
 		this.backgroundPadded = document.createElement("canvas");
 		this.backgroundDirty = true;
 		this._staticLayer = document.createElement("canvas");
+		this._staticContext = null;
 		this._staticLayerValid = false;
 		this._staticHitRegions = [];
 		this._staticVisibleEvents = [];
@@ -251,24 +252,30 @@ export class StageViewCore {
 		}
 		this.hitRegions = [];
 		this.visibleEvents = [];
+		const scene = draft ? this._ensureStaticLayer(width, height) : context;
 		this._prepareBackground(width, height);
-		context.drawImage(this.backgroundCache, 0, 0);
-		if (project.editor?.showBgEventsInMainField !== false) this._drawBackgroundPatterns(context, project, mapping, now);
-		this._drawBoundary(context, mapping);
-		this._drawHud(context, width, height, project, now);
-		this._drawParticles(context, mapping);
-		this._drawSnappees(context, project, mapping);
-		this._drawNotes(context, project, mapping, now);
-		this._drawGrouping?.(context, project, mapping, now);
-		this._drawSnappeeAttachRings?.(context, project, mapping, now);
-		this._drawRulers?.(context, width, height, project, mapping);
-		this._drawCreationEchoes(context, project, mapping, now);
-		this._drawTipPoints(context, project, mapping, now);
-		this._drawSelectedInvisible(context, project, mapping, now);
-		this._drawSelectionHandles(context, project, mapping);
-		this._drawFreeTransform(context, mapping);
-		this._drawCreationPreview(context, project, mapping);
-		if (draft) this._captureStaticLayer(context, width, height);
+		scene.drawImage(this.backgroundCache, 0, 0);
+		if (project.editor?.showBgEventsInMainField !== false) this._drawBackgroundPatterns(scene, project, mapping, now);
+		this._drawBoundary(scene, mapping);
+		this._drawHud(scene, width, height, project, now);
+		this._drawParticles(scene, mapping);
+		this._drawSnappees(scene, project, mapping);
+		this._drawNotes(scene, project, mapping, now);
+		this._drawGrouping?.(scene, project, mapping, now);
+		this._drawSnappeeAttachRings?.(scene, project, mapping, now);
+		this._drawRulers?.(scene, width, height, project, mapping);
+		this._drawCreationEchoes(scene, project, mapping, now);
+		this._drawTipPoints(scene, project, mapping, now);
+		this._drawSelectedInvisible(scene, project, mapping, now);
+		this._drawSelectionHandles(scene, project, mapping);
+		this._drawFreeTransform(scene, mapping);
+		this._drawCreationPreview(scene, project, mapping);
+		if (draft) {
+			this._staticHitRegions = this.hitRegions.slice();
+			this._staticVisibleEvents = this.visibleEvents;
+			this._staticLayerValid = true;
+			context.drawImage(this._staticLayer, 0, 0);
+		}
 		this._drawCurveDraft(context, mapping);
 		if (this.selectionBox) this._drawSelectionBox(context, this.selectionBox);
 	}
@@ -276,15 +283,14 @@ export class StageViewCore {
 		return Boolean(draft) && this._staticLayerValid && this._staticLayer.width === width
 			&& this._staticLayer.height === height && !this.selectionBox && !this.creationPreview;
 	}
-	_captureStaticLayer(context, width, height) {
+	_ensureStaticLayer(width, height) {
 		if (this._staticLayer.width !== width || this._staticLayer.height !== height) {
 			this._staticLayer.width = width;
 			this._staticLayer.height = height;
+			this._staticContext = null;
 		}
-		this._staticLayer.getContext("2d").drawImage(context.canvas, 0, 0);
-		this._staticHitRegions = this.hitRegions.slice();
-		this._staticVisibleEvents = this.visibleEvents;
-		this._staticLayerValid = true;
+		if (!this._staticContext) this._staticContext = this._staticLayer.getContext("2d", { alpha: false });
+		return this._staticContext;
 	}
 
 	_drawBoundary(context, mapping) {
