@@ -5,6 +5,7 @@ import test from "node:test";
 import { COMMAND_DEFINITIONS, CommandRegistry, parseShortcut } from "../js/commands.js";
 import { withChartTools } from "../js/app-chart-tools.js";
 import { withEventEditing } from "../js/app-event-editing.js";
+import { withFreeTransform } from "../js/app-free-transform.js";
 import { CHART_BOUNDS, sampleSnappee } from "../js/core/geometry.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
@@ -163,6 +164,53 @@ test("snappee body movement clamps at the chart boundary instead of snapping bac
 		&& point.y >= CHART_BOUNDS.minY && point.y <= CHART_BOUNDS.maxY));
 	assert.ok(arc.transformation[4] < 0);
 	assert.ok(arc.transformation[4] > -1);
+});
+
+test("snappee pan preview publishes moved snappees so the stage follows the pointer", () => {
+	const model = ChartModel.createDefault();
+	const snappee = model.addSnappee("rectangularMesh", {
+		name: "Small", selected: true, topLeftX: -10, topLeftY: 10,
+		bottomRightX: 10, bottomRightY: -10, horizontalTiles: 2, verticalTiles: 2,
+	});
+	const App = withEventEditing(class {
+		preview(_label, mutation, options = {}) {
+			this.lastPreviewOptions = options;
+			return mutation(this.model);
+		}
+	});
+	const app = new App();
+	app.model = model;
+	const before = [...snappee.transformation];
+	app.previewSnappeeMove(snappee.id, { x: 12.5, y: -4 });
+	assert.equal(app.lastPreviewOptions.snappees, true);
+	assert.equal(app.lastPreviewOptions.snappeeId, snappee.id);
+	assert.equal(app.lastPreviewOptions.stageOnly, true);
+	assert.equal(app.lastPreviewOptions.positionOnly, undefined);
+	const moved = model.snappees.find(item => item.id === snappee.id);
+	assert.equal(moved.transformation[4], before[4] + 12.5);
+	assert.equal(moved.transformation[5], before[5] - 4);
+});
+
+test("snappee preview refresh swaps the live snappee list onto the stage", () => {
+	const App = withFreeTransform(class {});
+	const app = new App();
+	const snappees = [{ id: 7, transformation: [1, 0, 0, 1, 8, 2] }];
+	app.model = { snappees };
+	app.timeline = { state: { snappees: [] }, requestRender() {} };
+	app.stage = { state: { snappees: [] }, requestRender() {} };
+	app.scrollView = { state: { snappees: [] }, requestRender() {} };
+	app.renderIndex = {
+		snappeeSamples: new Map([["stale", true]]),
+		snappeePaths: new Map([["stale", true]]),
+		eventRecords: [],
+	};
+	app._rebuildRenderIndex = () => {};
+	app.requestStatusUpdate = () => {};
+	app.refreshInteractionPreview({ rebuildIndex: false, snappees: true, snappeeId: 7, stageOnly: true });
+	assert.equal(app.stage.state.snappees, snappees);
+	assert.equal(app.timeline.state.snappees, snappees);
+	assert.equal(app.renderIndex.snappeeSamples.size, 0);
+	assert.equal(app.renderIndex.snappeePaths.size, 0);
 });
 
 test("reverse and loop-aware schedulers do not schedule across an A-B boundary", () => {

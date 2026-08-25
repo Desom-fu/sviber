@@ -646,7 +646,7 @@ const withEventEditingBase = Base => class extends Base {
 			return this._applyTransformMutation(model, [1, 0, 0, 1, movement.x, movement.y], {
 				snappeeId: id, onlySnappee: true,
 			});
-		}, { lightweight: true, positionOnly: true });
+		}, { lightweight: true, snappees: true, snappeeId: id, stageOnly: true });
 	}
 	moveSnappee(id, delta) {
 		this.commit(i18n.t("history.editSnappee"), model => {

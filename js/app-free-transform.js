@@ -139,6 +139,25 @@ export const withFreeTransform = Base => class extends Base {
 		if (typeof this._rebuildRenderIndex !== "function" || !this.timeline) return this.refresh?.();
 		const rebuildIndex = options.rebuildIndex !== false;
 		if (!rebuildIndex && options.positions) this.renderIndex?.refreshPositions?.(options.positionEvents);
+		if (!rebuildIndex && options.snappees) {
+			const snappees = this.model.snappees;
+			if (this.renderIndex) {
+				this.renderIndex.snappeeSamples = new Map();
+				this.renderIndex.snappeePaths = new Map();
+				if (options.snappeeId != null) {
+					for (const record of this.renderIndex.eventRecords || []) {
+						if (!record.event.attached || record.event.snappee !== options.snappeeId) continue;
+						try {
+							const position = resolveAttachedPosition(record.event, snappees);
+							if (position) record.position = position;
+						} catch { /* Keep the last resolved position if a draft snappee is invalid. */ }
+					}
+				}
+			}
+			for (const view of [this.stage, this.timeline, this.scrollView]) {
+				if (view?.state) view.state.snappees = snappees;
+			}
+		}
 		if (rebuildIndex) {
 			this._rebuildRenderIndex();
 			const view = this.viewState();

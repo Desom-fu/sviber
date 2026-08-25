@@ -474,7 +474,7 @@ export class StageViewCore {
 		for (const snappee of project.snappees) {
 			if (!isSnappeeVisible(snappee)) continue;
 			let points;
-			try { points = this.renderIndex?.snappeeSamples.get(snappee) || sampleSnappee(snappee); } catch { continue; }
+			try { points = (!snappee.selected && this.renderIndex?.snappeeSamples.get(snappee)) || sampleSnappee(snappee); } catch { continue; }
 			if (!points.length) continue;
 			context.save();
 			context.strokeStyle = snappee.color || "#58b6ef";
