@@ -161,6 +161,29 @@ test("timeline scrollbar track jump seeks current time and moves the visible ran
 	assert.deepEqual(app.model.editor.currentTime, [20, 0, 1]);
 });
 
+test("timeline zoom is centered on current time after zooming to the full range", () => {
+	const App = withEventEditing(class {});
+	const app = new App();
+	app.model = ChartModel.createDefault({
+		editor: { currentTime: [40, 0, 1], timeSnapped: true, subdivision: 4, visibleRangeBeginning: 0, visibleRangeEnd: 100 },
+	});
+	app.currentSeconds = () => 20;
+	app.timeBounds = () => [0, 100];
+	app.timeline = { requestRender() {} };
+	app.stage = { requestRender() {} };
+	app.scrollView = { requestRender() {} };
+	app.requestStatusUpdate = () => {};
+	app.navigateWheel(-1, true, true);
+	assert.equal(app.model.editor.visibleRangeBeginning, 0);
+	assert.ok(Math.abs(app.model.editor.visibleRangeEnd - 82) < 1e-9);
+	app.model.editor.visibleRangeBeginning = 0;
+	app.model.editor.visibleRangeEnd = 40;
+	app.currentSeconds = () => 20;
+	app.navigateWheel(-1, true, true);
+	assert.ok(Math.abs((app.model.editor.visibleRangeBeginning + app.model.editor.visibleRangeEnd) / 2 - 20) < 1e-9);
+	assert.ok(Math.abs(app.model.editor.visibleRangeEnd - app.model.editor.visibleRangeBeginning - 32.8) < 1e-9);
+});
+
 test("timeline scrollbar track click jumps instead of paging", async () => {
 	const source = await readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8");
 	assert.match(source, /#scrollSeek\(point\.x, hit, true\)/);

@@ -368,10 +368,9 @@ const withEventEditingBase = Base => class extends Base {
 	navigateWheel(deltaY, zoom = false, allowLockedRangeChange = false) {
 		if (zoom) {
 			if (this.model.editor.lockVisibleRange && !allowLockedRangeChange) return;
-			const editor = this.model.editor;
-			const center = (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
-			const factor = deltaY < 0 ? 0.82 : 1.22;
-			const span = Math.max(0.02, (editor.visibleRangeEnd - editor.visibleRangeBeginning) * factor);
+			const editor = this.model.editor, current = this.currentSeconds();
+			const center = Number.isFinite(current) ? current : (editor.visibleRangeBeginning + editor.visibleRangeEnd) / 2;
+			const span = Math.max(0.02, (editor.visibleRangeEnd - editor.visibleRangeBeginning) * (deltaY < 0 ? 0.82 : 1.22));
 			this.setVisibleRange(center - span / 2, center + span / 2);
 			return;
 		}
