@@ -130,6 +130,7 @@ export function captureHistoryView(model, options = {}) {
 		visibleRangeEnd: model?.editor?.visibleRangeEnd ?? null,
 		currentChannel: model?.editor?.currentChannel ?? null,
 		allowOutOfBound: Boolean(model?.editor?.allowOutOfBound),
+		timelineChannelOffset: Number(model?.editor?.timelineChannelOffset) || 0,
 	};
 }
 
@@ -165,6 +166,9 @@ export function applyHistoryView(state, view) {
 		}
 		if (Object.hasOwn(view, "currentChannel")) state.editor.currentChannel = view.currentChannel;
 		if (Object.hasOwn(view, "allowOutOfBound")) state.editor.allowOutOfBound = Boolean(view.allowOutOfBound);
+		if (Object.hasOwn(view, "timelineChannelOffset")) {
+			state.editor.timelineChannelOffset = Math.max(0, Math.round(Number(view.timelineChannelOffset) || 0));
+		}
 	}
 	return state;
 }
@@ -231,6 +235,7 @@ export function historyViewsEqual(left, right) {
 	if (Boolean(left.timeSnapped) !== Boolean(right.timeSnapped)) return false;
 	if (left.visibleRangeBeginning !== right.visibleRangeBeginning
 		|| left.visibleRangeEnd !== right.visibleRangeEnd) return false;
+	if ((Number(left.timelineChannelOffset) || 0) !== (Number(right.timelineChannelOffset) || 0)) return false;
 	if (!snapshotsEqual(left.currentTime, right.currentTime)) return false;
 	const leftIds = left.selectedEventIds || [];
 	const rightIds = right.selectedEventIds || [];

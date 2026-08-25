@@ -9,10 +9,11 @@ import { withFreeTransform } from "../js/app-free-transform.js";
 test("History view restores the snapped beat mode and visible time range between patches", () => {
 	const base = {
 		events: [],
-		snappees: [], channels: [{ id: 0 }],
+		snappees: [],
+		channels: [{ id: 0 }, { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 }],
 		editor: {
 			timeSnapped: true, currentTime: [1, 0, 1], visibleRangeBeginning: 0,
-			visibleRangeEnd: 10, currentChannel: 0,
+			visibleRangeEnd: 10, currentChannel: 0, timelineChannelOffset: 0,
 		},
 	};
 	const history = new History(base);
@@ -22,7 +23,7 @@ test("History view restores the snapped beat mode and visible time range between
 		events: [first],
 		editor: {
 			timeSnapped: false, currentTime: 12.75, visibleRangeBeginning: 10,
-			visibleRangeEnd: 20, currentChannel: 0,
+			visibleRangeEnd: 20, currentChannel: 0, timelineChannelOffset: 2,
 		},
 	};
 	history.recordPatch({ kind: "appendRootEvent", event: first, nextEventId: 2,
@@ -33,7 +34,7 @@ test("History view restores the snapped beat mode and visible time range between
 		events: [first, second],
 		editor: {
 			timeSnapped: true, currentTime: [30, 0, 1], visibleRangeBeginning: 25,
-			visibleRangeEnd: 35, currentChannel: 0,
+			visibleRangeEnd: 35, currentChannel: 5, timelineChannelOffset: 3,
 		},
 	};
 	history.recordPatch({ kind: "appendRootEvent", event: second, nextEventId: 3,
@@ -43,6 +44,7 @@ test("History view restores the snapped beat mode and visible time range between
 	assert.equal(restored.editor.currentTime, 12.75);
 	assert.equal(restored.editor.visibleRangeBeginning, 10);
 	assert.equal(restored.editor.visibleRangeEnd, 20);
+	assert.equal(restored.editor.timelineChannelOffset, 2);
 	assert.deepEqual(restored.events.map(event => event.id), [1]);
 });
 
