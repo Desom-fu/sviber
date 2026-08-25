@@ -94,14 +94,16 @@ test("audio-decode uses the versioned CDN on web and the bundled module in NW.js
 	assert.ok(buffer.getChannelData(0).some(sample => sample !== 0));
 });
 
-test("audio volumes accept values outside 0 to 1", () => {
+test("audio volumes clamp to the Sunniesnow 0-2 range", () => {
 	const player = new AudioPlayer();
 	player.setSeVolume(2.5);
 	player.setMusicVolume(-0.5);
-	assert.equal(player.seVolume, 2.5);
-	assert.equal(player.musicVolume, -0.5);
+	assert.equal(player.seVolume, 2);
+	assert.equal(player.musicVolume, 0);
+	player.setSeVolume(1.55);
+	assert.equal(player.seVolume, 1.55);
 	player.setSeVolume("nope");
-	assert.equal(player.seVolume, 2.5);
+	assert.equal(player.seVolume, 1.55);
 });
 
 test("source NW.js startup prepares the same local decoder bundle", async () => {

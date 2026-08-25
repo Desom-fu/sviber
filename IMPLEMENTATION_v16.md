@@ -131,6 +131,11 @@
 - 帮助文档右侧正文铺满剩余宽度，表格固定布局并允许断行，去掉页面底部横向滚动条。
 - `tests/preferences.test.mjs` 和 `tests/audio-platform.test.mjs` 覆盖无界音量与手册布局。
 
+## v0.7.18 回归修复
+
+- 音效/音乐音量改回与 Sunniesnow 相同的滑块：0 到 2，步进 0.05，默认 1。偏好存储和播放器增益按同一范围夹取。
+- `tests/preferences.test.mjs` 和 `tests/audio-platform.test.mjs` 覆盖 0–2 夹取与滑块字段。
+
 ## 验证覆盖
 
 - `tests/v16-features.test.mjs` 覆盖菜单与网页禁用、最小工程清单、绝对/相对媒体路径、非空目录及同名文件保护、工程当前谱面保存、网页工程入口拒绝、删除复选框与最后谱面保护、媒体继承、加入工程确认和关闭流程。

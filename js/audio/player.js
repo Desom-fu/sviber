@@ -149,14 +149,14 @@ export class AudioPlayer extends EventTarget {
 	setMusicVolume(volume) {
 		const parsed = Number(volume);
 		if (!Number.isFinite(parsed)) return;
-		this.musicVolume = parsed;
+		this.musicVolume = Math.max(0, Math.min(2, parsed));
 		if (this.gain) this.gain.gain.value = this.musicVolume;
 	}
 
 	setSeVolume(volume) {
 		const parsed = Number(volume);
 		if (!Number.isFinite(parsed)) return;
-		this.seVolume = parsed;
+		this.seVolume = Math.max(0, Math.min(2, parsed));
 		if (this.seGain) this.seGain.gain.value = this.seVolume;
 	}
 

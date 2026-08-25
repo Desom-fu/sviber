@@ -36,13 +36,12 @@ test("preferences migrate old values and normalize theme and language choices", 
 	assert.deepEqual(loadPreferences(invalidStorage), DEFAULT_PREFERENCES);
 });
 
-test("SE and music volume store unbounded finite numbers", () => {
+test("SE and music volume clamp to the Sunniesnow 0-2 range", () => {
 	const storage = memoryStorage();
 	const stored = storePreferences({ seVolume: 2.5, musicVolume: -1 }, storage);
-	assert.equal(stored.seVolume, 2.5);
-	assert.equal(stored.musicVolume, -1);
-	assert.equal(loadPreferences(storage).seVolume, 2.5);
-	assert.equal(loadPreferences(storage).musicVolume, -1);
+	assert.equal(stored.seVolume, 2);
+	assert.equal(stored.musicVolume, 0);
+	assert.equal(storePreferences({ seVolume: 1.55, musicVolume: 0.05 }, storage).seVolume, 1.55);
 	assert.equal(loadPreferences(memoryStorage({
 		[PREFERENCES_KEY]: JSON.stringify({ seVolume: "nope", musicVolume: Infinity }),
 	})).seVolume, 1);
@@ -117,20 +116,18 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 	assert.match(navigation, /SOURCES\.has\(filename\)/);
 });
 
-test("preferences dialog uses unbounded volume numbers and the manual does not page-scroll sideways", async () => {
+test("preferences dialog uses Sunniesnow volume sliders and the manual does not page-scroll sideways", async () => {
 	const [workflows, player, manual, styles] = await Promise.all([
 		readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/audio/player.js", import.meta.url), "utf8"),
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.css", import.meta.url), "utf8"),
 	]);
-	assert.match(workflows, /id: "seVolume", type: "number"/);
-	assert.match(workflows, /id: "musicVolume", type: "number"/);
-	assert.doesNotMatch(workflows, /id: "seVolume", type: "slider"/);
-	assert.match(player, /if \(!Number\.isFinite\(parsed\)\) return;/);
-	assert.doesNotMatch(player, /Math\.min\(1, Number\(volume\)/);
-	assert.match(manual, /unbounded numbers/);
-	assert.match(manual, /没有上下限/);
+	assert.match(workflows, /id: "seVolume", type: "slider"[\s\S]*min: 0, max: 2, step: 0\.05/);
+	assert.match(workflows, /id: "musicVolume", type: "slider"[\s\S]*min: 0, max: 2, step: 0\.05/);
+	assert.match(player, /Math\.max\(0, Math\.min\(2, parsed\)\)/);
+	assert.match(manual, /range slider from 0 to 2 in steps of 0\.05/);
+	assert.match(manual, /0 到 2 的滑块，步进 0\.05/);
 	assert.match(styles, /overflow-x:\s*hidden/);
 	assert.match(styles, /table-layout:\s*fixed/);
 	assert.match(styles, /\.manual \{[\s\S]*min-width:\s*0/);
