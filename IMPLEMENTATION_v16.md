@@ -146,7 +146,7 @@
 - 时间轴底部总览进度条点击绿条外侧：黄线在绿条内时黄线和绿条一起跳到点击处；黄线在绿条外时只把绿条（以原跨度）跳到点击处，黄线不动。
 - `tests/v12-features.test.mjs` 覆盖黄线在范围内一起跳、在范围外只动绿条。
 
-## v0.7.21 回归修复
+## v0.7.22 回归修复
 
 - 历史视图（`captureHistoryView` / `applyHistoryView` / `historyViewsEqual`）现在完整捕获和恢复当前细分（`subdivision`）与播放速度（`speed`）。自定义细分（如 12 细分）在创建 note、编辑和撤回重做时始终保持当前设置，不会在撤回时意外回退至默认 2 细分。
 - 移动通道所选事件（`setEventChannels`）现在随补丁记录完整历史视图（`view: captureHistoryView(model)`）；恢复历史快照时同步更新音频时钟寻道（`this.audio.seek(this.currentSeconds())`），确保撤回/重做后时间轴拍数、黄线与音频位置始终与上一步保持一致。
