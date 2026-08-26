@@ -881,6 +881,7 @@ export class SviberAppCore {
 				event.preventDefault();
 				this.finishFreeTransform();
 			} else if (event.key === "Enter" && this.curveDraft && !this.dialogs.active) {
+				if (isEditableTarget(event.target)) return;
 				event.preventDefault();
 				this.finishCurveDraft();
 			}
