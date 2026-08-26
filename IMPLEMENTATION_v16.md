@@ -148,8 +148,9 @@
 
 ## v0.7.21 回归修复
 
+- 历史视图（`captureHistoryView` / `applyHistoryView` / `historyViewsEqual`）现在完整捕获和恢复当前细分（`subdivision`）与播放速度（`speed`）。自定义细分（如 12 细分）在创建 note、编辑和撤回重做时始终保持当前设置，不会在撤回时意外回退至默认 2 细分。
 - 移动通道所选事件（`setEventChannels`）现在随补丁记录完整历史视图（`view: captureHistoryView(model)`）；恢复历史快照时同步更新音频时钟寻道（`this.audio.seek(this.currentSeconds())`），确保撤回/重做后时间轴拍数、黄线与音频位置始终与上一步保持一致。
-- `tests/history-regressions.test.mjs` 覆盖通道移动和历史快照恢复后的时间与视图同步。
+- `tests/history-regressions.test.mjs` 覆盖自定义细分保留、通道移动和历史快照恢复后的时间与视图同步。
 
 ## 验证覆盖
 

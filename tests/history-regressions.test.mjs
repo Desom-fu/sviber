@@ -161,4 +161,72 @@ test("restoreHistorySnapshot seeks audio to the restored current seconds", async
 	assert.deepEqual(seekTimes, [2]);
 });
 
+test("custom subdivision is preserved and restored across patch undos", () => {
+	const base = {
+		events: [],
+		snappees: [],
+		channels: [{ id: 0 }],
+		editor: {
+			timeSnapped: true, subdivision: 2, currentTime: [166, 0, 1], visibleRangeBeginning: 30,
+			visibleRangeEnd: 40, currentChannel: 0, timelineChannelOffset: 0, speed: 1,
+		},
+	};
+	const history = new History(base);
+	const drag1 = { id: 1, type: "drag", time: [166, 1, 12], selected: true };
+	const view1 = {
+		...base,
+		events: [drag1],
+		editor: {
+			...base.editor,
+			subdivision: 12,
+			currentTime: [166, 1, 12],
+		},
+	};
+	history.recordPatch({
+		kind: "appendRootEvent", event: drag1, nextEventId: 2,
+		view: captureHistoryView(view1, { selectedEventIds: [drag1.id] }),
+	}, "创建 Drag 1");
+
+	const drag2 = { id: 2, type: "drag", time: [166, 2, 12], selected: true };
+	const view2 = {
+		...view1,
+		events: [drag1, drag2],
+		editor: {
+			...view1.editor,
+			currentTime: [166, 2, 12],
+		},
+	};
+	history.recordPatch({
+		kind: "appendRootEvent", event: drag2, nextEventId: 3,
+		view: captureHistoryView(view2, { selectedEventIds: [drag2.id] }),
+	}, "创建 Drag 2");
+
+	const drag3 = { id: 3, type: "drag", time: [166, 3, 12], selected: true };
+	const view3 = {
+		...view2,
+		events: [drag1, drag2, drag3],
+		editor: {
+			...view2.editor,
+			currentTime: [166, 3, 12],
+		},
+	};
+	history.recordPatch({
+		kind: "appendRootEvent", event: drag3, nextEventId: 4,
+		view: captureHistoryView(view3, { selectedEventIds: [drag3.id] }),
+	}, "创建 Drag 3");
+
+	assert.equal(history.current.editor.subdivision, 12);
+	assert.deepEqual(history.current.editor.currentTime, [166, 3, 12]);
+
+	const undone1 = history.undo(); // Undo drag 3 -> back to drag 2
+	assert.equal(undone1.editor.subdivision, 12);
+	assert.deepEqual(undone1.editor.currentTime, [166, 2, 12]);
+
+	const undone2 = history.undo(); // Undo drag 2 -> back to drag 1
+	assert.equal(undone2.editor.subdivision, 12);
+	assert.deepEqual(undone2.editor.currentTime, [166, 1, 12]);
+});
+
+
+
 

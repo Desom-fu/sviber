@@ -126,8 +126,10 @@ export function captureHistoryView(model, options = {}) {
 		})),
 		currentTime: cloneSnapshot(model?.editor?.currentTime ?? null),
 		timeSnapped: model?.editor?.timeSnapped !== false,
+		subdivision: Math.max(1, Math.floor(Number(model?.editor?.subdivision) || 2)),
 		visibleRangeBeginning: model?.editor?.visibleRangeBeginning ?? null,
 		visibleRangeEnd: model?.editor?.visibleRangeEnd ?? null,
+		speed: Math.max(0.1, Math.min(4, Math.round((Number(model?.editor?.speed) || 1) * 100) / 100)),
 		currentChannel: model?.editor?.currentChannel ?? null,
 		allowOutOfBound: Boolean(model?.editor?.allowOutOfBound),
 		timelineChannelOffset: Number(model?.editor?.timelineChannelOffset) || 0,
@@ -157,12 +159,18 @@ export function applyHistoryView(state, view) {
 	}
 	if (state.editor) {
 		if (Object.hasOwn(view, "timeSnapped")) state.editor.timeSnapped = Boolean(view.timeSnapped);
+		if (Object.hasOwn(view, "subdivision") && view.subdivision != null) {
+			state.editor.subdivision = Math.max(1, Math.floor(Number(view.subdivision) || 2));
+		}
 		if (Object.hasOwn(view, "currentTime")) state.editor.currentTime = cloneSnapshot(view.currentTime);
 		if (Object.hasOwn(view, "visibleRangeBeginning") && view.visibleRangeBeginning != null) {
 			state.editor.visibleRangeBeginning = Number(view.visibleRangeBeginning);
 		}
 		if (Object.hasOwn(view, "visibleRangeEnd") && view.visibleRangeEnd != null) {
 			state.editor.visibleRangeEnd = Number(view.visibleRangeEnd);
+		}
+		if (Object.hasOwn(view, "speed") && view.speed != null) {
+			state.editor.speed = Math.max(0.1, Math.min(4, Math.round(Number(view.speed) * 100) / 100));
 		}
 		if (Object.hasOwn(view, "currentChannel")) state.editor.currentChannel = view.currentChannel;
 		if (Object.hasOwn(view, "allowOutOfBound")) state.editor.allowOutOfBound = Boolean(view.allowOutOfBound);
@@ -233,6 +241,8 @@ export function historyViewsEqual(left, right) {
 	if (left.currentChannel !== right.currentChannel) return false;
 	if (Boolean(left.allowOutOfBound) !== Boolean(right.allowOutOfBound)) return false;
 	if (Boolean(left.timeSnapped) !== Boolean(right.timeSnapped)) return false;
+	if (Number(left.subdivision || 2) !== Number(right.subdivision || 2)) return false;
+	if (Math.abs((Number(left.speed) || 1) - (Number(right.speed) || 1)) > 1e-8) return false;
 	if (left.visibleRangeBeginning !== right.visibleRangeBeginning
 		|| left.visibleRangeEnd !== right.visibleRangeEnd) return false;
 	if ((Number(left.timelineChannelOffset) || 0) !== (Number(right.timelineChannelOffset) || 0)) return false;
