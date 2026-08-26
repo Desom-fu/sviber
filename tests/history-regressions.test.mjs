@@ -6,6 +6,7 @@ import { ChartModel } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { withFreeTransform } from "../js/app-free-transform.js";
+import { withChartTools } from "../js/app-chart-tools.js";
 
 test("History view restores the snapped beat mode and visible time range between patches", () => {
 	const base = {
@@ -226,6 +227,54 @@ test("custom subdivision is preserved and restored across patch undos", () => {
 	assert.equal(undone2.editor.subdivision, 12);
 	assert.deepEqual(undone2.editor.currentTime, [166, 1, 12]);
 });
+
+test("closed bezier curve draft appends starting point to controlPoints to match preview loop", () => {
+	class BaseApp {
+		constructor() {
+			this.model = ChartModel.createDefault();
+			this.history = new History(this.model.snapshot());
+			this.curveDraft = null;
+		}
+		commit(name, action) {
+			action(this.model);
+			this.history.recordView(captureHistoryView(this.model), name);
+		}
+		async showSnappeeDialog() {}
+		exitModes() {}
+		refreshInteractionPreview() {}
+		_refreshLightweight() {}
+	}
+	const TestApp = withChartTools(BaseApp);
+	const app = new TestApp();
+	app.showSnappeeDialog = async () => {};
+
+	app.curveDraft = {
+		type: "bezierCurve",
+		name: "Bézier 曲线 1",
+		color: "#00e0ad",
+		points: [
+			{ x: 0, y: 0 },
+			{ x: 50, y: 50 },
+			{ x: -50, y: 50 },
+			{ x: -50, y: -50 },
+			{ x: 50, y: -50 },
+		],
+		closed: false,
+	};
+
+	// User clicks on first point (0, 0) to close the loop
+	app.addCurvePoint({ x: 0, y: 0 });
+
+	const created = app.model.snappees.at(-1);
+	assert.equal(created.type, "bezierCurve");
+	assert.equal(created.closed, true);
+	assert.equal(created.controlPoints.length, 6);
+	assert.deepEqual(created.controlPoints[0], { x: 0, y: 0 });
+	assert.deepEqual(created.controlPoints.at(-1), { x: 0, y: 0 });
+	assert.equal(created.degree, 5);
+});
+
+
 
 
 

@@ -523,6 +523,9 @@ export const withChartTools = Base => class extends Base {
 			&& Math.hypot(this.curveDraft.points[1].x - finalPoint.x, this.curveDraft.points[1].y - finalPoint.y) < 3;
 		if (closesArc || (this.curveDraft.type !== "circularArcCurve" && first
 			&& Math.hypot(first.x - finalPoint.x, first.y - finalPoint.y) < 3 && this.curveDraft.points.length >= 2)) {
+			if (this.curveDraft.type === "bezierCurve") {
+				this.curveDraft.points.push({ x: first.x, y: first.y });
+			}
 			this.curveDraft.closed = true;
 			finish = true;
 		} else if (!(finish && last && Math.hypot(last.x - finalPoint.x, last.y - finalPoint.y) < 3)) {
@@ -538,6 +541,9 @@ export const withChartTools = Base => class extends Base {
 		if (!draft || draft.points.length < 2) return false;
 		const closes = draft.type === "circularArcCurve" ? index === 1 : index === 0;
 		if (!closes) return false;
+		if (draft.type === "bezierCurve" && (draft.points[0].x !== draft.points.at(-1).x || draft.points[0].y !== draft.points.at(-1).y)) {
+			draft.points.push({ x: draft.points[0].x, y: draft.points[0].y });
+		}
 		draft.closed = true;
 		this.recordCurveDraftAction();
 		this.finishCurveDraft();
@@ -586,8 +592,12 @@ export const withChartTools = Base => class extends Base {
 		}
 		let data;
 		if (draft.type === "bezierCurve") {
-			data = { name: draft.name, color: draft.color, degree: draft.points.length - 1,
-				controlPoints: draft.points, segments: Math.max(8, draft.points.length * 6), closed: Boolean(draft.closed) };
+			const points = draft.closed && draft.points.length >= 2
+				&& (draft.points[0].x !== draft.points.at(-1).x || draft.points[0].y !== draft.points.at(-1).y)
+				? [...draft.points, { x: draft.points[0].x, y: draft.points[0].y }]
+				: draft.points;
+			data = { name: draft.name, color: draft.color, degree: points.length - 1,
+				controlPoints: points, segments: Math.max(8, points.length * 6), closed: Boolean(draft.closed) };
 		} else if (draft.type === "circularArcCurve") {
 			const [center, beginning, ending = beginning] = draft.points;
 			data = { name: draft.name, color: draft.color, centerX: center.x, centerY: center.y,

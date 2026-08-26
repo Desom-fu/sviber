@@ -152,6 +152,11 @@
 - 移动通道所选事件（`setEventChannels`）现在随补丁记录完整历史视图（`view: captureHistoryView(model)`）；恢复历史快照时同步更新音频时钟寻道（`this.audio.seek(this.currentSeconds())`），确保撤回/重做后时间轴拍数、黄线与音频位置始终与上一步保持一致。
 - `tests/history-regressions.test.mjs` 覆盖自定义细分保留、通道移动和历史快照恢复后的时间与视图同步。
 
+## v0.7.23 回归修复
+
+- 绘制闭合 Bézier 曲线吸附器（点击起点闭合时）现在正确将起始点作为闭合终点控制点追加至 `controlPoints` 中，确保创建后的高阶 Bézier 曲线控制点阶数与几何形态与绘制时的连续闭合平滑预览完全一致，避免因缺少终点控制点而绘制出退化直线折回。
+- `tests/history-regressions.test.mjs` 覆盖闭合 Bézier 曲线绘制与控制点生成。
+
 ## 验证覆盖
 
 - `tests/v16-features.test.mjs` 覆盖菜单与网页禁用、最小工程清单、绝对/相对媒体路径、非空目录及同名文件保护、工程当前谱面保存、网页工程入口拒绝、删除复选框与最后谱面保护、媒体继承、加入工程确认和关闭流程。
