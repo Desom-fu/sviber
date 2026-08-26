@@ -364,6 +364,7 @@ export class SviberAppCore {
 			this.syncProjectHistorySharedFields({ excludeDifficultyId: this.activeDifficultyId, media: false });
 		}
 		this.syncProjectSharedFields();
+		if (!this.audio?.playing && typeof this.audio?.seek === "function") this.audio.seek(this.currentSeconds());
 	}
 	markProjectSaved() {
 		this.syncActiveDifficultyState();

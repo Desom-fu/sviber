@@ -3,6 +3,7 @@ import test from "node:test";
 
 import { History, captureHistoryView } from "../js/core/history.js";
 import { ChartModel } from "../js/core/chart-model.js";
+import { TimingMap } from "../js/core/timing.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { withFreeTransform } from "../js/app-free-transform.js";
 
@@ -97,3 +98,67 @@ test("toggleChannel can deactivate then activate the same channel", () => {
 	app.toggleChannel(0);
 	assert.equal(app.model.channels[0].active, true);
 });
+
+test("moveSelectedChannel captures view and restores previous currentTime on undo", () => {
+	const App = withHistoryCommands(withFreeTransform(class {
+		commit(label, mutation, options = {}) {
+			return this._finishCommit(label, mutation, options, false);
+		}
+		_invalidatePlaybackSchedule() {}
+		_normalizeGroupSelectionScope() {}
+		refresh() {}
+		refreshInteractionPreview() {}
+		requestStatusUpdate() {}
+		syncActiveDifficultyState() {}
+		broadcastLiveChartUpdate() {}
+	}));
+	App.prototype._refreshAfterCommit = function() {};
+	const app = new App();
+	app.registry = { notify() {} };
+	app.model = ChartModel.createDefault({
+		channels: [{ id: 0, name: "A" }, { id: 1, name: "B" }],
+		events: [{ id: 1, type: "tap", time: [5, 0, 1], channel: 0, selected: true }],
+		editor: { currentChannel: 0, timeSnapped: true, currentTime: [5, 0, 1], visibleRangeBeginning: 0, visibleRangeEnd: 10 },
+	});
+	app.history = new History(app.model.snapshot());
+	app.model.editor.currentTime = [8, 0, 1];
+	app.moveSelectedChannel(1);
+	assert.equal(app.model.events[0].channel, 1);
+	assert.deepEqual(app.history.current.editor.currentTime, [8, 0, 1]);
+	const undone = app.history.undo();
+	assert.equal(undone.events[0].channel, 0);
+	assert.deepEqual(undone.editor.currentTime, [5, 0, 1]);
+});
+
+test("restoreHistorySnapshot seeks audio to the restored current seconds", async () => {
+	const seekTimes = [];
+	const snapshot = {
+		metadata: { title: "Song", artist: "Artist" },
+		timing: { offset: 0, initialBpm: 120, bpmChanges: [], barLines: [] },
+		events: [],
+		snappees: [],
+		channels: [{ id: 0 }],
+		editor: { currentTime: [4, 0, 1], timeSnapped: true, subdivision: 4, visibleRangeBeginning: 0, visibleRangeEnd: 10 },
+	};
+	const app = {
+		projectTitle: "Song",
+		projectArtist: "Artist",
+		model: ChartModel.createDefault(),
+		timing() { return new TimingMap(this.model.timing); },
+		currentSeconds() { return this.timing().beatToSeconds(this.model.editor.currentTime); },
+		_normalizeGroupSelectionScope() {},
+		_invalidatePlaybackSchedule() {},
+		syncProjectSharedFields() {},
+		syncProjectHistorySharedFields() {},
+		audio: {
+			playing: false,
+			seek(time) { seekTimes.push(time); },
+		},
+	};
+	const { SviberAppCore } = await import("../js/app-core.js");
+	SviberAppCore.prototype.restoreHistorySnapshot.call(app, snapshot);
+	assert.deepEqual(app.model.editor.currentTime, [4, 0, 1]);
+	assert.deepEqual(seekTimes, [2]);
+});
+
+

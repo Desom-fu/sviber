@@ -244,7 +244,7 @@ export const withHistoryCommands = Base => class extends Base {
 			});
 			const currentIndex = this.renderIndex?.eventSource === this.model.events ? this.renderIndex : null;
 			const commitOptions = {
-				historyPatch: () => ({ kind: "replaceEvents", changes: changes.map(change => ({ id: change.newEvent.id, event: change.newEvent })), view: captureHistoryView(this.model) }),
+				historyPatch: (_result, model) => ({ kind: "replaceEvents", changes: changes.map(change => ({ id: change.newEvent.id, event: change.newEvent })), view: captureHistoryView(model) }),
 				lightweight: true, rebuildIndex: false, scheduleDirty: true, skipCommands: true,
 			};
 			this.commit(i18n.t("history.editEvent", { type: eventTypeLabel(type) }), model => {
@@ -375,7 +375,7 @@ export const withHistoryCommands = Base => class extends Base {
 		if (!changes.length || changes.length !== moved.length) return false;
 		const currentIndex = this.renderIndex?.eventSource === this.model.events ? this.renderIndex : null;
 		const commitOptions = {
-			historyPatch: updates => ({ kind: "setEventChannels", changes: updates }),
+			historyPatch: (updates, model) => ({ kind: "setEventChannels", changes: updates, view: captureHistoryView(model) }),
 			lightweight: true, selectionOnly: true, selectionSynced: true,
 			rebuildIndex: false, scheduleDirty: false, skipCommands: true,
 		};
