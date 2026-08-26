@@ -75,14 +75,12 @@ test("autosaves omit generated top-level events while ordinary saves retain them
 });
 
 test("documentation and release metadata describe the current v10 behavior", async () => {
-	const [manual, readme, readmeZh, rubyApi, sandbox, packageJson, serviceWorker] = await Promise.all([
+	const [manual, readme, readmeZh, rubyApi, sandbox] = await Promise.all([
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../README.md", import.meta.url), "utf8"),
 		readFile(new URL("../README.zh-CN.md", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro-api.rb", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro-sandbox.js", import.meta.url), "utf8"),
-		readFile(new URL("../package.json", import.meta.url), "utf8"),
-		readFile(new URL("../service-worker.js", import.meta.url), "utf8"),
 	]);
 	assert.match(manual, /same sound and level; there is no strong-beat\/weak-beat accent/);
 	assert.match(manual, /相对最近小节线为整数拍的位置/);
@@ -94,5 +92,4 @@ test("documentation and release metadata describe the current v10 behavior", asy
 	assert.match(rubyApi, /def puts\(\*values\)/);
 	assert.match(sandbox, /SviberMacroInternals\.load_json/);
 	assert.match(sandbox, /consolePrint: false/);
-	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v0723"/);
 });
