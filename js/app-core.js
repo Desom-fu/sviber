@@ -1,1 +1,1 @@
-PLACEHOLDER
+LOAD_FROM_FILE:/workspace/sviber-home/repo/js/app-core.js
