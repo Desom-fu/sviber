@@ -432,13 +432,23 @@ export class AudioPlayer extends EventTarget {
 		}
 	}
 
+	#rearmClockAfterLoop(time) {
+		if (this.context) {
+			this.startedAt = this.context.currentTime;
+			this.startedPosition = time;
+		} else {
+			this.position = time;
+		}
+		this.lastLoopCycle = 0;
+	}
+
 	#tick = () => {
 		if (!this.playing) {
 			return;
 		}
 		const playback = this.#playbackPosition();
 		if (playback.cycle !== this.lastLoopCycle) {
-			this.lastLoopCycle = playback.cycle;
+			this.#rearmClockAfterLoop(playback.time);
 			this.dispatchEvent(
 				new CustomEvent("loop", {
 					detail: {

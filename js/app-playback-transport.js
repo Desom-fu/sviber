@@ -158,7 +158,14 @@ function bindPlaybackJumps(app) {
 		app.audio.cancelScheduledHitSounds();
 		app.stage.cancelScheduledHits();
 		clearScheduledSounds(app);
-		followLoopJump(app, Number(event.detail?.time));
+		const time = Number(event.detail?.time);
+		followLoopJump(app, time);
+		if (!app.playbackOrigin || !Number.isFinite(time)) {
+			return;
+		}
+		app.playbackOrigin.scheduleStartTime = time;
+		excludeHitsBeforePlaybackOrigin(app, time);
+		app._scheduleHits(time, 0);
 	});
 	app.audio.addEventListener("seek", () => {
 		app.stage.cancelScheduledHits();

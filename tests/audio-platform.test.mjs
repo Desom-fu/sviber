@@ -17,6 +17,7 @@ import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
 import {
 	hitAudioTime,
+	playbackLoopCycle,
 	playbackLateTolerance,
 	playbackOriginBound,
 	markHitsBeforePlaybackOrigin,
@@ -286,6 +287,38 @@ test("hit audio times use the Web Audio clock without replay delay", () => {
 			) - 3.2,
 		) < 1e-12,
 	);
+});
+
+test("hit audio times stay on the current A-B cycle instead of firing immediately", () => {
+	const audio = {
+		playing: true,
+		direction: 1,
+		rate: 1,
+		startedAt: 10,
+		startedPosition: 2,
+		loopRange: [2, 8],
+		context: { currentTime: 16.05 },
+	};
+	assert.equal(playbackLoopCycle(audio), 1);
+	assert.ok(Math.abs(hitAudioTime(audio, 0, 2.25) - 16.25) < 1e-12);
+	assert.ok(Math.abs(hitAudioTime(audio, 0, 2) - 16) < 1e-12);
+	const lateBeforeWrap = {
+		...audio,
+		context: { currentTime: 10.04 },
+	};
+	assert.equal(playbackLoopCycle(lateBeforeWrap), 0);
+	assert.equal(hitAudioTime(lateBeforeWrap, 0, 2), 10);
+	const reverse = {
+		playing: true,
+		direction: -1,
+		rate: 1,
+		startedAt: 10,
+		startedPosition: 8,
+		loopRange: [2, 8],
+		context: { currentTime: 16.05 },
+	};
+	assert.equal(playbackLoopCycle(reverse), 1);
+	assert.ok(Math.abs(hitAudioTime(reverse, 0, 7.8) - 16.2) < 1e-12);
 });
 
 test("playback late tolerance never crosses the current playback start", () => {
@@ -574,6 +607,49 @@ test("playback start arms the music clock before scheduling the note at the play
 		assert.equal(player.startedAt, 20.03);
 		assert.deepEqual(musicStarts, [[20.03, 20.03, 4]]);
 		assert.deepEqual(hitStarts, [[20.03, 20.03]]);
+	} finally {
+		globalThis.requestAnimationFrame = previousRequest;
+		globalThis.cancelAnimationFrame = previousCancel;
+	}
+});
+
+test("A-B loop rearms the music clock so later note SE stay on the Web Audio clock", async () => {
+	const context = {
+		currentTime: 10,
+		state: "running",
+		destination: {},
+		createGain() {
+			return { gain: { value: 1 }, connect() {} };
+		},
+	};
+	let tick = null;
+	const previousRequest = globalThis.requestAnimationFrame;
+	const previousCancel = globalThis.cancelAnimationFrame;
+	globalThis.requestAnimationFrame = callback => {
+		tick = callback;
+		return 1;
+	};
+	globalThis.cancelAnimationFrame = () => {};
+	try {
+		const player = new AudioPlayer();
+		player.context = context;
+		player.gain = context.createGain();
+		player.seGain = context.createGain();
+		player.position = 2;
+		player.loopRange = [2, 8];
+		const loops = [];
+		player.addEventListener("loop", event => loops.push(event.detail.time));
+		await player.play();
+		assert.equal(player.startedAt, 10);
+		assert.equal(player.startedPosition, 2);
+		context.currentTime = 16.05;
+		tick();
+		assert.equal(loops.length, 1);
+		assert.ok(Math.abs(loops[0] - 2.05) < 1e-12);
+		assert.equal(player.startedAt, 16.05);
+		assert.ok(Math.abs(player.startedPosition - 2.05) < 1e-12);
+		assert.equal(playbackLoopCycle(player), 0);
+		assert.ok(Math.abs(hitAudioTime(player, 0, 2.25) - 16.25) < 1e-12);
 	} finally {
 		globalThis.requestAnimationFrame = previousRequest;
 		globalThis.cancelAnimationFrame = previousCancel;

@@ -24,6 +24,7 @@
 ## 状态栏与音量
 
 - SE 不含 bg note SE；新增 Bg note SE 开关（默认关）及合成音效。
+- A-B 循环跳转会重武装 Web Audio 时钟并把排程原点改到落点：音符 SE 按新一圈的绝对时钟排，不再因为仍用开播时的 `startedAt` 而全部立刻响起。节拍器本来就用相对延迟，不受影响。
 - 新增显示谱面边界开关（默认开），写入 `editor.showChartBoundary`。
 - 有选中事件时状态栏显示数量。
 - 偏好：SE 音量 0–2，音乐音量 0–1，步进 0.05，默认均为 1。
@@ -81,11 +82,12 @@
 ## 发版配置
 
 - `package.json` / `package-lock.json`：`0.8.0`
-- Service Worker 缓存：`sviber-v0800`，并列入全部应用模块、`css/dialogs.css` 和新图标
+- Service Worker 缓存：`sviber-v0800a`，并列入全部应用模块、`css/dialogs.css` 和新图标
 - `*.pdf` 已在 `.gitignore`（参考书不入库）
 
 ## 验证
 
 - `tests/v17-features.test.mjs`：命令/菜单、十二类检查、手指规则、吸附顺序/时间、DSP 冒烟、音量夹取、源码接线
 - `tests/v17-cli.test.mjs`：CLI 导入导出与 ZIP 时间戳
-- 门禁：`npm test`（行数 + ESLint + 全部 `tests/*.test.mjs`）
+- `tests/audio-platform.test.mjs` / `tests/play-follow-seek.test.mjs`：A-B 循环后音符 SE 按当前圈时钟排程
+- 门禁：行数检查 + ESLint + 全部 `tests/*.test.mjs`（300 pass）

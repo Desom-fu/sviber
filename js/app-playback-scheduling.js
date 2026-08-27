@@ -7,6 +7,46 @@ import {
 	collectReverseHitSchedule,
 } from "./audio/scheduler.js";
 
+export function playbackLoopCycle(audio, now = audio?.context?.currentTime) {
+	const loop = audio?.loopRange;
+	if (!Array.isArray(loop) || loop.length !== 2 || !(loop[1] > loop[0])) {
+		return 0;
+	}
+	const startedAt = Number(audio?.startedAt);
+	const startedPosition = Number(audio?.startedPosition);
+	const clock = Number(now);
+	const rate = Math.max(0.1, Number(audio?.rate) || 1);
+	if (!Number.isFinite(startedAt) || !Number.isFinite(startedPosition) || !Number.isFinite(clock)) {
+		return 0;
+	}
+	const elapsed = Math.max(0, clock - startedAt) * rate;
+	const direction = audio?.direction < 0 ? -1 : 1;
+	const raw = startedPosition + elapsed * direction;
+	const span = loop[1] - loop[0];
+	if (direction >= 0) {
+		if (raw < loop[1]) {
+			return 0;
+		}
+		return Math.floor((raw - loop[0]) / span);
+	}
+	if (raw >= loop[0]) {
+		return 0;
+	}
+	return Math.ceil((loop[0] - raw) / span);
+}
+
+function loopCycleOffset(audio, now, rate) {
+	const cycle = playbackLoopCycle(audio, now);
+	if (cycle <= 0) {
+		return 0;
+	}
+	const span = audio?.loopRange?.[1] - audio?.loopRange?.[0];
+	if (!Number.isFinite(span) || span <= 0) {
+		return 0;
+	}
+	return (cycle * span) / rate;
+}
+
 export function hitAudioTime(audio, delay, chartTime = null) {
 	const now = Number(audio?.context?.currentTime);
 	if (!Number.isFinite(now)) {
@@ -18,7 +58,8 @@ export function hitAudioTime(audio, delay, chartTime = null) {
 	const rate = Math.max(0.1, Number(audio?.rate) || 1);
 	if (audio?.playing && Number.isFinite(startedAt) && Number.isFinite(startedPosition) && Number.isFinite(hitTime)) {
 		const direction = audio.direction < 0 ? -1 : 1;
-		return startedAt + ((hitTime - startedPosition) * direction) / rate;
+		const mapped = startedAt + ((hitTime - startedPosition) * direction) / rate;
+		return mapped + loopCycleOffset(audio, now, rate);
 	}
 	return now + Math.max(0, Number(delay) || 0);
 }
