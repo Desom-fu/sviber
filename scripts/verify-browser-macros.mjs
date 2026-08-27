@@ -9,12 +9,17 @@ export async function runMacroChecks(browser, baseUrl) {
 	await context.addInitScript(() => {
 		try {
 			if (location.pathname.endsWith("/sviber/")) {
-				localStorage.setItem("sviber.macros", JSON.stringify({
-					smoke: "t(l(13, 17), 'Macro smoke'); globalThis.console.log('macro smoke ok');",
-					rubySmoke: { language: "ruby", content: "t(l(1, 2), 'Ruby smoke')\nputs 'hello world'" },
-				}));
+				localStorage.setItem(
+					"sviber.macros",
+					JSON.stringify({
+						smoke: "t(l(13, 17), 'Macro smoke'); globalThis.console.log('macro smoke ok');",
+						rubySmoke: { language: "ruby", content: "t(l(1, 2), 'Ruby smoke')\nputs 'hello world'" },
+					}),
+				);
 			}
-		} catch { /* Sandboxed macro frames have no storage origin. */ }
+		} catch {
+			/* Sandboxed macro frames have no storage origin. */
+		}
 	});
 	const page = await context.newPage();
 	const pageErrors = [];
@@ -22,8 +27,9 @@ export async function runMacroChecks(browser, baseUrl) {
 	let popup;
 	try {
 		await page.goto(baseUrl, { waitUntil: "networkidle", timeout: 60_000 });
-		await page.waitForFunction(() => Boolean(globalThis.sviber)
-			&& document.querySelector("#app")?.getAttribute("aria-busy") === "false");
+		await page.waitForFunction(
+			() => Boolean(globalThis.sviber) && document.querySelector("#app")?.getAttribute("aria-busy") === "false",
+		);
 		const popupPromise = page.waitForEvent("popup");
 		await page.evaluate(() => globalThis.sviber.openMacros());
 		popup = await popupPromise;
@@ -52,20 +58,33 @@ export async function runMacroChecks(browser, baseUrl) {
 		await popup.keyboard.press("F8");
 		await page.waitForFunction(() => globalThis.sviber.model.events.some(event => event.text === "Macro smoke"));
 		assert.equal(await page.evaluate(() => globalThis.sviber.history.length), historyBefore + 1);
-		await popup.waitForFunction(() => document.querySelector("#macro-console-output")
-			?.textContent.includes("macro smoke ok"));
+		await popup.waitForFunction(() =>
+			document.querySelector("#macro-console-output")?.textContent.includes("macro smoke ok"),
+		);
 		await popup.getByRole("button", { name: "rubySmoke", exact: true }).click();
 		await popup.keyboard.press("F8");
 		try {
-			await popup.waitForFunction(() => {
-				const text = document.querySelector("#macro-console-output")?.textContent || "";
-				return text.includes("hello world") || text.includes("[error]");
-			}, null, { timeout: 30_000 });
+			await popup.waitForFunction(
+				() => {
+					const text = document.querySelector("#macro-console-output")?.textContent || "";
+					return text.includes("hello world") || text.includes("[error]");
+				},
+				null,
+				{ timeout: 30_000 },
+			);
 			const consoleText = await popup.locator("#macro-console-output").textContent();
 			assert.match(consoleText, /hello world/);
 		} catch (error) {
-			const consoleText = await popup.locator("#macro-console-output").textContent().catch(() => "");
-			throw new Error(`Ruby macro smoke did not finish. Console: ${consoleText || "(empty)"}. Page errors: ${pageErrors.join(" | ") || "(none)"}`, { cause: error });
+			const consoleText = await popup
+				.locator("#macro-console-output")
+				.textContent()
+				.catch(() => "");
+			const consoleSummary = consoleText || "(empty)";
+			const errorSummary = pageErrors.join(" | ") || "(none)";
+			throw new Error(
+				`Ruby macro smoke did not finish. Console: ${consoleSummary}. Page errors: ${errorSummary}`,
+				{ cause: error },
+			);
 		}
 		await page.waitForFunction(() => globalThis.sviber.model.events.some(event => event.text === "Ruby smoke"));
 		assert.deepEqual(pageErrors, []);

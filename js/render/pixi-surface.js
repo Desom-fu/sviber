@@ -19,7 +19,9 @@ export class PixiCanvasSurface {
 	}
 
 	async #initialize() {
-		if (!this.directCanvas) await globalThis.sviberDependenciesReady;
+		if (!this.directCanvas) {
+			await globalThis.sviberDependenciesReady;
+		}
 		if (!this.directCanvas && globalThis.PIXI) {
 			this.app = new PIXI.Application();
 			await this.app.init({
@@ -40,7 +42,9 @@ export class PixiCanvasSurface {
 			this.host.append(this.canvas);
 		}
 		this.resizeObserver = new ResizeObserver(() => {
-			if (this.resize()) this.onResize?.(this.width, this.height);
+			if (this.resize()) {
+				this.onResize?.(this.width, this.height);
+			}
 		});
 		this.resizeObserver.observe(this.host);
 		this.resize();
@@ -50,7 +54,9 @@ export class PixiCanvasSurface {
 	resize() {
 		const width = Math.max(1, Math.round(this.host.clientWidth));
 		const height = Math.max(1, Math.round(this.host.clientHeight));
-		if (width === this.width && height === this.height) return false;
+		if (width === this.width && height === this.height) {
+			return false;
+		}
 		this.width = width;
 		this.height = height;
 		this.buffer.width = width;
@@ -72,7 +78,9 @@ export class PixiCanvasSurface {
 	}
 
 	render(draw) {
-		if (!this.context) return;
+		if (!this.context) {
+			return;
+		}
 		const context = this.context;
 		context.save();
 		context.setTransform(1, 0, 0, 1, 0, 0);
@@ -80,14 +88,16 @@ export class PixiCanvasSurface {
 		context.fillRect(0, 0, this.width, this.height);
 		context.restore();
 		draw(context, this.width, this.height);
-		if (this.texture) this.texture.source.update();
+		if (this.texture) {
+			this.texture.source.update();
+		}
 	}
 
 	toLocal(event) {
 		const rectangle = this.canvas.getBoundingClientRect();
 		return {
-			x: (event.clientX - rectangle.left) * this.width / Math.max(1, rectangle.width),
-			y: (event.clientY - rectangle.top) * this.height / Math.max(1, rectangle.height),
+			x: ((event.clientX - rectangle.left) * this.width) / Math.max(1, rectangle.width),
+			y: ((event.clientY - rectangle.top) * this.height) / Math.max(1, rectangle.height),
 		};
 	}
 
@@ -95,7 +105,9 @@ export class PixiCanvasSurface {
 		this.resizeObserver?.disconnect();
 		this.sprite?.destroy({ children: true, texture: true });
 		this.app?.destroy(true, { children: true });
-		if (!this.app) this.canvas?.remove();
+		if (!this.app) {
+			this.canvas?.remove();
+		}
 		this.app = null;
 		this.canvas = null;
 	}

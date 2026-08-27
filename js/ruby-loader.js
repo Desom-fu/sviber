@@ -18,14 +18,20 @@
 	}
 
 	global.sviberRubyRuntimeReady = (async () => {
-		if (global["ruby-wasm-wasi"]?.DefaultRubyVM) return global["ruby-wasm-wasi"];
+		if (global["ruby-wasm-wasi"]?.DefaultRubyVM) {
+			return global["ruby-wasm-wasi"];
+		}
 		let failure;
 		for (const source of sources) {
 			try {
 				await inject(source);
-				if (global["ruby-wasm-wasi"]?.DefaultRubyVM) return global["ruby-wasm-wasi"];
-			} catch (error) { failure = error; }
+				if (global["ruby-wasm-wasi"]?.DefaultRubyVM) {
+					return global["ruby-wasm-wasi"];
+				}
+			} catch (error) {
+				failure = error;
+			}
 		}
 		throw failure || new Error("ruby.wasm runtime is unavailable.");
 	})();
-}(globalThis));
+})(globalThis);

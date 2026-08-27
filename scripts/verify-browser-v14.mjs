@@ -4,18 +4,25 @@ export async function runV14BrowserChecks(page) {
 	const chrome = await page.evaluate(() => {
 		const rulers = document.getElementById("show-rulers");
 		const pause = document.querySelector("#stage-surface canvas");
-		const channelMenu = [...document.querySelectorAll("#menu-bar [data-menu='channel'] .menu-item, #application-menu [data-menu='channel'] .menu-item, [data-menu-id='channel'] .menu-item")]
-			.map(item => item.dataset.command || item.getAttribute("data-command"));
+		const channelMenuSelector = [
+			"#menu-bar [data-menu='channel'] .menu-item",
+			"#application-menu [data-menu='channel'] .menu-item",
+			"[data-menu-id='channel'] .menu-item",
+		].join(", ");
+		const channelMenu = [...document.querySelectorAll(channelMenuSelector)].map(
+			item => item.dataset.command || item.getAttribute("data-command"),
+		);
 		const toolbar = [...document.querySelectorAll("#tool-bar [data-command]")].map(item => item.dataset.command);
 		return {
 			rulersExists: Boolean(rulers),
 			rulersChecked: Boolean(rulers?.checked),
 			toolbarHasBarLine: toolbar.includes("timing.barLine"),
 			toolbarHasMove: toolbar.includes("events.moveChannelAbove"),
-			themeDark: document.documentElement.classList.contains("theme-dark")
-				|| document.documentElement.classList.contains("theme-light")
-				|| document.documentElement.hasAttribute("data-theme")
-				|| !document.documentElement.hasAttribute("data-theme"),
+			themeDark:
+				document.documentElement.classList.contains("theme-dark") ||
+				document.documentElement.classList.contains("theme-light") ||
+				document.documentElement.hasAttribute("data-theme") ||
+				!document.documentElement.hasAttribute("data-theme"),
 			hasCanvas: Boolean(pause),
 		};
 	});
@@ -39,7 +46,9 @@ export async function runV14BrowserChecks(page) {
 	const channelOffset = await page.evaluate(async () => {
 		const app = globalThis.sviber;
 		const snapshot = app.model.snapshot();
-		while (app.model.channels.length < 6) app.model.addChannel(app.model.channels.length, { name: `Lane ${app.model.channels.length}` });
+		while (app.model.channels.length < 6) {
+			app.model.addChannel(app.model.channels.length, { name: `Lane ${app.model.channels.length}` });
+		}
 		app.model.editor.timelineChannelOffset = 0;
 		app.timeline.channelOffset = 0;
 		app.refreshNow();

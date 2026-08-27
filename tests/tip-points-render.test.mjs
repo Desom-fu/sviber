@@ -32,8 +32,14 @@ test("render guides follow inherit, chain, drop, and none state", () => {
 	const guides = buildTipPointGuides({ channels: [{ id: "channel-1" }], events }, new TimingMap());
 
 	assert.equal(guides.length, 4);
-	assert.deepEqual(guides[0].events.map(event => event.id), ["note-2", "note-3", "note-4"]);
-	assert.deepEqual(guides.slice(1).map(guide => guide.events[0].id), ["note-5", "note-6", "note-7"]);
+	assert.deepEqual(
+		guides[0].events.map(event => event.id),
+		["note-2", "note-3", "note-4"],
+	);
+	assert.deepEqual(
+		guides.slice(1).map(guide => guide.events[0].id),
+		["note-5", "note-6", "note-7"],
+	);
 	assert.ok(guides.slice(1).every(guide => guide.mode === "drop"));
 	assert.ok(guides.slice(1).every(guide => guide.spawnSettings === events[4]));
 });
@@ -48,10 +54,13 @@ test("an explicit chain starts a new guide and simultaneous events keep data ord
 	];
 	const guides = buildTipPointGuides({ channels: [{ id: "channel-1" }], events }, new TimingMap());
 
-	assert.deepEqual(guides.map(guide => guide.events.map(event => event.id)), [
-		["chain-a", "chain-a-next"],
-		["chain-b", "chain-b-next"],
-	]);
+	assert.deepEqual(
+		guides.map(guide => guide.events.map(event => event.id)),
+		[
+			["chain-a", "chain-a-next"],
+			["chain-b", "chain-b-next"],
+		],
+	);
 });
 
 test("spawn time supports seconds and beats across BPM changes", () => {
@@ -102,16 +111,22 @@ test("tip point sampling interpolates segments and handles zero-time checkpoints
 });
 
 test("a stationary tip point keeps Sunniesnow's upward default direction", () => {
-	const point = sampleTipPointPath([
-		{ time: 0, x: 12, y: 34 },
-		{ time: 1, x: 12, y: 34 },
-	], 0.5);
+	const point = sampleTipPointPath(
+		[
+			{ time: 0, x: 12, y: 34 },
+			{ time: 1, x: 12, y: 34 },
+		],
+		0.5,
+	);
 	assert.equal(point.angle, -Math.PI / 2);
-	const coincidentSegment = sampleTipPointPath([
-		{ time: 0, x: 0, y: 0 },
-		{ time: 1, x: 0, y: 0 },
-		{ time: 2, x: 10, y: 0 },
-	], 0.5);
+	const coincidentSegment = sampleTipPointPath(
+		[
+			{ time: 0, x: 0, y: 0 },
+			{ time: 1, x: 0, y: 0 },
+			{ time: 2, x: 10, y: 0 },
+		],
+		0.5,
+	);
 	assert.equal(coincidentSegment.angle, -Math.PI / 2);
 });
 
@@ -133,17 +148,23 @@ test("tip point visual state follows spawn, trail, and fade boundaries", () => {
 	assert.deepEqual({ x: fading.head.x, y: fading.head.y }, { x: 10, y: 20 });
 	assert.equal(tipPointVisualState(checkpoints, 3.301), null);
 
-	const shortGuide = [{ time: 0, x: 0, y: 0 }, { time: 0.1, x: 1, y: 0 }];
+	const shortGuide = [
+		{ time: 0, x: 0, y: 0 },
+		{ time: 0.1, x: 1, y: 0 },
+	];
 	assert.ok(Math.abs(tipPointVisualState(shortGuide, 0.25).scale - 5 / 6) < 1e-9);
 	assert.equal(tipPointVisualState(shortGuide, 0.25).alpha, 1);
 });
 
 test("tip point trail preserves game-unstable corner winding", () => {
-	const edges = tipPointTrailEdges([
-		{ time: 0, x: 0, y: 0 },
-		{ time: 0.1, x: 10, y: 0 },
-		{ time: 0.2, x: 10, y: 10 },
-	], 6);
+	const edges = tipPointTrailEdges(
+		[
+			{ time: 0, x: 0, y: 0 },
+			{ time: 0.1, x: 10, y: 0 },
+			{ time: 0.2, x: 10, y: 10 },
+		],
+		6,
+	);
 	assert.equal(edges.length, 3);
 	assert.deepEqual(edges[0].left, { x: 0, y: 0 });
 	assert.ok(Math.abs(edges[1].left.x - 13) < 1e-12);
@@ -155,12 +176,19 @@ test("tip point trail preserves game-unstable corner winding", () => {
 });
 
 test("tip point trail inserts the unstable tail connector only when crossing its time", () => {
-	const trail = tipPointPathBetween([
-		{ time: 0, x: 0, y: 0 },
-		{ time: 0.05, x: 5, y: 0 },
-		{ time: 1, x: 5, y: 10 },
-	], 0.02, 0.4);
-	assert.deepEqual(trail.map(point => point.index), [0.5, 1, 1.5, 1.5]);
+	const trail = tipPointPathBetween(
+		[
+			{ time: 0, x: 0, y: 0 },
+			{ time: 0.05, x: 5, y: 0 },
+			{ time: 1, x: 5, y: 10 },
+		],
+		0.02,
+		0.4,
+	);
+	assert.deepEqual(
+		trail.map(point => point.index),
+		[0.5, 1, 1.5, 1.5],
+	);
 	assert.ok(Math.abs(trail[2].time - 0.12) < 1e-12);
 	assert.ok(Math.abs(trail[2].y - 0.736842105263158) < 1e-12);
 });
@@ -174,9 +202,7 @@ test("timeline tip connectors keep spawn time and clip safely outside the viewpo
 	assert.equal(Math.hypot(connector[0].x - connector[1].x, connector[0].y - connector[1].y), 12);
 	assert.deepEqual(tipPointPathBetween(connector, 5.844540540540349, 18.900119328556773), []);
 	assert.deepEqual(tipPointPathBetween(connector, -10, -1), []);
-	assert.deepEqual(tipPointPathBetween([{ time: 1, x: 2, y: 3 }], 0, 2), [
-		{ time: 1, x: 2, y: 3, index: 0 },
-	]);
+	assert.deepEqual(tipPointPathBetween([{ time: 1, x: 2, y: 3 }], 0, 2), [{ time: 1, x: 2, y: 3, index: 0 }]);
 });
 
 test("timeline tip lines only draw segments belonging to visible chain events", () => {
@@ -195,12 +221,15 @@ test("timeline tip lines only draw segments belonging to visible chain events", 
 });
 
 test("tip point corner geometry stays finite across coincident checkpoints", () => {
-	const edges = tipPointTrailEdges([
-		{ time: 0, x: 0, y: 0 },
-		{ time: 0.1, x: 10, y: 0 },
-		{ time: 0.2, x: 10, y: 0 },
-		{ time: 0.3, x: 10, y: 10 },
-	], 6);
+	const edges = tipPointTrailEdges(
+		[
+			{ time: 0, x: 0, y: 0 },
+			{ time: 0.1, x: 10, y: 0 },
+			{ time: 0.2, x: 10, y: 0 },
+			{ time: 0.3, x: 10, y: 10 },
+		],
+		6,
+	);
 	assert.equal(edges.length, 4);
 	for (const edge of edges) {
 		assert.ok([edge.left.x, edge.left.y, edge.right.x, edge.right.y].every(Number.isFinite));

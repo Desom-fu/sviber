@@ -1,12 +1,30 @@
 import { Rational } from "../core/rational.js";
 import { TimingMap } from "../core/timing.js";
-import { CHART_BOUNDS, applyTransform, clampPointToChartBounds, findNearestSnapPoint, invertTransform, multiplyTransforms, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
+import {
+	CHART_BOUNDS,
+	applyTransform,
+	clampPointToChartBounds,
+	findNearestSnapPoint,
+	invertTransform,
+	multiplyTransforms,
+	resolveAttachedPosition,
+	sampleSnappee,
+} from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { flattenEvents } from "../core/grouping.js";
 
 export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote", "group"]);
 export const NOTE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
-export const PATTERN_TYPES = new Set(["bigText", "grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"]);
+export const PATTERN_TYPES = new Set([
+	"bigText",
+	"grid",
+	"hexagon",
+	"checkerboard",
+	"diamondGrid",
+	"pentagon",
+	"turntable",
+	"hexagram",
+]);
 export const DURATION_TYPES = new Set(["hold", "bgNote", "comment", ...PATTERN_TYPES]);
 export const TIP_POINT_SPAWN_TYPES = new Set(["inherit", "chain", "drop", "none"]);
 export const TIP_POINT_TRAIL_DURATION = 0.5;
@@ -68,18 +86,32 @@ export function isSnappeeVisible(snappee) {
 	return snappee?.active !== false;
 }
 
-export function sunniesnowTapDoubleLinePairs(events) {
+// v17: the double lines follow the drawing order of the simultaneous taps, which is
+// the channel order first (topmost channel drawn at the bottom) and then the stacking
+// order inside a lane. Only consecutive taps in that order are connected.
+export function sunniesnowTapDoubleLinePairs(events, channels = null) {
+	const channelOrder = new Map((channels || []).map((channel, index) => [channel.id, index]));
 	const groups = new Map();
+	let sequence = 0;
 	for (const event of events || []) {
-		if (event.type !== "tap") continue;
+		if (event.type !== "tap") {
+			continue;
+		}
 		const key = Rational.from(event.time).toString();
-		if (!groups.has(key)) groups.set(key, []);
-		groups.get(key).push(event);
+		if (!groups.has(key)) {
+			groups.set(key, []);
+		}
+		groups.get(key).push({ event, sequence: sequence++ });
 	}
 	const pairs = [];
 	for (const group of groups.values()) {
+		group.sort((left, right) => {
+			const leftChannel = channelOrder.get(left.event.channel) ?? Infinity;
+			const rightChannel = channelOrder.get(right.event.channel) ?? Infinity;
+			return leftChannel - rightChannel || left.sequence - right.sequence;
+		});
 		for (let index = 0; index + 1 < group.length; index += 1) {
-			pairs.push([group[index], group[index + 1]]);
+			pairs.push([group[index].event, group[index + 1].event]);
 		}
 	}
 	return pairs;
@@ -88,19 +120,42 @@ export function sunniesnowTapDoubleLinePairs(events) {
 export function circularArcDraftSpan(beginningAngle, endingAngle) {
 	const fullTurn = Math.PI * 2;
 	let span = (Number(endingAngle) - Number(beginningAngle)) % fullTurn;
-	if (span <= 0) span += fullTurn;
+	if (span <= 0) {
+		span += fullTurn;
+	}
 	return span;
 }
 
+// The playfield note speed the user configured, falling back to the Sunniesnow default.
+export function noteSpeedPreference(state) {
+	const configured = Number(state?.preferences?.noteSpeed);
+	return configured > 0 ? configured : SUNNIESNOW_SKIN.approachSpeed;
+}
+
+// The tip point spawn mode an event declares itself, or "inherit" when it takes the mode of
+// the guide it belongs to.
+export function declaredTipPointSpawnType(event) {
+	if (TIP_POINT_SPAWN_TYPES.has(event.tipPointSpawnType)) {
+		return event.tipPointSpawnType;
+	}
+	return "inherit";
+}
+
 export function sunniesnowEventVisualState(event, start, end, now, approachSpeed = SUNNIESNOW_SKIN.approachSpeed) {
-	if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(now)) return null;
+	if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(now)) {
+		return null;
+	}
 	approachSpeed = Number(approachSpeed);
-	if (!(approachSpeed > 0)) approachSpeed = SUNNIESNOW_SKIN.approachSpeed;
+	if (!(approachSpeed > 0)) {
+		approachSpeed = SUNNIESNOW_SKIN.approachSpeed;
+	}
 	const relativeTime = now - start;
 	const duration = Math.max(0, end - start);
 	const fadeInStart = -1 / approachSpeed - SUNNIESNOW_SKIN.noteFadeInDuration;
 	const activeStart = -1 / approachSpeed;
-	if (relativeTime < fadeInStart) return null;
+	if (relativeTime < fadeInStart) {
+		return null;
+	}
 	if (relativeTime < activeStart) {
 		const progress = (relativeTime - fadeInStart) / SUNNIESNOW_SKIN.noteFadeInDuration;
 		return {
@@ -139,12 +194,15 @@ export function sunniesnowEventVisualState(event, start, end, now, approachSpeed
 	}
 
 	let fadeOutDuration = 0;
-	if (event.type === "bgNote") fadeOutDuration = SUNNIESNOW_SKIN.bgNoteFadeOutDuration;
-	else if (event.type === "flick" || event.type === "hold" || (event.type === "tap" && event.text)) {
+	if (event.type === "bgNote") {
+		fadeOutDuration = SUNNIESNOW_SKIN.bgNoteFadeOutDuration;
+	} else if (event.type === "flick" || event.type === "hold" || (event.type === "tap" && event.text)) {
 		fadeOutDuration = SUNNIESNOW_SKIN.noteFadeOutDuration;
 	}
 	const fadeStart = duration > 0 && DURATION_TYPES.has(event.type) ? duration : 0;
-	if (!(fadeOutDuration > 0) || relativeTime >= fadeStart + fadeOutDuration) return null;
+	if (!(fadeOutDuration > 0) || relativeTime >= fadeStart + fadeOutDuration) {
+		return null;
+	}
 	return {
 		phase: "fadingOut",
 		progress: Math.max(0, (relativeTime - fadeStart) / fadeOutDuration),
@@ -157,16 +215,24 @@ export function sunniesnowEventVisualState(event, start, end, now, approachSpeed
 
 export function sunniesnowPatternVisualState(start, end, now) {
 	const fade = SUNNIESNOW_SKIN.patternFadeDuration;
-	if (now < start - fade || now >= end + fade) return null;
-	if (now < start) return { phase: "fadingIn", progress: (now - start + fade) / fade };
-	if (now < end) return { phase: "holding", progress: Math.max(0, (now - start) / Math.max(end - start, 1e-9)) };
+	if (now < start - fade || now >= end + fade) {
+		return null;
+	}
+	if (now < start) {
+		return { phase: "fadingIn", progress: (now - start + fade) / fade };
+	}
+	if (now < end) {
+		return { phase: "holding", progress: Math.max(0, (now - start) / Math.max(end - start, 1e-9)) };
+	}
 	return { phase: "fadingOut", progress: (now - end) / fade };
 }
 
 export function sunniesnowDisplayedPattern(events, timing, now) {
 	const candidates = (events || [])
 		.map((event, sequence) => {
-			if (!PATTERN_TYPES.has(event.type)) return null;
+			if (!PATTERN_TYPES.has(event.type)) {
+				return null;
+			}
 			const start = timing.beatToSeconds(event.time);
 			const end = timing.beatToSeconds(Rational.from(event.time).add(event.duration || [0, 1, 1]));
 			return { event, sequence, start, end };
@@ -174,13 +240,17 @@ export function sunniesnowDisplayedPattern(events, timing, now) {
 		.filter(record => record && now >= record.start - SUNNIESNOW_SKIN.patternFadeDuration)
 		.sort((left, right) => left.start - right.start || left.sequence - right.sequence);
 	const record = candidates.at(-1);
-	if (!record) return null;
+	if (!record) {
+		return null;
+	}
 	const visual = sunniesnowPatternVisualState(record.start, record.end, now);
 	return visual ? { ...record, visual } : null;
 }
 
 export function colorIntegerToCss(value) {
-	return `#${Math.max(0, Math.min(0xffffff, value | 0)).toString(16).padStart(6, "0")}`;
+	return `#${Math.max(0, Math.min(0xffffff, value | 0))
+		.toString(16)
+		.padStart(6, "0")}`;
 }
 
 export function randomColor(minimum, maximum) {
@@ -205,9 +275,10 @@ export function timingFor(state) {
 
 export function currentSeconds(state, timing) {
 	const editor = projectState(state).editor;
-	return editor.timeSnapped === false
-		? Number(editor.currentTime) || 0
-		: timing.beatToSeconds(editor.currentTime || [0, 0, 1]);
+	if (editor.timeSnapped === false) {
+		return Number(editor.currentTime) || 0;
+	}
+	return timing.beatToSeconds(editor.currentTime || [0, 0, 1]);
 }
 
 export function tipPointSpawnTime(target, settings, timing) {
@@ -222,7 +293,9 @@ export function tipPointSpawnTime(target, settings, timing) {
 	} catch {
 		duration = Rational.from(1);
 	}
-	if (duration.compare(0) < 0) duration = duration.negate();
+	if (duration.compare(0) < 0) {
+		duration = duration.negate();
+	}
 	return timing.beatToSeconds(Rational.from(target.time).sub(duration));
 }
 
@@ -232,9 +305,7 @@ export function buildTipPointGuidesForOrderedEvents(events, timing) {
 	let previousSettings = null;
 	let activeChain = null;
 	for (const event of events || []) {
-		const declaredMode = TIP_POINT_SPAWN_TYPES.has(event.tipPointSpawnType)
-			? event.tipPointSpawnType
-			: "inherit";
+		const declaredMode = TIP_POINT_SPAWN_TYPES.has(event.tipPointSpawnType) ? event.tipPointSpawnType : "inherit";
 		const effectiveMode = declaredMode === "inherit" ? previousMode : declaredMode;
 		if (effectiveMode === "chain") {
 			if (declaredMode === "chain" || !activeChain) {
@@ -244,22 +315,28 @@ export function buildTipPointGuidesForOrderedEvents(events, timing) {
 			}
 			activeChain.events.push(event);
 		} else if (effectiveMode === "drop") {
-			if (declaredMode === "drop" || !previousSettings) previousSettings = event;
+			if (declaredMode === "drop" || !previousSettings) {
+				previousSettings = event;
+			}
 			guides.push({ mode: "drop", spawnSettings: previousSettings, events: [event] });
 			activeChain = null;
 		} else {
 			activeChain = null;
-			if (effectiveMode === "none") previousSettings = null;
+			if (effectiveMode === "none") {
+				previousSettings = null;
+			}
 		}
 
 		previousMode = effectiveMode;
-		if (declaredMode === "chain" || declaredMode === "drop") previousSettings = event;
+		if (declaredMode === "chain" || declaredMode === "drop") {
+			previousSettings = event;
+		}
 		if (declaredMode === "none") {
 			previousMode = "none";
 			previousSettings = null;
 		}
 	}
-	return guides.map((guide) => {
+	return guides.map(guide => {
 		const eventTimes = guide.events.map(event => timing.beatToSeconds(event.time));
 		return {
 			...guide,
@@ -278,36 +355,47 @@ export function buildTipPointGuides(project, timing) {
 			eventsByChannel.get(event.channel).push({ event, sequence, time: Rational.from(event.time) });
 		}
 	}
-	return (project.channels || []).flatMap(channel => buildTipPointGuidesForOrderedEvents(
-		eventsByChannel.get(channel.id)
-			.sort((left, right) => left.time.compare(right.time) || left.sequence - right.sequence)
-			.map(record => record.event),
-		timing,
-	));
+	return (project.channels || []).flatMap(channel =>
+		buildTipPointGuidesForOrderedEvents(
+			eventsByChannel
+				.get(channel.id)
+				.sort((left, right) => left.time.compare(right.time) || left.sequence - right.sequence)
+				.map(record => record.event),
+			timing,
+		),
+	);
 }
 
 export function tipPointDirection(checkpoints, index) {
 	for (let next = index + 1; next < checkpoints.length; next += 1) {
 		const dx = checkpoints[next].x - checkpoints[index].x;
 		const dy = checkpoints[next].y - checkpoints[index].y;
-		if (dx || dy) return Math.atan2(dy, dx);
+		if (dx || dy) {
+			return Math.atan2(dy, dx);
+		}
 	}
 	for (let previous = index - 1; previous >= 0; previous -= 1) {
 		const dx = checkpoints[index].x - checkpoints[previous].x;
 		const dy = checkpoints[index].y - checkpoints[previous].y;
-		if (dx || dy) return Math.atan2(dy, dx);
+		if (dx || dy) {
+			return Math.atan2(dy, dx);
+		}
 	}
 	return -Math.PI / 2;
 }
 
 export function sampleTipPointPath(checkpoints, time) {
-	if (!checkpoints.length) return null;
+	if (!checkpoints.length) {
+		return null;
+	}
 	const angleBetween = (from, to) => {
 		const dx = to.x - from.x;
 		const dy = to.y - from.y;
 		return dx === 0 && dy === 0 ? -Math.PI / 2 : Math.atan2(dy, dx);
 	};
-	if (checkpoints.length === 1) return { ...checkpoints[0], angle: -Math.PI / 2 };
+	if (checkpoints.length === 1) {
+		return { ...checkpoints[0], angle: -Math.PI / 2 };
+	}
 	if (time <= checkpoints[0].time) {
 		return { ...checkpoints[0], angle: angleBetween(checkpoints[0], checkpoints[1]) };
 	}
@@ -319,8 +407,11 @@ export function sampleTipPointPath(checkpoints, time) {
 	let high = checkpoints.length;
 	while (low < high) {
 		const middle = (low + high) >> 1;
-		if (checkpoints[middle].time < time) low = middle + 1;
-		else high = middle;
+		if (checkpoints[middle].time < time) {
+			low = middle + 1;
+		} else {
+			high = middle;
+		}
 	}
 	const nextIndex = low;
 	const previous = checkpoints[nextIndex - 1];
@@ -342,18 +433,27 @@ export function tipPointPathBetween(checkpoints, beginning, ending) {
 		Object.defineProperty(points, "checkpoints", { value: source });
 		return points;
 	};
-	if (!source.length || !Number.isFinite(beginning) || !Number.isFinite(ending) || ending < beginning) return finish();
-	if (ending < source[0].time || beginning > source.at(-1).time) return finish();
+	if (!source.length || !Number.isFinite(beginning) || !Number.isFinite(ending) || ending < beginning) {
+		return finish();
+	}
+	if (ending < source[0].time || beginning > source.at(-1).time) {
+		return finish();
+	}
 	if (source.length === 1) {
-		if (source[0].time >= beginning && source[0].time <= ending) points.push({ ...source[0], index: 0 });
+		if (source[0].time >= beginning && source[0].time <= ending) {
+			points.push({ ...source[0], index: 0 });
+		}
 		return finish();
 	}
 	let low = 0;
 	let high = source.length;
 	while (low < high) {
 		const middle = (low + high) >> 1;
-		if (source[middle].time < beginning) low = middle + 1;
-		else high = middle;
+		if (source[middle].time < beginning) {
+			low = middle + 1;
+		} else {
+			high = middle;
+		}
 	}
 	let previousCheckpointIndex = low > 0 ? low - 1 : null;
 	let nextCheckpointIndex = null;
@@ -396,9 +496,11 @@ export function tipPointPathBetween(checkpoints, beginning, ending) {
 
 export function tipPointSpawnPosition(settings, eventPosition, snappees, resolvedAttachedPosition = null) {
 	if (settings.tipPointSpawnAbsolutePosition) {
-		const attached = resolvedAttachedPosition
-			|| resolveAttachedPosition(settings, snappees, { prefix: "tipPointSpawn" });
-		if (attached) return attached;
+		const attached =
+			resolvedAttachedPosition || resolveAttachedPosition(settings, snappees, { prefix: "tipPointSpawn" });
+		if (attached) {
+			return attached;
+		}
 		const x = Number(settings.tipPointSpawnX);
 		const y = Number(settings.tipPointSpawnY);
 		return { x: Number.isFinite(x) ? x : 0, y: Number.isFinite(y) ? y : 100 };
@@ -414,10 +516,14 @@ export function tipPointSpawnPosition(settings, eventPosition, snappees, resolve
 }
 
 export function tipPointVisualState(checkpoints, now) {
-	if (!checkpoints.length || !Number.isFinite(now)) return null;
+	if (!checkpoints.length || !Number.isFinite(now)) {
+		return null;
+	}
 	const startTime = checkpoints[0].time;
 	const endTime = checkpoints.at(-1).time;
-	if (now < startTime) return null;
+	if (now < startTime) {
+		return null;
+	}
 	let alpha = 1;
 	let scale = 1;
 	if (now < startTime + TIP_POINT_ZOOM_DURATION) {
@@ -447,10 +553,11 @@ export function directionBetween(from, to) {
 
 export function adjacentDirection(points, index, step) {
 	for (let next = index + step; next >= 0 && next < points.length; next += step) {
-		const direction = step < 0
-			? directionBetween(points[next], points[index])
-			: directionBetween(points[index], points[next]);
-		if (direction) return direction;
+		const direction =
+			step < 0 ? directionBetween(points[next], points[index]) : directionBetween(points[index], points[next]);
+		if (direction) {
+			return direction;
+		}
 	}
 	return null;
 }
@@ -458,7 +565,9 @@ export function adjacentDirection(points, index, step) {
 function angleDistance(left, right) {
 	const fullTurn = Math.PI * 2;
 	let difference = (left - right + Math.PI) % fullTurn;
-	if (difference < 0) difference += fullTurn;
+	if (difference < 0) {
+		difference += fullTurn;
+	}
 	return Math.abs(difference - Math.PI);
 }
 
@@ -493,18 +602,21 @@ function tipPointJointEdge(checkpoint, checkpoints, startTime, halfWidth, scale)
 	previousAngle ??= nextAngle + Math.PI;
 	nextAngle ??= previousAngle + Math.PI;
 	let angle = (previousAngle + nextAngle) / 2;
-	if (angleDistance(previousAngle, nextAngle) < Math.PI / 2 - 1e-4) angle += Math.PI / 2;
+	if (angleDistance(previousAngle, nextAngle) < Math.PI / 2 - 1e-4) {
+		angle += Math.PI / 2;
+	}
 	const length = radius / Math.sin(angle - nextAngle);
 	return { x: length * Math.cos(angle), y: length * Math.sin(angle) };
 }
 
 // Literal Canvas port of game-unstable TipPoint.drawTrailThrough().
 export function tipPointTrailEdges(points, width, scale = 1) {
-	if (points.length < 2 || !(width > 0)) return [];
+	if (points.length < 2 || !(width > 0)) {
+		return [];
+	}
 	const startTime = points[0].time;
 	const size = Math.max(0, Math.min(1, scale));
-	const checkpoints = points.checkpoints
-		|| points.map((checkpoint, index) => ({ ...checkpoint, index }));
+	const checkpoints = points.checkpoints || points.map((checkpoint, index) => ({ ...checkpoint, index }));
 	const active = points.map((checkpoint, index) => ({ ...checkpoint, index: checkpoint.index ?? index }));
 	const first = active[0];
 	const edges = [{ ...first, left: { x: first.x, y: first.y }, right: { x: first.x, y: first.y } }];
@@ -516,16 +628,22 @@ export function tipPointTrailEdges(points, width, scale = 1) {
 		const offset = tipPointJointEdge(point, checkpoints, startTime, width / 2, size);
 		let left = { x: point.x + offset.x, y: point.y + offset.y };
 		let right = { x: point.x - offset.x, y: point.y - offset.y };
-		if (clockwiseness(previous.x, previous.y, point.x, point.y, left.x, left.y)
-			!== clockwiseness(previous.x, previous.y, point.x, point.y, lastLeft.x, lastLeft.y)) {
+		if (
+			clockwiseness(previous.x, previous.y, point.x, point.y, left.x, left.y) !==
+			clockwiseness(previous.x, previous.y, point.x, point.y, lastLeft.x, lastLeft.y)
+		) {
 			[left, right] = [right, left];
 		}
-		if (clockwiseness(previous.x, previous.y, point.x, point.y, left.x, left.y)
-			!== clockwiseness(lastLeft.x, lastLeft.y, point.x, point.y, left.x, left.y)) {
+		if (
+			clockwiseness(previous.x, previous.y, point.x, point.y, left.x, left.y) !==
+			clockwiseness(lastLeft.x, lastLeft.y, point.x, point.y, left.x, left.y)
+		) {
 			left = { ...lastLeft };
 		}
-		if (clockwiseness(previous.x, previous.y, point.x, point.y, right.x, right.y)
-			!== clockwiseness(lastRight.x, lastRight.y, point.x, point.y, right.x, right.y)) {
+		if (
+			clockwiseness(previous.x, previous.y, point.x, point.y, right.x, right.y) !==
+			clockwiseness(lastRight.x, lastRight.y, point.x, point.y, right.x, right.y)
+		) {
 			right = { ...lastRight };
 		}
 		edges.push({ ...point, left, right });
@@ -536,11 +654,15 @@ export function tipPointTrailEdges(points, width, scale = 1) {
 }
 
 export function drawTipPointTrail(context, points, width, scale = 1, alpha = 1, maximumOpacity = 0.5) {
-	if (points.length < 2 || width <= 0) return;
+	if (points.length < 2 || width <= 0) {
+		return;
+	}
 	const startTime = points[0].time;
 	const endTime = points.at(-1).time;
 	const duration = endTime - startTime;
-	if (!(duration > 0)) return;
+	if (!(duration > 0)) {
+		return;
+	}
 	const progressAt = point => Math.max(0, Math.min(1, (point.time - startTime) / duration));
 	const opacityAt = point => Math.max(0, Math.min(1, alpha * maximumOpacity * progressAt(point)));
 	const edges = tipPointTrailEdges(points, width, scale);
@@ -549,7 +671,9 @@ export function drawTipPointTrail(context, points, width, scale = 1, alpha = 1, 
 	for (let index = 1; index < edges.length; index += 1) {
 		const beginning = edges[index - 1];
 		const ending = edges[index];
-		if (!(ending.time > beginning.time)) continue;
+		if (!(ending.time > beginning.time)) {
+			continue;
+		}
 		const beginningOpacity = opacityAt(beginning);
 		const endingOpacity = opacityAt(ending);
 		const gradient = context.createLinearGradient?.(beginning.x, beginning.y, ending.x, ending.y);
@@ -574,7 +698,7 @@ export function drawTipPointTrail(context, points, width, scale = 1, alpha = 1, 
 export function sunniesnowRegularPolygonPoints(centerX, centerY, radius, sides, rotation = 0) {
 	sides = Math.max(sides | 0, 3);
 	const startAngle = -Math.PI / 2 + rotation;
-	const delta = Math.PI * 2 / sides;
+	const delta = (Math.PI * 2) / sides;
 	return Array.from({ length: sides }, (_, index) => {
 		const angle = startAngle - index * delta;
 		return {
@@ -586,7 +710,11 @@ export function sunniesnowRegularPolygonPoints(centerX, centerY, radius, sides, 
 
 export function appendPolygonPath(context, centerX, centerY, radius, sides, rotation = 0) {
 	for (const [index, point] of sunniesnowRegularPolygonPoints(centerX, centerY, radius, sides, rotation).entries()) {
-		if (!index) context.moveTo(point.x, point.y); else context.lineTo(point.x, point.y);
+		if (!index) {
+			context.moveTo(point.x, point.y);
+		} else {
+			context.lineTo(point.x, point.y);
+		}
 	}
 	context.closePath();
 }
@@ -605,8 +733,9 @@ export function pointInPolygon(point, polygon) {
 	for (let current = 0, previous = polygon.length - 1; current < polygon.length; previous = current++) {
 		const a = polygon[current];
 		const b = polygon[previous];
-		if ((a.y > point.y) !== (b.y > point.y)
-			&& point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+		if (a.y > point.y !== b.y > point.y && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) {
+			inside = !inside;
+		}
 	}
 	return inside;
 }

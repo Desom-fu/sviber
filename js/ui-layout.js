@@ -1,6 +1,9 @@
 export function bindEdgeToggleReveal(stage) {
-	if (!stage) return;
-	const clear = () => stage.classList.remove("is-hovering-left-edge", "is-hovering-right-edge", "is-hovering-top-edge");
+	if (!stage) {
+		return;
+	}
+	const clear = () =>
+		stage.classList.remove("is-hovering-left-edge", "is-hovering-right-edge", "is-hovering-top-edge");
 	stage.addEventListener("pointermove", event => {
 		const bounds = stage.getBoundingClientRect();
 		const offset = event.clientX - bounds.left;

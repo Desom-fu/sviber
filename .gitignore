@@ -6,3 +6,6 @@ js/audio/audio-decode.bundle.js
 assets/
 /icon.ico
 /icon.png
+
+# Reference literature (not redistributable)
+*.pdf

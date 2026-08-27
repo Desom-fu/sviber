@@ -1,0 +1,49 @@
+import { readFile } from "node:fs/promises";
+
+// Several layers of the editor are assembled from trait modules that are composed into one
+// class. Source level assertions therefore concatenate a family of modules, so that they keep
+// describing the behaviour of the layer as a whole no matter which module a particular method
+// currently lives in.
+
+export const STAGE_INTERACTION_MODULES = [
+	"../js/render/stage-interactions.js",
+	"../js/render/stage-hud.js",
+	"../js/render/stage-pointer.js",
+	"../js/render/stage-transform-drag.js",
+];
+
+export const STAGE_NOTE_MODULES = [
+	"../js/render/stage-notes.js",
+	"../js/render/stage-overlays.js",
+	"../js/render/stage-drafts.js",
+	"../js/render/note-painting.js",
+];
+
+export const TIMELINE_MODULES = [
+	"../js/render/timeline.js",
+	"../js/render/timeline-drawing.js",
+	"../js/render/timeline-pointer.js",
+];
+
+export const EVENT_EDITING_MODULES = [
+	"../js/app-event-editing.js",
+	"../js/app-view-callbacks.js",
+	"../js/app-selection.js",
+	"../js/app-selection-preview.js",
+	"../js/app-stage-move-exception.js",
+	"../js/app-timeline-navigation.js",
+	"../js/app-event-move.js",
+	"../js/app-position-move.js",
+	"../js/app-group-anchor-move.js",
+	"../js/app-tip-spawn-move.js",
+	"../js/app-snappee-drag.js",
+	"../js/app-transform-targets.js",
+	"../js/app-selection-transform.js",
+	"../js/app-property-editing.js",
+	"../js/app-tip-point-modes.js",
+];
+
+export async function readSources(modules) {
+	const sources = await Promise.all(modules.map(name => readFile(new URL(name, import.meta.url), "utf8")));
+	return sources.join("\n");
+}

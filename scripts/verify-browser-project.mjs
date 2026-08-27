@@ -4,10 +4,19 @@ import path from "node:path";
 export async function runProjectChecks(page, outputDirectory) {
 	const browserState = await page.evaluate(async () => {
 		const app = globalThis.sviber;
-		const desktopOnly = ["file.newProject", "file.openProject", "file.openRecent", "file.saveProject", "file.deleteChart"];
+		const desktopOnly = [
+			"file.newProject",
+			"file.openProject",
+			"file.openRecent",
+			"file.saveProject",
+			"file.deleteChart",
+		];
 		let projectPickerError = "";
-		try { await app.files.chooseProjectDirectory(); }
-		catch (error) { projectPickerError = String(error?.message || error); }
+		try {
+			await app.files.chooseProjectDirectory();
+		} catch (error) {
+			projectPickerError = String(error?.message || error);
+		}
 		return {
 			editingProject: app.editingProject,
 			difficultyCount: app.difficulties.length,
@@ -26,19 +35,21 @@ export async function runProjectChecks(page, outputDirectory) {
 		const app = globalThis.sviber;
 		const originalForm = app.dialogs.form;
 		const originalConfirmUnsaved = app.confirmUnsaved;
-		app.dialogs.form = async options => options.titleKey === "dialog.newChart" ? {
-			...app.model.metadata,
-			title: "Browser standalone",
-			difficultyName: "Hard",
-			difficultyColor: "#e75e74",
-			difficulty: "9",
-			difficultySup: "",
-			offset: 0,
-			initialBpm: 120,
-		} : originalForm(options);
+		app.dialogs.form = async options =>
+			options.titleKey === "dialog.newChart"? {
+						...app.model.metadata,
+						title: "Browser standalone",
+						difficultyName: "Hard",
+						difficultyColor: "#e75e74",
+						difficulty: "9",
+						difficultySup: "",
+						offset: 0,
+						initialBpm: 120,
+					}: originalForm(options);
 		app.confirmUnsaved = async () => true;
-		try { await app.newChart(); }
-		finally {
+		try {
+			await app.newChart();
+		} finally {
 			app.dialogs.form = originalForm;
 			app.confirmUnsaved = originalConfirmUnsaved;
 		}

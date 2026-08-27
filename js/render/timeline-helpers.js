@@ -29,13 +29,29 @@ export const TIMELINE_EVENT_COLORS = Object.freeze({
 export const TIMELINE_COMMENT_TEXT_COLOR = "#f2f5ed";
 
 export const TIMELINE_DURATION_TYPES = new Set([
-	"hold", "bgNote", "bigText", "grid", "hexagon", "checkerboard",
-	"diamondGrid", "pentagon", "turntable", "hexagram", "comment",
+	"hold",
+	"bgNote",
+	"bigText",
+	"grid",
+	"hexagon",
+	"checkerboard",
+	"diamondGrid",
+	"pentagon",
+	"turntable",
+	"hexagram",
+	"comment",
 ]);
 
 export const BACKGROUND_EVENT_TYPES = new Set([
-	"bgNote", "bigText", "grid", "hexagon", "checkerboard",
-	"diamondGrid", "pentagon", "turntable", "hexagram",
+	"bgNote",
+	"bigText",
+	"grid",
+	"hexagon",
+	"checkerboard",
+	"diamondGrid",
+	"pentagon",
+	"turntable",
+	"hexagram",
 ]);
 
 export function isBackgroundEvent(event) {
@@ -56,15 +72,18 @@ export function timingFor(state) {
 
 export function currentSeconds(state, timing) {
 	const editor = projectState(state).editor;
-	return editor.timeSnapped === false
-		? Number(editor.currentTime) || 0
-		: timing.beatToSeconds(editor.currentTime || [0, 0, 1]);
+	if (editor.timeSnapped === false) {
+		return Number(editor.currentTime) || 0;
+	}
+	return timing.beatToSeconds(editor.currentTime || [0, 0, 1]);
 }
 
 function greatestCommonDivisor(left, right) {
 	left = Math.abs(left);
 	right = Math.abs(right);
-	while (right) [left, right] = [right, left % right];
+	while (right) {
+		[left, right] = [right, left % right];
+	}
 	return left || 1;
 }
 
@@ -115,11 +134,14 @@ export function drawPatternIcon(context, type, x, y, radius, color) {
 		for (let layer = 0; layer < (type === "hexagram" ? 2 : 1); layer += 1) {
 			context.beginPath();
 			for (let index = 0; index < sides; index += 1) {
-				const angle = -Math.PI / 2 + index * Math.PI * 2 / sides + layer * Math.PI;
+				const angle = -Math.PI / 2 + (index * Math.PI * 2) / sides + layer * Math.PI;
 				const px = Math.cos(angle) * radius;
 				const py = Math.sin(angle) * radius;
-				if (!index) context.moveTo(px, py);
-				else context.lineTo(px, py);
+				if (!index) {
+					context.moveTo(px, py);
+				} else {
+					context.lineTo(px, py);
+				}
 			}
 			context.closePath();
 			context.stroke();
@@ -154,10 +176,14 @@ export function drawTimelineEventIcon(context, event, x, y, color) {
 	} else if (event.type === "bgNote") {
 		context.beginPath();
 		for (let index = 0; index < 6; index += 1) {
-			const angle = index * Math.PI / 3;
+			const angle = (index * Math.PI) / 3;
 			const px = x + Math.cos(angle) * 9;
 			const py = y + Math.sin(angle) * 9;
-			if (!index) context.moveTo(px, py); else context.lineTo(px, py);
+			if (!index) {
+				context.moveTo(px, py);
+			} else {
+				context.lineTo(px, py);
+			}
 		}
 		context.closePath();
 		context.fill();
@@ -184,7 +210,9 @@ export function drawTimelineEventIcon(context, event, x, y, color) {
 }
 
 export function timelineTipConnector(checkpoints, tailLength = 12) {
-	if (!Array.isArray(checkpoints) || checkpoints.length < 2) return [];
+	if (!Array.isArray(checkpoints) || checkpoints.length < 2) {
+		return [];
+	}
 	const spawn = checkpoints[0];
 	const firstEvent = checkpoints[1];
 	let dx = Number(spawn.x) - Number(firstEvent.x);
@@ -197,14 +225,21 @@ export function timelineTipConnector(checkpoints, tailLength = 12) {
 	}
 	const fixedLength = Math.max(1, Number(tailLength) || 12);
 	return [
-		{ ...spawn, x: firstEvent.x + dx / length * fixedLength, y: firstEvent.y + dy / length * fixedLength },
+		{ ...spawn, x: firstEvent.x + (dx / length) * fixedLength, y: firstEvent.y + (dy / length) * fixedLength },
 		...checkpoints.slice(1),
 	];
 }
 
 export function timelineTipSegments(checkpoints, beginning, ending) {
-	if (!Array.isArray(checkpoints) || checkpoints.length < 2
-		|| !Number.isFinite(beginning) || !Number.isFinite(ending) || ending < beginning) return [];
+	if (
+		!Array.isArray(checkpoints) ||
+		checkpoints.length < 2 ||
+		!Number.isFinite(beginning) ||
+		!Number.isFinite(ending) ||
+		ending < beginning
+	) {
+		return [];
+	}
 	const interpolate = (from, to, time) => {
 		const duration = to.time - from.time;
 		const progress = duration > 0 ? (time - from.time) / duration : 0;
@@ -221,7 +256,9 @@ export function timelineTipSegments(checkpoints, beginning, ending) {
 		const fromVisible = from.time >= beginning && from.time <= ending;
 		const toVisible = to.time >= beginning && to.time <= ending;
 		// Do not turn a connection between two off-screen notes into a full-width lane.
-		if (!fromVisible && !toVisible) continue;
+		if (!fromVisible && !toVisible) {
+			continue;
+		}
 		const clippedFrom = from.time < beginning ? interpolate(from, to, beginning) : from;
 		const clippedTo = to.time > ending ? interpolate(from, to, ending) : to;
 		if (clippedFrom.time <= ending && clippedTo.time >= beginning) {
@@ -232,19 +269,25 @@ export function timelineTipSegments(checkpoints, beginning, ending) {
 }
 
 export function tipSpawnDirectionSegment(firstPosition, spawnPosition, screenPoint, tailLength = 12) {
-	if (!firstPosition || !spawnPosition || !screenPoint) return [];
+	if (!firstPosition || !spawnPosition || !screenPoint) {
+		return [];
+	}
 	const dx = Number(spawnPosition.x) - Number(firstPosition.x);
 	const dy = Number(firstPosition.y) - Number(spawnPosition.y);
 	const length = Math.hypot(dx, dy);
-	if (!(length > 1e-8)) return [];
+	if (!(length > 1e-8)) {
+		return [];
+	}
 	const fixedLength = Math.max(1, Number(tailLength) || 12);
 	return [
-		{ x: screenPoint.x + dx / length * fixedLength, y: screenPoint.y + dy / length * fixedLength },
+		{ x: screenPoint.x + (dx / length) * fixedLength, y: screenPoint.y + (dy / length) * fixedLength },
 		{ x: screenPoint.x, y: screenPoint.y },
 	];
 }
 
 export function timelineTipCheckpointSignature(layout, channelOffset, channels, revision = 0) {
-	return `${layout.channels.width}:${layout.channels.y}:${layout.channelHeight}:${channelOffset}:` +
-		`${(channels || []).map(channel => channel.id).join(",")}:${revision}`;
+	return (
+		`${layout.channels.width}:${layout.channels.y}:${layout.channelHeight}:${channelOffset}:` +
+		`${(channels || []).map(channel => channel.id).join(",")}:${revision}`
+	);
 }

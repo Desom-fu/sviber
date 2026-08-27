@@ -14,7 +14,9 @@ export function builderApplicationOptions(platform, packageJson) {
 		name,
 		icon: BUILDER_ICONS[normalizedPlatform] || BUILDER_ICONS.linux,
 	};
-	if (normalizedPlatform !== "osx") return application;
+	if (normalizedPlatform !== "osx") {
+		return application;
+	}
 	return {
 		...application,
 		LSApplicationCategoryType: "public.app-category.music",

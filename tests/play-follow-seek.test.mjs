@@ -34,7 +34,9 @@ test("seeking during playback re-arms visible range follow after mid-range", () 
 		scheduledHoldReleaseIds: new Set(),
 		scheduledMetronomeBeats: new Set(),
 		_scheduleHits() {},
-		timeBounds() { return [0, 100]; },
+		timeBounds() {
+			return [0, 100];
+		},
 		refreshPlaybackFrame() {},
 	};
 
@@ -80,7 +82,9 @@ test("seeking during playback keeps follow disabled when visible range is locked
 		scheduledHoldReleaseIds: new Set(),
 		scheduledMetronomeBeats: new Set(),
 		_scheduleHits() {},
-		timeBounds() { return [0, 100]; },
+		timeBounds() {
+			return [0, 100];
+		},
 		refreshPlaybackFrame() {},
 	};
 

@@ -1,105 +1,19 @@
-import { i18n } from "./i18n.js";
-import { Rational } from "./core/rational.js";
+// Composition root for the view-control mixins. The single oversized `withViewControls`
+// mixin was split into four concerns, each in its own module:
+//
+//   app-view-refresh.js     targeted re-render fan-out for views and docked panels
+//   app-main-field-view.js  stage viewport pan/zoom
+//   app-time-seeking.js     playhead seeking from timeline/waveform/scroll-view drags
+//   app-timeline-marks.js   A-B loop marks and manual bar lines
+//   app-time-dilation.js    the time-dilation chart edit
+//
+// `withViewControls` keeps its name and module path so every importer stays unchanged.
 
-export const withViewControls = Base => class extends Base {
-	refreshStatusViews(options = {}) {
-		const view = this.viewState();
-		for (const [name, enabled] of [["timeline", options.timeline], ["stage", options.stage], ["scrollView", options.scroll]]) {
-			if (!enabled || !this[name]) continue;
-			this[name].setState(view, { render: false });
-			this[name].requestRender();
-		}
-		this.requestStatusUpdate();
-	}
-	refreshReadOnlyUi(readOnly) {
-		this.inspectorPanel.render(this.model, { transform: this.freeTransform?.matrix || null });
-		this.snappeesPanel.render(this.model, { readOnly });
-		this.channelsPanel.render(this.model, { readOnly });
-		this.clipsPanel.render(this.model, { readOnly });
-		this.historyPanel.render(this.history, { readOnly });
-		this._refreshDifficultyUi();
-		this.registry.notifyAll();
-	}
-	setMainFieldPan(x, y) {
-		this.model.editor.mainFieldPanX = Number(x) || 0;
-		this.model.editor.mainFieldPanY = Number(y) || 0;
-		this.stage.requestRender();
-		this._updateStatus?.();
-	}
-	setMainFieldZoom(factor) {
-		const current = Math.max(0.1, Math.min(16, Number(this.model.editor.mainFieldZoom) || 1));
-		this.model.editor.mainFieldZoom = Math.max(0.1, Math.min(16, current * (Number(factor) || 1)));
-		this.stage.requestRender();
-		this._updateStatus?.();
-	}
-	resetMainFieldView() {
-		this.model.editor.mainFieldPanX = 0;
-		this.model.editor.mainFieldPanY = 0;
-		this.model.editor.mainFieldZoom = 1;
-		this.stage.requestRender();
-		this._updateStatus?.();
-	}
-	seekProgress(payload = {}) {
-		const target = Number(payload.seconds);
-		if (!Number.isFinite(target)) return;
-		const editor = this.model.editor;
-		if (payload.followRange && Number.isFinite(payload.beginning) && Number.isFinite(payload.end)) {
-			const span = payload.end - payload.beginning;
-			const ratio = (Number(payload.startSeconds) - payload.beginning) / Math.max(0.001, span);
-			this.setVisibleRange(target - ratio * span, target + (1 - ratio) * span, true);
-		}
-		if (this.audio.playing) { editor.timeSnapped = false; editor.currentTime = target; this.audio.seek(target); }
-		else { editor.timeSnapped = true; editor.currentTime = this.timing().secondsToSnappedBeat(target, editor.subdivision).toJSON(); this.audio.seek(this.currentSeconds()); }
-		this.refreshInteractionPreview?.({ rebuildIndex: false });
-	}
-	seekScrollbar(seconds) {
-		const editor = this.model.editor;
-		const current = this.currentSeconds();
-		const beginning = Number(editor.visibleRangeBeginning);
-		const end = Number(editor.visibleRangeEnd);
-		if (current >= beginning && current <= end) {
-			this.seekProgress({ seconds, followRange: true, beginning, end, startSeconds: current });
-			return;
-		}
-		const span = Math.max(0.001, end - beginning);
-		this.setVisibleRange(seconds - span / 2, seconds + span / 2, true);
-	}
-	panScrollView(seconds, final, drag = {}) {
-		const target = Number(seconds);
-		if (!Number.isFinite(target)) return;
-		const editor = this.model.editor;
-		if (drag.followRange && Number.isFinite(drag.beginning) && Number.isFinite(drag.end)) {
-			const span = drag.end - drag.beginning;
-			const ratio = (Number(drag.startSeconds) - drag.beginning) / Math.max(0.001, span);
-			this.setVisibleRange(target - ratio * span, target + (1 - ratio) * span, true);
-		}
-		if (final && !this.audio.playing) { editor.timeSnapped = true; editor.currentTime = this.timing().secondsToSnappedBeat(target, editor.subdivision).toJSON(); this.audio.seek(this.currentSeconds()); }
-		else { editor.timeSnapped = false; editor.currentTime = target; this.audio.seek(target); }
-		this.refreshInteractionPreview?.({ rebuildIndex: false });
-	}
-	toggleBarLine() {
-		const beat = this.currentBeat();
-		this.commit(i18n.t("history.barLine"), model => { if (!model.timing.removeBarLine(beat)) model.timing.addBarLine(beat); });
-	}
-	async showTimeDilationDialog() {
-		this.exitModes();
-		const values = await this.dialogs.form({ titleKey: "dialog.timeDilation", values: { factor: [1, 0, 1], preserveDuration: false }, fields: [
-			{ id: "factor", type: "rational", labelKey: "field.factor", required: true },
-			{ id: "preserveDuration", type: "checkbox", labelKey: "field.preserveDuration" },
-		] });
-		if (!values) return;
-		const factor = Rational.from(values.factor);
-		this.commit(i18n.t("history.timeDilation"), model => {
-			const roots = model.allEvents().filter(event => event.selected);
-			const events = [...new Set(roots.flatMap(event => event.type === "group" ? model.groupDescendants(event.id).filter(item => item.type !== "group") : [event]))];
-			if (!events.length) return;
-			const origin = events.reduce((min, event) => { const time = Rational.from(event.time); return !min || time.compare(min) < 0 ? time : min; }, null);
-			for (const event of events) {
-				const time = Rational.from(event.time);
-				const next = factor.mul(time.sub(origin)).add(origin);
-				if (event.duration && !values.preserveDuration) { const end = factor.mul(time.add(event.duration).sub(origin)).add(origin); event.duration = end.sub(next).toJSON(); }
-				event.time = next.toJSON();
-			}
-		});
-	}
-};
+import { withViewRefresh } from "./app-view-refresh.js";
+import { withMainFieldView } from "./app-main-field-view.js";
+import { withTimeSeeking } from "./app-time-seeking.js";
+import { withTimelineMarks } from "./app-timeline-marks.js";
+import { withTimeDilation } from "./app-time-dilation.js";
+
+export const withViewControls = Base =>
+	withTimeDilation(withTimelineMarks(withTimeSeeking(withMainFieldView(withViewRefresh(Base)))));

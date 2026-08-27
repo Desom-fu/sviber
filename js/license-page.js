@@ -2,34 +2,50 @@
 	"use strict";
 
 	const SOURCES = new Set([
-		"js/app.js", "js/font-loader.js", "js/nw-source-bootstrap.js", "js/vendor-loader.js",
-		"js/license-page.js", "service-worker.js", "docs/docs.js",
+		"js/app.js",
+		"js/font-loader.js",
+		"js/nw-source-bootstrap.js",
+		"js/vendor-loader.js",
+		"js/license-page.js",
+		"service-worker.js",
+		"docs/docs.js",
 	]);
 
 	function preferences() {
-		try { return JSON.parse(localStorage.getItem("sviber.preferences") || "{}"); }
-		catch { return {}; }
+		try {
+			return JSON.parse(localStorage.getItem("sviber.preferences") || "{}");
+		} catch {
+			return {};
+		}
 	}
 
 	const stored = preferences();
 	if (stored.theme === "light" || stored.theme === "dark") {
 		document.documentElement.dataset.theme = stored.theme;
 	}
-	const systemLanguage = String(navigator.language || "").toLowerCase().startsWith("zh") ? "zh-CN" : "en-US";
+	const systemLanguage = String(navigator.language || "")
+		.toLowerCase()
+		.startsWith("zh")? "zh-CN": "en-US";
 	const language = stored.language === "zh-CN" || stored.language === "en-US" ? stored.language : systemLanguage;
 	document.documentElement.lang = language;
 
 	function returnToEditor(event) {
 		event.preventDefault();
 		const fallback = event.currentTarget.href;
-		try { window.opener?.focus(); } catch { /* Cross-origin opener access can be denied. */ }
+		try {
+			window.opener?.focus();
+		} catch {
+			/* Cross-origin opener access can be denied. */
+		}
 		window.close();
 		setTimeout(() => location.assign(fallback), 50);
 	}
 
 	async function loadSource() {
 		const output = document.getElementById("source-code");
-		if (!output) return;
+		if (!output) {
+			return;
+		}
 		const filename = new URLSearchParams(location.search).get("file") || "";
 		const title = document.getElementById("source-title");
 		if (!SOURCES.has(filename)) {
@@ -41,7 +57,9 @@
 		document.title = `${filename} - sviber source viewer`;
 		try {
 			const response = await fetch(new URL(filename, location.href));
-			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			if (!response.ok) {
+				throw new Error(`HTTP ${response.status}`);
+			}
 			output.textContent = await response.text();
 		} catch (error) {
 			output.textContent = `Unable to load ${filename}: ${error.message}`;
@@ -63,7 +81,9 @@
 		}
 		for (const link of document.querySelectorAll("[data-external]")) {
 			link.addEventListener("click", event => {
-				if (!globalThis.nw?.Shell?.openExternal) return;
+				if (!globalThis.nw?.Shell?.openExternal) {
+					return;
+				}
 				event.preventDefault();
 				globalThis.nw.Shell.openExternal(link.href);
 			});

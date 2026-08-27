@@ -31,10 +31,19 @@ test("NW.js builder selects native icon formats for each desktop platform", () =
 test("macOS NW.js builder metadata satisfies every required string field", () => {
 	const application = builderApplicationOptions("osx", packageJson);
 	for (const field of [
-		"name", "icon", "LSApplicationCategoryType", "CFBundleIdentifier", "CFBundleName",
-		"CFBundleDisplayName", "CFBundleSpokenName", "CFBundleVersion",
-		"CFBundleShortVersionString", "NSHumanReadableCopyright",
-	]) assert.equal(typeof application[field], "string", `${field} must be a string`);
+		"name",
+		"icon",
+		"LSApplicationCategoryType",
+		"CFBundleIdentifier",
+		"CFBundleName",
+		"CFBundleDisplayName",
+		"CFBundleSpokenName",
+		"CFBundleVersion",
+		"CFBundleShortVersionString",
+		"NSHumanReadableCopyright",
+	]) {
+		assert.equal(typeof application[field], "string", `${field} must be a string`);
+	}
 	assert.equal(application.CFBundleVersion, packageJson.version);
 	assert.match(application.CFBundleIdentifier, /^[a-z0-9]+(?:\.[a-z0-9]+)+$/);
 });

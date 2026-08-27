@@ -3,7 +3,12 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { ChartModel } from "../js/core/chart-model.js";
 import { fillInheritedTipPointParams, inheritedTipPointSource } from "../js/core/tip-point.js";
-import { AFFINE_MATRIX_GRID, clampAffineToChartBounds, applyTransform, isPointWithinChartBounds } from "../js/core/geometry.js";
+import {
+	AFFINE_MATRIX_GRID,
+	clampAffineToChartBounds,
+	applyTransform,
+	isPointWithinChartBounds,
+} from "../js/core/geometry.js";
 import { TimingMap } from "../js/core/timing.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/commands.js";
 import { canonicalizeRationalTuple, validateField } from "../js/ui-fields.js";
@@ -23,13 +28,21 @@ import {
 	parseLyricaEvent,
 	parseLyricaHeader,
 } from "../js/core/lyrica.js";
+import { STAGE_NOTE_MODULES, readSources } from "./module-source.mjs";
 
 const SAMPLE_LYRICA = [
 	"120|Demo|Artist|0|4|0",
 	"#1",
 	"0.5|-60|20|10|1|0|A|5|0,1.0|-60|20|10|1|0|B|0|1,0.5|-40|80|-10|3|90|C|6|0,2.5|20|0|0|1|0|D|20|0",
 	"#2",
-	"0.25|40|0|0|4|1|a1|0|0,0.75|60|-20|5|4|0.5|墨|0|0,1.5|60|0|0|11|1_2|img|0|0,1.6|60|0|0|12|1_3|img|0|0,1.7|60|0|0|13|1|fx|0|0,3|100|10|10|1|0|Z|0|0",
+	[
+		"0.25|40|0|0|4|1|a1|0|0",
+		"0.75|60|-20|5|4|0.5|墨|0|0",
+		"1.5|60|0|0|11|1_2|img|0|0",
+		"1.6|60|0|0|12|1_3|img|0|0",
+		"1.7|60|0|0|13|1|fx|0|0",
+		"3|100|10|10|1|0|Z|0|0",
+	].join(","),
 	"#3",
 	"",
 	"#4",
@@ -51,7 +64,7 @@ test("Lyrica header and event parse follow the v14 field tables", () => {
 	assert.equal(event.channel, 60);
 	assert.equal(event.type, 13);
 	assert.equal(isLyricaChartText(SAMPLE_LYRICA), true);
-	assert.equal(isLyricaChartText("{ \"title\": 1 }"), false);
+	assert.equal(isLyricaChartText('{ "title": 1 }'), false);
 });
 
 test("Lyrica import ignores 11/12/13, marks disabled channels inactive, and maps spawn units", () => {
@@ -95,33 +108,86 @@ test("main-channel-determined spawn uses absolute position and event-time spawn 
 	assert.equal(lyricaChannelCategory(100), "bgNote");
 });
 
-test("Lyrica export puts sole tip points on independent and dumps overlapping multi chains", () => {
-	const model = ChartModel.createDefault({
+// Every exported chain head repeats the same relative spawn fields; only its position, distance
+// and angle change, so the fixture below builds them from one shape.
+function spawnHead({ id, channel, x, y, distance, angle, spawnType = "chain", time = [2, 0, 1] }) {
+	return {
+		id,
+		type: "tap",
+		time,
+		channel,
+		x,
+		y,
+		tipPointSpawnType: spawnType,
+		tipPointSpawnAbsolutePosition: false,
+		tipPointSpawnDistance: distance,
+		tipPointSpawnAngle: angle,
+		tipPointSpawnTime: 1,
+	};
+}
+
+function inheritingTap(id, channel, x, y) {
+	return { id, type: "tap", time: [3, 0, 1], channel, x, y, tipPointSpawnType: "inherit" };
+}
+
+function createOverlappingChainModel() {
+	return ChartModel.createDefault({
 		metadata: { title: "Out", artist: "A" },
 		timing: { offset: 0, initialBpm: 120 },
-		channels: [{ id: 0, name: "A" }, { id: 1, name: "B" }, { id: 2, name: "C" }, { id: 3, name: "D" }, { id: 4, name: "E" }, { id: 5, name: "F" }],
+		channels: [
+			{ id: 0, name: "A" },
+			{ id: 1, name: "B" },
+			{ id: 2, name: "C" },
+			{ id: 3, name: "D" },
+			{ id: 4, name: "E" },
+			{ id: 5, name: "F" },
+		],
 		events: [
-			{ id: 1, type: "tap", time: [1, 0, 1], channel: 0, x: 10, y: 0, tipPointSpawnType: "drop", tipPointSpawnAbsolutePosition: false, tipPointSpawnDistance: 100, tipPointSpawnAngle: Math.PI, tipPointSpawnTime: 1 },
-			{ id: 2, type: "tap", time: [2, 0, 1], channel: 1, x: 0, y: 0, tipPointSpawnType: "chain", tipPointSpawnAbsolutePosition: false, tipPointSpawnDistance: 100, tipPointSpawnAngle: Math.PI / 2, tipPointSpawnTime: 1 },
-			{ id: 3, type: "tap", time: [3, 0, 1], channel: 1, x: 10, y: 0, tipPointSpawnType: "inherit" },
-			{ id: 4, type: "tap", time: [2, 0, 1], channel: 2, x: 20, y: 0, tipPointSpawnType: "chain", tipPointSpawnAbsolutePosition: false, tipPointSpawnDistance: 100, tipPointSpawnAngle: 0, tipPointSpawnTime: 1 },
-			{ id: 5, type: "tap", time: [3, 0, 1], channel: 2, x: 30, y: 0, tipPointSpawnType: "inherit" },
-			{ id: 6, type: "tap", time: [2, 0, 1], channel: 3, x: -20, y: 0, tipPointSpawnType: "chain", tipPointSpawnAbsolutePosition: false, tipPointSpawnDistance: 100, tipPointSpawnAngle: Math.PI, tipPointSpawnTime: 1 },
-			{ id: 7, type: "tap", time: [3, 0, 1], channel: 3, x: -10, y: 0, tipPointSpawnType: "inherit" },
-			{ id: 8, type: "tap", time: [2, 0, 1], channel: 4, x: 40, y: 10, tipPointSpawnType: "chain", tipPointSpawnAbsolutePosition: false, tipPointSpawnDistance: 80, tipPointSpawnAngle: -Math.PI / 2, tipPointSpawnTime: 1 },
-			{ id: 9, type: "tap", time: [3, 0, 1], channel: 4, x: 50, y: 10, tipPointSpawnType: "inherit" },
-			{ id: 10, type: "tap", time: [2, 0, 1], channel: 5, x: -40, y: 10, tipPointSpawnType: "chain", tipPointSpawnAbsolutePosition: false, tipPointSpawnDistance: 90, tipPointSpawnAngle: Math.PI / 4, tipPointSpawnTime: 1 },
-			{ id: 11, type: "tap", time: [3, 0, 1], channel: 5, x: -30, y: 10, tipPointSpawnType: "inherit" },
+			spawnHead({
+				id: 1,
+				channel: 0,
+				x: 10,
+				y: 0,
+				distance: 100,
+				angle: Math.PI,
+				spawnType: "drop",
+				time: [1, 0, 1],
+			}),
+			spawnHead({ id: 2, channel: 1, x: 0, y: 0, distance: 100, angle: Math.PI / 2 }),
+			inheritingTap(3, 1, 10, 0),
+			spawnHead({ id: 4, channel: 2, x: 20, y: 0, distance: 100, angle: 0 }),
+			inheritingTap(5, 2, 30, 0),
+			spawnHead({ id: 6, channel: 3, x: -20, y: 0, distance: 100, angle: Math.PI }),
+			inheritingTap(7, 3, -10, 0),
+			spawnHead({ id: 8, channel: 4, x: 40, y: 10, distance: 80, angle: -Math.PI / 2 }),
+			inheritingTap(9, 4, 50, 10),
+			spawnHead({ id: 10, channel: 5, x: -40, y: 10, distance: 90, angle: Math.PI / 4 }),
+			inheritingTap(11, 5, -30, 10),
 		],
 	});
+}
+
+test("Lyrica export puts sole tip points on independent and dumps overlapping multi chains", () => {
+	const model = createOverlappingChainModel();
 	const text = exportLyricaChart(model);
 	assert.match(text, /^120\|Out\|A\|0\|4\|0/m);
 	const parsed = parseLyricaChart(text);
-	assert.ok(parsed.events.some(event => event.channel === 20), "sole-event chains go to independent");
-	const multiChannels = new Set(parsed.events.filter(event => [-60, -40, -20, 0].includes(event.channel)).map(event => event.channel));
+	assert.ok(
+		parsed.events.some(event => event.channel === 20),
+		"sole-event chains go to independent",
+	);
+	const multiChannels = new Set(
+		parsed.events.filter(event => [-60, -40, -20, 0].includes(event.channel)).map(event => event.channel),
+	);
 	assert.ok(multiChannels.size <= 4);
-	assert.ok(parsed.events.some(event => event.channel === -100), "one overlapping chain dumps to no-tip-point");
-	assert.ok(parsed.events.every(event => ![2, 3, 4].includes(event.b)), "export never picks random spawn types");
+	assert.ok(
+		parsed.events.some(event => event.channel === -100),
+		"one overlapping chain dumps to no-tip-point",
+	);
+	assert.ok(
+		parsed.events.every(event => ![2, 3, 4].includes(event.b)),
+		"export never picks random spawn types",
+	);
 	const chosen = chooseClosestNonRandomSpawn({ x: 0, y: 0 }, { x: 0, y: -100 }, null, -60);
 	assert.equal(chosen.b, 20);
 	const four = assignLyricaExportChannels([
@@ -142,15 +208,24 @@ test("Lyrica export puts sole tip points on independent and dumps overlapping mu
 	assert.equal(packed.assigned.length, 4);
 	assert.equal(packed.dumped.length, 1);
 	assert.equal(packed.dumped[0].events.length, 2);
-	assert.ok(parsed.events.some(event => Math.abs(event.time - 0.5) < 1e-6 && event.type === 1), "solo taps export as type 1");
-	assert.ok(parsed.events.some(event => event.type === 2), "overlapping same-time taps export as type 2");
+	assert.ok(
+		parsed.events.some(event => Math.abs(event.time - 0.5) < 1e-6 && event.type === 1),
+		"solo taps export as type 1",
+	);
+	assert.ok(
+		parsed.events.some(event => event.type === 2),
+		"overlapping same-time taps export as type 2",
+	);
 });
 
 test("Lyrica export uses type 2 for simultaneous taps", () => {
 	const model = ChartModel.createDefault({
 		metadata: { title: "Multi", artist: "A" },
 		timing: { offset: 0, initialBpm: 120 },
-		channels: [{ id: 0, name: "A" }, { id: 1, name: "B" }],
+		channels: [
+			{ id: 0, name: "A" },
+			{ id: 1, name: "B" },
+		],
 		events: [
 			{ id: 1, type: "tap", time: [1, 0, 1], channel: 0, x: -20, y: 0, tipPointSpawnType: "none" },
 			{ id: 2, type: "tap", time: [1, 0, 1], channel: 1, x: 20, y: 0, tipPointSpawnType: "none" },
@@ -202,7 +277,19 @@ test("inherit/none hide spawn fields and inherit to chain copies inherited param
 	const model = ChartModel.createDefault({
 		channels: [{ id: 0 }],
 		events: [
-			{ id: 1, type: "tap", time: [1, 0, 1], channel: 0, x: 0, y: 0, tipPointSpawnType: "drop", tipPointSpawnAbsolutePosition: true, tipPointSpawnX: 12, tipPointSpawnY: -8, tipPointSpawnTime: 1.5 },
+			{
+				id: 1,
+				type: "tap",
+				time: [1, 0, 1],
+				channel: 0,
+				x: 0,
+				y: 0,
+				tipPointSpawnType: "drop",
+				tipPointSpawnAbsolutePosition: true,
+				tipPointSpawnX: 12,
+				tipPointSpawnY: -8,
+				tipPointSpawnTime: 1.5,
+			},
 			{ id: 2, type: "tap", time: [2, 0, 1], channel: 0, x: 10, y: 0, tipPointSpawnType: "inherit" },
 		],
 	});
@@ -225,8 +312,10 @@ test("free-transform rotation clamps a point onto the chart rectangle", () => {
 	const point = applyTransform({ x: 90, y: 0 }, matrix);
 	assert.equal(isPointWithinChartBounds(point), true);
 	assert.ok(
-		Math.abs(point.x - 100) < 1e-6 || Math.abs(point.x + 100) < 1e-6
-		|| Math.abs(point.y - 50) < 1e-6 || Math.abs(point.y + 50) < 1e-6,
+		Math.abs(point.x - 100) < 1e-6 ||
+			Math.abs(point.x + 100) < 1e-6 ||
+			Math.abs(point.y - 50) < 1e-6 ||
+			Math.abs(point.y + 50) < 1e-6,
 		`rotated point ${JSON.stringify(point)} should land on a boundary`,
 	);
 });
@@ -238,12 +327,13 @@ test("music-stop clears in-flight hit effects through the shipped StageView meth
 });
 
 test("v14 help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0", async () => {
-	const [en, zh, help, core, notes, macros] = await Promise.all([
+	const [en, zh, help, core, shortcuts, notes, macros] = await Promise.all([
 		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8"),
 		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/render/stage-notes.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-global-shortcuts.js", import.meta.url), "utf8"),
+		readSources(STAGE_NOTE_MODULES),
 		readFile(new URL("../js/macros.js", import.meta.url), "utf8"),
 	]);
 	assert.match(en, /Export Lyrica chart/);
@@ -261,7 +351,7 @@ test("v14 help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0
 	assert.match(await readFile(new URL("../js/ui-fields.js", import.meta.url), "utf8"), /AFFINE_MATRIX_GRID/);
 	assert.match(await readFile(new URL("../js/panels.js", import.meta.url), "utf8"), /AFFINE_MATRIX_GRID/);
 	assert.match(core, /channel\.select/);
-	assert.match(core, /scrollChannelsBy/);
+	assert.match(shortcuts, /scrollChannelsBy/);
 	assert.match(notes, /_drawRulers/);
 	assert.match(notes, /_drawSnappeeAttachRings/);
 	assert.match(macros, /lastMacroLanguage/);

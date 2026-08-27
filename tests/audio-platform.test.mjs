@@ -11,20 +11,22 @@ import {
 	resolveAudioDecode,
 } from "../js/audio/decoder.js";
 import { AudioPlayer, createSunniesnowHitSamples } from "../js/audio/player.js";
-import {
-	collectHitSchedule,
-	collectHoldReleaseSchedule,
-	collectIndexedHitSchedule,
-} from "../js/audio/scheduler.js";
+import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule } from "../js/audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { AutosaveManager } from "../js/platform.js";
-import { hitAudioTime, playbackLateTolerance, playbackOriginBound, markHitsBeforePlaybackOrigin } from "../js/app-playback-scheduling.js";
+import {
+	hitAudioTime,
+	playbackLateTolerance,
+	playbackOriginBound,
+	markHitsBeforePlaybackOrigin,
+} from "../js/app-playback-scheduling.js";
 
 function wavBytes(sampleRate = 8000, sampleCount = 800) {
 	const buffer = new ArrayBuffer(44 + sampleCount * 2);
 	const view = new DataView(buffer);
-	const text = (offset, value) => [...value].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
+	const text = (offset, value) =>
+		[...value].forEach((character, index) => view.setUint8(offset + index, character.charCodeAt(0)));
 	text(0, "RIFF");
 	view.setUint32(4, 36 + sampleCount * 2, true);
 	text(8, "WAVE");
@@ -53,8 +55,12 @@ function fakeAudioContext() {
 				length,
 				sampleRate,
 				duration: length / sampleRate,
-				copyToChannel(source, index) { channels[index].set(source); },
-				getChannelData(index) { return channels[index]; },
+				copyToChannel(source, index) {
+					channels[index].set(source);
+				},
+				getChannelData(index) {
+					return channels[index];
+				},
 			};
 		},
 	};
@@ -65,13 +71,16 @@ test("audio-decode uses the versioned CDN on web and the bundled module in NW.js
 	assert.equal(isNwRuntime({ process: { versions: { nw: "0.114.2" } } }), true);
 	let importedUrl = "";
 	const webDecoder = () => {};
-	assert.equal(await resolveAudioDecode({
-		nw: false,
-		importModule: async url => {
-			importedUrl = url;
-			return { default: webDecoder };
-		},
-	}), webDecoder);
+	assert.equal(
+		await resolveAudioDecode({
+			nw: false,
+			importModule: async url => {
+				importedUrl = url;
+				return { default: webDecoder };
+			},
+		}),
+		webDecoder,
+	);
 	assert.equal(importedUrl, AUDIO_DECODE_CDN_URL);
 
 	let nwUrl = "";
@@ -94,7 +103,7 @@ test("audio-decode uses the versioned CDN on web and the bundled module in NW.js
 	assert.ok(buffer.getChannelData(0).some(sample => sample !== 0));
 });
 
-test("audio volumes clamp to the Sunniesnow 0-2 range", () => {
+test("audio volumes clamp SE to 0-2 and music to 0-1", () => {
 	const player = new AudioPlayer();
 	player.setSeVolume(2.5);
 	player.setMusicVolume(-0.5);
@@ -102,6 +111,8 @@ test("audio volumes clamp to the Sunniesnow 0-2 range", () => {
 	assert.equal(player.musicVolume, 0);
 	player.setSeVolume(1.55);
 	assert.equal(player.seVolume, 1.55);
+	player.setMusicVolume(1.5);
+	assert.equal(player.musicVolume, 1);
 	player.setSeVolume("nope");
 	assert.equal(player.seVolume, 1.55);
 });
@@ -122,7 +133,9 @@ test("source NW.js startup prepares the same local decoder bundle", async () => 
 test("NW.js decoder import waits for asynchronous source preparation", async () => {
 	let releasePreparation;
 	let prepared = false;
-	const preparationPromise = new Promise(resolve => { releasePreparation = resolve; });
+	const preparationPromise = new Promise(resolve => {
+		releasePreparation = resolve;
+	});
 	const loading = resolveAudioDecode({
 		nw: true,
 		preparationPromise,
@@ -133,7 +146,7 @@ test("NW.js decoder import waits for asynchronous source preparation", async () 
 	});
 	prepared = true;
 	releasePreparation();
-	assert.equal(typeof await loading, "function");
+	assert.equal(typeof (await loading), "function");
 });
 
 test("audio-decode falls back to native decodeAudioData", async () => {
@@ -146,7 +159,9 @@ test("audio-decode falls back to native decodeAudioData", async () => {
 		},
 	};
 	const result = await decodeAudioBytes(new Uint8Array([1, 2, 3]), context, {
-		decoder: async () => { throw new Error("unsupported by audio-decode"); },
+		decoder: async () => {
+			throw new Error("unsupported by audio-decode");
+		},
 	});
 	assert.equal(result, expected);
 	assert.equal(nativeCalls, 1);
@@ -176,16 +191,28 @@ test("audio decode failures retain and log both underlying errors", async () => 
 	const decoderError = new Error("AAC decoder rejected the MP4 sample table");
 	const nativeError = new DOMException("Unable to decode audio data", "EncodingError");
 	const logged = [];
-	const logger = { error(...values) { logged.push(values); } };
+	const logger = {
+		error(...values) {
+			logged.push(values);
+		},
+	};
 	await assert.rejects(
-		decodeAudioBytes(new Uint8Array([1, 2, 3]), {
-			decodeAudioData: async () => { throw nativeError; },
-		}, {
-			decoder: async () => { throw decoderError; },
-			logger,
-			mimeType: "audio/mp4",
-			sourceName: "problem.m4a",
-		}),
+		decodeAudioBytes(
+			new Uint8Array([1, 2, 3]),
+			{
+				decodeAudioData: async () => {
+					throw nativeError;
+				},
+			},
+			{
+				decoder: async () => {
+					throw decoderError;
+				},
+				logger,
+				mimeType: "audio/mp4",
+				sourceName: "problem.m4a",
+			},
+		),
 		error => {
 			assert.ok(error instanceof AudioDecodeError);
 			assert.equal(error.cause, decoderError);
@@ -211,22 +238,54 @@ test("hit scheduling looks ahead in wall-clock time and excludes bgNote", () => 
 	];
 	const timing = { beatToSeconds: value => Number(value) };
 	const schedule = collectHitSchedule(events, timing, 0.1, 2, new Set());
-	assert.deepEqual(schedule.map(({ event }) => event.id), [1, 2, 3, 4]);
-	assert.deepEqual(schedule.map(({ delay }) => Number(delay.toFixed(3))), [0, 0.05, 0.075, 0.1]);
-	assert.deepEqual(collectHitSchedule(events, timing, 0.1, 2, new Set([2])).map(({ event }) => event.id), [1, 3, 4]);
+	assert.deepEqual(
+		schedule.map(({ event }) => event.id),
+		[1, 2, 3, 4],
+	);
+	assert.deepEqual(
+		schedule.map(({ delay }) => Number(delay.toFixed(3))),
+		[0, 0.05, 0.075, 0.1],
+	);
+	assert.deepEqual(
+		collectHitSchedule(events, timing, 0.1, 2, new Set([2])).map(({ event }) => event.id),
+		[1, 3, 4],
+	);
 });
 
 test("hit audio times use the Web Audio clock without replay delay", () => {
 	assert.equal(hitAudioTime({ context: { currentTime: 4 } }, 0.025), 4.025);
 	assert.equal(hitAudioTime({ context: null }, 0.025), null);
-	assert.equal(hitAudioTime({
-		playing: true, direction: 1, rate: 1, startedAt: 8, startedPosition: 10,
-		context: { currentTime: 8.04 },
-	}, 0, 10), 8);
-	assert.ok(Math.abs(hitAudioTime({
-		playing: true, direction: 1, rate: 2, startedAt: 3, startedPosition: 5,
-		context: { currentTime: 3.1 },
-	}, 0, 5.4) - 3.2) < 1e-12);
+	assert.equal(
+		hitAudioTime(
+			{
+				playing: true,
+				direction: 1,
+				rate: 1,
+				startedAt: 8,
+				startedPosition: 10,
+				context: { currentTime: 8.04 },
+			},
+			0,
+			10,
+		),
+		8,
+	);
+	assert.ok(
+		Math.abs(
+			hitAudioTime(
+				{
+					playing: true,
+					direction: 1,
+					rate: 2,
+					startedAt: 3,
+					startedPosition: 5,
+					context: { currentTime: 3.1 },
+				},
+				0,
+				5.4,
+			) - 3.2,
+		) < 1e-12,
+	);
 });
 
 test("playback late tolerance never crosses the current playback start", () => {
@@ -245,19 +304,24 @@ test("hit collection never schedules notes before the playback origin", () => {
 	];
 	assert.equal(playbackOriginBound(start), start);
 	assert.deepEqual(
-		collectHitSchedule(events, timing, start - 0.02, 1, new Set(), 0.1, 0.02, Infinity, start)
-			.map(({ event }) => event.id),
+		collectHitSchedule(events, timing, start - 0.02, 1, new Set(), 0.1, 0.02, Infinity, start).map(
+			({ event }) => event.id,
+		),
 		[3],
 	);
 	const records = events.map(event => ({ event, start: timing.beatToSeconds(event.time) }));
 	assert.deepEqual(
-		collectIndexedHitSchedule(records, start - 0.02, 1, new Set(), 0.1, 0.02, Infinity, start)
-			.map(({ event }) => event.id),
+		collectIndexedHitSchedule(records, start - 0.02, 1, new Set(), 0.1, 0.02, Infinity, start).map(
+			({ event }) => event.id,
+		),
 		[3],
 	);
 	const scheduled = new Set();
 	markHitsBeforePlaybackOrigin(records, scheduled, start);
-	assert.deepEqual([...scheduled].sort((left, right) => left - right), [1, 2]);
+	assert.deepEqual(
+		[...scheduled].sort((left, right) => left - right),
+		[1, 2],
+	);
 });
 
 test("playback rescheduling excludes events that are already in the past", () => {
@@ -285,8 +349,14 @@ test("hold release FX scheduling uses the duration without scheduling another so
 	];
 	const timing = new TimingMap({ initialBpm: 60, bpmChanges: [{ time: 2, bpm: 120 }] });
 	const schedule = collectHoldReleaseSchedule(events, timing, 2.35, 2, new Set());
-	assert.deepEqual(schedule.map(({ event }) => event.id), [1]);
-	assert.deepEqual(schedule.map(({ delay }) => Number(delay.toFixed(3))), [0.075]);
+	assert.deepEqual(
+		schedule.map(({ event }) => event.id),
+		[1],
+	);
+	assert.deepEqual(
+		schedule.map(({ delay }) => Number(delay.toFixed(3))),
+		[0.075],
+	);
 	assert.deepEqual(collectHoldReleaseSchedule(events, timing, 2.35, 2, new Set([1])), []);
 });
 
@@ -299,8 +369,12 @@ test("AudioPlayer preserves negative pre-roll and schedules the music source at 
 		createBufferSource() {
 			return {
 				playbackRate: { value: 1 },
-				connect() {}, disconnect() {}, stop() {},
-				start(...args) { starts.push(args); },
+				connect() {},
+				disconnect() {},
+				stop() {},
+				start(...args) {
+					starts.push(args);
+				},
 			};
 		},
 	};
@@ -323,7 +397,7 @@ test("AudioPlayer preserves negative pre-roll and schedules the music source at 
 		assert.equal(player.currentTime, -1);
 		player.pause();
 		assert.equal(player.position, -1);
-		assert.equal(await player.playHit("bgNote"), null);
+		assert.equal(await player.playHit("bigText"), null);
 	} finally {
 		globalThis.requestAnimationFrame = previousRequest;
 		globalThis.cancelAnimationFrame = previousCancel;
@@ -342,11 +416,20 @@ test("AudioPlayer ignores stale async play operations after a rapid pause and re
 			this.currentTime = 100000;
 			this.destination = {};
 		}
+
 		resume() {
 			resumeCalls += 1;
-			return new Promise(resolve => { releaseResume = () => { this.state = "running"; resolve(); }; });
+			return new Promise(resolve => {
+				releaseResume = () => {
+					this.state = "running";
+					resolve();
+				};
+			});
 		}
-		createGain() { return { gain: { value: 1 }, connect() {}, disconnect() {} }; }
+
+		createGain() {
+			return { gain: { value: 1 }, connect() {}, disconnect() {} };
+		}
 	}
 	globalThis.AudioContext = DelayedContext;
 	globalThis.requestAnimationFrame = () => 1;
@@ -364,8 +447,11 @@ test("AudioPlayer ignores stale async play operations after a rapid pause and re
 		assert.equal(player.playing, true);
 		player.pause();
 	} finally {
-		if (previousAudioContext === undefined) delete globalThis.AudioContext;
-		else globalThis.AudioContext = previousAudioContext;
+		if (previousAudioContext === undefined) {
+			delete globalThis.AudioContext;
+		} else {
+			globalThis.AudioContext = previousAudioContext;
+		}
 		globalThis.requestAnimationFrame = previousRequest;
 		globalThis.cancelAnimationFrame = previousCancel;
 	}
@@ -382,11 +468,19 @@ test("AudioPlayer cancels only future hit sources while retaining active sources
 		},
 		createBufferSource() {
 			const source = {
-				starts: [], stops: 0, disconnected: false,
+				starts: [],
+				stops: 0,
+				disconnected: false,
 				connect() {},
-				disconnect() { source.disconnected = true; },
-				start(time) { source.starts.push(time); },
-				stop() { source.stops += 1; },
+				disconnect() {
+					source.disconnected = true;
+				},
+				start(time) {
+					source.starts.push(time);
+				},
+				stop() {
+					source.stops += 1;
+				},
 			};
 			sources.push(source);
 			return source;
@@ -394,7 +488,8 @@ test("AudioPlayer cancels only future hit sources while retaining active sources
 		createGain() {
 			return {
 				gain: { setValueAtTime() {} },
-				connect() {}, disconnect() {},
+				connect() {},
+				disconnect() {},
 			};
 		},
 	};
@@ -402,17 +497,29 @@ test("AudioPlayer cancels only future hit sources while retaining active sources
 	player.context = context;
 	await player.playHit("tap", 0);
 	await player.playHit("drag", 0.1);
-	assert.deepEqual(sources.map(source => source.starts), [[10], [10.1]]);
+	assert.deepEqual(
+		sources.map(source => source.starts),
+		[[10], [10.1]],
+	);
 	await player.playHitAt("tap", 9.5);
 	await player.playHitAt("tap", 10.25);
-	assert.deepEqual(sources.map(source => source.starts), [[10], [10.1], [10], [10.25]]);
+	assert.deepEqual(
+		sources.map(source => source.starts),
+		[[10], [10.1], [10], [10.25]],
+	);
 
 	player.cancelScheduledHitSounds();
-	assert.deepEqual(sources.map(source => source.stops), [0, 1, 0, 1]);
+	assert.deepEqual(
+		sources.map(source => source.stops),
+		[0, 1, 0, 1],
+	);
 	assert.equal(player.hitSources.size, 2);
 
 	player.cancelHitSounds();
-	assert.deepEqual(sources.map(source => source.stops), [1, 1, 1, 1]);
+	assert.deepEqual(
+		sources.map(source => source.stops),
+		[1, 1, 1, 1],
+	);
 	assert.equal(player.hitSources.size, 0);
 });
 
@@ -430,10 +537,15 @@ test("playback start arms the music clock before scheduling the note at the play
 		createBufferSource() {
 			return {
 				playbackRate: { value: 1 },
-				connect() {}, disconnect() {}, stop() {},
+				connect() {},
+				disconnect() {},
+				stop() {},
 				start(...args) {
-					if (this.buffer?.duration === 10) musicStarts.push([context.currentTime, ...args]);
-					else hitStarts.push([context.currentTime, args[0]]);
+					if (this.buffer?.duration === 10) {
+						musicStarts.push([context.currentTime, ...args]);
+					} else {
+						hitStarts.push([context.currentTime, args[0]]);
+					}
 				},
 			};
 		},
@@ -477,16 +589,31 @@ test("AudioPlayer uses a constant, louder metronome tone", async () => {
 		createOscillator() {
 			const oscillator = {
 				type: "",
-				frequency: { values: [], setValueAtTime(value, time) { this.values.push([value, time]); } },
-				connect() {}, disconnect() {}, start() {}, stop() {},
+				frequency: {
+					values: [],
+					setValueAtTime(value, time) {
+						this.values.push([value, time]);
+					},
+				},
+				connect() {},
+				disconnect() {},
+				start() {},
+				stop() {},
 			};
 			oscillators.push(oscillator);
 			return oscillator;
 		},
 		createGain() {
 			const gain = {
-				gain: { values: [], setValueAtTime(value, time) { this.values.push([value, time]); }, exponentialRampToValueAtTime() {} },
-				connect() {}, disconnect() {},
+				gain: {
+					values: [],
+					setValueAtTime(value, time) {
+						this.values.push([value, time]);
+					},
+					exponentialRampToValueAtTime() {},
+				},
+				connect() {},
+				disconnect() {},
 			};
 			gains.push(gain);
 			return gain;
@@ -496,8 +623,14 @@ test("AudioPlayer uses a constant, louder metronome tone", async () => {
 	player.context = context;
 	await player.playMetronome(0);
 	await player.playMetronome(0.1);
-	assert.deepEqual(oscillators.map(item => item.frequency.values[0][0]), [400, 400]);
-	assert.deepEqual(gains.map(item => item.gain.values[0][0]), [1, 1]);
+	assert.deepEqual(
+		oscillators.map(item => item.frequency.values[0][0]),
+		[400, 400],
+	);
+	assert.deepEqual(
+		gains.map(item => item.gain.values[0][0]),
+		[1, 1],
+	);
 });
 
 test("Sunniesnow hit sample buffers are finite and type-specific", () => {
@@ -517,8 +650,15 @@ class MemoryStorage {
 		this.values = new Map();
 		this.indexFailures = 0;
 	}
-	getItem(key) { return this.values.get(key) ?? null; }
-	removeItem(key) { this.values.delete(key); }
+
+	getItem(key) {
+		return this.values.get(key) ?? null;
+	}
+
+	removeItem(key) {
+		this.values.delete(key);
+	}
+
 	setItem(key, value) {
 		if (key === "sviber.autosaves" && this.indexFailures > 0) {
 			this.indexFailures -= 1;
@@ -547,8 +687,14 @@ test("AutosaveManager lists every recovery newer than the last manual save", () 
 	const first = manager.save(firstModel);
 	const second = manager.save(secondModel, { projectPath: "C:/charts/demo", projectName: "Demo" });
 	const recoveries = manager.recoverable();
-	assert.deepEqual(recoveries.map(entry => entry.timestamp), [second, first]);
-	assert.deepEqual(recoveries.map(entry => entry.model.metadata.title), ["Second", "First"]);
+	assert.deepEqual(
+		recoveries.map(entry => entry.timestamp),
+		[second, first],
+	);
+	assert.deepEqual(
+		recoveries.map(entry => entry.model.metadata.title),
+		["Second", "First"],
+	);
 	assert.deepEqual(recoveries[0].source, { projectPath: "C:/charts/demo", projectName: "Demo" });
 	assert.equal(manager.latestRecoverable().timestamp, second);
 });
@@ -559,7 +705,9 @@ test("service worker returns Response.error on an uncached offline CDN request",
 	const context = {
 		Response,
 		URL,
-		fetch: async () => { throw new Error("offline"); },
+		fetch: async () => {
+			throw new Error("offline");
+		},
 		caches: {
 			match: async () => null,
 			open: async () => ({ put: async () => {}, addAll: async () => {} }),
@@ -575,7 +723,11 @@ test("service worker returns Response.error on an uncached offline CDN request",
 	};
 	vm.runInNewContext(`${source}\nglobalThis.testStaleWhileRevalidate = staleWhileRevalidate;`, context);
 	let installPromise;
-	listeners.get("install")({ waitUntil: promise => { installPromise = promise; } });
+	listeners.get("install")({
+		waitUntil: promise => {
+			installPromise = promise;
+		},
+	});
 	await installPromise;
 	const response = await context.testStaleWhileRevalidate("https://cdn.jsdelivr.net/npm/missing/+esm");
 	assert.equal(response.type, "error");
@@ -584,8 +736,11 @@ test("service worker returns Response.error on an uncached offline CDN request",
 });
 
 test("new charts are explicitly left dirty", async () => {
-	const source = await readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8");
-	const newChart = source.match(/async newChart\(\) \{([\s\S]*?)\n\tasync showChartProperties/)?.[1] || "";
-	assert.match(newChart, /this\.installProject\([\s\S]*?saved: false/);
+	const source = await readFile(new URL("../js/app-document-lifecycle.js", import.meta.url), "utf8");
+	const newChart = source.slice(
+		source.indexOf("async newProject(options = {})"),
+		source.indexOf("async showChartProperties"),
+	);
+	assert.match(newChart, /this\.installProject\([\s\S]{0,400}?saved:\s*false/);
 	assert.doesNotMatch(newChart, /this\.markSaved\(\)/);
 });

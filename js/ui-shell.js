@@ -1,17 +1,13 @@
-import {i18n as defaultI18n} from './i18n.js';
-import {
-	COMMAND_DEFINITIONS,
-	MENU_DEFINITION,
-	TOOLBAR_ITEMS
-} from './commands.js';
-import { appendMnemonic, clearElement, resolveElement, translated } from './ui-shared.js';
+import { i18n as defaultI18n } from "./i18n.js";
+import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "./commands.js";
+import { appendMnemonic, clearElement, resolveElement, translated } from "./ui-shared.js";
 
 export class TooltipManager {
 	constructor(options = {}) {
 		this.document = options.document || globalThis.document;
 		this.i18n = options.i18n || defaultI18n;
-		this.element = resolveElement(options.element, 'tooltip-text', this.document);
-		this.defaultKey = options.defaultKey || 'tooltip.ready';
+		this.element = resolveElement(options.element, "tooltip-text", this.document);
+		this.defaultKey = options.defaultKey || "tooltip.ready";
 		this.entries = new Map();
 		this.activeElement = null;
 		this.unsubscribeLanguage = this.i18n.subscribe(() => this.refresh());
@@ -27,14 +23,14 @@ export class TooltipManager {
 			title: options.title ?? tooltip,
 			params: options.params || {},
 			raw: Boolean(options.raw),
-			titleRaw: Boolean(options.titleRaw ?? options.raw)
+			titleRaw: Boolean(options.titleRaw ?? options.raw),
 		};
 		entry.enter = () => {
 			this.activeElement = element;
 			this.show(entry.tooltip, entry.params, entry.raw);
 		};
 		entry.leave = event => {
-			if (event.type === 'focusout' && element.contains(event.relatedTarget)) {
+			if (event.type === "focusout" && element.contains(event.relatedTarget)) {
 				return;
 			}
 			if (this.activeElement === element) {
@@ -42,10 +38,10 @@ export class TooltipManager {
 				this.reset();
 			}
 		};
-		element.addEventListener('pointerenter', entry.enter);
-		element.addEventListener('pointerleave', entry.leave);
-		element.addEventListener('focusin', entry.enter);
-		element.addEventListener('focusout', entry.leave);
+		element.addEventListener("pointerenter", entry.enter);
+		element.addEventListener("pointerleave", entry.leave);
+		element.addEventListener("focusin", entry.enter);
+		element.addEventListener("focusout", entry.leave);
 		this.entries.set(element, entry);
 		this.updateTitle(element, entry);
 		return () => this.unregister(element);
@@ -53,10 +49,10 @@ export class TooltipManager {
 
 	bind(root = this.document) {
 		const elements = [];
-		if (root?.matches?.('[data-tooltip-key]')) {
+		if (root?.matches?.("[data-tooltip-key]")) {
 			elements.push(root);
 		}
-		elements.push(...(root?.querySelectorAll?.('[data-tooltip-key]') || []));
+		elements.push(...(root?.querySelectorAll?.("[data-tooltip-key]") || []));
 		for (const element of elements) {
 			this.register(element, element.dataset.tooltipKey);
 		}
@@ -67,10 +63,10 @@ export class TooltipManager {
 		if (!entry) {
 			return;
 		}
-		element.removeEventListener('pointerenter', entry.enter);
-		element.removeEventListener('pointerleave', entry.leave);
-		element.removeEventListener('focusin', entry.enter);
-		element.removeEventListener('focusout', entry.leave);
+		element.removeEventListener("pointerenter", entry.enter);
+		element.removeEventListener("pointerleave", entry.leave);
+		element.removeEventListener("focusin", entry.enter);
+		element.removeEventListener("focusout", entry.leave);
 		this.entries.delete(element);
 		if (this.activeElement === element) {
 			this.activeElement = null;
@@ -115,7 +111,7 @@ export class TooltipManager {
 export class MenuBar {
 	constructor(options = {}) {
 		this.document = options.document || globalThis.document;
-		this.element = resolveElement(options.element, 'menu-bar', this.document);
+		this.element = resolveElement(options.element, "menu-bar", this.document);
 		this.registry = options.registry;
 		this.i18n = options.i18n || defaultI18n;
 		this.tooltip = options.tooltip || null;
@@ -126,15 +122,15 @@ export class MenuBar {
 		this.openIndex = -1;
 		this.suppressNextClick = false;
 		if (!this.element || !this.registry) {
-			throw new Error('MenuBar requires an element and a CommandRegistry');
+			throw new Error("MenuBar requires an element and a CommandRegistry");
 		}
 		this.render();
 		this.onDocumentKeyDown = event => this.handleKeyDown(event);
 		this.onDocumentPointerDown = event => this.handleOutsidePointerDown(event);
 		this.onDocumentClick = event => this.handleSuppressedClick(event);
-		this.document.addEventListener('keydown', this.onDocumentKeyDown, true);
-		this.document.addEventListener('pointerdown', this.onDocumentPointerDown, true);
-		this.document.addEventListener('click', this.onDocumentClick, true);
+		this.document.addEventListener("keydown", this.onDocumentKeyDown, true);
+		this.document.addEventListener("pointerdown", this.onDocumentPointerDown, true);
+		this.document.addEventListener("click", this.onDocumentClick, true);
 		this.unsubscribeRegistry = this.registry.subscribe(change => this.updateState(change.id));
 		this.unsubscribeLanguage = this.i18n.subscribe(() => this.updateLabels());
 	}
@@ -146,56 +142,64 @@ export class MenuBar {
 			}
 		}
 		clearElement(this.element);
-		this.element.setAttribute('role', 'menubar');
+		this.element.setAttribute("role", "menubar");
 		this.roots = [];
 		this.commandButtons.clear();
 		this.definition.forEach((menu, index) => {
-			const root = this.document.createElement('div');
-			root.className = 'menu-root';
+			const root = this.document.createElement("div");
+			root.className = "menu-root";
 			root.dataset.menuId = menu.id;
 
-			const rootButton = this.document.createElement('button');
-			rootButton.type = 'button';
-			rootButton.className = 'menu-root-button';
-			rootButton.setAttribute('role', 'menuitem');
-			rootButton.setAttribute('aria-haspopup', 'true');
-			rootButton.setAttribute('aria-expanded', 'false');
-			rootButton.addEventListener('click', event => {
+			const rootButton = this.document.createElement("button");
+			rootButton.type = "button";
+			rootButton.className = "menu-root-button";
+			rootButton.setAttribute("role", "menuitem");
+			rootButton.setAttribute("aria-haspopup", "true");
+			rootButton.setAttribute("aria-expanded", "false");
+			rootButton.addEventListener("click", event => {
 				event.stopPropagation();
 				this.openIndex === index ? this.close() : this.open(index);
 			});
-			rootButton.addEventListener('pointerenter', () => {
+			rootButton.addEventListener("pointerenter", () => {
 				if (this.openIndex >= 0 && this.openIndex !== index) {
 					this.open(index);
 				}
 			});
-			rootButton.addEventListener('keydown', event => {
+			rootButton.addEventListener("keydown", event => {
 				if (this.openIndex >= 0) {
 					return;
 				}
-				if (['ArrowDown', 'Enter', ' '].includes(event.key)) {
+				if (["ArrowDown", "Enter", " "].includes(event.key)) {
 					event.preventDefault();
-					this.open(index, {focusFirst: true});
-				} else if (event.key === 'ArrowUp') {
+					this.open(index, { focusFirst: true });
+				} else if (event.key === "ArrowUp") {
 					event.preventDefault();
-					this.open(index, {focusLast: true});
+					this.open(index, { focusLast: true });
 				}
 			});
 			root.appendChild(rootButton);
 
-			const popup = this.document.createElement('div');
-			popup.className = 'menu-popup';
-			popup.setAttribute('role', 'menu');
-			const visibleEntries = menu.items.filter(entry => entry.type === 'separator'
-				|| !this.registry.get(entry.command).definition.desktopOnly || globalThis.nw);
-			const normalizedEntries = visibleEntries.filter((entry, entryIndex, entries) => entry.type !== 'separator'
-				|| entryIndex > 0 && entries[entryIndex - 1].type !== 'separator');
-			if (normalizedEntries.at(-1)?.type === 'separator') normalizedEntries.pop();
+			const popup = this.document.createElement("div");
+			popup.className = "menu-popup";
+			popup.setAttribute("role", "menu");
+			const visibleEntries = menu.items.filter(
+				entry =>
+					entry.type === "separator" ||
+					!this.registry.get(entry.command).definition.desktopOnly ||
+					globalThis.nw,
+			);
+			const normalizedEntries = visibleEntries.filter(
+				(entry, entryIndex, entries) =>
+					entry.type !== "separator" || (entryIndex > 0 && entries[entryIndex - 1].type !== "separator"),
+			);
+			if (normalizedEntries.at(-1)?.type === "separator") {
+				normalizedEntries.pop();
+			}
 			for (const entry of normalizedEntries) {
-				if (entry.type === 'separator') {
-					const line = this.document.createElement('div');
-					line.className = 'menu-separator';
-					line.setAttribute('role', 'separator');
+				if (entry.type === "separator") {
+					const line = this.document.createElement("div");
+					line.className = "menu-separator";
+					line.setAttribute("role", "separator");
 					popup.appendChild(line);
 					continue;
 				}
@@ -203,7 +207,7 @@ export class MenuBar {
 			}
 			root.appendChild(popup);
 			this.element.appendChild(root);
-			this.roots.push({definition: menu, root, rootButton, popup});
+			this.roots.push({ definition: menu, root, rootButton, popup });
 		});
 		this.updateLabels();
 		this.updateState(null);
@@ -211,30 +215,30 @@ export class MenuBar {
 
 	createCommandButton(id) {
 		const definition = COMMAND_DEFINITIONS[id] || this.registry.get(id).definition;
-		const button = this.document.createElement('button');
-		button.type = 'button';
-		button.className = 'menu-command';
+		const button = this.document.createElement("button");
+		button.type = "button";
+		button.className = "menu-command";
 		button.dataset.command = id;
-		button.setAttribute('role', definition.checkable ? 'menuitemcheckbox' : 'menuitem');
+		button.setAttribute("role", definition.checkable ? "menuitemcheckbox" : "menuitem");
 
-		const iconBox = this.document.createElement('span');
-		iconBox.className = 'menu-command-icon';
+		const iconBox = this.document.createElement("span");
+		iconBox.className = "menu-command-icon";
 		if (definition.icon) {
-			const image = this.document.createElement('img');
+			const image = this.document.createElement("img");
 			image.src = definition.icon;
-			image.alt = '';
+			image.alt = "";
 			image.draggable = false;
 			iconBox.appendChild(image);
 		}
 		button.appendChild(iconBox);
 
-		const label = this.document.createElement('span');
-		label.className = 'menu-command-label';
+		const label = this.document.createElement("span");
+		label.className = "menu-command-label";
 		button.appendChild(label);
-		const shortcut = this.document.createElement('span');
-		shortcut.className = 'menu-shortcut';
+		const shortcut = this.document.createElement("span");
+		shortcut.className = "menu-shortcut";
 		button.appendChild(shortcut);
-		button.addEventListener('click', event => {
+		button.addEventListener("click", event => {
 			if (button.disabled) {
 				return;
 			}
@@ -249,19 +253,14 @@ export class MenuBar {
 	}
 
 	updateLabels() {
-		for (const {definition, rootButton} of this.roots) {
-			appendMnemonic(
-				this.document,
-				rootButton,
-				this.i18n.t(definition.labelKey),
-				definition.mnemonic
-			);
+		for (const { definition, rootButton } of this.roots) {
+			appendMnemonic(this.document, rootButton, this.i18n.t(definition.labelKey), definition.mnemonic);
 		}
 		for (const [id, buttons] of this.commandButtons) {
 			const definition = this.registry.get(id).definition;
 			for (const button of buttons) {
-				button.querySelector('.menu-command-label').textContent = this.i18n.t(definition.labelKey);
-				button.querySelector('.menu-shortcut').textContent = this.i18n.shortcut(definition.shortcut);
+				button.querySelector(".menu-command-label").textContent = this.i18n.t(definition.labelKey);
+				button.querySelector(".menu-shortcut").textContent = this.i18n.shortcut(definition.shortcut);
 				this.tooltip?.register(button, definition.hintKey);
 			}
 		}
@@ -278,10 +277,10 @@ export class MenuBar {
 			const state = this.registry.state(commandId, context);
 			for (const button of buttons) {
 				button.disabled = !state.enabled;
-				button.setAttribute('aria-disabled', String(!state.enabled));
+				button.setAttribute("aria-disabled", String(!state.enabled));
 				if (state.definition.checkable) {
-					button.setAttribute('aria-checked', String(state.checked));
-					button.classList.toggle('is-active', state.checked);
+					button.setAttribute("aria-checked", String(state.checked));
+					button.classList.toggle("is-active", state.checked);
 				}
 			}
 		}
@@ -295,8 +294,9 @@ export class MenuBar {
 			this.setRootOpen(this.openIndex, false);
 		}
 		this.openIndex = index;
-		this.updateState(this.definition[index].items
-			.filter(entry => entry.type === 'command').map(entry => entry.command));
+		this.updateState(
+			this.definition[index].items.filter(entry => entry.type === "command").map(entry => entry.command),
+		);
 		this.setRootOpen(index, true);
 		if (options.focusFirst || options.focusLast) {
 			const items = this.focusableItems();
@@ -309,11 +309,11 @@ export class MenuBar {
 		if (!root) {
 			return;
 		}
-		root.root.classList.toggle('is-open', open);
-		root.rootButton.setAttribute('aria-expanded', String(open));
-		root.popup.classList.remove('is-aligned-right');
+		root.root.classList.toggle("is-open", open);
+		root.rootButton.setAttribute("aria-expanded", String(open));
+		root.popup.classList.remove("is-aligned-right");
 		if (open && root.popup.getBoundingClientRect().right > this.document.documentElement.clientWidth) {
-			root.popup.classList.add('is-aligned-right');
+			root.popup.classList.add("is-aligned-right");
 		}
 	}
 
@@ -333,7 +333,7 @@ export class MenuBar {
 		if (this.openIndex < 0) {
 			return [];
 		}
-		return [...this.roots[this.openIndex].popup.querySelectorAll('.menu-command:not(:disabled)')];
+		return [...this.roots[this.openIndex].popup.querySelectorAll(".menu-command:not(:disabled)")];
 	}
 
 	moveFocus(delta) {
@@ -354,11 +354,11 @@ export class MenuBar {
 			return;
 		}
 		const index = (this.openIndex + delta + this.roots.length) % this.roots.length;
-		this.open(index, {focusFirst: true});
+		this.open(index, { focusFirst: true });
 	}
 
 	handleKeyDown(event) {
-		if (this.document.querySelector('.modal-layer:not([hidden])')) {
+		if (this.document.querySelector(".modal-layer:not([hidden])")) {
 			return;
 		}
 		if (event.altKey && !event.ctrlKey && !event.metaKey) {
@@ -366,7 +366,7 @@ export class MenuBar {
 			if (index >= 0) {
 				event.preventDefault();
 				event.stopImmediatePropagation();
-				this.open(index, {focusFirst: true});
+				this.open(index, { focusFirst: true });
 				return;
 			}
 		}
@@ -374,48 +374,48 @@ export class MenuBar {
 			return;
 		}
 		switch (event.key) {
-			case 'Escape':
+			case "Escape":
 				event.preventDefault();
 				event.stopImmediatePropagation();
-				this.close({focusRoot: true});
+				this.close({ focusRoot: true });
 				break;
-			case 'ArrowLeft':
+			case "ArrowLeft":
 				event.preventDefault();
 				event.stopImmediatePropagation();
 				this.switchRoot(-1);
 				break;
-			case 'ArrowRight':
+			case "ArrowRight":
 				event.preventDefault();
 				event.stopImmediatePropagation();
 				this.switchRoot(1);
 				break;
-			case 'ArrowDown':
-			case 'Tab':
+			case "ArrowDown":
+			case "Tab":
 				event.preventDefault();
 				event.stopImmediatePropagation();
 				this.moveFocus(event.shiftKey ? -1 : 1);
 				break;
-			case 'ArrowUp':
+			case "ArrowUp":
 				event.preventDefault();
 				event.stopImmediatePropagation();
 				this.moveFocus(-1);
 				break;
-			case 'Home': {
+			case "Home": {
 				event.preventDefault();
 				const items = this.focusableItems();
 				items[0]?.focus();
 				break;
 			}
-			case 'End': {
+			case "End": {
 				event.preventDefault();
 				const items = this.focusableItems();
 				items[items.length - 1]?.focus();
 				break;
 			}
-			case 'Enter':
-			case ' ': {
+			case "Enter":
+			case " ": {
 				const active = this.document.activeElement;
-				if (active?.classList.contains('menu-command')) {
+				if (active?.classList.contains("menu-command")) {
 					event.preventDefault();
 					event.stopImmediatePropagation();
 					active.click();
@@ -451,9 +451,9 @@ export class MenuBar {
 
 	destroy() {
 		this.close();
-		this.document.removeEventListener('keydown', this.onDocumentKeyDown, true);
-		this.document.removeEventListener('pointerdown', this.onDocumentPointerDown, true);
-		this.document.removeEventListener('click', this.onDocumentClick, true);
+		this.document.removeEventListener("keydown", this.onDocumentKeyDown, true);
+		this.document.removeEventListener("pointerdown", this.onDocumentPointerDown, true);
+		this.document.removeEventListener("click", this.onDocumentClick, true);
 		this.unsubscribeRegistry?.();
 		this.unsubscribeLanguage?.();
 		clearTimeout(this.suppressTimer);
@@ -463,7 +463,7 @@ export class MenuBar {
 export class Toolbar {
 	constructor(options = {}) {
 		this.document = options.document || globalThis.document;
-		this.element = resolveElement(options.element, 'tool-bar', this.document);
+		this.element = resolveElement(options.element, "tool-bar", this.document);
 		this.registry = options.registry;
 		this.i18n = options.i18n || defaultI18n;
 		this.tooltip = options.tooltip || null;
@@ -471,7 +471,7 @@ export class Toolbar {
 		this.contextProvider = options.contextProvider || (() => undefined);
 		this.buttons = new Map();
 		if (!this.element || !this.registry) {
-			throw new Error('Toolbar requires an element and a CommandRegistry');
+			throw new Error("Toolbar requires an element and a CommandRegistry");
 		}
 		this.render();
 		this.unsubscribeRegistry = this.registry.subscribe(change => this.updateState(change.id));
@@ -485,29 +485,29 @@ export class Toolbar {
 		clearElement(this.element);
 		this.buttons.clear();
 		for (const id of this.items) {
-			if (id === 'separator') {
-				const separator = this.document.createElement('div');
-				separator.className = 'tool-separator';
-				separator.setAttribute('role', 'separator');
+			if (id === "separator") {
+				const separator = this.document.createElement("div");
+				separator.className = "tool-separator";
+				separator.setAttribute("role", "separator");
 				this.element.appendChild(separator);
 				continue;
 			}
 			const definition = this.registry.get(id).definition;
-			const button = this.document.createElement('button');
-			button.type = 'button';
-			button.className = 'tool-button';
+			const button = this.document.createElement("button");
+			button.type = "button";
+			button.className = "tool-button";
 			button.dataset.command = id;
 			if (definition.checkable) {
-				button.setAttribute('aria-pressed', 'false');
+				button.setAttribute("aria-pressed", "false");
 			}
 			if (definition.icon) {
-				const image = this.document.createElement('img');
+				const image = this.document.createElement("img");
 				image.src = definition.icon;
-				image.alt = '';
+				image.alt = "";
 				image.draggable = false;
 				button.appendChild(image);
 			}
-			button.addEventListener('click', event => {
+			button.addEventListener("click", event => {
 				if (!button.disabled) {
 					void this.registry.execute(id, this.contextProvider(), event);
 				}
@@ -525,8 +525,8 @@ export class Toolbar {
 			const label = this.i18n.t(definition.labelKey);
 			const shortcut = this.i18n.shortcut(definition.shortcut);
 			const title = shortcut ? `${label} (${shortcut})` : label;
-			button.setAttribute('aria-label', label);
-			this.tooltip?.register(button, definition.hintKey, {title, titleRaw: true});
+			button.setAttribute("aria-label", label);
+			this.tooltip?.register(button, definition.hintKey, { title, titleRaw: true });
 			if (!this.tooltip) {
 				button.title = title;
 			}
@@ -543,9 +543,9 @@ export class Toolbar {
 			}
 			const state = this.registry.state(commandId, context);
 			button.disabled = !state.enabled;
-			button.classList.toggle('is-active', state.checked);
+			button.classList.toggle("is-active", state.checked);
 			if (state.definition.checkable) {
-				button.setAttribute('aria-pressed', String(state.checked));
+				button.setAttribute("aria-pressed", String(state.checked));
 			}
 		}
 	}

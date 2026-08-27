@@ -46,6 +46,7 @@
 					<div class="status-options" role="group" aria-label="Playback options" data-i18n-aria-label="status.options">
 						<label class="status-option" data-tooltip-key="status.lockVisibleRange"><input id="lock-visible-range" type="checkbox" aria-label="Lock visible range" data-i18n-aria-label="status.lockVisibleRange"><img src="svg/icons/lock-visible-range.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.playSe"><input id="play-se" type="checkbox" aria-label="SE" data-i18n-aria-label="status.playSe"><img src="svg/icons/se.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.playBgNoteSe"><input id="play-bg-note-se" type="checkbox" aria-label="Bg note SE" data-i18n-aria-label="status.playBgNoteSe"><img src="svg/icons/bg-note-se.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.seekBackAfterPlaying"><input id="seek-back-after-playing" type="checkbox" aria-label="Seek back after playing" data-i18n-aria-label="status.seekBackAfterPlaying"><img src="svg/icons/seek-back-after-playing.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.metronome"><input id="metronome" type="checkbox" aria-label="Metronome" data-i18n-aria-label="status.metronome"><img src="svg/icons/metronome.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.showGroupingInTimeline"><input id="show-grouping-in-timeline" type="checkbox" aria-label="Show grouping in timeline" data-i18n-aria-label="status.showGroupingInTimeline"><img src="svg/icons/show-grouping-in-timeline.svg" alt="" aria-hidden="true"></label>
@@ -54,12 +55,14 @@
 						<label class="status-option" data-tooltip-key="status.showBgEventsInTimeline"><input id="show-bg-events-in-timeline" type="checkbox" aria-label="Show background events in timeline" data-i18n-aria-label="status.showBgEventsInTimeline"><img src="svg/icons/show-bg-events-in-timeline.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.showBgEventsInMainField"><input id="show-bg-events-in-main-field" type="checkbox" aria-label="Show background events in main field" data-i18n-aria-label="status.showBgEventsInMainField"><img src="svg/icons/show-bg-events-in-main-field.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.showHud"><input id="show-hud" type="checkbox" aria-label="Show HUD" data-i18n-aria-label="status.showHud"><img src="svg/icons/show-hud.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.showChartBoundary"><input id="show-chart-boundary" type="checkbox" aria-label="Show chart boundary" data-i18n-aria-label="status.showChartBoundary"><img src="svg/icons/show-chart-boundary.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.showRulers"><input id="show-rulers" type="checkbox" aria-label="Rulers" data-i18n-aria-label="status.showRulers"><img src="svg/icons/rulers.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.allowOutOfBound"><input id="allow-out-of-bound" type="checkbox" aria-label="Allow out of bound" data-i18n-aria-label="status.allowOutOfBound"><img src="svg/icons/allow-out-of-bound.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.readOnly"><input id="read-only" type="checkbox" aria-label="Read-only" data-i18n-aria-label="status.readOnly"><img src="svg/icons/read-only.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.fullscreen"><input id="fullscreen" type="checkbox" aria-label="Fullscreen" data-i18n-aria-label="status.fullscreen"><img src="svg/icons/fullscreen.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.liveHosting"><input id="live-hosting" type="checkbox" aria-label="Live hosting" data-i18n-aria-label="status.liveHosting"><img src="svg/icons/live-hosting.svg" alt="" aria-hidden="true"></label>
 					</div>
+					<div id="status-selection" class="status-selection" aria-live="polite" hidden></div>
 					<div id="status-comments" class="status-comments" aria-live="polite"></div>
 					<div id="operation-status" class="operation-status" aria-live="polite"></div>
 				</aside>
@@ -67,7 +70,12 @@
 
 			<section class="editor-row" aria-label="Chart editor" data-i18n-aria-label="aria.chartEditor">
 				<aside id="scroll-view-panel" class="scroll-view-panel" aria-label="Scroll view" data-i18n-aria-label="aria.scrollView">
-					<div id="scroll-surface" class="render-surface scroll-surface" tabindex="0"></div>
+					<div class="side-tabs left-tabs" role="tablist">
+						<button id="scroll-view-tab" class="side-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="scroll-surface" data-i18n="panel.scrollView">Scroll view</button>
+						<button id="checks-tab" class="side-tab" type="button" role="tab" aria-selected="false" aria-controls="checks-panel" data-i18n="panel.checks">Checks</button>
+					</div>
+					<div id="scroll-surface" class="render-surface scroll-surface" role="tabpanel" aria-labelledby="scroll-view-tab" tabindex="0"></div>
+					<section id="checks-panel" class="property-panel checks-panel" role="tabpanel" aria-labelledby="checks-tab" hidden></section>
 				</aside>
 				<div id="stage-surface" class="render-surface stage-surface" tabindex="0">
 					<button id="scroll-view-toggle" class="edge-toggle edge-toggle-left" type="button" aria-label="Hide scroll view" data-tooltip-key="layout.hideScrollView">&#8249;</button>
@@ -87,7 +95,6 @@
 					<section id="snappees-panel" class="property-panel" role="tabpanel" aria-labelledby="snappees-tab" hidden></section>
 					<section id="clips-panel" class="property-panel" role="tabpanel" aria-labelledby="clips-tab" hidden></section>
 					<section class="history-panel" aria-label="History" data-i18n-aria-label="aria.history">
-						<div class="panel-heading" data-i18n="panel.history">History</div>
 						<div id="history-list" class="history-list"></div>
 					</section>
 				</aside>

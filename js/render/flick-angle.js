@@ -1,7 +1,7 @@
 const TAU = Math.PI * 2;
 
 function wrapAngleDelta(value) {
-	return ((value + Math.PI) % TAU + TAU) % TAU - Math.PI;
+	return ((((value + Math.PI) % TAU) + TAU) % TAU) - Math.PI;
 }
 
 /**
@@ -12,7 +12,9 @@ function wrapAngleDelta(value) {
 export function flickAngleChanges(flicks, primaryId, pointerAngle) {
 	const items = (flicks || []).filter(item => item?.id != null);
 	const primary = items.find(item => item.id === primaryId) || items[0];
-	if (!primary || !Number.isFinite(Number(pointerAngle))) return new Map();
+	if (!primary || !Number.isFinite(Number(pointerAngle))) {
+		return new Map();
+	}
 	const step = Math.PI / 4;
 	if (items.length === 1) {
 		return new Map([[primary.id, Math.round(Number(pointerAngle) / step) * step]]);

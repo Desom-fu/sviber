@@ -2,22 +2,27 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import {
-	COMMAND_DEFINITIONS,
-	MENU_DEFINITION,
-	TOOLBAR_ITEMS,
-	CommandRegistry,
-} from "../js/commands.js";
+import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS, CommandRegistry } from "../js/commands.js";
 import { withEventEditing } from "../js/app-event-editing.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { MESSAGES } from "../js/i18n.js";
+import { EVENT_EDITING_MODULES, TIMELINE_MODULES, readSources } from "./module-source.mjs";
 
 function keyboardEvent(key, target) {
 	return {
-		key, target, defaultPrevented: false, isComposing: false,
-		ctrlKey: false, shiftKey: false, altKey: false, metaKey: false, repeat: false,
-		preventDefault() { this.defaultPrevented = true; },
+		key,
+		target,
+		defaultPrevented: false,
+		isComposing: false,
+		ctrlKey: false,
+		shiftKey: false,
+		altKey: false,
+		metaKey: false,
+		repeat: false,
+		preventDefault() {
+			this.defaultPrevented = true;
+		},
 		stopImmediatePropagation() {},
 	};
 }
@@ -50,8 +55,8 @@ test("layout toggles preserve the stage grid slot when hiding a side", async () 
 	const [css, layout, editing, timeline] = await Promise.all([
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui-layout.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/app-event-editing.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8"),
+		readSources(EVENT_EDITING_MODULES),
+		readSources(TIMELINE_MODULES),
 	]);
 	assert.match(css, /\.editor-row\.is-scroll-hidden\s+#scroll-view-panel,[\s\S]*?visibility:\s*hidden/);
 	assert.match(css, /\.editor-row\.is-side-hidden\s+\.side-panel[\s\S]*?pointer-events:\s*none/);
@@ -70,7 +75,10 @@ test("v11 command surfaces remove duplicate channel rename and add shortcuts and
 	const channelMenu = MENU_DEFINITION.find(menu => menu.id === "channel");
 	assert.ok(channelMenu);
 	assert.equal(COMMAND_DEFINITIONS["channel.rename"], undefined);
-	assert.equal(channelMenu.items.some(item => item.command === "channel.rename"), false);
+	assert.equal(
+		channelMenu.items.some(item => item.command === "channel.rename"),
+		false,
+	);
 	assert.equal(COMMAND_DEFINITIONS["file.preferences"].shortcut, "Ctrl+/");
 	assert.equal(COMMAND_DEFINITIONS["help.documentation"].shortcut, "F1");
 	assert.equal(COMMAND_DEFINITIONS["macros.open"].icon, "svg/icons/macros.svg");
@@ -80,7 +88,9 @@ test("v11 command surfaces remove duplicate channel rename and add shortcuts and
 test("checked commands notify the UI only when their state changes", () => {
 	const registry = new CommandRegistry({ toggle: { id: "toggle" } });
 	let notifications = 0;
-	registry.subscribe(() => { notifications += 1; });
+	registry.subscribe(() => {
+		notifications += 1;
+	});
 	registry.setChecked("toggle", false);
 	registry.setChecked("toggle", true);
 	registry.setChecked("toggle", true);
@@ -93,11 +103,19 @@ test("difficulty selector focus preserves Space and numeric shortcuts", () => {
 		space: { id: "space", shortcut: "Space" },
 		number: { id: "number", shortcut: "1" },
 	});
-	registry.register("space", () => { executions += 1; });
-	registry.register("number", () => { executions += 1; });
+	registry.register("space", () => {
+		executions += 1;
+	});
+	registry.register("number", () => {
+		executions += 1;
+	});
 	const difficulty = {
-		closest() { return difficulty; },
-		matches(selector) { return selector === "#difficulty-select"; },
+		closest() {
+			return difficulty;
+		},
+		matches(selector) {
+			return selector === "#difficulty-select";
+		},
 	};
 	assert.equal(registry.handleKeyboard(keyboardEvent(" ", difficulty), {}), true);
 	assert.equal(registry.handleKeyboard(keyboardEvent("1", difficulty), {}), true);
@@ -106,7 +124,9 @@ test("difficulty selector focus preserves Space and numeric shortcuts", () => {
 
 test("read-only command policy keeps navigation, Music, comments, and macro access", () => {
 	const registry = new CommandRegistry();
-	for (const id of Object.keys(COMMAND_DEFINITIONS)) registry.register(id, () => {});
+	for (const id of Object.keys(COMMAND_DEFINITIONS)) {
+		registry.register(id, () => {});
+	}
 	const context = {
 		model: { editor: { readOnly: true } },
 		readOnlyCommandAllowed: id => id === "edit.delete",
@@ -127,26 +147,45 @@ test("read-only state round-trips and blocks history navigation", () => {
 	const HistoryApp = withHistoryCommands(class {});
 	const app = new HistoryApp();
 	app.model = model;
-	app.history = { goTo() { historyCalls += 1; } };
+	app.history = {
+		goTo() {
+			historyCalls += 1;
+		},
+	};
 	assert.equal(app.goToHistory(0), false);
 	assert.equal(historyCalls, 0);
 });
 
 test("read-only inspector mutations allow comment fields but not type conversion", () => {
-	const EditingApp = withEventEditing(class {
-		constructor(model) { this.model = model; }
-		commit(_label, mutation, options = {}) {
-			if (this.model.editor.readOnly && !options.allowReadOnly) return null;
-			return mutation(this.model);
-		}
-		rememberCreationDefaults() {}
-	});
+	const EditingApp = withEventEditing(
+		class {
+			constructor(model) {
+				this.model = model;
+			}
+
+			commit(_label, mutation, options = {}) {
+				if (this.model.editor.readOnly && !options.allowReadOnly) {
+					return null;
+				}
+				return mutation(this.model);
+			}
+
+			rememberCreationDefaults() {}
+		},
+	);
 	const model = ChartModel.createDefault({
 		editor: { readOnly: true },
-		events: [{
-			id: 1, type: "comment", channel: 0, time: [0, 0, 1], duration: [1, 0, 1],
-			text: "before", selected: true,
-		}],
+		events: [
+			{
+				id: 1,
+				type: "comment",
+				channel: 0,
+				time: [0, 0, 1],
+				duration: [1, 0, 1],
+				text: "before",
+				selected: true,
+			},
+		],
 	});
 	const app = new EditingApp(model);
 	app.editSelectedProperty("text", "after");
@@ -156,25 +195,33 @@ test("read-only inspector mutations allow comment fields but not type conversion
 });
 
 test("v11 UI uses icon controls, sliders, fullscreen, read-only macros, and PWA caching", async () => {
-	const [index, styles, fields, core, macros, bridge, manifestText, worker] = await Promise.all([
+	const [index, styles, fields, core, shortcuts, macros, bridge, manifestText, worker] = await Promise.all([
 		readFile(new URL("../index.html", import.meta.url), "utf8"),
 		readFile(new URL("../css/app-v11.css", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui-fields.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-global-shortcuts.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/macros.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-macro-bridge.js", import.meta.url), "utf8"),
 		readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 		readFile(new URL("../service-worker.js", import.meta.url), "utf8"),
 	]);
-	for (const id of ["lock-visible-range", "play-se", "seek-back-after-playing", "metronome", "read-only", "fullscreen"]) {
+	for (const id of [
+		"lock-visible-range",
+		"play-se",
+		"seek-back-after-playing",
+		"metronome",
+		"read-only",
+		"fullscreen",
+	]) {
 		assert.match(index, new RegExp(`id="${id}"[\\s\\S]*?<img`));
 	}
 	assert.match(styles, /\.status-option input:checked \+ img/);
-	assert.match(fields, /input\.type = 'range'/);
-	assert.match(fields, /createElement\('output'\)/);
-	assert.match(core, /event\.key === "F11"/);
+	assert.match(fields, /input\.type = "range"/);
+	assert.match(fields, /createElement\("output"\)/);
+	assert.match(shortcuts, /event\.key === "F11"/);
 	assert.match(core, /sviber-macro-read-only/);
-	assert.match(macros, /if \(readOnly\).*?error\.readOnly/);
+	assert.match(macros, /if \(readOnly\)[\s\S]{0,120}?error\.readOnly/);
 	assert.match(macros, /editor\.updateOptions\(\{ readOnly: !editable \}\)/);
 	assert.match(bridge, /readOnly: Boolean\(app\.model\.editor\.readOnly\)/);
 	const manifest = JSON.parse(manifestText);

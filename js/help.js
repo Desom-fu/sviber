@@ -11,7 +11,7 @@ function browserVersions() {
 	const firefox = userAgent.match(/Firefox\/([\d.]+)/)?.[1];
 	const safari = !chromium && userAgent.match(/Version\/([\d.]+).*Safari/)?.[1];
 	return {
-		browser: chromium ? `Chromium ${chromium}` : firefox ? `Firefox ${firefox}` : safari ? `Safari ${safari}` : userAgent,
+		browser: chromium? `Chromium ${chromium}`: firefox? `Firefox ${firefox}`: safari? `Safari ${safari}`: userAgent,
 		engine: chromium ? `Chromium ${chromium}` : "",
 	};
 }
@@ -26,7 +26,9 @@ async function optionalJson(url) {
 }
 
 function nwRuntimeInformation() {
-	if (!globalThis.nw || !globalThis.process) return null;
+	if (!globalThis.nw || !globalThis.process) {
+		return null;
+	}
 	let osVersion = "";
 	try {
 		const os = typeof globalThis.nw.require === "function" ? globalThis.nw.require("os") : null;
@@ -44,8 +46,12 @@ function nwRuntimeInformation() {
 }
 
 function repositoryUrl(value) {
-	if (typeof value === "string") return value;
-	return String(value?.url || "").replace(/^git\+/, "").replace(/\.git$/, "");
+	if (typeof value === "string") {
+		return value;
+	}
+	return String(value?.url || "")
+		.replace(/^git\+/, "")
+		.replace(/\.git$/, "");
 }
 
 function bugsUrl(value) {
@@ -57,7 +63,9 @@ async function copyText(text) {
 		try {
 			await navigator.clipboard.writeText(text);
 			return;
-		} catch { /* NW.js can deny Clipboard API access for extension URLs. */ }
+		} catch {
+			/* NW.js can deny Clipboard API access for extension URLs. */
+		}
 	}
 	const textarea = document.createElement("textarea");
 	textarea.value = text;
@@ -65,7 +73,9 @@ async function copyText(text) {
 	document.body.append(textarea);
 	textarea.select();
 	try {
-		if (!document.execCommand("copy")) throw new Error("Clipboard access is unavailable.");
+		if (!document.execCommand("copy")) {
+			throw new Error("Clipboard access is unavailable.");
+		}
 	} finally {
 		textarea.remove();
 	}
@@ -87,7 +97,13 @@ export class HelpController {
 	openDocumentation() {
 		const url = new URL(`docs/index.html?lang=${encodeURIComponent(this.i18n.language)}`, location.href).href;
 		if (globalThis.nw?.Window?.open) {
-			globalThis.nw.Window.open(url, { title: "sviber Documentation", width: 1080, height: 760, min_width: 720, min_height: 500 });
+			globalThis.nw.Window.open(url, {
+				title: "sviber Documentation",
+				width: 1080,
+				height: 760,
+				min_width: 720,
+				min_height: 500,
+			});
 		} else {
 			window.open(url, "_blank", "noopener");
 		}
@@ -98,7 +114,10 @@ export class HelpController {
 		if (globalThis.nw?.Window?.open) {
 			globalThis.nw.Window.open(url, {
 				title: "sviber JavaScript license information",
-				width: 1080, height: 760, min_width: 720, min_height: 500,
+				width: 1080,
+				height: 760,
+				min_width: 720,
+				min_height: 500,
 			});
 			return;
 		}
@@ -108,9 +127,14 @@ export class HelpController {
 	async reportIssues() {
 		const information = await this.packageInfo();
 		const url = bugsUrl(information.bugs);
-		if (!url) return;
-		if (globalThis.nw?.Shell?.openExternal) globalThis.nw.Shell.openExternal(url);
-		else window.open(url, "_blank", "noopener");
+		if (!url) {
+			return;
+		}
+		if (globalThis.nw?.Shell?.openExternal) {
+			globalThis.nw.Shell.openExternal(url);
+		} else {
+			window.open(url, "_blank", "noopener");
+		}
 	}
 
 	async aboutEntries() {
@@ -151,7 +175,9 @@ export class HelpController {
 				link.target = "_blank";
 				link.rel = "noopener";
 				description.append(link);
-			} else description.textContent = String(value);
+			} else {
+				description.textContent = String(value);
+			}
 			content.append(term, description);
 		}
 		const text = entries.map(([key, value]) => `${this.i18n.t(key)}: ${value}`).join("\n");
@@ -160,10 +186,15 @@ export class HelpController {
 			content,
 			buttons: [
 				{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false },
-				{ id: "copy", labelKey: "dialog.copy", validate: false, onClick: async () => {
-					await copyText(text);
-					return false;
-				} },
+				{
+					id: "copy",
+					labelKey: "dialog.copy",
+					validate: false,
+					onClick: async () => {
+						await copyText(text);
+						return false;
+					},
+				},
 			],
 		});
 	}
@@ -174,9 +205,13 @@ export class HelpController {
 		const cleanup = [];
 		const grouped = new Map();
 		for (const definition of Object.values(definitions)) {
-			if (!definition.shortcut) continue;
+			if (!definition.shortcut) {
+				continue;
+			}
 			const groupId = String(definition.id || "other").split(".")[0] || "other";
-			if (!grouped.has(groupId)) grouped.set(groupId, []);
+			if (!grouped.has(groupId)) {
+				grouped.set(groupId, []);
+			}
 			grouped.get(groupId).push(definition);
 		}
 		const menuOrder = MENU_DEFINITION.map(menu => menu.id);
@@ -187,11 +222,15 @@ export class HelpController {
 			content.append(column);
 		});
 		const columnByGroup = new Map();
-		SHORTCUT_COLUMN_GROUPS.forEach((groups, columnIndex) => groups.forEach(groupId => columnByGroup.set(groupId, columnIndex)));
+		SHORTCUT_COLUMN_GROUPS.forEach((groups, columnIndex) =>
+			groups.forEach(groupId => columnByGroup.set(groupId, columnIndex)),
+		);
 		let fallbackColumn = 0;
 		for (const groupId of groupOrder) {
 			const groupDefinitions = grouped.get(groupId);
-			if (!groupDefinitions?.length) continue;
+			if (!groupDefinitions?.length) {
+				continue;
+			}
 			const group = document.createElement("section");
 			group.className = "shortcut-group";
 			const heading = document.createElement("h3");
@@ -213,13 +252,21 @@ export class HelpController {
 				cleanup.push(this.tooltip?.register(item, definition.hintKey));
 			}
 			group.append(heading, list);
-			const columnIndex = columnByGroup.has(groupId) ? columnByGroup.get(groupId) : fallbackColumn++ % columns.length;
+			let columnIndex = 0;
+			if (columnByGroup.has(groupId)) {
+				columnIndex = columnByGroup.get(groupId);
+			} else {
+				columnIndex = fallbackColumn++ % columns.length;
+			}
 			columns[columnIndex].append(group);
 		}
 		try {
-			await this.dialogs.open({ titleKey: "dialog.keyboardShortcuts", content,
+			await this.dialogs.open({
+				titleKey: "dialog.keyboardShortcuts",
+				content,
 				dialogClass: "keyboard-shortcuts-dialog",
-				buttons: [{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false }] });
+				buttons: [{ id: "ok", labelKey: "dialog.ok", primary: true, value: true, validate: false }],
+			});
 		} finally {
 			setTimeout(() => cleanup.forEach(dispose => dispose?.()), 0);
 		}

@@ -48,7 +48,10 @@ test("perfect hit effects use valid Sunniesnow gold and orange CSS colors", () =
 test("selected notes keep a contrasting text color", () => {
 	assert.equal(sunniesnowNoteTextColor({ type: "tap", selected: true }, { phase: "active" }), "#ffffff");
 	assert.equal(sunniesnowNoteTextColor({ type: "tap", selected: true }, { phase: "fadingOut" }), "#ffff55");
-	assert.notEqual(sunniesnowNoteTextColor({ type: "tap", selected: true }, { phase: "active" }), SUNNIESNOW_SKIN.selectionTint);
+	assert.notEqual(
+		sunniesnowNoteTextColor({ type: "tap", selected: true }, { phase: "active" }),
+		SUNNIESNOW_SKIN.selectionTint,
+	);
 });
 
 test("pausing cancels only future hit effects while active effects finish", () => {
@@ -57,7 +60,9 @@ test("pausing cancels only future hit effects while active effects finish", () =
 		particles: [{ started: now - 20 }, { started: now + 1000 }],
 		rendered: false,
 		particleAnimationFrame: 0,
-		render() { this.rendered = true; },
+		render() {
+			this.rendered = true;
+		},
 	};
 	StageView.prototype.cancelScheduledHits.call(target);
 	assert.equal(target.particles.length, 1);
@@ -71,7 +76,9 @@ test("music stop clears in-flight hit effects immediately", () => {
 		particles: [{ started: now - 20 }, { started: now + 1000 }],
 		rendered: false,
 		particleAnimationFrame: 0,
-		render() { this.rendered = true; },
+		render() {
+			this.rendered = true;
+		},
 	};
 	StageView.prototype.clearHitEffects.call(target);
 	assert.equal(target.particles.length, 0);
@@ -124,18 +131,17 @@ test("background polygon vertices match PIXI regularPoly used by Sunniesnow", ()
 	assertPoint(downwardTriangle[0], 0, 2);
 });
 
-test("simultaneous taps form one adjacent double-line chain in data order", () => {
+test("simultaneous taps form one adjacent double-line chain in drawing order", () => {
 	const events = [
-		{ id: "a", type: "tap", time: [1, 0, 1] },
-		{ id: "other", type: "hold", time: [1, 0, 1] },
-		{ id: "b", type: "tap", time: [1, 0, 1] },
-		{ id: "c", type: "tap", time: [1, 0, 1] },
-		{ id: "later-a", type: "tap", time: [2, 0, 1] },
-		{ id: "d", type: "tap", time: [1, 0, 1] },
-		{ id: "later-b", type: "tap", time: [2, 0, 1] },
+		{ id: "a", type: "tap", time: [1, 0, 1], channel: 0 },
+		{ id: "other", type: "hold", time: [1, 0, 1], channel: 0 },
+		{ id: "b", type: "tap", time: [1, 0, 1], channel: 0 },
+		{ id: "c", type: "tap", time: [1, 0, 1], channel: 0 },
+		{ id: "later-a", type: "tap", time: [2, 0, 1], channel: 0 },
+		{ id: "d", type: "tap", time: [1, 0, 1], channel: 0 },
+		{ id: "later-b", type: "tap", time: [2, 0, 1], channel: 0 },
 	];
-	const pairs = sunniesnowTapDoubleLinePairs(events)
-		.map(pair => pair.map(event => event.id));
+	const pairs = sunniesnowTapDoubleLinePairs(events).map(pair => pair.map(event => event.id));
 
 	assert.deepEqual(pairs, [
 		["a", "b"],
@@ -143,6 +149,22 @@ test("simultaneous taps form one adjacent double-line chain in data order", () =
 		["c", "d"],
 		["later-a", "later-b"],
 	]);
+
+	// v17: the chain follows the drawing order, so upper channels come first even when
+	// their events appear later in the event list.
+	const channels = [{ id: 7 }, { id: 3 }];
+	const crossChannel = [
+		{ id: "lower", type: "tap", time: [1, 0, 1], channel: 3 },
+		{ id: "upper", type: "tap", time: [1, 0, 1], channel: 7 },
+		{ id: "lower-2", type: "tap", time: [1, 0, 1], channel: 3 },
+	];
+	assert.deepEqual(
+		sunniesnowTapDoubleLinePairs(crossChannel, channels).map(pair => pair.map(event => event.id)),
+		[
+			["upper", "lower"],
+			["lower", "lower-2"],
+		],
+	);
 });
 
 test("note phases reproduce shrinking-circle and exact-hit boundaries", () => {
@@ -197,7 +219,7 @@ test("only the latest started background pattern remains displayed", () => {
 });
 
 test("hit sound samples match Sunniesnow's procedural default sound effects", () => {
-	assert.ok(Math.abs(sunniesnowHitSample("tap", 0.01) - (-0.23220567541312792)) < 1e-12);
+	assert.ok(Math.abs(sunniesnowHitSample("tap", 0.01) - -0.23220567541312792) < 1e-12);
 	assert.ok(Math.abs(sunniesnowHitSample("drag", 0.01) - 0.2242303770876735) < 1e-12);
 	assert.ok(Math.abs(sunniesnowHitSample("flick", 0.01) - 0.4739878501170808) < 1e-12);
 	assert.equal(sunniesnowHitSample("hold", 0.01), sunniesnowHitSample("tap", 0.01));

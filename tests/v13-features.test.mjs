@@ -8,6 +8,13 @@ import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/comma
 import { scrollPanTarget } from "../js/render/scroll-view.js";
 import { withChartTools } from "../js/app-chart-tools.js";
 import { withHistoryCommands } from "../js/app-history-commands.js";
+import {
+	EVENT_EDITING_MODULES,
+	STAGE_INTERACTION_MODULES,
+	STAGE_NOTE_MODULES,
+	TIMELINE_MODULES,
+	readSources,
+} from "./module-source.mjs";
 
 test("bar lines drive rational beat lines and snapping", () => {
 	const timing = new TimingMap({ initialBpm: 120, barLines: [{ time: [1, 2, 3] }] });
@@ -20,10 +27,15 @@ test("bar lines drive rational beat lines and snapping", () => {
 });
 
 test("v13 editor view and background visibility fields round-trip", () => {
-	const model = ChartModel.createDefault({ editor: {
-		showBgEventsInTimeline: false, showBgEventsInMainField: false,
-		mainFieldPanX: 12, mainFieldPanY: -4, mainFieldZoom: 1.75,
-	} });
+	const model = ChartModel.createDefault({
+		editor: {
+			showBgEventsInTimeline: false,
+			showBgEventsInMainField: false,
+			mainFieldPanX: 12,
+			mainFieldPanY: -4,
+			mainFieldZoom: 1.75,
+		},
+	});
 
 	const restored = ChartModel.import({ sviber: model.serializeSviber(), metadata: model.metadata });
 	assert.equal(restored.editor.showBgEventsInTimeline, false);
@@ -48,9 +60,12 @@ test("v13 inspector hides inactive tip-point input rows and preserves panel scro
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 	]);
 	assert.match(css, /\.property-row\[hidden\]\s*\{\s*display:\s*none;/);
-	assert.match(panels, /if \(control\?\.dataset\?\.hidden === "true"\) row\.hidden = true/);
+	assert.match(panels, /control\?\.dataset\?\.hidden === "true"\)\s*\{?\s*row\.hidden = true/);
 	assert.match(panels, /setControlHidden\(distanceControl, !spawnFieldsEnabled \|\| absolute !== false\)/);
-	assert.match(panels, /setControlHidden\(absoluteWrapper, !spawnFieldsEnabled \|\| absolute !== true \|\| attached === true\)/);
+	assert.match(
+		panels,
+		/setControlHidden\(absoluteWrapper, !spawnFieldsEnabled \|\| absolute !== true \|\| attached === true\)/,
+	);
 	assert.match(panels, /setControlHidden\(secondsControl, !spawnFieldsEnabled \|\| timeInBeats !== false\)/);
 	assert.match(panels, /setControlHidden\(beatsControl, !spawnFieldsEnabled \|\| timeInBeats !== true\)/);
 	const snappeeStart = panels.indexOf("export class SnappeesPanel");
@@ -80,15 +95,24 @@ test("v13 macro wrappers expose timing, location, grouping, channels, and clips"
 	await import("../js/macro-api.js");
 	const runtime = globalThis.createSviberMacroApi({
 		editor: { currentChannel: 0, currentTime: [0, 0, 1] },
-		channels: [{ id: 0, name: "Main", color: "#ffffff", active: true }], events: [], snappees: [], clips: [],
+		channels: [{ id: 0, name: "Main", color: "#ffffff", active: true }],
+		events: [],
+		snappees: [],
+		clips: [],
 		timing: { offset: 0, initialBpm: 120, bpmChanges: [], barLines: [] },
 	});
 	const api = runtime.globals;
 	assert.throws(() => new api.Event({ type: "bg_note", location: new api.Location(0, 0) }), /Unsupported event type/);
 	assert.throws(() => new api.AffineMatrix2D([1, 0, 0, 1, 4, 5]), /matrix elements must be finite numbers/);
 	const partialMatrix = new api.AffineMatrix2D(2);
-	assert.deepEqual(Object.fromEntries(["a", "b", "c", "d", "tx", "ty"].map(key => [key, partialMatrix[key]])),
-		{ a: 2, b: 0, c: 0, d: 1, tx: 0, ty: 0 });
+	assert.deepEqual(Object.fromEntries(["a", "b", "c", "d", "tx", "ty"].map(key => [key, partialMatrix[key]])), {
+		a: 2,
+		b: 0,
+		c: 0,
+		d: 1,
+		tx: 0,
+		ty: 0,
+	});
 	const channel = api.Channel.current;
 	assert.equal(channel.name, "Main");
 	channel.name = "Edited";
@@ -113,8 +137,14 @@ test("v13 macro geometry, tip-point serialization, relative copy, and deletion a
 	await import("../js/macro-api.js");
 	const runtime = globalThis.createSviberMacroApi({
 		editor: { currentChannel: 30, currentTime: [3, 0, 1] },
-		channels: [{ id: 10, name: "First", color: "#ffffff", active: true }, { id: 30, name: "Main", color: "#ffffff", active: true }],
-		events: [], snappees: [], clips: [], timing: { bpmChanges: [], barLines: [] },
+		channels: [
+			{ id: 10, name: "First", color: "#ffffff", active: true },
+			{ id: 30, name: "Main", color: "#ffffff", active: true },
+		],
+		events: [],
+		snappees: [],
+		clips: [],
+		timing: { bpmChanges: [], barLines: [] },
 	});
 	const api = runtime.globals;
 	const mesh = new api.RectangularMesh(-10, 10, 10, -10, 2, 2);
@@ -143,7 +173,9 @@ test("v13 macro geometry, tip-point serialization, relative copy, and deletion a
 	assert.equal(runtime.state.events[0].tipPointSpawnAbsolutePosition, true);
 	const matrix = new api.AffineMatrix2D().translate(2, 3).rotate(Math.PI / 2);
 	assert.ok(Math.abs(matrix.a) < 1e-12);
-	api.transform(note, function () { this.translate(1, 2); });
+	api.transform(note, function () {
+		this.translate(1, 2);
+	});
 	assert.deepEqual([note.tipPoint.location.x, note.tipPoint.location.y], [5, 7]);
 	assert.throws(() => api.transform(note, [1, 0, 0, 1, 0, 0]), /AffineMatrix2D or a callback/);
 	assert.throws(() => api.transform(note), /AffineMatrix2D or a callback/);
@@ -154,7 +186,10 @@ test("v13 macro geometry, tip-point serialization, relative copy, and deletion a
 	assert.throws(() => api.copy(), /array of events/);
 	const directChild = new api.Tap({ text: "direct child" });
 	const directGroup = new api.Group({ events: [directChild] });
-	assert.equal(api.Channel.current.events.some(event => event.text === "direct child"), false);
+	assert.equal(
+		api.Channel.current.events.some(event => event.text === "direct child"),
+		false,
+	);
 	assert.equal(directGroup.events[0].text, "direct child");
 	assert.throws(() => new api.Tap({ time: { numerator: 1, denominator: 2 } }), /beat/);
 	assert.throws(() => api.b(null), /beat/);
@@ -163,8 +198,8 @@ test("v13 macro geometry, tip-point serialization, relative copy, and deletion a
 	const flick = new api.Flick({ location: new api.Location(0, 0), angle: "up" });
 	const flickRecord = runtime.state.events.at(-1);
 	assert.equal(flick.angle, Math.PI / 2);
-	assert.equal(new api.Flick({ angle: "upLeft" }).angle, 3 * Math.PI / 4);
-	assert.equal(new api.Flick({ angle: "leftUp" }).angle, 3 * Math.PI / 4);
+	assert.equal(new api.Flick({ angle: "upLeft" }).angle, (3 * Math.PI) / 4);
+	assert.equal(new api.Flick({ angle: "leftUp" }).angle, (3 * Math.PI) / 4);
 	assert.throws(() => new api.Flick({ angle: "up_left" }), /direction name/);
 	flick.type = "hold";
 	assert.equal(flick.type, "hold");
@@ -217,23 +252,27 @@ test("v0.4.1 toolbar and wheel routing keep main-field controls discoverable", a
 	assert.equal(TOOLBAR_ITEMS[TOOLBAR_ITEMS.indexOf("events.bpmChange") - 1], "separator");
 	const [css, timeline] = await Promise.all([
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
-		readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8"),
+		readSources(TIMELINE_MODULES),
 	]);
 	assert.match(css, /\.reset-main-field-view[^\{]*\{[^}]*border: 2px solid var\(--text\)/s);
 	assert.match(timeline, /if \(event\.ctrlKey && event\.shiftKey\) \{[\s\S]*onMainFieldZoom/s);
 });
 
 test("v13 global main-field zoom and live-hosting lifecycle follow the prompt", async () => {
-	const [core, hosting, timeline, scrollView] = await Promise.all([
+	const [core, shortcuts, hosting, timeline, scrollView] = await Promise.all([
 		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-global-shortcuts.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/live-hosting.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8"),
+		readSources(TIMELINE_MODULES),
 		readFile(new URL("../js/render/scroll-view.js", import.meta.url), "utf8"),
 	]);
-	const wheel = core.slice(core.indexOf('document.addEventListener("wheel"'), core.indexOf('window.addEventListener("beforeunload"'));
-	assert.ok(wheel.indexOf("event.ctrlKey && event.shiftKey") < wheel.indexOf("event.target.closest"));
-	assert.match(core, /onError: error => this\.toast\?\.error\("toast\.liveHostingFailed"/);
-	assert.match(core, /onStop: \(\) => \{ this\.toast\?\.show\("toast\.liveHostingStopped"/);
+	const wheel = shortcuts.slice(
+		shortcuts.indexOf('"wheel",'),
+		shortcuts.indexOf('"beforeunload"'),
+	);
+	assert.ok(wheel.indexOf("event.ctrlKey && event.shiftKey") < wheel.indexOf("closest("));
+	assert.match(core, /onError: error =>\s*this\.toast\?\.error\("toast\.liveHostingFailed"/);
+	assert.match(core, /onStop: \(\) => \{\s*this\.toast\?\.show\("toast\.liveHostingStopped"/);
 	assert.match(hosting, /this\.#reportError\(error\)/);
 	assert.match(hosting, /this\.onStop\(\)/);
 	assert.match(timeline, /fillText\(line\.beat\.toString\(\)/);
@@ -247,7 +286,10 @@ test("falling preview pans with the pointer and previews box selection", async (
 	]);
 	assert.match(scrollView, /scrollPanTarget\(\s*this\.drag\.startSeconds,[\s\S]*?current\.y - this\.drag\.start\.y/);
 	assert.match(scrollView, /return Number\(startSeconds\) \+ Number\(pointerDeltaY\)/);
-	assert.match(scrollView, /onPreviewBoxSelect\?\.\(this\.#eventsInBox\(this\.drag\.x, this\.drag\.y, current\.x, current\.y\)/);
+	assert.match(
+		scrollView,
+		/onPreviewBoxSelect\?\.\([\s\S]{0,80}?#eventsInBox\(/,
+	);
 	assert.match(scrollView, /onBoxSelect\(ids, this\.drag\.mode\)/);
 	assert.match(core, /onPreviewBoxSelect: \(ids, mode\) => this\.previewSelection\(ids, mode\)/);
 	assert.match(core, /onBoxSelect: \(ids, mode\) => this\.finishSelectionPreview\(ids, mode\)/);
@@ -262,7 +304,10 @@ test("v0.4.2 drops bgNote angle and avoids long-session full snapshots/refreshes
 	await import("../js/macro-api.js");
 	const runtime = globalThis.createSviberMacroApi({
 		editor: { currentChannel: 0, currentTime: [0, 0, 1] },
-		channels: [{ id: 0, name: "Main", color: "#ffffff", active: true }], events: [], snappees: [], clips: [],
+		channels: [{ id: 0, name: "Main", color: "#ffffff", active: true }],
+		events: [],
+		snappees: [],
+		clips: [],
 		timing: { offset: 0, initialBpm: 120, bpmChanges: [], barLines: [] },
 	});
 	const api = runtime.globals;
@@ -274,18 +319,21 @@ test("v0.4.2 drops bgNote angle and avoids long-session full snapshots/refreshes
 	const caption = api.bgNote(new api.Location(3, 4), "caption");
 	assert.equal(caption.text, "caption");
 	assert.deepEqual(runtime.state.events.at(-1).duration, [0, 0, 1]);
-	const [core, editing, transform, stage, index, jsApi, rubyApi] = await Promise.all([
+	const [core, transport, editing, transform, stage, index, jsApi, rubyApi] = await Promise.all([
 		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-playback-transport.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-event-editing.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-free-transform.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/render/stage-core.js", import.meta.url), "utf8"),
+		readSources(["../js/render/stage-core.js", "../js/render/stage-snappees.js"]),
 		readFile(new URL("../js/render/chart-index.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro-api.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro-api.rb", import.meta.url), "utf8"),
 	]);
 	assert.match(transform, /if \(snapshotsEqual\(after, before\)\)/);
-	assert.doesNotMatch(core, /JSON\.stringify\(this\.model\.snapshot\(\)\)/);
-	assert.match(core, /this\.audio\.addEventListener\("play"[\s\S]*this\.refreshPlaybackFrame\(\)/);
+	for (const source of [core, transport]) {
+		assert.doesNotMatch(source, /JSON\.stringify\((?:this|app)\.model\.snapshot\(\)\)/);
+	}
+	assert.match(transport, /\.audio\.addEventListener\("play"[\s\S]*\.refreshPlaybackFrame\(\)/);
 	assert.doesNotMatch(editing, /JSON\.stringify\(this\.model\.snapshot\(\)\)/);
 	assert.match(stage, /_canReuseStaticLayer/);
 	assert.match(stage, /snappeePaths\?\.get\(snappee\)/);
@@ -298,45 +346,61 @@ test("v0.4.2 drops bgNote angle and avoids long-session full snapshots/refreshes
 
 test("v0.4.3 snaps dragged pen handles and orients snappee previews like the stage", async () => {
 	const [interactions, panels, editing, tools, transform, history] = await Promise.all([
-		readFile(new URL("../js/render/stage-interactions.js", import.meta.url), "utf8"),
+		readSources(STAGE_INTERACTION_MODULES),
 		readFile(new URL("../js/panels.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/app-event-editing.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/app-chart-tools.js", import.meta.url), "utf8"),
+		readSources(EVENT_EDITING_MODULES),
+		readFile(new URL("../js/app-curve-draft.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-free-transform.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/core/history.js", import.meta.url), "utf8"),
 	]);
 	assert.match(interactions, /_snapChartPoint\(chart, project, mapping\)/);
-	assert.match(interactions, /drag\.type === "pen-new"[\s\S]*_snapChartPoint\(chart, project, mapping\)/);
-	assert.match(interactions, /draft-pen-handle[\s\S]*_snapChartPoint\(chart, project, mapping\)/);
+	// Both pen drags resolve their point through the shared snapper, and both drag kinds are
+	// still routed to those handlers.
+	assert.match(interactions, /_movePenNode\([\s\S]*?_snapChartPoint\(chart, project, mapping\)/);
+	assert.match(interactions, /_movePenHandle\([\s\S]*?_snapChartPoint\(chart, project, mapping\)/);
+	assert.match(interactions, /"pen-new": "_movePenNode"/);
+	assert.match(interactions, /"draft-pen-handle": "_movePenHandle"/);
 	assert.match(panels, /y: offsetY \+ \(maxY - point\.y\) \* scale/);
 	assert.doesNotMatch(panels, /y: offsetY \+ \(point\.y - minY\) \* scale/);
 	assert.match(history, /recordView\(view, label/);
-	assert.match(transform, /history\.recordView\(captureHistoryView\(this\.model[\s\S]*?selectedEventIds/);
+	assert.match(transform, /history\.recordView\(\s*captureHistoryView\(this\.model[\s\S]*?selectedEventIds/);
 	assert.match(editing, /this\.history\.recordView\(captureHistoryView\(this\.model\)/);
 	assert.doesNotMatch(editing, /history\.record\(this\.model\.snapshot\(\), i18n\.t\("history\.selection"\)/);
-	assert.match(editing, /viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false/);
+	assert.match(
+		editing,
+		/viewOnly: true,\s*snappeeOnly: true,\s*rebuildIndex: false,\s*skipInspector: true,\s*scheduleDirty: false/,
+	);
 	assert.match(tools, /snappeesPanel\?\.syncFlags\?/);
 	assert.match(tools, /selectSnappee\(id\) \{[\s\S]*?refreshInteractionPreview\?/);
 	assert.doesNotMatch(tools, /selectSnappee\(id\) \{[\s\S]*?this\.refresh\(\);[\s\S]*?toggleSnappee/);
-	assert.match(tools, /viewOnly: true, snappeeOnly: true, rebuildIndex: false, skipInspector: true, scheduleDirty: false/);
+	assert.match(
+		tools,
+		/viewOnly: true,\s*snappeeOnly: true,\s*rebuildIndex: false,\s*skipInspector: true,\s*scheduleDirty: false/,
+	);
 	assert.match(tools, /moveSnappeeInList[\s\S]*?scheduleDirty: false/);
-	assert.match(await readFile(new URL("../js/app-history-commands.js", import.meta.url), "utf8"),
-		/moveChannel[\s\S]*?channelOnly: true[\s\S]*?scheduleDirty: false/);
+	assert.match(
+		await readFile(new URL("../js/app-channel-commands.js", import.meta.url), "utf8"),
+		/moveChannel[\s\S]*?channelOnly: true[\s\S]*?scheduleDirty: false/,
+	);
 	assert.match(panels, /syncFlags\(model, context = \{\}\)/);
-	assert.match(panels, /dataset\.historyId/);
+	// The history panel now lives in js/panel-history.js, re-exported from js/panels.js.
+	assert.match(await readFile(new URL("../js/panel-history.js", import.meta.url), "utf8"), /dataset\.historyId/);
 });
 
 test("v0.4.4 clamps free-transform translate/scale and keeps inspector Enter from finishing", async () => {
-	const [core, transform, geometry, panels, manual] = await Promise.all([
-		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
+	const [shortcuts, transform, geometry, panels, manual] = await Promise.all([
+		readFile(new URL("../js/app-global-shortcuts.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app-free-transform.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/core/geometry.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/panels.js", import.meta.url), "utf8"),
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 	]);
 	assert.match(geometry, /export function clampAffineToChartBounds/);
-	assert.match(transform, /clampAffineToChartBounds\(this\._freeTransformAnchorPoints\(this\.model\)/);
-	assert.match(core, /isEditableTarget\(event\.target\)/);
+	// The clamp call and its anchor points may be spelled across statements after the
+	// lint-driven refactor, so both halves are asserted independently of formatting.
+	assert.match(transform, /clampAffineToChartBounds\(/);
+	assert.match(transform, /_freeTransformAnchorPoints\(this\.model\)/);
+	assert.match(shortcuts, /isEditableTarget\(event\.target\)/);
 	assert.match(panels, /onTransformChange\(index, next\)/);
 	assert.match(manual, /submits that element/);
 	assert.match(manual, /只提交该矩阵元素/);
@@ -365,7 +429,7 @@ test("v0.4.5 actually hides inapplicable tip-point inspector rows", async () => 
 test("curve-draft overlay is painted onto an offscreen static layer instead of copying the live canvas", async () => {
 	const [core, notes] = await Promise.all([
 		readFile(new URL("../js/render/stage-core.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/render/stage-notes.js", import.meta.url), "utf8"),
+		readSources(STAGE_NOTE_MODULES),
 	]);
 	assert.match(core, /_ensureStaticLayer\(width, height\)/);
 	assert.match(core, /const scene = draft \? this\._ensureStaticLayer\(width, height\) : context;/);
@@ -378,17 +442,33 @@ test("curve-draft overlay is painted onto an offscreen static layer instead of c
 });
 
 test("undoing a bezier control point restores the previous curve draft", () => {
-	const App = withHistoryCommands(withChartTools(class {
-		exitModes() { this.creationMode = null; }
-		refresh() {}
-		refreshInteractionPreview() {}
-		_refreshLightweight() {}
-		updateDirty() {}
-		queueMediaSync() {}
-		restoreHistorySnapshot(snapshot) { this.model.restore(snapshot); }
-		cancelPreview() {}
-		cancelFreeTransform() {}
-	}));
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+			},
+		),
+	);
 	const app = new App();
 	app.model = ChartModel.createDefault();
 	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
@@ -416,9 +496,10 @@ test("undoing a bezier control point restores the previous curve draft", () => {
 test("v0.4.6 keeps main-field pan when pointer capture is cancelled", async () => {
 	const [core, interactions] = await Promise.all([
 		readFile(new URL("../js/render/stage-core.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/render/stage-interactions.js", import.meta.url), "utf8"),
+		readSources(STAGE_INTERACTION_MODULES),
 	]);
 	assert.match(core, /releasePointerCapture\?\.\(event\.pointerId\)/);
 	assert.match(interactions, /setPointerCapture\?\.\(event\.pointerId\)/);
-	assert.match(interactions, /event\.type !== "pointercancel"/);
+	// A cancelled pan is dropped instead of being committed at the last known position.
+	assert.match(interactions, /_commitPan\([\s\S]*?event\.type === "pointercancel"[\s\S]*?onMainFieldPan/);
 });

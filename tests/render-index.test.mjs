@@ -16,8 +16,8 @@ function largeProject(eventCount = 10_000) {
 		type: "tap",
 		channel: id % channels.length,
 		time: [Math.floor(id / 16), id % 16, 16],
-		x: id % 200 - 100,
-		y: id % 100 - 50,
+		x: (id % 200) - 100,
+		y: (id % 100) - 50,
 		text: "",
 		tipPointSpawnType: id < channels.length ? "chain" : "inherit",
 		tipPointSpawnTime: 1,
@@ -26,8 +26,12 @@ function largeProject(eventCount = 10_000) {
 }
 
 test("ordinary notes draw above bg notes, background patterns, and big text", () => {
-	for (const type of ["bgNote", "grid", "bigText"]) assert.equal(eventDrawLayer({ type }), 0);
-	for (const type of ["tap", "hold", "drag", "flick"]) assert.equal(eventDrawLayer({ type }), 1);
+	for (const type of ["bgNote", "grid", "bigText"]) {
+		assert.equal(eventDrawLayer({ type }), 0);
+	}
+	for (const type of ["tap", "hold", "drag", "flick"]) {
+		assert.equal(eventDrawLayer({ type }), 1);
+	}
 });
 
 test("render index limits 10k-event playback work to active time windows", () => {
@@ -56,10 +60,16 @@ test("render index caches selection, lane offsets, and duration overlap", () => 
 	};
 	const index = new ChartRenderIndex(project, new TimingMap({ initialBpm: 60 }));
 
-	assert.deepEqual(index.selectedEvents.map(event => event.id), [1]);
+	assert.deepEqual(
+		index.selectedEvents.map(event => event.id),
+		[1],
+	);
 	assert.equal(index.eventLaneOffsets.get(1), -3.5);
 	assert.equal(index.eventLaneOffsets.get(2), 3.5);
-	assert.deepEqual(index.timelineRecords(3, 3).map(record => record.event.id), [1]);
+	assert.deepEqual(
+		index.timelineRecords(3, 3).map(record => record.event.id),
+		[1],
+	);
 	assert.equal(index.hudHitCount(1), 1);
 	assert.equal(index.hudHitCount(5), 2);
 });
@@ -75,22 +85,36 @@ test("render index incrementally appends a created root note", () => {
 	const created = model.addEvent("tap", { time: [1, 0, 1], channel: 0, x: 10, y: 0, selected: true });
 	assert.equal(index.appendRootEvent(created), true);
 	index.replaceSelection([created]);
-	assert.deepEqual(index.timelineRecords(0, 2).map(record => record.event.id), [1, 2]);
-	assert.deepEqual(index.selectedEvents.map(event => event.id), [2]);
+	assert.deepEqual(
+		index.timelineRecords(0, 2).map(record => record.event.id),
+		[1, 2],
+	);
+	assert.deepEqual(
+		index.selectedEvents.map(event => event.id),
+		[2],
+	);
 	assert.equal(index.doubleTapPairs.length, 1);
 	assert.equal(index.eventLaneOffsets.get(1), -3.5);
 	assert.equal(index.eventLaneOffsets.get(2), 3.5);
 });
 
 test("incremental selection expands groups without directly selecting descendants", () => {
-	const model = ChartModel.createDefault({ events: [{
-		id: 1, type: "group", selected: true, events: [
-			{ id: 2, type: "tap", time: [0, 0, 1], channel: 0, x: 0, y: 0, selected: false },
+	const model = ChartModel.createDefault({
+		events: [
+			{
+				id: 1,
+				type: "group",
+				selected: true,
+				events: [{ id: 2, type: "tap", time: [0, 0, 1], channel: 0, x: 0, y: 0, selected: false }],
+			},
 		],
-	}] });
+	});
 	const index = new ChartRenderIndex(model, model.timing);
 	index.replaceSelection([model.events[0]]);
-	assert.deepEqual(index.selectedEvents.map(event => event.id), [1, 2]);
+	assert.deepEqual(
+		index.selectedEvents.map(event => event.id),
+		[1, 2],
+	);
 	assert.equal(model.events[0].events[0].selected, false);
 });
 
@@ -99,51 +123,88 @@ test("render index incrementally moves notes between channels", () => {
 		channels: [{ id: 0 }, { id: 1 }],
 		events: [
 			{ id: 1, type: "tap", time: [0, 0, 1], channel: 0, x: 0, y: 0, tipPointSpawnType: "chain" },
-			{ id: 2, type: "tap", time: [1, 0, 1], channel: 0, x: 10, y: 0, tipPointSpawnType: "inherit", selected: true },
+			{
+				id: 2,
+				type: "tap",
+				time: [1, 0, 1],
+				channel: 0,
+				x: 10,
+				y: 0,
+				tipPointSpawnType: "inherit",
+				selected: true,
+			},
 		],
 	});
 	const index = new ChartRenderIndex(model, model.timing);
 	const layout = { channels: { width: 800, y: 40 }, channelHeight: 48 };
-	const initialSignature = timelineTipCheckpointSignature(
-		layout, 0, model.channels, index.timelineTipRevision,
-	);
+	const initialSignature = timelineTipCheckpointSignature(layout, 0, model.channels, index.timelineTipRevision);
 	const moved = model.events[1];
 	moved.channel = 1;
 	assert.equal(index.moveEventsToChannels([{ event: moved, from: 0, to: 1 }]), true);
-	assert.deepEqual(index.noteEventRecordsByChannel.get(0).map(record => record.event.id), [1]);
-	assert.deepEqual(index.noteEventRecordsByChannel.get(1).map(record => record.event.id), [2]);
-	assert.deepEqual(index.tipGuidesByChannel.get(0)[0].events.map(event => event.id), [1]);
+	assert.deepEqual(
+		index.noteEventRecordsByChannel.get(0).map(record => record.event.id),
+		[1],
+	);
+	assert.deepEqual(
+		index.noteEventRecordsByChannel.get(1).map(record => record.event.id),
+		[2],
+	);
+	assert.deepEqual(
+		index.tipGuidesByChannel.get(0)[0].events.map(event => event.id),
+		[1],
+	);
 	assert.equal(index.tipGuidesByChannel.get(1).length, 0);
-	assert.deepEqual(index.timelineTipGuides(-10, 10)[0].events.map(event => event.id), [1]);
+	assert.deepEqual(
+		index.timelineTipGuides(-10, 10)[0].events.map(event => event.id),
+		[1],
+	);
 	assert.equal(index.eventLaneOffsets.get(1), 0);
 	assert.equal(index.eventLaneOffsets.get(2), 0);
-	const movedDownSignature = timelineTipCheckpointSignature(
-		layout, 0, model.channels, index.timelineTipRevision,
-	);
+	const movedDownSignature = timelineTipCheckpointSignature(layout, 0, model.channels, index.timelineTipRevision);
 	assert.notEqual(movedDownSignature, initialSignature);
 	moved.channel = 0;
 	assert.equal(index.moveEventsToChannels([{ event: moved, from: 1, to: 0 }]), true);
-	assert.deepEqual(index.timelineTipGuides(-10, 10)[0].events.map(event => event.id), [1, 2]);
-	assert.notEqual(timelineTipCheckpointSignature(
-		layout, 0, model.channels, index.timelineTipRevision,
-	), movedDownSignature);
+	assert.deepEqual(
+		index.timelineTipGuides(-10, 10)[0].events.map(event => event.id),
+		[1, 2],
+	);
+	assert.notEqual(
+		timelineTipCheckpointSignature(layout, 0, model.channels, index.timelineTipRevision),
+		movedDownSignature,
+	);
 });
 
 test("render index removes nested events without rebuilding event records", () => {
 	const model = ChartModel.createDefault({
-		events: [{ id: 1, type: "group", events: [
-			{ id: 2, type: "tap", time: [1, 0, 1], channel: 0, x: 0, y: 0, selected: true },
-			{ id: 3, type: "hold", time: [2, 0, 1], duration: [2, 0, 1], channel: 0, x: 10, y: 0 },
-		] }, { id: 4, type: "tap", time: [2, 0, 1], channel: 0, x: 20, y: 0 }],
+		events: [
+			{
+				id: 1,
+				type: "group",
+				events: [
+					{ id: 2, type: "tap", time: [1, 0, 1], channel: 0, x: 0, y: 0, selected: true },
+					{ id: 3, type: "hold", time: [2, 0, 1], duration: [2, 0, 1], channel: 0, x: 10, y: 0 },
+				],
+			},
+			{ id: 4, type: "tap", time: [2, 0, 1], channel: 0, x: 20, y: 0 },
+		],
 	});
 	const index = new ChartRenderIndex(model, model.timing);
 	const recordsBefore = new Map(index.eventRecords.map(record => [record.event.id, record]));
 	model.events[0].events.splice(0, 1);
 	assert.equal(index.removeEvents([recordsBefore.get(2).event]), true);
-	assert.deepEqual(index.eventRecords.map(record => record.event.id), [1, 3, 4]);
+	assert.deepEqual(
+		index.eventRecords.map(record => record.event.id),
+		[1, 3, 4],
+	);
 	assert.equal(index.recordFor(recordsBefore.get(2).event), undefined);
-	assert.deepEqual(index.hitRecords.map(record => record.event.id), [3, 4]);
-	assert.deepEqual(index.timelineRecords(0, 10).map(record => record.event.id), [3, 4]);
+	assert.deepEqual(
+		index.hitRecords.map(record => record.event.id),
+		[3, 4],
+	);
+	assert.deepEqual(
+		index.timelineRecords(0, 10).map(record => record.event.id),
+		[3, 4],
+	);
 	assert.equal(index.eventLaneOffsets.get(3), -3.5);
 	assert.equal(index.eventLaneOffsets.get(4), 3.5);
 });
@@ -161,11 +222,17 @@ test("render index toggles active channels without rebuilding event records", ()
 	model.channels[1].active = false;
 	assert.equal(index.setActiveChannels(model.channels), true);
 	assert.equal(index.recordFor(model.events[0]), firstRecord);
-	assert.deepEqual(index.hitRecords.map(record => record.event.id), [1]);
+	assert.deepEqual(
+		index.hitRecords.map(record => record.event.id),
+		[1],
+	);
 	assert.deepEqual(index.activeTipGuides(0), []);
 	model.channels[1].active = true;
 	assert.equal(index.setActiveChannels(model.channels), true);
-	assert.deepEqual(index.hitRecords.map(record => record.event.id), [1, 2]);
+	assert.deepEqual(
+		index.hitRecords.map(record => record.event.id),
+		[1, 2],
+	);
 });
 
 test("render index replaces a note type without rebuilding the event source", () => {
@@ -200,8 +267,18 @@ test("double-tap lines use positions updated during a lightweight drag", () => {
 	const timing = new TimingMap({ initialBpm: 60 });
 	const renderIndex = new ChartRenderIndex(project, timing);
 	const context = {
-		moves: [], save() {}, restore() {}, beginPath() {}, stroke() {},
-		setLineDash() {}, moveTo(x, y) { this.moves.push([x, y]); }, lineTo(x, y) { this.moves.push([x, y]); },
+		moves: [],
+		save() {},
+		restore() {},
+		beginPath() {},
+		stroke() {},
+		setLineDash() {},
+		moveTo(x, y) {
+			this.moves.push([x, y]);
+		},
+		lineTo(x, y) {
+			this.moves.push([x, y]);
+		},
 	};
 	const view = {
 		renderIndex,
@@ -209,23 +286,43 @@ test("double-tap lines use positions updated during a lightweight drag", () => {
 		timing,
 	};
 	StageViewCore.prototype._drawDoubleLines.call(view, context, project, { scale: 1, toScreen: point => point }, 1.1);
-	assert.deepEqual(context.moves, [[-20, 0], [20, 0]]);
+	assert.deepEqual(context.moves, [
+		[-20, 0],
+		[20, 0],
+	]);
 	event1.x = -5;
 	event2.x = 35;
 	renderIndex.refreshPositions([event1, event2]);
 	context.moves.length = 0;
 	StageViewCore.prototype._drawDoubleLines.call(view, context, project, { scale: 1, toScreen: point => point }, 1.1);
-	assert.deepEqual(context.moves, [[-5, 0], [35, 0]]);
+	assert.deepEqual(context.moves, [
+		[-5, 0],
+		[35, 0],
+	]);
 });
 
 test("main-field tip points follow notes after a lightweight position refresh", () => {
 	const event1 = {
-		id: 1, type: "tap", channel: 0, time: [1, 0, 1], x: 0, y: 0,
-		tipPointSpawnType: "chain", tipPointSpawnTime: 1, tipPointSpawnDistance: 0, tipPointSpawnAngle: 0,
+		id: 1,
+		type: "tap",
+		channel: 0,
+		time: [1, 0, 1],
+		x: 0,
+		y: 0,
+		tipPointSpawnType: "chain",
+		tipPointSpawnTime: 1,
+		tipPointSpawnDistance: 0,
+		tipPointSpawnAngle: 0,
 	};
 	const event2 = {
-		id: 2, type: "tap", channel: 0, time: [2, 0, 1], x: 20, y: 0,
-		tipPointSpawnType: "inherit", tipPointSpawnTime: 1,
+		id: 2,
+		type: "tap",
+		channel: 0,
+		time: [2, 0, 1],
+		x: 20,
+		y: 0,
+		tipPointSpawnType: "inherit",
+		tipPointSpawnTime: 1,
 	};
 	const project = { channels: [{ id: 0 }], snappees: [], events: [event1, event2], editor: { showTipPoints: true } };
 	const renderIndex = new ChartRenderIndex(project, new TimingMap({ initialBpm: 60 }));
@@ -261,7 +358,13 @@ test("creation echoes use an indexed one-over-speed interval after event end", (
 		],
 	};
 	const index = new ChartRenderIndex(project, new TimingMap({ initialBpm: 60 }), { noteSpeed: 4 });
-	assert.deepEqual(index.creationEchoRecords(2.1).map(record => record.event.id), [1]);
-	assert.deepEqual(index.creationEchoRecords(3.1).map(record => record.event.id), [2]);
+	assert.deepEqual(
+		index.creationEchoRecords(2.1).map(record => record.event.id),
+		[1],
+	);
+	assert.deepEqual(
+		index.creationEchoRecords(3.1).map(record => record.event.id),
+		[2],
+	);
 	assert.equal(index.creationEchoRecords(3.3).length, 0);
 });

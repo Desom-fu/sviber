@@ -13,8 +13,8 @@ const events = Array.from({ length: EVENT_COUNT }, (_, id) => ({
 	channel: id % channels.length,
 	time: [Math.floor(id / 16), id % 16, 16],
 	duration: [1, 0, 1],
-	x: id % 200 - 100,
-	y: id % 100 - 50,
+	x: (id % 200) - 100,
+	y: (id % 100) - 50,
 	text: "",
 	tipPointSpawnType: id < channels.length ? "chain" : "inherit",
 	tipPointSpawnTime: 1,
@@ -28,7 +28,7 @@ const buildMilliseconds = performance.now() - buildStarted;
 const frameDurations = [];
 let visitedRecords = 0;
 for (let frame = 0; frame < FRAME_COUNT; frame += 1) {
-	const now = frame * index.maximumTime / FRAME_COUNT;
+	const now = (frame * index.maximumTime) / FRAME_COUNT;
 	const started = performance.now();
 	visitedRecords += index.visibleMovableRecords(now).length;
 	visitedRecords += index.timelineRecords(now, now + 10).length;

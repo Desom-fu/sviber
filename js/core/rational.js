@@ -14,7 +14,9 @@ function gcd(left, right) {
 }
 
 function toBigInt(value, label) {
-	if (typeof value === "bigint") return value;
+	if (typeof value === "bigint") {
+		return value;
+	}
 	if (typeof value !== "number" || !Number.isSafeInteger(value)) {
 		throw new TypeError(`${label} must be a safe integer`);
 	}
@@ -32,7 +34,9 @@ function safeNumber(value, label) {
 function decimalStringToRatio(value) {
 	const text = String(value).toLowerCase();
 	const match = /^([+-]?)(\d+)(?:\.(\d*))?(?:e([+-]?\d+))?$/.exec(text);
-	if (!match) return null;
+	if (!match) {
+		return null;
+	}
 
 	const sign = match[1] === "-" ? -1n : 1n;
 	const fraction = match[3] || "";
@@ -51,7 +55,9 @@ function limitRatio(numerator, denominator, maxDenominator) {
 	const sign = numerator < 0n ? -1n : 1n;
 	numerator = absBigInt(numerator);
 	const maximum = BigInt(maxDenominator);
-	if (denominator <= maximum) return [numerator * sign, denominator];
+	if (denominator <= maximum) {
+		return [numerator * sign, denominator];
+	}
 
 	let p0 = 0n;
 	let q0 = 1n;
@@ -63,13 +69,17 @@ function limitRatio(numerator, denominator, maxDenominator) {
 	while (d !== 0n) {
 		const quotient = n / d;
 		const q2 = q0 + quotient * q1;
-		if (q2 > maximum) break;
+		if (q2 > maximum) {
+			break;
+		}
 		[p0, p1] = [p1, p0 + quotient * p1];
 		[q0, q1] = [q1, q2];
 		[n, d] = [d, n - quotient * d];
 	}
 
-	if (q1 === 0n) return [p0 * sign, q0];
+	if (q1 === 0n) {
+		return [p0 * sign, q0];
+	}
 	const k = (maximum - q0) / q1;
 	const candidateA = [p0 + k * p1, q0 + k * q1];
 	const candidateB = [p1, q1];
@@ -82,9 +92,13 @@ function limitRatio(numerator, denominator, maxDenominator) {
 function roundRatio(numerator, denominator) {
 	const quotient = numerator / denominator;
 	const remainder = numerator % denominator;
-	if (remainder === 0n) return quotient;
+	if (remainder === 0n) {
+		return quotient;
+	}
 	const doubled = absBigInt(remainder) * 2n;
-	if (doubled < denominator) return quotient;
+	if (doubled < denominator) {
+		return quotient;
+	}
 	return quotient + (numerator < 0n ? -1n : 1n);
 }
 
@@ -98,7 +112,9 @@ export class Rational {
 	constructor(numerator = 0, denominator = 1) {
 		let normalizedNumerator = toBigInt(numerator, "numerator");
 		let normalizedDenominator = toBigInt(denominator, "denominator");
-		if (normalizedDenominator === 0n) throw new RangeError("denominator must not be zero");
+		if (normalizedDenominator === 0n) {
+			throw new RangeError("denominator must not be zero");
+		}
 		if (normalizedDenominator < 0n) {
 			normalizedNumerator = -normalizedNumerator;
 			normalizedDenominator = -normalizedDenominator;
@@ -110,14 +126,18 @@ export class Rational {
 	}
 
 	static from(value = 0) {
-		if (value instanceof Rational) return value;
-		if (typeof value === "bigint") return new Rational(value, 1n);
-		if (typeof value === "number") {
-			return Number.isInteger(value)
-				? new Rational(toBigInt(value, "value"), 1n)
-				: Rational.fromNumber(value);
+		if (value instanceof Rational) {
+			return value;
 		}
-		if (typeof value === "string") return Rational.parse(value);
+		if (typeof value === "bigint") {
+			return new Rational(value, 1n);
+		}
+		if (typeof value === "number") {
+			return Number.isInteger(value) ? new Rational(toBigInt(value, "value"), 1n) : Rational.fromNumber(value);
+		}
+		if (typeof value === "string") {
+			return Rational.parse(value);
+		}
 		if (Array.isArray(value)) {
 			if (value.length === 3) {
 				const whole = toBigInt(value[0], "whole");
@@ -125,7 +145,9 @@ export class Rational {
 				const denominator = toBigInt(value[2], "denominator");
 				return new Rational(whole * denominator + numerator, denominator);
 			}
-			if (value.length === 2) return new Rational(value[0], value[1]);
+			if (value.length === 2) {
+				return new Rational(value[0], value[1]);
+			}
 		}
 		if (value && typeof value === "object") {
 			if (Object.hasOwn(value, "whole")) {
@@ -146,23 +168,37 @@ export class Rational {
 			return Rational.from([Number(match[1]), numerator, Number(match[4])]);
 		}
 		match = /^([+-]?\d+)\s+([+-]?\d+)\s*\/\s*([+-]?\d+)$/.exec(text);
-		if (match) return Rational.from(match.slice(1).map(Number));
+		if (match) {
+			return Rational.from(match.slice(1).map(Number));
+		}
 		match = /^([+-]?\d+)\s*\/\s*([+-]?\d+)$/.exec(text);
-		if (match) return new Rational(Number(match[1]), Number(match[2]));
-		if (/^[+-]?\d+$/.test(text)) return new Rational(Number(text), 1);
+		if (match) {
+			return new Rational(Number(match[1]), Number(match[2]));
+		}
+		if (/^[+-]?\d+$/.test(text)) {
+			return new Rational(Number(text), 1);
+		}
 		const number = Number(text);
-		if (Number.isFinite(number)) return Rational.fromNumber(number);
+		if (Number.isFinite(number)) {
+			return Rational.fromNumber(number);
+		}
 		throw new TypeError(`Invalid rational number: ${value}`);
 	}
 
 	static fromNumber(value, maxDenominator = DEFAULT_MAX_DENOMINATOR) {
-		if (!Number.isFinite(value)) throw new TypeError("value must be finite");
+		if (!Number.isFinite(value)) {
+			throw new TypeError("value must be finite");
+		}
 		if (!Number.isSafeInteger(maxDenominator) || maxDenominator < 1) {
 			throw new RangeError("maxDenominator must be a positive safe integer");
 		}
-		if (Object.is(value, -0)) value = 0;
+		if (Object.is(value, -0)) {
+			value = 0;
+		}
 		const ratio = decimalStringToRatio(value);
-		if (!ratio) throw new TypeError("value cannot be converted to a rational number");
+		if (!ratio) {
+			throw new TypeError("value cannot be converted to a rational number");
+		}
 		const [numerator, denominator] = limitRatio(ratio[0], ratio[1], maxDenominator);
 		return new Rational(numerator, denominator);
 	}
@@ -202,7 +238,9 @@ export class Rational {
 
 	div(other) {
 		const right = Rational.from(other);
-		if (right.numerator === 0n) throw new RangeError("cannot divide by zero");
+		if (right.numerator === 0n) {
+			throw new RangeError("cannot divide by zero");
+		}
 		return new Rational(this.numerator * right.denominator, this.denominator * right.numerator);
 	}
 
@@ -260,8 +298,12 @@ export class Rational {
 
 	toString() {
 		const [whole, numerator, denominator] = this.toJSON();
-		if (numerator === 0) return String(whole);
-		if (whole === 0) return `${numerator}/${denominator}`;
+		if (numerator === 0) {
+			return String(whole);
+		}
+		if (whole === 0) {
+			return `${numerator}/${denominator}`;
+		}
 		return `${whole}${numerator < 0 ? "" : "+"}${numerator}/${denominator}`;
 	}
 
@@ -280,7 +322,7 @@ export function snapRational(value, subdivision) {
 
 export const normalize = normalizeRational;
 export const fromNumber = (value, maxDenominator) => Rational.fromNumber(value, maxDenominator);
-export const toNumber = (value) => Rational.from(value).toNumber();
+export const toNumber = value => Rational.from(value).toNumber();
 export const add = (left, right) => Rational.from(left).add(right);
 export const sub = (left, right) => Rational.from(left).sub(right);
 export const compare = (left, right) => Rational.compare(left, right);

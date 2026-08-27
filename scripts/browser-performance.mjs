@@ -28,8 +28,8 @@ async function installLargeChart(page, requestedEventCount = 100_000) {
 			channel: id % channelCount,
 			time: [Math.floor(id / 16), id % 16, 16],
 			duration: [1, 0, 1],
-			x: id % 200 - 100,
-			y: id % 100 - 50,
+			x: (id % 200) - 100,
+			y: (id % 100) - 50,
 			text: "",
 			tipPointSpawnType: id < channelCount ? "chain" : "inherit",
 			tipPointSpawnTime: 1,
@@ -59,7 +59,9 @@ async function measurePointerDrag(page, viewName) {
 	const point = await page.evaluate(view => {
 		const app = globalThis.sviber;
 		const target = app.model.events.find(event => event.type === "tap");
-		if (!target) return null;
+		if (!target) {
+			return null;
+		}
 		target.selected = true;
 		const seconds = app.timing().beatToSeconds(target.time);
 		app.model.editor.timeSnapped = false;
@@ -68,22 +70,37 @@ async function measurePointerDrag(page, viewName) {
 		app.model.editor.visibleRangeEnd = seconds + 5;
 		app.refreshNow();
 		const renderer = app[view];
-		const record = view === "stage"
-			? renderer.visibleEvents.find(item => item.event.id === target.id)
-			: renderer.eventCenters.find(item => item.event.id === target.id);
-		if (!record) return null;
+		const records = view === "stage" ? renderer.visibleEvents : renderer.eventCenters;
+		const record = records.find(item => item.event.id === target.id);
+		if (!record) {
+			return null;
+		}
 		const rectangle = renderer.surface.canvas.getBoundingClientRect();
 		const x = view === "stage" ? record.screen.x : record.x;
 		const y = view === "stage" ? record.screen.y : record.y;
-		return { x: rectangle.left + x * rectangle.width / renderer.surface.width,
-			y: rectangle.top + y * rectangle.height / renderer.surface.height };
+		return {
+			x: rectangle.left + (x * rectangle.width) / renderer.surface.width,
+			y: rectangle.top + (y * rectangle.height) / renderer.surface.height,
+		};
 	}, viewName);
-	if (!point) return { frames: 0, medianMilliseconds: 0, percentile95Milliseconds: 0, maximumMilliseconds: 0, droppedFrames: 0 };
+	if (!point) {
+		return {
+			frames: 0,
+			medianMilliseconds: 0,
+			percentile95Milliseconds: 0,
+			maximumMilliseconds: 0,
+			droppedFrames: 0,
+		};
+	}
 	await page.evaluate(() => {
 		const probe = { active: false, previous: null, samples: [] };
 		const tick = timestamp => {
-			if (probe.active && probe.previous != null) probe.samples.push(timestamp - probe.previous);
-			if (probe.active) probe.previous = timestamp;
+			if (probe.active && probe.previous != null) {
+				probe.samples.push(timestamp - probe.previous);
+			}
+			if (probe.active) {
+				probe.previous = timestamp;
+			}
 			requestAnimationFrame(tick);
 		};
 		globalThis.__sviberDragProbe = probe;
@@ -91,7 +108,9 @@ async function measurePointerDrag(page, viewName) {
 	});
 	await page.mouse.move(point.x, point.y);
 	await page.mouse.down();
-	await page.evaluate(() => { globalThis.__sviberDragProbe.active = true; });
+	await page.evaluate(() => {
+		globalThis.__sviberDragProbe.active = true;
+	});
 	const rectangle = await page.evaluate(view => {
 		const canvas = globalThis.sviber[view].surface.canvas;
 		const value = canvas.getBoundingClientRect();
@@ -119,8 +138,9 @@ export async function measureRealDrag(page) {
 	const results = {};
 	for (const viewName of ["stage", "timeline"]) {
 		const fixture = await installLargeChart(page, 5_000);
-		try { results[viewName] = await measurePointerDrag(page, viewName); }
-		finally {
+		try {
+			results[viewName] = await measurePointerDrag(page, viewName);
+		} finally {
 			await page.evaluate(snapshot => {
 				const app = globalThis.sviber;
 				app.cancelPreview();
@@ -145,7 +165,9 @@ export async function measureLargeChartPlayback(page) {
 				let frame = 0;
 				let previous = null;
 				const draw = timestamp => {
-					if (previous !== null && frame > warmupFrames) samples.push(timestamp - previous);
+					if (previous !== null && frame > warmupFrames) {
+						samples.push(timestamp - previous);
+					}
 					previous = timestamp;
 					const current = 100 + frame / 60;
 					app.model.editor.currentTime = current;
@@ -153,10 +175,15 @@ export async function measureLargeChartPlayback(page) {
 					app.model.editor.visibleRangeEnd = current + 5;
 					const cpuStarted = performance.now();
 					app.refreshPlaybackFrame();
-					if (frame >= warmupFrames) cpuTasks.push(performance.now() - cpuStarted);
+					if (frame >= warmupFrames) {
+						cpuTasks.push(performance.now() - cpuStarted);
+					}
 					frame += 1;
-					if (frame <= warmupFrames + measuredFrames) requestAnimationFrame(draw);
-					else resolve({ samples, cpuTasks });
+					if (frame <= warmupFrames + measuredFrames) {
+						requestAnimationFrame(draw);
+					} else {
+						resolve({ samples, cpuTasks });
+					}
 				};
 				requestAnimationFrame(draw);
 			});
@@ -187,24 +214,33 @@ export async function measureLargeChartEditing(page) {
 				let frame = 0;
 				let previous = null;
 				const draw = timestamp => {
-					if (previous !== null && frame > warmupFrames) samples.push(timestamp - previous);
+					if (previous !== null && frame > warmupFrames) {
+						samples.push(timestamp - previous);
+					}
 					previous = timestamp;
 					const cpuStarted = performance.now();
 					for (let sample = 0; sample < 12; sample += 1) {
 						const progress = (frame * 12 + sample) / ((warmupFrames + measuredFrames) * 12);
-						canvas.dispatchEvent(new PointerEvent("pointermove", {
-							clientX: rectangle.left + rectangle.width * (0.15 + progress * 0.7),
-							clientY: rectangle.top + rectangle.height * (0.35 + Math.sin(progress * 20) * 0.2),
-						}));
+						canvas.dispatchEvent(
+							new PointerEvent("pointermove", {
+								clientX: rectangle.left + rectangle.width * (0.15 + progress * 0.7),
+								clientY: rectangle.top + rectangle.height * (0.35 + Math.sin(progress * 20) * 0.2),
+							}),
+						);
 					}
-					const firstId = frame * 251 % eventCount;
+					const firstId = (frame * 251) % eventCount;
 					const selectedIds = Array.from({ length: 256 }, (_, offset) => (firstId + offset) % eventCount);
 					app.previewSelection(selectedIds, "replace");
 					app.seekBeat([190 + Math.floor(frame / 9), frame % 9, 9], null, false, { lightweight: true });
-					if (frame >= warmupFrames) cpuTasks.push(performance.now() - cpuStarted);
+					if (frame >= warmupFrames) {
+						cpuTasks.push(performance.now() - cpuStarted);
+					}
 					frame += 1;
-					if (frame <= warmupFrames + measuredFrames) requestAnimationFrame(draw);
-					else resolve({ samples, cpuTasks });
+					if (frame <= warmupFrames + measuredFrames) {
+						requestAnimationFrame(draw);
+					} else {
+						resolve({ samples, cpuTasks });
+					}
 				};
 				requestAnimationFrame(draw);
 			});

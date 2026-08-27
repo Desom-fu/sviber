@@ -18,9 +18,7 @@ const sviberDirectory = path.resolve(scriptDirectory, "..");
 const repositoryDirectory = path.resolve(sviberDirectory, "..");
 const buildDirectory = path.join(sviberDirectory, "build");
 const configuredBuildDirectory = String(process.env.SVIBER_BUILD_DIRECTORY || "").trim();
-const effectiveBuildDirectory = configuredBuildDirectory
-	? path.resolve(configuredBuildDirectory)
-	: buildDirectory;
+const effectiveBuildDirectory = configuredBuildDirectory ? path.resolve(configuredBuildDirectory) : buildDirectory;
 const stageDirectory = path.join(effectiveBuildDirectory, "stage");
 const outputDirectory = path.join(effectiveBuildDirectory, "nw");
 const fontCacheDirectory = path.join(sviberDirectory, "node_modules", ".cache", "sviber", "fonts");
@@ -126,11 +124,16 @@ function gitOutput(args) {
 		const child = spawn("git", args, { cwd: sviberDirectory, windowsHide: true });
 		let output = "";
 		let errors = "";
-		child.stdout.on("data", chunk => { output += chunk; });
-		child.stderr.on("data", chunk => { errors += chunk; });
+		child.stdout.on("data", chunk => {
+			output += chunk;
+		});
+		child.stderr.on("data", chunk => {
+			errors += chunk;
+		});
 		child.once("error", reject);
-		child.once("exit", code => code === 0 ? resolve(output.trim())
-			: reject(new Error(errors.trim() || `git exited with code ${code}`)));
+		child.once("exit", code =>
+			code === 0 ? resolve(output.trim()) : reject(new Error(errors.trim() || `git exited with code ${code}`)),
+		);
 	});
 }
 
@@ -146,7 +149,10 @@ async function writeBuildInformation(applicationDirectory) {
 }
 
 async function fileSha256(filename) {
-	return createHash("sha256").update(await readFile(filename)).digest("hex").toUpperCase();
+	return createHash("sha256")
+		.update(await readFile(filename))
+		.digest("hex")
+		.toUpperCase();
 }
 
 async function verifyAsset(asset, filename) {
@@ -162,13 +168,28 @@ async function downloadWithCurl(url, destination) {
 	const executable = process.platform === "win32" ? "curl.exe" : "curl";
 	try {
 		await new Promise((resolve, reject) => {
-			const child = spawn(executable, [
-				"--fail", "--location", "--silent", "--show-error",
-				"--retry", "2", "--retry-all-errors", "--connect-timeout", "20", "--max-time", "180",
-				"--output", partial, url,
-			], { stdio: "inherit", windowsHide: true });
+			const child = spawn(
+				executable,
+				[
+					"--fail",
+					"--location",
+					"--silent",
+					"--show-error",
+					"--retry",
+					"2",
+					"--retry-all-errors",
+					"--connect-timeout",
+					"20",
+					"--max-time",
+					"180",
+					"--output",
+					partial,
+					url,
+				],
+				{ stdio: "inherit", windowsHide: true },
+			);
 			child.once("error", reject);
-			child.once("exit", code => code === 0 ? resolve() : reject(new Error(`curl exited with code ${code}`)));
+			child.once("exit", code => (code === 0 ? resolve() : reject(new Error(`curl exited with code ${code}`))));
 		});
 		await rename(partial, destination);
 	} catch (error) {
@@ -186,7 +207,9 @@ async function downloadWithFetch(url, destination) {
 			signal: AbortSignal.timeout(300_000),
 			headers: { "User-Agent": "sviber-nw-builder/0.1" },
 		});
-		if (!response.ok) throw new Error(`HTTP ${response.status}`);
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}`);
+		}
 		await writeFile(partial, new Uint8Array(await response.arrayBuffer()));
 		await rename(partial, destination);
 	} catch (error) {
@@ -221,21 +244,25 @@ async function downloadAsset(asset, destination) {
 async function downloadFonts() {
 	const destination = path.join(stageDirectory, "sviber", "assets", "fonts");
 	await Promise.all([mkdir(destination, { recursive: true }), mkdir(fontCacheDirectory, { recursive: true })]);
-	await Promise.all(FONT_ASSETS.map(async asset => {
-		const cached = path.join(fontCacheDirectory, asset.name);
-		if (existsSync(cached)) {
-			try {
-				await verifyAsset(asset, cached);
-			} catch (error) {
-				console.warn(`Discarding invalid cached font: ${error.message}`);
-				await rm(cached, { force: true });
+	await Promise.all(
+		FONT_ASSETS.map(async asset => {
+			const cached = path.join(fontCacheDirectory, asset.name);
+			if (existsSync(cached)) {
+				try {
+					await verifyAsset(asset, cached);
+				} catch (error) {
+					console.warn(`Discarding invalid cached font: ${error.message}`);
+					await rm(cached, { force: true });
+				}
 			}
-		}
-		if (!existsSync(cached)) await downloadAsset(asset, cached);
-		const output = path.join(destination, asset.name);
-		await cp(cached, output);
-		await verifyAsset(asset, output);
-	}));
+			if (!existsSync(cached)) {
+				await downloadAsset(asset, cached);
+			}
+			const output = path.join(destination, asset.name);
+			await cp(cached, output);
+			await verifyAsset(asset, output);
+		}),
+	);
 }
 
 async function copyProductionDependencies(applicationDirectory) {
@@ -247,16 +274,22 @@ async function copyProductionDependencies(applicationDirectory) {
 	const packages = Object.entries(lockfile.packages)
 		.filter(([name, metadata]) => name.startsWith(prefix) && metadata.dev !== true)
 		.map(([name, metadata]) => ({ name: name.slice(prefix.length), metadata }))
-		.sort((left, right) => left.name.split("/").length - right.name.split("/").length
-			|| left.name.localeCompare(right.name));
+		.sort(
+			(left, right) =>
+				left.name.split("/").length - right.name.split("/").length || left.name.localeCompare(right.name),
+		);
 	const sourceDirectory = path.join(sviberDirectory, "node_modules");
 	const destinationDirectory = path.join(applicationDirectory, "node_modules");
 	await mkdir(destinationDirectory, { recursive: true });
 	for (const { name: packageName, metadata } of packages) {
-		if (metadata.link) throw new Error(`Linked production dependencies are not supported: ${packageName}`);
+		if (metadata.link) {
+			throw new Error(`Linked production dependencies are not supported: ${packageName}`);
+		}
 		const source = path.join(sourceDirectory, ...packageName.split("/"));
 		if (!existsSync(source)) {
-			if (metadata.optional) continue;
+			if (metadata.optional) {
+				continue;
+			}
 			throw new Error(`Production dependency is missing: ${packageName}`);
 		}
 		const destination = path.join(destinationDirectory, ...packageName.split("/"));
@@ -265,7 +298,9 @@ async function copyProductionDependencies(applicationDirectory) {
 			recursive: true,
 			filter(entry) {
 				const relative = path.relative(source, entry);
-				if (relative === "node_modules" || relative.startsWith(`node_modules${path.sep}`)) return false;
+				if (relative === "node_modules" || relative.startsWith(`node_modules${path.sep}`)) {
+					return false;
+				}
 				if (packageName === "@ruby/3.4-wasm-wasi") {
 					const normalized = relative.split(path.sep).join("/");
 					return normalized !== "dist/ruby.debug+stdlib.wasm" && normalized !== "dist/ruby.wasm";
@@ -278,15 +313,16 @@ async function copyProductionDependencies(applicationDirectory) {
 
 async function verifyPackagedFontCss(applicationDirectory) {
 	const source = await readFile(path.join(applicationDirectory, "css", "fonts-local.css"), "utf8");
-	if (/https?:\/\//i.test(source)) throw new Error("Packaged local font CSS must not contain remote URLs.");
+	if (/https?:\/\//i.test(source)) {
+		throw new Error("Packaged local font CSS must not contain remote URLs.");
+	}
 }
 
 async function generateWindowsIcon(source, destination) {
 	const sizes = [16, 32, 48, 64, 128, 256];
-	const images = await Promise.all(sizes.map(size => sharp(source)
-		.resize(size, size, { fit: "contain" })
-		.png()
-		.toBuffer()));
+	const images = await Promise.all(
+		sizes.map(size => sharp(source).resize(size, size, { fit: "contain" }).png().toBuffer()),
+	);
 	const headerSize = 6 + images.length * 16;
 	const header = Buffer.alloc(headerSize);
 	header.writeUInt16LE(1, 2);
@@ -309,25 +345,37 @@ async function generateWindowsIcon(source, destination) {
 async function generateMacosIcon(source, destination) {
 	const iconsetDirectory = path.join(path.dirname(destination), "icon.iconset");
 	const images = [
-		["icon_16x16.png", 16], ["icon_16x16@2x.png", 32],
-		["icon_32x32.png", 32], ["icon_32x32@2x.png", 64],
-		["icon_128x128.png", 128], ["icon_128x128@2x.png", 256],
-		["icon_256x256.png", 256], ["icon_256x256@2x.png", 512],
-		["icon_512x512.png", 512], ["icon_512x512@2x.png", 1024],
+		["icon_16x16.png", 16],
+		["icon_16x16@2x.png", 32],
+		["icon_32x32.png", 32],
+		["icon_32x32@2x.png", 64],
+		["icon_128x128.png", 128],
+		["icon_128x128@2x.png", 256],
+		["icon_256x256.png", 256],
+		["icon_256x256@2x.png", 512],
+		["icon_512x512.png", 512],
+		["icon_512x512@2x.png", 1024],
 	];
 	await rm(iconsetDirectory, { recursive: true, force: true });
 	await mkdir(iconsetDirectory, { recursive: true });
 	try {
-		await Promise.all(images.map(([filename, size]) => sharp(source)
-			.resize(size, size, { fit: "contain" }).png()
-			.toFile(path.join(iconsetDirectory, filename))));
+		await Promise.all(
+			images.map(([filename, size]) =>
+				sharp(source)
+					.resize(size, size, { fit: "contain" })
+					.png()
+					.toFile(path.join(iconsetDirectory, filename)),
+			),
+		);
 		await new Promise((resolve, reject) => {
 			const child = spawn("iconutil", ["--convert", "icns", "--output", destination, iconsetDirectory], {
-				stdio: "inherit", windowsHide: true,
+				stdio: "inherit",
+				windowsHide: true,
 			});
 			child.once("error", reject);
-			child.once("exit", code => code === 0 ? resolve()
-				: reject(new Error(`iconutil exited with code ${code}`)));
+			child.once("exit", code =>
+				code === 0 ? resolve() : reject(new Error(`iconutil exited with code ${code}`)),
+			);
 		});
 	} finally {
 		await rm(iconsetDirectory, { recursive: true, force: true });
@@ -338,8 +386,7 @@ async function generatePackagedIcons(applicationDirectory, targetPlatform) {
 	const source = path.join(applicationDirectory, "svg", "icon.svg");
 	const tasks = [
 		generateWindowsIcon(source, path.join(applicationDirectory, "icon.ico")),
-		sharp(source).resize(512, 512, { fit: "contain" }).png()
-			.toFile(path.join(applicationDirectory, "icon.png")),
+		sharp(source).resize(512, 512, { fit: "contain" }).png().toFile(path.join(applicationDirectory, "icon.png")),
 	];
 	if (targetPlatform === "osx") {
 		tasks.push(generateMacosIcon(source, path.join(applicationDirectory, "icon.icns")));
@@ -359,22 +406,26 @@ async function copyApplication() {
 	await rm(effectiveBuildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
 	await mkdir(applicationDirectory, { recursive: true });
-	const excludedEntries = new Set([
-		".git", "build", "tests", "test-results", "node_modules", "package-lock.json",
-	]);
+	const excludedEntries = new Set([".git", "build", "tests", "test-results", "node_modules", "package-lock.json"]);
 	for (const entry of await readdir(sviberDirectory, { withFileTypes: true })) {
-		if (excludedEntries.has(entry.name)) continue;
+		if (excludedEntries.has(entry.name)) {
+			continue;
+		}
 		await cp(path.join(sviberDirectory, entry.name), path.join(applicationDirectory, entry.name), {
 			recursive: entry.isDirectory(),
 		});
 	}
 	const applicationLicense = path.join(sviberDirectory, "LICENSE");
-	if (!existsSync(applicationLicense)) throw new Error(`Missing application license: ${applicationLicense}`);
+	if (!existsSync(applicationLicense)) {
+		throw new Error(`Missing application license: ${applicationLicense}`);
+	}
 	await cp(applicationLicense, path.join(stageDirectory, "LICENSE"));
 	await cp(applicationLicense, path.join(applicationDirectory, "LICENSE"));
 	await writeBuildInformation(applicationDirectory);
 	await copyProductionDependencies(applicationDirectory);
-	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), { minify: true });
+	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), {
+		minify: true,
+	});
 	await generatePackagedIcons(applicationDirectory, TARGET_PLATFORM);
 	await verifyPackagedFontCss(applicationDirectory);
 
@@ -395,7 +446,9 @@ async function copyApplication() {
 }
 
 async function runBuilder() {
-	const nwPackage = JSON.parse(await readFile(path.join(sviberDirectory, "node_modules", "nw", "package.json"), "utf8"));
+	const nwPackage = JSON.parse(
+		await readFile(path.join(sviberDirectory, "node_modules", "nw", "package.json"), "utf8"),
+	);
 	const sourcePackage = JSON.parse(await readFile(path.join(sviberDirectory, "package.json"), "utf8"));
 	const previousDirectory = process.cwd();
 	process.chdir(stageDirectory);
@@ -422,8 +475,11 @@ async function addDirectoryToZip(zip, directory, prefix = "") {
 	for (const entry of await readdir(directory, { withFileTypes: true })) {
 		const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
 		const filename = path.join(directory, entry.name);
-		if (entry.isDirectory()) await addDirectoryToZip(zip, filename, relative);
-		else if (entry.isFile()) zip.file(relative, await readFile(filename), { date: new Date(0) });
+		if (entry.isDirectory()) {
+			await addDirectoryToZip(zip, filename, relative);
+		} else if (entry.isFile()) {
+			zip.file(relative, await readFile(filename), { date: new Date(0) });
+		}
 	}
 }
 
@@ -432,9 +488,15 @@ async function createNwPackage() {
 	const destination = path.join(effectiveBuildDirectory, `sviber-${sourcePackage.version}.nw`);
 	const zip = new JSZip();
 	await addDirectoryToZip(zip, stageDirectory);
-	await pipeline(zip.generateNodeStream({
-		type: "nodebuffer", streamFiles: true, compression: "DEFLATE", compressionOptions: { level: 9 },
-	}), createWriteStream(destination));
+	await pipeline(
+		zip.generateNodeStream({
+			type: "nodebuffer",
+			streamFiles: true,
+			compression: "DEFLATE",
+			compressionOptions: { level: 9 },
+		}),
+		createWriteStream(destination),
+	);
 	console.log(`Runtime-free NW.js package written to ${destination}`);
 }
 

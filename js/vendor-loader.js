@@ -2,10 +2,8 @@
 	"use strict";
 
 	const isNw = Boolean(globalThis.nw);
-	const localFirst = location.hostname === "localhost"
-		|| location.hostname === "127.0.0.1"
-		|| location.protocol === "file:"
-		|| isNw;
+	const localFirst =
+		location.hostname === "localhost" || location.hostname === "127.0.0.1" || location.protocol === "file:" || isNw;
 	const dependencies = [
 		{
 			name: "PIXI",
@@ -36,17 +34,22 @@
 	}
 
 	async function loadDependency(dependency) {
-		if (globalThis[dependency.name]) return;
-		const sources = isNw
-			? [dependency.local]
-			: localFirst
-			? [dependency.local, dependency.cdn]
-			: [dependency.cdn, dependency.local];
+		if (globalThis[dependency.name]) {
+			return;
+		}
+		let sources = [dependency.cdn, dependency.local];
+		if (isNw) {
+			sources = [dependency.local];
+		} else if (localFirst) {
+			sources = [dependency.local, dependency.cdn];
+		}
 		let error;
 		for (const source of sources) {
 			try {
 				await inject(source);
-				if (globalThis[dependency.name]) return;
+				if (globalThis[dependency.name]) {
+					return;
+				}
 			} catch (currentError) {
 				error = currentError;
 			}
@@ -66,4 +69,4 @@
 		globalThis.sviberDependencyFailures = failures;
 		return failures;
 	})();
-}());
+})();

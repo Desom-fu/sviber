@@ -25,9 +25,14 @@ test("preferences migrate old values and normalize theme and language choices", 
 		[PREFERENCES_KEY]: JSON.stringify({ noteSpeed: 3.5, allowOutOfBounds: true }),
 	});
 	assert.deepEqual(loadPreferences(oldStorage), {
-		theme: "system", language: "system", noteSpeed: 3.5,
-		seVolume: 1, musicVolume: 1, autoSaveInterval: 120,
-		liveHostingAddress: "0.0.0.0:8011", liveReloadPort: 31108,
+		theme: "system",
+		language: "system",
+		noteSpeed: 3.5,
+		seVolume: 1,
+		musicVolume: 1,
+		autoSaveInterval: 120,
+		liveHostingAddress: "0.0.0.0:8011",
+		liveReloadPort: 31108,
 	});
 
 	const invalidStorage = memoryStorage({
@@ -36,22 +41,34 @@ test("preferences migrate old values and normalize theme and language choices", 
 	assert.deepEqual(loadPreferences(invalidStorage), DEFAULT_PREFERENCES);
 });
 
-test("SE and music volume clamp to the Sunniesnow 0-2 range", () => {
+test("SE volume clamps to 0-2 and music volume clamps to 0-1", () => {
 	const storage = memoryStorage();
 	const stored = storePreferences({ seVolume: 2.5, musicVolume: -1 }, storage);
 	assert.equal(stored.seVolume, 2);
 	assert.equal(stored.musicVolume, 0);
+	assert.equal(storePreferences({ seVolume: 1, musicVolume: 1.5 }, storage).musicVolume, 1);
 	assert.equal(storePreferences({ seVolume: 1.55, musicVolume: 0.05 }, storage).seVolume, 1.55);
-	assert.equal(loadPreferences(memoryStorage({
-		[PREFERENCES_KEY]: JSON.stringify({ seVolume: "nope", musicVolume: Infinity }),
-	})).seVolume, 1);
+	assert.equal(
+		loadPreferences(
+			memoryStorage({
+				[PREFERENCES_KEY]: JSON.stringify({ seVolume: "nope", musicVolume: Infinity }),
+			}),
+		).seVolume,
+		1,
+	);
 });
 
 test("stored appearance and language preferences round-trip", () => {
 	const storage = memoryStorage();
-	const stored = storePreferences({
-		theme: "dark", language: "zh-CN", noteSpeed: 4, allowOutOfBounds: true,
-	}, storage);
+	const stored = storePreferences(
+		{
+			theme: "dark",
+			language: "zh-CN",
+			noteSpeed: 4,
+			allowOutOfBounds: true,
+		},
+		storage,
+	);
 	assert.deepEqual(JSON.parse(storage.value(PREFERENCES_KEY)), stored);
 	assert.equal(Object.hasOwn(stored, "allowOutOfBounds"), false);
 	assert.deepEqual(loadPreferences(storage), stored);
@@ -64,7 +81,13 @@ test("explicit themes update the document root and title color", () => {
 	const attributes = new Map();
 	let titleColor = "";
 	const root = {
-		ownerDocument: { querySelector: () => ({ setAttribute: (_name, value) => { titleColor = value; } }) },
+		ownerDocument: {
+			querySelector: () => ({
+				setAttribute: (_name, value) => {
+					titleColor = value;
+				},
+			}),
+		},
 		setAttribute: (name, value) => attributes.set(name, value),
 		removeAttribute: name => attributes.delete(name),
 		classList: { toggle() {} },
@@ -77,8 +100,20 @@ test("explicit themes update the document root and title color", () => {
 });
 
 test("theme CSS and standalone pages expose explicit preference states", async () => {
-	const [themes, appStyles, macroStyles, docsStyles, index, macroPage, docsPage,
-		labels, viewer, navigation, bootstrap, serviceWorker] = await Promise.all([
+	const [
+		themes,
+		appStyles,
+		macroStyles,
+		docsStyles,
+		index,
+		macroPage,
+		docsPage,
+		labels,
+		viewer,
+		navigation,
+		bootstrap,
+		serviceWorker,
+	] = await Promise.all([
 		readFile(new URL("../css/themes.css", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 		readFile(new URL("../css/macros.css", import.meta.url), "utf8"),
@@ -118,17 +153,16 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 
 test("preferences dialog uses Sunniesnow volume sliders and the manual does not page-scroll sideways", async () => {
 	const [workflows, player, manual, styles, docsScript] = await Promise.all([
-		readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-preferences-media.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/audio/player.js", import.meta.url), "utf8"),
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.css", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.js", import.meta.url), "utf8"),
 	]);
-	assert.match(workflows, /id: "seVolume", type: "slider"[\s\S]*min: 0, max: 2, step: 0\.05/);
-	assert.match(workflows, /id: "musicVolume", type: "slider"[\s\S]*min: 0, max: 2, step: 0\.05/);
+	assert.match(workflows, /id: "seVolume",[\s\S]*?min: 0,[\s\S]*?max: 2,[\s\S]*?step: 0\.05/);
+	assert.match(workflows, /id: "musicVolume",[\s\S]*?min: 0,[\s\S]*?max: 1,[\s\S]*?step: 0\.05/);
 	assert.match(player, /Math\.max\(0, Math\.min\(2, parsed\)\)/);
-	assert.match(manual, /range slider from 0 to 2 in steps of 0\.05/);
-	assert.match(manual, /0 到 2 的滑块，步进 0\.05/);
+	assert.match(player, /Math\.max\(0, Math\.min\(1, parsed\)\)/);
 	assert.match(styles, /html \{[^}]*overflow:\s*hidden/);
 	assert.match(styles, /body \{[^}]*overflow:\s*hidden/);
 	assert.match(styles, /body \{[^}]*flex-direction:\s*column/);

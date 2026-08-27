@@ -3,11 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { ChartModel } from "../js/core/chart-model.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../js/commands.js";
-import {
-	importLyricaChart,
-	lyricaChannelCategory,
-	lyricaChannelName,
-} from "../js/core/lyrica.js";
+import { importLyricaChart, lyricaChannelCategory, lyricaChannelName } from "../js/core/lyrica.js";
 import { AutosaveManager } from "../js/platform.js";
 
 const SAMPLE = [
@@ -48,7 +44,12 @@ test("Lyrica import uses numeric channel names, RNOVA default, and treats 100 as
 	assert.equal(lyricaChannelName(-60), "-60");
 	assert.equal(lyricaChannelCategory(100), "bgNote");
 	assert.equal(lyricaChannelCategory(120), "disabled");
-	const state = importLyricaChart(SAMPLE, { seed: 1, quantizationDenominator: 16, difficultyName: "Hard", difficulty: "10" });
+	const state = importLyricaChart(SAMPLE, {
+		seed: 1,
+		quantizationDenominator: 16,
+		difficultyName: "Hard",
+		difficulty: "10",
+	});
 	assert.equal(state.metadata.charter, "RNOVA");
 	assert.equal(state.metadata.difficultyName, "Hard");
 	assert.equal(state.metadata.difficulty, "10");
@@ -66,9 +67,15 @@ test("Lyrica import uses numeric channel names, RNOVA default, and treats 100 as
 test("autosave listed entries include older saves", () => {
 	const storage = new Map();
 	const fake = {
-		getItem(key) { return storage.has(key) ? storage.get(key) : null; },
-		setItem(key, value) { storage.set(key, String(value)); },
-		removeItem(key) { storage.delete(key); },
+		getItem(key) {
+			return storage.has(key) ? storage.get(key) : null;
+		},
+		setItem(key, value) {
+			storage.set(key, String(value));
+		},
+		removeItem(key) {
+			storage.delete(key);
+		},
 	};
 	const manager = new AutosaveManager({ storage: fake, interval: 0 });
 	const first = manager.save(ChartModel.createDefault({ metadata: { title: "One" } }));
@@ -99,15 +106,18 @@ test("v15 help and inspector Enter apply the focused field", async () => {
 });
 
 test("status controls use targeted refreshes instead of rebuilding the editor", async () => {
-	const [core, viewControls, workflows] = await Promise.all([
-		readFile(new URL("../js/app-core.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/app-view-controls.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/app-file-workflows.js", import.meta.url), "utf8"),
+	const [statusBindings, viewRefresh, workflows] = await Promise.all([
+		readFile(new URL("../js/app-status-bindings.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-view-refresh.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-open-save.js", import.meta.url), "utf8"),
 	]);
-	const statusBinding = core.slice(core.indexOf("for (const id of [\"lock-visible-range\""), core.indexOf("document.getElementById(\"read-only\")"));
-	assert.match(viewControls, /refreshStatusViews\(options = \{\}\)/);
-	assert.match(statusBinding, /refreshStatusViews\(viewOptions\)/);
-	assert.doesNotMatch(statusBinding, /this\.refresh\(\)/);
-	assert.match(statusBinding, /lightweight: true, viewOnly: true, dirty: false/);
+	const statusBinding = statusBindings.slice(
+		statusBindings.indexOf("for (const id of STATUS_TOGGLE_IDS)"),
+		statusBindings.indexOf('document.getElementById("read-only")'),
+	);
+	assert.match(viewRefresh, /refreshStatusViews\(options = \{\}\)/);
+	assert.match(statusBinding, /refreshStatusViews\(STATUS_TOGGLE_VIEWS\[id\] \|\| \{\}\)/);
+	assert.doesNotMatch(statusBinding, /\bthis\.refresh\(\);/);
+	assert.match(statusBinding, /lightweight: true,\s*viewOnly: true,\s*dirty: false/);
 	assert.match(workflows, /this\.requestStatusUpdate\(\);[\s\S]*?return true;/);
 });

@@ -1,42 +1,60 @@
 function cloneFallback(value, seen = new Map()) {
-	if (value === null || typeof value !== "object") return value;
-	if (seen.has(value)) return seen.get(value);
+	if (value === null || typeof value !== "object") {
+		return value;
+	}
+	if (seen.has(value)) {
+		return seen.get(value);
+	}
 	if (Array.isArray(value)) {
 		const result = [];
 		seen.set(value, result);
-		for (const item of value) result.push(cloneFallback(item, seen));
+		for (const item of value) {
+			result.push(cloneFallback(item, seen));
+		}
 		return result;
 	}
-	if (value instanceof Date) return new Date(value.getTime());
+	if (value instanceof Date) {
+		return new Date(value.getTime());
+	}
 	if (value instanceof Map) {
 		const result = new Map();
 		seen.set(value, result);
-		for (const [key, item] of value) result.set(cloneFallback(key, seen), cloneFallback(item, seen));
+		for (const [key, item] of value) {
+			result.set(cloneFallback(key, seen), cloneFallback(item, seen));
+		}
 		return result;
 	}
 	if (value instanceof Set) {
 		const result = new Set();
 		seen.set(value, result);
-		for (const item of value) result.add(cloneFallback(item, seen));
+		for (const item of value) {
+			result.add(cloneFallback(item, seen));
+		}
 		return result;
 	}
 	const result = {};
 	seen.set(value, result);
-	for (const key of Reflect.ownKeys(value)) result[key] = cloneFallback(value[key], seen);
+	for (const key of Reflect.ownKeys(value)) {
+		result[key] = cloneFallback(value[key], seen);
+	}
 	return result;
 }
 
 export function cloneSnapshot(value) {
-	return typeof globalThis.structuredClone === "function"
-		? globalThis.structuredClone(value)
-		: cloneFallback(value);
+	return typeof globalThis.structuredClone === "function" ? globalThis.structuredClone(value) : cloneFallback(value);
 }
 
 export function snapshotsEqual(left, right, seen = new Map()) {
-	if (Object.is(left, right)) return true;
-	if (left === null || right === null || typeof left !== "object" || typeof right !== "object") return false;
+	if (Object.is(left, right)) {
+		return true;
+	}
+	if (left === null || right === null || typeof left !== "object" || typeof right !== "object") {
+		return false;
+	}
 	let rightSeen = seen.get(left);
-	if (rightSeen?.has(right)) return true;
+	if (rightSeen?.has(right)) {
+		return true;
+	}
 	if (!rightSeen) {
 		rightSeen = new Set();
 		seen.set(left, rightSeen);
@@ -44,42 +62,55 @@ export function snapshotsEqual(left, right, seen = new Map()) {
 	rightSeen.add(right);
 
 	if (Array.isArray(left) || Array.isArray(right)) {
-		return Array.isArray(left) && Array.isArray(right)
-			&& left.length === right.length
-			&& left.every((value, index) => snapshotsEqual(value, right[index], seen));
+		return (
+			Array.isArray(left) &&
+			Array.isArray(right) &&
+			left.length === right.length &&
+			left.every((value, index) => snapshotsEqual(value, right[index], seen))
+		);
 	}
 	if (left instanceof Date || right instanceof Date) {
 		return left instanceof Date && right instanceof Date && left.getTime() === right.getTime();
 	}
 	if (left instanceof Map || right instanceof Map) {
-		if (!(left instanceof Map) || !(right instanceof Map) || left.size !== right.size) return false;
+		if (!(left instanceof Map) || !(right instanceof Map) || left.size !== right.size) {
+			return false;
+		}
 		for (const [key, value] of left) {
-			if (!right.has(key) || !snapshotsEqual(value, right.get(key), seen)) return false;
+			if (!right.has(key) || !snapshotsEqual(value, right.get(key), seen)) {
+				return false;
+			}
 		}
 		return true;
 	}
 	if (left instanceof Set || right instanceof Set) {
-		if (!(left instanceof Set) || !(right instanceof Set) || left.size !== right.size) return false;
-		return [...left].every((value) => right.has(value));
+		if (!(left instanceof Set) || !(right instanceof Set) || left.size !== right.size) {
+			return false;
+		}
+		return [...left].every(value => right.has(value));
 	}
 
 	const leftKeys = Reflect.ownKeys(left);
 	const rightKeys = Reflect.ownKeys(right);
-	return leftKeys.length === rightKeys.length
-		&& leftKeys.every((key) => Object.hasOwn(right, key)
-			&& snapshotsEqual(left[key], right[key], seen));
+	return (
+		leftKeys.length === rightKeys.length &&
+		leftKeys.every(key => Object.hasOwn(right, key) && snapshotsEqual(left[key], right[key], seen))
+	);
 }
-
 
 function visitChartEvents(events, visit) {
 	for (const event of events || []) {
 		visit(event);
-		if (event?.type === "group") visitChartEvents(event.events, visit);
+		if (event?.type === "group") {
+			visitChartEvents(event.events, visit);
+		}
 	}
 }
 
 function removeChannelEvents(events, channelId) {
-	if (!Array.isArray(events)) return;
+	if (!Array.isArray(events)) {
+		return;
+	}
 	for (let index = events.length - 1; index >= 0; index -= 1) {
 		const event = events[index];
 		if (event?.channel === channelId) {
@@ -88,29 +119,41 @@ function removeChannelEvents(events, channelId) {
 		}
 		if (event?.type === "group") {
 			removeChannelEvents(event.events, channelId);
-			if (!event.events?.length) events.splice(index, 1);
+			if (!event.events?.length) {
+				events.splice(index, 1);
+			}
 		}
 	}
 }
 
 function applyIdOrder(items, ids) {
-	if (!Array.isArray(items) || !Array.isArray(ids)) return items;
+	if (!Array.isArray(items) || !Array.isArray(ids)) {
+		return items;
+	}
 	const remaining = new Map(items.map(item => [item.id, item]));
 	const ordered = [];
 	for (const id of ids) {
 		const item = remaining.get(id);
-		if (!item) continue;
+		if (!item) {
+			continue;
+		}
 		ordered.push(item);
 		remaining.delete(id);
 	}
-	for (const item of remaining.values()) ordered.push(item);
+	for (const item of remaining.values()) {
+		ordered.push(item);
+	}
 	return ordered;
 }
 
 export function captureHistoryView(model, options = {}) {
 	const selectedEventIds = Array.isArray(options.selectedEventIds) ? [...options.selectedEventIds] : [];
 	if (!Array.isArray(options.selectedEventIds)) {
-		visitChartEvents(model?.events, event => { if (event?.selected) selectedEventIds.push(event.id); });
+		visitChartEvents(model?.events, event => {
+			if (event?.selected) {
+				selectedEventIds.push(event.id);
+			}
+		});
 	}
 	return {
 		selectedEventIds,
@@ -137,32 +180,51 @@ export function captureHistoryView(model, options = {}) {
 }
 
 export function applyHistoryView(state, view) {
-	if (!state || !view) return state;
+	if (!state || !view) {
+		return state;
+	}
 	const selected = new Set(view.selectedEventIds || []);
-	visitChartEvents(state.events, event => { event.selected = selected.has(event.id); });
+	visitChartEvents(state.events, event => {
+		event.selected = selected.has(event.id);
+	});
 	const overlays = new Map((view.snappees || []).map(item => [item.id, item]));
 	for (const snappee of state.snappees || []) {
 		const overlay = overlays.get(snappee.id);
-		if (!overlay) continue;
+		if (!overlay) {
+			continue;
+		}
 		snappee.selected = Boolean(overlay.selected);
 		snappee.active = overlay.active !== false;
 	}
-	if (Array.isArray(view.snappees)) state.snappees = applyIdOrder(state.snappees, view.snappees.map(item => item.id));
-	if (Array.isArray(view.channelIds)) state.channels = applyIdOrder(state.channels, view.channelIds);
+	if (Array.isArray(view.snappees)) {
+		state.snappees = applyIdOrder(
+			state.snappees,
+			view.snappees.map(item => item.id),
+		);
+	}
+	if (Array.isArray(view.channelIds)) {
+		state.channels = applyIdOrder(state.channels, view.channelIds);
+	}
 	if (Array.isArray(view.channels)) {
 		const channelOverlays = new Map(view.channels.map(item => [item.id, item]));
 		for (const channel of state.channels || []) {
 			const overlay = channelOverlays.get(channel.id);
-			if (!overlay) continue;
+			if (!overlay) {
+				continue;
+			}
 			channel.active = overlay.active !== false;
 		}
 	}
 	if (state.editor) {
-		if (Object.hasOwn(view, "timeSnapped")) state.editor.timeSnapped = Boolean(view.timeSnapped);
+		if (Object.hasOwn(view, "timeSnapped")) {
+			state.editor.timeSnapped = Boolean(view.timeSnapped);
+		}
 		if (Object.hasOwn(view, "subdivision") && view.subdivision != null) {
 			state.editor.subdivision = Math.max(1, Math.floor(Number(view.subdivision) || 2));
 		}
-		if (Object.hasOwn(view, "currentTime")) state.editor.currentTime = cloneSnapshot(view.currentTime);
+		if (Object.hasOwn(view, "currentTime")) {
+			state.editor.currentTime = cloneSnapshot(view.currentTime);
+		}
 		if (Object.hasOwn(view, "visibleRangeBeginning") && view.visibleRangeBeginning != null) {
 			state.editor.visibleRangeBeginning = Number(view.visibleRangeBeginning);
 		}
@@ -172,8 +234,12 @@ export function applyHistoryView(state, view) {
 		if (Object.hasOwn(view, "speed") && view.speed != null) {
 			state.editor.speed = Math.max(0.1, Math.min(4, Math.round(Number(view.speed) * 100) / 100));
 		}
-		if (Object.hasOwn(view, "currentChannel")) state.editor.currentChannel = view.currentChannel;
-		if (Object.hasOwn(view, "allowOutOfBound")) state.editor.allowOutOfBound = Boolean(view.allowOutOfBound);
+		if (Object.hasOwn(view, "currentChannel")) {
+			state.editor.currentChannel = view.currentChannel;
+		}
+		if (Object.hasOwn(view, "allowOutOfBound")) {
+			state.editor.allowOutOfBound = Boolean(view.allowOutOfBound);
+		}
 		if (Object.hasOwn(view, "timelineChannelOffset")) {
 			state.editor.timelineChannelOffset = Math.max(0, Math.round(Number(view.timelineChannelOffset) || 0));
 		}
@@ -182,102 +248,171 @@ export function applyHistoryView(state, view) {
 }
 
 export function applyHistoryPatch(state, patch) {
-	if (!state || !patch?.kind) return state;
+	if (!state || !patch?.kind) {
+		return state;
+	}
 	if (patch.kind === "appendRootEvent") {
-		if (!Array.isArray(state.events)) state.events = [];
+		if (!Array.isArray(state.events)) {
+			state.events = [];
+		}
 		state.events.push(cloneSnapshot(patch.event));
-		if (!state.nextIds || typeof state.nextIds !== "object") state.nextIds = {};
+		if (!state.nextIds || typeof state.nextIds !== "object") {
+			state.nextIds = {};
+		}
 		state.nextIds.event = Math.max(Number(state.nextIds.event) || 0, Number(patch.nextEventId) || 0);
 	} else if (patch.kind === "addChannel") {
-		if (!Array.isArray(state.channels)) state.channels = [];
+		if (!Array.isArray(state.channels)) {
+			state.channels = [];
+		}
 		const channel = patch.channel;
 		if (channel && !state.channels.some(candidate => candidate?.id === channel.id)) {
 			const index = Math.max(0, Math.min(state.channels.length, Number(patch.index) || 0));
 			state.channels.splice(index, 0, cloneSnapshot(channel));
 		}
-		if (!state.nextIds || typeof state.nextIds !== "object") state.nextIds = {};
-		state.nextIds.channel = Math.max(Number(state.nextIds.channel) || 0,
-			Number(patch.nextChannelId) || Number(channel?.id) + 1 || 0);
+		if (!state.nextIds || typeof state.nextIds !== "object") {
+			state.nextIds = {};
+		}
+		state.nextIds.channel = Math.max(
+			Number(state.nextIds.channel) || 0,
+			Number(patch.nextChannelId) || Number(channel?.id) + 1 || 0,
+		);
 	} else if (patch.kind === "setEventChannels") {
 		const channels = new Map((patch.changes || []).map(change => [change.id, change.channel]));
 		visitChartEvents(state.events, event => {
-			if (channels.has(event.id)) event.channel = channels.get(event.id);
+			if (channels.has(event.id)) {
+				event.channel = channels.get(event.id);
+			}
 		});
 	} else if (patch.kind === "replaceEvents") {
 		const replacements = new Map((patch.changes || []).map(change => [change.id, cloneSnapshot(change.event)]));
 		const replace = events => {
-			if (!Array.isArray(events)) return;
+			if (!Array.isArray(events)) {
+				return;
+			}
 			for (let index = 0; index < events.length; index += 1) {
 				const event = events[index];
 				const replacement = replacements.get(event?.id);
-				if (replacement) events[index] = replacement;
-				if (events[index]?.type === "group") replace(events[index].events);
+				if (replacement) {
+					events[index] = replacement;
+				}
+				if (events[index]?.type === "group") {
+					replace(events[index].events);
+				}
 			}
 		};
 		replace(state.events);
 	} else if (patch.kind === "removeEvents") {
 		const removed = new Set((patch.eventIds || []).map(Number));
 		const remove = events => {
-			if (!Array.isArray(events)) return;
+			if (!Array.isArray(events)) {
+				return;
+			}
 			for (let index = events.length - 1; index >= 0; index -= 1) {
 				const event = events[index];
-				if (removed.has(event?.id)) { events.splice(index, 1); continue; }
-				if (event?.type === "group") remove(event.events);
+				if (removed.has(event?.id)) {
+					events.splice(index, 1);
+					continue;
+				}
+				if (event?.type === "group") {
+					remove(event.events);
+				}
 			}
 		};
 		remove(state.events);
 	} else if (patch.kind === "removeChannel") {
 		const channels = state.channels || [];
 		const index = channels.findIndex(channel => channel?.id === patch.channelId);
-		if (index >= 0) channels.splice(index, 1);
+		if (index >= 0) {
+			channels.splice(index, 1);
+		}
 		removeChannelEvents(state.events, patch.channelId);
-	} else return state;
+	} else {
+		return state;
+	}
 	return applyHistoryView(state, patch.view);
 }
 
 export function historyViewsEqual(left, right) {
-	if (left === right) return true;
-	if (!left || !right) return false;
-	if (left.currentChannel !== right.currentChannel) return false;
-	if (Boolean(left.allowOutOfBound) !== Boolean(right.allowOutOfBound)) return false;
-	if (Boolean(left.timeSnapped) !== Boolean(right.timeSnapped)) return false;
-	if (Number(left.subdivision || 2) !== Number(right.subdivision || 2)) return false;
-	if (Math.abs((Number(left.speed) || 1) - (Number(right.speed) || 1)) > 1e-8) return false;
-	if (left.visibleRangeBeginning !== right.visibleRangeBeginning
-		|| left.visibleRangeEnd !== right.visibleRangeEnd) return false;
-	if ((Number(left.timelineChannelOffset) || 0) !== (Number(right.timelineChannelOffset) || 0)) return false;
-	if (!snapshotsEqual(left.currentTime, right.currentTime)) return false;
+	if (left === right) {
+		return true;
+	}
+	if (!left || !right) {
+		return false;
+	}
+	if (left.currentChannel !== right.currentChannel) {
+		return false;
+	}
+	if (Boolean(left.allowOutOfBound) !== Boolean(right.allowOutOfBound)) {
+		return false;
+	}
+	if (Boolean(left.timeSnapped) !== Boolean(right.timeSnapped)) {
+		return false;
+	}
+	if (Number(left.subdivision || 2) !== Number(right.subdivision || 2)) {
+		return false;
+	}
+	if (Math.abs((Number(left.speed) || 1) - (Number(right.speed) || 1)) > 1e-8) {
+		return false;
+	}
+	if (left.visibleRangeBeginning !== right.visibleRangeBeginning || left.visibleRangeEnd !== right.visibleRangeEnd) {
+		return false;
+	}
+	if ((Number(left.timelineChannelOffset) || 0) !== (Number(right.timelineChannelOffset) || 0)) {
+		return false;
+	}
+	if (!snapshotsEqual(left.currentTime, right.currentTime)) {
+		return false;
+	}
 	const leftIds = left.selectedEventIds || [];
 	const rightIds = right.selectedEventIds || [];
-	if (leftIds.length !== rightIds.length) return false;
+	if (leftIds.length !== rightIds.length) {
+		return false;
+	}
 	for (let index = 0; index < leftIds.length; index += 1) {
-		if (leftIds[index] !== rightIds[index]) return false;
+		if (leftIds[index] !== rightIds[index]) {
+			return false;
+		}
 	}
 	const leftSnappees = left.snappees || [];
 	const rightSnappees = right.snappees || [];
-	if (leftSnappees.length !== rightSnappees.length) return false;
+	if (leftSnappees.length !== rightSnappees.length) {
+		return false;
+	}
 	for (let index = 0; index < leftSnappees.length; index += 1) {
 		const first = leftSnappees[index];
 		const second = rightSnappees[index];
-		if (first.id !== second.id || Boolean(first.selected) !== Boolean(second.selected)
-			|| (first.active !== false) !== (second.active !== false)) return false;
+		if (
+			first.id !== second.id ||
+			Boolean(first.selected) !== Boolean(second.selected) ||
+			(first.active !== false) !== (second.active !== false)
+		) {
+			return false;
+		}
 	}
 	const leftChannels = left.channelIds;
 	const rightChannels = right.channelIds;
 	if (leftChannels && rightChannels) {
-		if (leftChannels.length !== rightChannels.length) return false;
+		if (leftChannels.length !== rightChannels.length) {
+			return false;
+		}
 		for (let index = 0; index < leftChannels.length; index += 1) {
-			if (leftChannels[index] !== rightChannels[index]) return false;
+			if (leftChannels[index] !== rightChannels[index]) {
+				return false;
+			}
 		}
 	}
 	const leftChannelFlags = left.channels || [];
 	const rightChannelFlags = right.channels || [];
 	if (leftChannelFlags.length || rightChannelFlags.length) {
-		if (leftChannelFlags.length !== rightChannelFlags.length) return false;
+		if (leftChannelFlags.length !== rightChannelFlags.length) {
+			return false;
+		}
 		for (let index = 0; index < leftChannelFlags.length; index += 1) {
 			const first = leftChannelFlags[index];
 			const second = rightChannelFlags[index];
-			if (first.id !== second.id || (first.active !== false) !== (second.active !== false)) return false;
+			if (first.id !== second.id || (first.active !== false) !== (second.active !== false)) {
+				return false;
+			}
 		}
 	}
 	return true;
@@ -314,18 +449,30 @@ export class History {
 
 	_entryView(index) {
 		const entry = this._entries[index];
-		if (!entry) return null;
-		if (entry.view) return entry.view;
-		if (entry.patch?.view) return entry.patch.view;
-		if (entry.state) return captureHistoryView(entry.state);
+		if (!entry) {
+			return null;
+		}
+		if (entry.view) {
+			return entry.view;
+		}
+		if (entry.patch?.view) {
+			return entry.patch.view;
+		}
+		if (entry.state) {
+			return captureHistoryView(entry.state);
+		}
 		return null;
 	}
 
 	_resolvedState(index) {
 		const entry = this._entries[index];
-		if (entry.state != null) return this.clone(entry.state);
+		if (entry.state != null) {
+			return this.clone(entry.state);
+		}
 		let baseIndex = index - 1;
-		while (baseIndex >= 0 && this._entries[baseIndex].state == null) baseIndex -= 1;
+		while (baseIndex >= 0 && this._entries[baseIndex].state == null) {
+			baseIndex -= 1;
+		}
 		if (baseIndex < 0 || this._entries[baseIndex].state == null) {
 			throw new Error("history is missing a base snapshot");
 		}
@@ -339,7 +486,9 @@ export class History {
 
 	_materializeInPlace(index) {
 		const entry = this._entries[index];
-		if (!entry || entry.state != null) return;
+		if (!entry || entry.state != null) {
+			return;
+		}
 		const next = { ...entry, state: this._resolvedState(index) };
 		delete next.kind;
 		delete next.view;
@@ -348,7 +497,9 @@ export class History {
 	}
 
 	_trim() {
-		if (this._entries.length <= this.limit) return;
+		if (this._entries.length <= this.limit) {
+			return;
+		}
 		const overflow = this._entries.length - this.limit;
 		this._materializeInPlace(overflow);
 		this._entries.splice(0, overflow);
@@ -359,9 +510,13 @@ export class History {
 		const snapshot = options.owned ? state : this.clone(state);
 		if (!options.force) {
 			const baseline = this._entries[this._cursor].state ?? this._resolvedState(this._cursor);
-			if (this.equals(baseline, snapshot)) return false;
+			if (this.equals(baseline, snapshot)) {
+				return false;
+			}
 		}
-		if (this._cursor < this._entries.length - 1) this._entries.length = this._cursor + 1;
+		if (this._cursor < this._entries.length - 1) {
+			this._entries.length = this._cursor + 1;
+		}
 		this._entries.push(this._makeEntry(snapshot, label, metadata, !options.owned));
 		this._cursor = this._entries.length - 1;
 		this._trim();
@@ -369,8 +524,12 @@ export class History {
 	}
 
 	recordView(view, label = "Edit", metadata = null, options = {}) {
-		if (!options.force && historyViewsEqual(this._entryView(this._cursor), view)) return false;
-		if (this._cursor < this._entries.length - 1) this._entries.length = this._cursor + 1;
+		if (!options.force && historyViewsEqual(this._entryView(this._cursor), view)) {
+			return false;
+		}
+		if (this._cursor < this._entries.length - 1) {
+			this._entries.length = this._cursor + 1;
+		}
 		this._entries.push({
 			id: this._nextId++,
 			label: String(label ?? "Edit"),
@@ -386,8 +545,12 @@ export class History {
 	}
 
 	recordPatch(patch, label = "Edit", metadata = null) {
-		if (!patch || typeof patch !== "object") throw new TypeError("history patch must be an object");
-		if (this._cursor < this._entries.length - 1) this._entries.length = this._cursor + 1;
+		if (!patch || typeof patch !== "object") {
+			throw new TypeError("history patch must be an object");
+		}
+		if (this._cursor < this._entries.length - 1) {
+			this._entries.length = this._cursor + 1;
+		}
 		this._entries.push({
 			id: this._nextId++,
 			label: String(label ?? "Edit"),
@@ -423,18 +586,27 @@ export class History {
 	}
 
 	markCurrent(kind, timestamp = Date.now()) {
-		if (!kind) throw new TypeError("history marker kind is required");
+		if (!kind) {
+			throw new TypeError("history marker kind is required");
+		}
 		const entry = this._entries[this._cursor];
 		const metadata = entry.metadata == null ? {} : this.clone(entry.metadata);
-		metadata.historyMarkers = { ...(metadata.historyMarkers || {}), [String(kind)]: Number(timestamp) || Date.now() };
+		metadata.historyMarkers = {
+			...(metadata.historyMarkers || {}),
+			[String(kind)]: Number(timestamp) || Date.now(),
+		};
 		entry.metadata = metadata;
 		return this.currentEntry;
 	}
 
 	transformStates(transform) {
-		if (typeof transform !== "function") throw new TypeError("history state transform must be a function");
+		if (typeof transform !== "function") {
+			throw new TypeError("history state transform must be a function");
+		}
 		this._entries = this._entries.map((entry, index) => {
-			if (entry.state == null) return entry;
+			if (entry.state == null) {
+				return entry;
+			}
 			const state = this.clone(entry.state);
 			const transformed = transform(state, index);
 			return { ...entry, state: this.clone(transformed === undefined ? state : transformed) };
@@ -443,13 +615,17 @@ export class History {
 	}
 
 	undo() {
-		if (!this.canUndo) return null;
+		if (!this.canUndo) {
+			return null;
+		}
 		this._cursor -= 1;
 		return this.current;
 	}
 
 	redo() {
-		if (!this.canRedo) return null;
+		if (!this.canRedo) {
+			return null;
+		}
 		this._cursor += 1;
 		return this.current;
 	}
@@ -463,8 +639,10 @@ export class History {
 	}
 
 	goToId(id) {
-		const index = this._entries.findIndex((entry) => entry.id === id);
-		if (index < 0) throw new RangeError(`unknown history entry: ${id}`);
+		const index = this._entries.findIndex(entry => entry.id === id);
+		if (index < 0) {
+			throw new RangeError(`unknown history entry: ${id}`);
+		}
 		return this.goTo(index);
 	}
 

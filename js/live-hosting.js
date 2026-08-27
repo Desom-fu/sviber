@@ -5,25 +5,37 @@ const WEBSOCKET_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const MAX_FRAME_SIZE = 16 * 1024 * 1024;
 
 function nwRequire(name) {
-	try { return globalThis.nw?.require?.(name) || null; } catch { return null; }
+	try {
+		return globalThis.nw?.require?.(name) || null;
+	} catch {
+		return null;
+	}
 }
 
 function parseAddress(value = DEFAULT_ADDRESS) {
 	const text = String(value).trim();
 	const match = text.match(/^(.+):(\d+)$/);
-	if (!match) throw new Error("Live hosting address must be host:port.");
+	if (!match) {
+		throw new Error("Live hosting address must be host:port.");
+	}
 	return { host: match[1].replace(/^\[|\]$/g, ""), port: Number(match[2]) };
 }
 
 function bufferFrom(value, BufferRef) {
-	if (BufferRef.isBuffer(value)) return value;
-	if (value instanceof Uint8Array) return BufferRef.from(value);
+	if (BufferRef.isBuffer(value)) {
+		return value;
+	}
+	if (value instanceof Uint8Array) {
+		return BufferRef.from(value);
+	}
 	return BufferRef.from(String(value ?? ""));
 }
 
 function encodeWebSocketFrame(value, BufferRef, opcode = 0x1) {
 	const payload = bufferFrom(value, BufferRef);
-	if (payload.length > MAX_FRAME_SIZE) throw new Error("Live reload message is too large.");
+	if (payload.length > MAX_FRAME_SIZE) {
+		throw new Error("Live reload message is too large.");
+	}
 	let header;
 	if (payload.length < 126) {
 		header = BufferRef.from([0x80 | opcode, payload.length]);
@@ -55,45 +67,84 @@ function handleWebSocketBytes(client, chunk, BufferRef) {
 		let length = second & 0x7f;
 		let headerLength = 2;
 		if (length === 126) {
-			if (client.buffer.length < 4) return;
+			if (client.buffer.length < 4) {
+				return;
+			}
 			length = client.buffer.readUInt16BE(2);
 			headerLength = 4;
 		} else if (length === 127) {
-			if (client.buffer.length < 10) return;
+			if (client.buffer.length < 10) {
+				return;
+			}
 			const largeLength = client.buffer.readBigUInt64BE(2);
-			if (largeLength > BigInt(MAX_FRAME_SIZE)) throw new Error("Live reload frame is too large.");
+			if (largeLength > BigInt(MAX_FRAME_SIZE)) {
+				throw new Error("Live reload frame is too large.");
+			}
 			length = Number(largeLength);
 			headerLength = 10;
 		}
 		const maskLength = masked ? 4 : 0;
 		const frameLength = headerLength + maskLength + length;
-		if (length > MAX_FRAME_SIZE) throw new Error("Live reload frame is too large.");
-		if (client.buffer.length < frameLength) return;
+		if (length > MAX_FRAME_SIZE) {
+			throw new Error("Live reload frame is too large.");
+		}
+		if (client.buffer.length < frameLength) {
+			return;
+		}
 		const fin = Boolean(first & 0x80);
 		const mask = masked ? client.buffer.subarray(headerLength, headerLength + 4) : null;
 		const payload = client.buffer.subarray(headerLength + maskLength, frameLength);
 		client.buffer = client.buffer.subarray(frameLength);
 		const unmasked = BufferRef.from(payload);
-		if (mask) for (let index = 0; index < unmasked.length; index += 1) unmasked[index] ^= mask[index % 4];
-		if (opcode === 0x8) { client.close(); return; }
-		if (opcode === 0x9) { client.pong(unmasked); continue; }
-		if (opcode === 0xa) continue;
+		if (mask) {
+			for (let index = 0; index < unmasked.length; index += 1) {
+				unmasked[index] ^= mask[index % 4];
+			}
+		}
+		if (opcode === 0x8) {
+			client.close();
+			return;
+		}
+		if (opcode === 0x9) {
+			client.pong(unmasked);
+			continue;
+		}
+		if (opcode === 0xa) {
+			continue;
+		}
 		if (opcode === 0x0) {
-			if (!client.fragments) continue;
+			if (!client.fragments) {
+				continue;
+			}
 			client.fragments.push(unmasked);
-			if (!fin) continue;
+			if (!fin) {
+				continue;
+			}
 			const message = BufferRef.concat(client.fragments).toString("utf8");
 			client.fragments = null;
 			client.onMessage(message);
 			continue;
 		}
-		if (opcode !== 0x1) continue;
+		if (opcode !== 0x1) {
+			continue;
+		}
 		if (!fin) {
 			client.fragments = [unmasked];
 			continue;
 		}
 		client.onMessage(unmasked.toString("utf8"));
 	}
+}
+
+// v17: the start toast reports the full URL of the hosted level instead of the raw
+// host and port. A wildcard bind address is not usable in a browser, so it is reported
+// as localhost.
+export function hostedLevelUrl(address, path = "/sviber.ssc") {
+	const host = String(address?.address || "").replace(/^::ffff:/, "");
+	const port = Number(address?.port) || 0;
+	const displayHost = !host || host === "0.0.0.0" || host === "::" ? "localhost" : host;
+	const bracketed = displayHost.includes(":") ? `[${displayHost}]` : displayHost;
+	return `http://${bracketed}${port ? `:${port}` : ""}${path}`;
 }
 
 export class LiveHosting {
@@ -116,15 +167,27 @@ export class LiveHosting {
 	}
 
 	#reportError(error) {
-		try { this.onError(error instanceof Error ? error : new Error(String(error))); }
-		catch { /* Notifications must not interrupt server cleanup. */ }
+		try {
+			this.onError(error instanceof Error ? error : new Error(String(error)));
+		} catch {
+			/* Notifications must not interrupt server cleanup. */
+		}
 	}
 
 	#listen(server, port, host) {
 		return new Promise((resolve, reject) => {
-			const cleanup = () => { server.off("error", failed); server.off("listening", listening); };
-			const failed = error => { cleanup(); reject(error); };
-			const listening = () => { cleanup(); resolve(); };
+			const cleanup = () => {
+				server.off("error", failed);
+				server.off("listening", listening);
+			};
+			const failed = error => {
+				cleanup();
+				reject(error);
+			};
+			const listening = () => {
+				cleanup();
+				resolve();
+			};
 			server.once("error", failed);
 			server.once("listening", listening);
 			server.listen(port, host);
@@ -134,22 +197,34 @@ export class LiveHosting {
 	#watch(server) {
 		server.on("error", error => this.#reportError(error));
 		server.on("close", () => {
-			if (this.stopping || this.stopReported) return;
+			if (this.stopping || this.stopReported) {
+				return;
+			}
 			this.stopReported = true;
 			this.stop();
-			try { this.onStop(); } catch { /* Notifications must not interrupt cleanup. */ }
+			try {
+				this.onStop();
+			} catch {
+				/* Notifications must not interrupt cleanup. */
+			}
 		});
 	}
 
 	async start() {
-		if (!globalThis.nw) throw new Error("Live hosting is available only in NW.js.");
-		if (this.server) return this;
+		if (!globalThis.nw) {
+			throw new Error("Live hosting is available only in NW.js.");
+		}
+		if (this.server) {
+			return this;
+		}
 		this.stopping = false;
 		this.stopReported = false;
 		this.http = nwRequire("http");
 		this.crypto = nwRequire("crypto");
 		this.Buffer = nwRequire("buffer")?.Buffer || globalThis.Buffer;
-		if (!this.http || !this.crypto || !this.Buffer) throw new Error("Node HTTP/WebSocket modules are unavailable.");
+		if (!this.http || !this.crypto || !this.Buffer) {
+			throw new Error("Node HTTP/WebSocket modules are unavailable.");
+		}
 		const { host, port } = parseAddress(this.address);
 		this.server = this.http.createServer((request, response) => {
 			if (request.url !== "/sviber.ssc") {
@@ -157,24 +232,28 @@ export class LiveHosting {
 				response.end();
 				return;
 			}
-			Promise.resolve(this.getLevel()).then(body => {
-				const value = bufferFrom(body, this.Buffer);
-				response.writeHead(200, {
-					"Access-Control-Allow-Origin": "*",
-					"Cache-Control": "no-cache, no-store",
-					"Content-Type": "application/zip",
-					"Content-Length": value.length,
+			Promise.resolve(this.getLevel())
+				.then(body => {
+					const value = bufferFrom(body, this.Buffer);
+					response.writeHead(200, {
+						"Access-Control-Allow-Origin": "*",
+						"Cache-Control": "no-cache, no-store",
+						"Content-Type": "application/zip",
+						"Content-Length": value.length,
+					});
+					response.end(value);
+				})
+				.catch(error => {
+					this.#reportError(error);
+					response.statusCode = 500;
+					response.end();
 				});
-				response.end(value);
-			}).catch(error => {
-				this.#reportError(error);
-				response.statusCode = 500;
-				response.end();
-			});
 		});
 		await this.#listen(this.server, port, host);
 		this.#watch(this.server);
-		if (this.reloadPort > 0) await this.#startReload();
+		if (this.reloadPort > 0) {
+			await this.#startReload();
+		}
 		return this;
 	}
 
@@ -206,18 +285,35 @@ export class LiveHosting {
 			socket.write(response);
 			this.clients.add(client);
 			socket.on("data", chunk => {
-				try { handleWebSocketBytes(client, chunk, this.Buffer); }
-				catch (error) { this.#reportError(error); client.close(); }
+				try {
+					handleWebSocketBytes(client, chunk, this.Buffer);
+				} catch (error) {
+					this.#reportError(error);
+					client.close();
+				}
 			});
 			const remove = () => {
-				if (!this.clients.delete(client)) return;
-				try { this.onClientClose(client); } catch { /* Notifications must not interrupt cleanup. */ }
+				if (!this.clients.delete(client)) {
+					return;
+				}
+				try {
+					this.onClientClose(client);
+				} catch {
+					/* Notifications must not interrupt cleanup. */
+				}
 			};
 			socket.on("close", remove);
-			socket.on("error", error => { remove(); this.#reportError(error); });
+			socket.on("error", error => {
+				remove();
+				this.#reportError(error);
+			});
 			if (head?.length) {
-				try { handleWebSocketBytes(client, head, this.Buffer); }
-				catch (error) { this.#reportError(error); client.close(); }
+				try {
+					handleWebSocketBytes(client, head, this.Buffer);
+				} catch (error) {
+					this.#reportError(error);
+					client.close();
+				}
 			}
 		});
 		await this.#listen(this.reloadServer, this.reloadPort, "0.0.0.0");
@@ -226,25 +322,44 @@ export class LiveHosting {
 
 	#handleMessage(client, message) {
 		let data;
-		try { data = JSON.parse(message); } catch { return; }
-		if (!data || typeof data !== "object") return;
-		if (data.type === "eventInfoTip") return;
-		if (!["connect", "update", "chartUpdate"].includes(data.type)) return;
+		try {
+			data = JSON.parse(message);
+		} catch {
+			return;
+		}
+		if (!data || typeof data !== "object") {
+			return;
+		}
+		if (data.type === "eventInfoTip") {
+			return;
+		}
+		if (!["connect", "update", "chartUpdate"].includes(data.type)) {
+			return;
+		}
 		this.onMessage(data, client);
 	}
 
 	broadcast(message) {
-		if (!this.clients.size) return;
+		if (!this.clients.size) {
+			return;
+		}
 		const payload = JSON.stringify(message);
 		for (const client of this.clients) {
-			try { client.send(payload); }
-			catch (error) { this.#reportError(error); client.close(); this.clients.delete(client); }
+			try {
+				client.send(payload);
+			} catch (error) {
+				this.#reportError(error);
+				client.close();
+				this.clients.delete(client);
+			}
 		}
 	}
 
 	stop() {
 		this.stopping = true;
-		for (const client of this.clients) client.close();
+		for (const client of this.clients) {
+			client.close();
+		}
 		this.clients.clear();
 		this.server?.close();
 		this.reloadServer?.close();

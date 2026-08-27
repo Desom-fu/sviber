@@ -17,8 +17,9 @@ export async function runKeyboardShortcutLayoutChecks(page, outputDirectory) {
 			contentWidth: content.clientWidth,
 			contentScrollWidth: content.scrollWidth,
 			alignedGroups: [...content.querySelectorAll(".shortcut-group")].map(group => {
-				const lefts = [...group.querySelectorAll(".shortcut-item > span")]
-					.map(element => element.getBoundingClientRect().left);
+				const lefts = [...group.querySelectorAll(".shortcut-item > span")].map(
+					element => element.getBoundingClientRect().left,
+				);
 				return lefts.length ? Math.max(...lefts) - Math.min(...lefts) : 0;
 			}),
 		};
@@ -26,10 +27,21 @@ export async function runKeyboardShortcutLayoutChecks(page, outputDirectory) {
 	assert.ok(wide.width >= 900, `shortcut dialog is not wide enough: ${JSON.stringify(wide)}`);
 	assert.equal(wide.columnCount, 2);
 	assert.equal(wide.columns.split(" ").length, 2, `wide shortcut dialog is not two columns: ${JSON.stringify(wide)}`);
-	assert.ok(wide.bodyScrollWidth <= wide.bodyWidth + 1, `wide shortcut dialog scrolls horizontally: ${JSON.stringify(wide)}`);
-	assert.ok(wide.contentScrollWidth <= wide.contentWidth + 1, `wide shortcut content overflows: ${JSON.stringify(wide)}`);
-	assert.ok(wide.alignedGroups.every(delta => delta < 1), `Chinese shortcut descriptions are not aligned: ${JSON.stringify(wide)}`);
-	await page.locator(".keyboard-shortcuts-dialog").screenshot({ path: path.join(outputDirectory, "sviber-shortcuts-wide.png") });
+	assert.ok(
+		wide.bodyScrollWidth <= wide.bodyWidth + 1,
+		`wide shortcut dialog scrolls horizontally: ${JSON.stringify(wide)}`,
+	);
+	assert.ok(
+		wide.contentScrollWidth <= wide.contentWidth + 1,
+		`wide shortcut content overflows: ${JSON.stringify(wide)}`,
+	);
+	assert.ok(
+		wide.alignedGroups.every(delta => delta < 1),
+		`Chinese shortcut descriptions are not aligned: ${JSON.stringify(wide)}`,
+	);
+	await page
+		.locator(".keyboard-shortcuts-dialog")
+		.screenshot({ path: path.join(outputDirectory, "sviber-shortcuts-wide.png") });
 	await page.locator('.keyboard-shortcuts-dialog .dialog-button[data-dialog-action="ok"]').click();
 	await page.locator(".keyboard-shortcuts-dialog").waitFor({ state: "detached" });
 
@@ -39,12 +51,16 @@ export async function runKeyboardShortcutLayoutChecks(page, outputDirectory) {
 	const english = await page.evaluate(() => {
 		const content = document.querySelector(".shortcut-columns");
 		return [...content.querySelectorAll(".shortcut-group")].map(group => {
-			const lefts = [...group.querySelectorAll(".shortcut-item > span")]
-				.map(element => element.getBoundingClientRect().left);
+			const lefts = [...group.querySelectorAll(".shortcut-item > span")].map(
+				element => element.getBoundingClientRect().left,
+			);
 			return lefts.length ? Math.max(...lefts) - Math.min(...lefts) : 0;
 		});
 	});
-	assert.ok(english.every(delta => delta < 1), `English shortcut descriptions are not aligned: ${JSON.stringify(english)}`);
+	assert.ok(
+		english.every(delta => delta < 1),
+		`English shortcut descriptions are not aligned: ${JSON.stringify(english)}`,
+	);
 	await page.locator('.keyboard-shortcuts-dialog .dialog-button[data-dialog-action="ok"]').click();
 	await page.locator(".keyboard-shortcuts-dialog").waitFor({ state: "detached" });
 	await page.evaluate(() => globalThis.sviber.help.i18n.setLanguage("zh-CN"));
@@ -65,10 +81,22 @@ export async function runKeyboardShortcutLayoutChecks(page, outputDirectory) {
 			contentScrollWidth: content.scrollWidth,
 		};
 	});
-	assert.equal(narrow.columns.split(" ").length, 1, `narrow shortcut dialog is not one column: ${JSON.stringify(narrow)}`);
-	assert.ok(narrow.bodyScrollWidth <= narrow.bodyWidth + 1, `narrow shortcut dialog scrolls horizontally: ${JSON.stringify(narrow)}`);
-	assert.ok(narrow.contentScrollWidth <= narrow.contentWidth + 1, `narrow shortcut content overflows: ${JSON.stringify(narrow)}`);
-	await page.locator(".keyboard-shortcuts-dialog").screenshot({ path: path.join(outputDirectory, "sviber-shortcuts-narrow.png") });
+	assert.equal(
+		narrow.columns.split(" ").length,
+		1,
+		`narrow shortcut dialog is not one column: ${JSON.stringify(narrow)}`,
+	);
+	assert.ok(
+		narrow.bodyScrollWidth <= narrow.bodyWidth + 1,
+		`narrow shortcut dialog scrolls horizontally: ${JSON.stringify(narrow)}`,
+	);
+	assert.ok(
+		narrow.contentScrollWidth <= narrow.contentWidth + 1,
+		`narrow shortcut content overflows: ${JSON.stringify(narrow)}`,
+	);
+	await page
+		.locator(".keyboard-shortcuts-dialog")
+		.screenshot({ path: path.join(outputDirectory, "sviber-shortcuts-narrow.png") });
 	await page.setViewportSize({ width: 1440, height: 900 });
 	return { wide, english, narrow };
 }
