@@ -601,6 +601,48 @@ export const withHistoryCommands = Base => class extends Base {
 		if (!opened) this.toast?.error("toast.openFailed", { message: i18n.t("toast.recentUnavailable") });
 	}
 
+	async applyAutosaveRecovery(recovery) {
+		const source = recovery?.source && typeof recovery.source === "object" ? recovery.source : {};
+		const projectPath = String(source.projectPath || "");
+		if (globalThis.nw && projectPath) {
+			try {
+				const opened = await this.openProject({
+					directoryPath: projectPath,
+					skipUnsaved: true,
+					silent: true,
+				});
+				if (opened) {
+					const filename = String(source.chartFilename || "")
+						|| this.difficulties.find(entry => entry.id === this.activeDifficultyId)?.file
+						|| this.difficulties[0]?.file
+						|| uniqueChartFilename(recovery.model.metadata.difficultyName);
+					this.activateProjectChart(recovery.model, filename, { saved: false });
+					this.projectDirty = true;
+					if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
+					this.refresh();
+					return true;
+				}
+			} catch (error) {
+				console.warn("Autosave project restore fell back to a standalone chart", error);
+			}
+		}
+		await this.clearRuntimeMedia();
+		this.files.restoreLocalSourceContext(source);
+		this.installProject([{
+			id: "difficulty-0",
+			file: source.chartFilename || uniqueChartFilename(recovery.model.metadata.difficultyName),
+			model: recovery.model,
+		}], {
+			activeChart: "difficulty-0",
+			name: source.projectName || recovery.model.metadata.title,
+			saved: false,
+		});
+		this.editingProject = false;
+		if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
+		this.refresh();
+		return true;
+	}
+
 	async openAutosave() {
 		this.exitModes();
 		const recoveries = this.autosave.listed();
@@ -618,16 +660,7 @@ export const withHistoryCommands = Base => class extends Base {
 		});
 		if (!values || !await this.confirmUnsaved()) return;
 		const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0];
-		await this.clearRuntimeMedia();
-		this.files.restoreLocalSourceContext(recovery.source);
-		this.installProject([{
-			id: "difficulty-0",
-			file: recovery.source?.chartFilename || uniqueChartFilename(recovery.model.metadata.difficultyName),
-			model: recovery.model,
-		}], { activeChart: "difficulty-0", name: recovery.source?.projectName || recovery.model.metadata.title, saved: false });
-		this.editingProject = Boolean(globalThis.nw && recovery.source?.projectPath);
-		if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
-		this.refresh();
+		await this.applyAutosaveRecovery(recovery);
 	}
 
 	async runMacroDialog() {
