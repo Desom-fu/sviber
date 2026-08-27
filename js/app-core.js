@@ -959,17 +959,10 @@ export class SviberAppCore {
 				{ id: "discard", labelKey: "dialog.discard", cancel: true, value: null, validate: false },
 			],
 		});
-		if (values) {
-			const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0]; await this.clearRuntimeMedia(); this.files.restoreLocalSourceContext(recovery.source);
-			this.installProject([{
-				id: "difficulty-0",
-				file: recovery.source?.chartFilename || uniqueChartFilename(recovery.model.metadata.difficultyName),
-				model: recovery.model,
-			}], { activeChart: "difficulty-0", name: recovery.source?.projectName || recovery.model.metadata.title, saved: false });
-			this.editingProject = Boolean(globalThis.nw && recovery.source?.projectPath);
-			if (this.files.supportsLocalPaths) await this.syncMediaFromModel();
-			return true;
-		} else { this.autosave.markManualSave(); return false; }
+		if (!values) return false;
+		const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0];
+		await this.applyAutosaveRecovery(recovery);
+		return true;
 	}
 	exitModes() {
 		this.creationMode = null;
