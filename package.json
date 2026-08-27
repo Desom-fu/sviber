@@ -1,6 +1,6 @@
 {
 	"name": "sviber",
-	"version": "0.7.28",
+	"version": "0.7.29",
 	"private": true,
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",

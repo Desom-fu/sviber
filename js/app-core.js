@@ -790,11 +790,15 @@ export class SviberAppCore {
 			this.scheduledHitIds.clear();
 			this.scheduledHoldReleaseIds.clear();
 			this.scheduledMetronomeBeats.clear();
-			if (this.audio.playing && this.playbackOrigin) {
-				const time = this.audio.currentTime;
-				this.playbackOrigin.scheduleStartTime = time;
-				excludeHitsBeforePlaybackOrigin(this, time);
-				this._scheduleHits(time, 0);
+			if (this.audio.playing) {
+				// Re-arm follow after mid-playback seeks (e.g. Home): wait for mid-range again.
+				this.playFollowOffset = this.model.editor.lockVisibleRange ? false : null;
+				if (this.playbackOrigin) {
+					const time = this.audio.currentTime;
+					this.playbackOrigin.scheduleStartTime = time;
+					excludeHitsBeforePlaybackOrigin(this, time);
+					this._scheduleHits(time, 0);
+				}
 			}
 		});
 		this.audio.addEventListener("ratechange", () => {
