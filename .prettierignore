@@ -1,0 +1,9 @@
+node_modules/
+build/
+assets/
+js/audio/audio-decode.bundle.js
+json/
+docs/docs.css
+css/
+*.md
+*.html
