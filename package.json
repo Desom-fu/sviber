@@ -29,7 +29,7 @@
 		"start": "http-server .. -p 4173 -c-1",
 		"check:size": "node scripts/check-source-size.mjs",
 		"lint": "eslint . --max-warnings 0",
-		"build": "node scripts/check-source-size.mjs && node scripts/build-nw.mjs",
+		"build": "npm test && node scripts/build-nw.mjs",
 		"benchmark:render": "node scripts/benchmark-render-index.mjs",
 		"test": "node scripts/check-source-size.mjs && eslint . --max-warnings 0 && node --test tests/*.test.mjs",
 		"verify:browser": "node scripts/check-source-size.mjs && node scripts/verify-browser.mjs"

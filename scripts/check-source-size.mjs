@@ -74,6 +74,4 @@ if (violations.length) {
 	throw new Error(`Source organization check failed:\n${details}`);
 }
 
-console.log(
-	`Source organization check passed: files are <= ${MAX_LINES} lines and assets use the required directories.`,
-);
+console.log("Source organization check passed.");

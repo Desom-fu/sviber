@@ -73,7 +73,7 @@
 - Monaco 跟随界面语言，并加载 API 补全（`js/macro-completions.js`）。运行宏的全局/工程单选记住到退出。Ruby `selected_events` 拼写已修正。
 - 宏 API 按概念拆成 `macro-api-math.js` / `location` / `entities` / `event` / `chart`，沙箱用 ES 模块加载。
 - NW.js `node-main`：`js/cli-main.js`。有 `--export` / `--import` / `--help` 时不启动 GUI。
-- ESLint：文件 ≤1000 行、函数 ≤100 行、一行一句、行宽 120、函数之间空行、`if`/`for` 必须花括号、三元运算符不得跨行。`npm test` 先跑行数检查再 lint。
+- ESLint：文件 ≤1000 行、函数 ≤100 行、一行一句、行宽 120、函数之间空行、`if`/`for` 必须花括号、三元运算符不得跨行。`npm test` 先跑源码组织检查再 lint 再单测；`npm run build` 的前置是完整 `npm test`，通过后才打 NW.js 包。组织检查覆盖 CSS/HTML 行数和资源目录，JS 规则由 ESLint 负责。
 
 ## 帮助与快捷键
 
@@ -90,4 +90,4 @@
 - `tests/v17-features.test.mjs`：命令/菜单、十二类检查、手指规则、吸附顺序/时间、DSP 冒烟、音量夹取、源码接线
 - `tests/v17-cli.test.mjs`：CLI 导入导出与 ZIP 时间戳
 - `tests/audio-platform.test.mjs` / `tests/play-follow-seek.test.mjs`：A-B 循环后音符 SE 按当前圈时钟排程
-- 门禁：行数检查 + ESLint + 全部 `tests/*.test.mjs`（300 pass）
+- 门禁：`npm test`（组织检查 + ESLint + 全部 `tests/*.test.mjs`）；`npm run build` 先跑 `npm test` 再打包

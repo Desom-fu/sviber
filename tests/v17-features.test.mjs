@@ -539,6 +539,7 @@ test("v17 source wiring for checks tab, icons, eslint, lint and editor defaults"
 	const pkg = JSON.parse(packageSource);
 	assert.equal(pkg.scripts.lint, "eslint . --max-warnings 0");
 	assert.match(pkg.scripts.test, /check-source-size\.mjs && eslint \. --max-warnings 0 && node --test/);
+	assert.equal(pkg.scripts.build, "npm test && node scripts/build-nw.mjs");
 	assert.equal(COMMAND_DEFINITIONS["music.seekBackward3"].shortcut, "Ctrl+Shift+,");
 	assert.equal(DEFAULT_EDITOR.showChartBoundary, true);
 	assert.equal(DEFAULT_EDITOR.playBgNoteSe, false);
