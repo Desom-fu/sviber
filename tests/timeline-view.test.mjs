@@ -191,6 +191,22 @@ test("timeline drawing reuses indexed lane offsets and selected groups during pl
 	assert.match(source, /_drawTipPointLines[\s\S]*this\.renderIndex\?\.eventLaneOffsets/);
 });
 
+test("timeline rubber-band selection keeps its origin in content space while chasing", async () => {
+	const pointer = await readFile(new URL("../js/render/timeline-pointer.js", import.meta.url), "utf8");
+	// Press stores the chart-space corner, not just the viewport pixel.
+	assert.match(pointer, /type: "box"[\s\S]*?startSeconds:[\s\S]*?startChannelIndex:/);
+	// Move remaps that corner after chase so the rubber-band vertex follows the scroll.
+	assert.match(
+		pointer,
+		/_moveSelectionBox\([\s\S]*?_chaseVisibleRange[\s\S]*?_chaseChannels[\s\S]*?_selectionBoxOrigin/,
+	);
+	assert.match(pointer, /_selectionBoxOrigin\(drag, layout\)/);
+	assert.match(pointer, /_timeToX\(startSeconds, layout\.channels\.width\)/);
+	assert.match(pointer, /startChannelIndex - this\.channelOffset/);
+	// Release also uses the remapped origin, not the stale press pixel.
+	assert.match(pointer, /drag\.type === "box"[\s\S]*?_selectionBoxOrigin\(drag, layout\)/);
+});
+
 test("timeline duration drag allows zero length only for bgNote and comment", async () => {
 	assert.equal(ZERO_DURATION_TYPES.has("bgNote"), true);
 	assert.equal(ZERO_DURATION_TYPES.has("comment"), true);

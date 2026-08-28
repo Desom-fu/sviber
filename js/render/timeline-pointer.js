@@ -256,6 +256,10 @@ export class TimelinePointerTrait {
 		return {
 			type: "box",
 			start: point,
+			// Content-space origin so edge-chase scrolling keeps the rubber-band corner fixed on the chart.
+			startSeconds: this._xToSeconds(point.x, layout.channels.width),
+			startChannelIndex:
+				(point.y - layout.channels.y) / layout.channelHeight + this.channelOffset,
 			channelId: channel?.id,
 			mode: rangeSelectMode(event),
 			playing,
@@ -399,20 +403,51 @@ export class TimelinePointerTrait {
 		if (!this.pointerMoved) {
 			return;
 		}
-		this.selectionBox ||= { x1: drag.start.x, y1: drag.start.y, x2: point.x, y2: point.y };
-		this.selectionBox.x2 = point.x;
-		this.selectionBox.y2 = point.y;
+		const previousBeginning = projectState(this.state).editor.visibleRangeBeginning;
+		const previousOffset = this.channelOffset;
 		this._chaseVisibleRange(point.x, layout.channels.width);
 		this._chaseChannels(point.y, layout);
-		const x1 = Math.min(this.selectionBox.x1, point.x);
-		const x2 = Math.max(this.selectionBox.x1, point.x);
-		const y1 = Math.min(this.selectionBox.y1, point.y);
-		const y2 = Math.max(this.selectionBox.y1, point.y);
-		const ids = this.eventCenters
+		const origin = this._selectionBoxOrigin(drag, layout);
+		this.selectionBox = { x1: origin.x, y1: origin.y, x2: point.x, y2: point.y };
+		const x1 = Math.min(origin.x, point.x);
+		const x2 = Math.max(origin.x, point.x);
+		const y1 = Math.min(origin.y, point.y);
+		const y2 = Math.max(origin.y, point.y);
+		// eventCenters are from the last paint; shift them by this frame's chase so the preview matches the box.
+		const centers = this._selectionCentersAfterChase(layout, previousBeginning, previousOffset);
+		const ids = centers
 			.filter(center => center.x >= x1 && center.x <= x2 && center.y >= y1 && center.y <= y2)
 			.map(center => center.event.id);
 		this.callbacks.onPreviewBoxSelect?.(ids, drag.mode);
 		this.requestRender();
+	}
+
+	// Map the press-time content origin back into the current viewport after chase scrolling.
+	_selectionBoxOrigin(drag, layout) {
+		const startSeconds =
+			drag.startSeconds ?? this._xToSeconds(drag.start.x, layout.channels.width);
+		const startChannelIndex =
+			drag.startChannelIndex ??
+			(drag.start.y - layout.channels.y) / layout.channelHeight + this.channelOffset;
+		return {
+			x: this._timeToX(startSeconds, layout.channels.width),
+			y: layout.channels.y + (startChannelIndex - this.channelOffset) * layout.channelHeight,
+		};
+	}
+
+	_selectionCentersAfterChase(layout, previousBeginning, previousOffset) {
+		const editor = projectState(this.state).editor;
+		const span = Math.max(0.001, editor.visibleRangeEnd - editor.visibleRangeBeginning);
+		const dx = ((previousBeginning - editor.visibleRangeBeginning) / span) * layout.channels.width;
+		const dy = (previousOffset - this.channelOffset) * layout.channelHeight;
+		if (!dx && !dy) {
+			return this.eventCenters;
+		}
+		return this.eventCenters.map(center => ({
+			...center,
+			x: center.x + dx,
+			y: center.y + dy,
+		}));
 	}
 
 	_moveScrollCurrent({ point, drag }) {
@@ -464,10 +499,12 @@ export class TimelinePointerTrait {
 			}
 		} else if (drag.type === "box") {
 			if (this.pointerMoved) {
-				const x1 = Math.min(drag.start.x, point.x);
-				const x2 = Math.max(drag.start.x, point.x);
-				const y1 = Math.min(drag.start.y, point.y);
-				const y2 = Math.max(drag.start.y, point.y);
+				const origin = this._selectionBoxOrigin(drag, layout);
+				const corner = this.selectionBox? { x: this.selectionBox.x2, y: this.selectionBox.y2 }: point;
+				const x1 = Math.min(origin.x, corner.x);
+				const x2 = Math.max(origin.x, corner.x);
+				const y1 = Math.min(origin.y, corner.y);
+				const y2 = Math.max(origin.y, corner.y);
 				this.callbacks.onBoxSelect?.(
 					this.eventCenters
 						.filter(center => center.x >= x1 && center.x <= x2 && center.y >= y1 && center.y <= y2)
