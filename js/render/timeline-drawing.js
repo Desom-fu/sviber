@@ -148,7 +148,9 @@ export class TimelineDrawingTrait {
 	// Events of every channel lane, painted in the layer order of the timeline so that the
 	// background events end up behind the notes.
 	_drawEvents(context, layout, project) {
-		const offsets = this._eventLaneOffsets(flattenEvents(project.events || [], false));
+		const offsets =
+			this.renderIndex?.eventLaneOffsets ||
+			this._eventLaneOffsets(flattenEvents(project.events || [], false));
 		const activeChannelIds =
 			this.renderIndex?.activeChannelIds ||
 			new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
@@ -294,9 +296,13 @@ export class TimelineDrawingTrait {
 		if (project.editor?.showGroupingInTimeline === false) {
 			return;
 		}
-		for (const group of flattenEvents(project.events || [], true).filter(
-			event => this.renderIndex?.isRootSelectedGroup(event) ?? (event.type === "group" && event.selected),
-		)) {
+		let groups = this.renderIndex?.selectedRootGroups;
+		if (!groups) {
+			groups = flattenEvents(project.events || [], true).filter(
+				event => event.type === "group" && event.selected,
+			);
+		}
+		for (const group of groups) {
 			const points = descendants(group)
 				.filter(event => event.type !== "group")
 				.map(event => {
@@ -360,7 +366,9 @@ export class TimelineDrawingTrait {
 	}
 
 	_drawTipPointLines(context, layout, project, now) {
-		const offsets = this._eventLaneOffsets(flattenEvents(project.events || [], false));
+		const offsets =
+			this.renderIndex?.eventLaneOffsets ||
+			this._eventLaneOffsets(flattenEvents(project.events || [], false));
 		const beginning = project.editor.visibleRangeBeginning;
 		const ending = project.editor.visibleRangeEnd;
 		if (project.editor?.showTipPoints === false) {

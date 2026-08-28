@@ -31,5 +31,6 @@ jobs:
           generate_release_notes: true
           files: |
             release/*.zip
+            release/*.dmg
             release/*.tar.gz
             release/*.nw

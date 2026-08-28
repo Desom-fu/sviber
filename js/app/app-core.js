@@ -578,6 +578,9 @@ export class SviberAppCore extends CoreShell {
 			],
 		});
 		if (!values) {
+			// Treat a deliberate rejection as handled so the same recovery is not offered
+			// again on the next startup; the snapshot itself remains available in history.
+			this.autosave.markManualSave();
 			return false;
 		}
 		const recovery = recoveries.find(entry => String(entry.timestamp) === String(values.recovery)) || recoveries[0];

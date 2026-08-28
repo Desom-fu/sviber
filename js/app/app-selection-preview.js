@@ -27,8 +27,7 @@ export class SelectionPreviewTrait {
 		}
 		this.cancelSelectionPreview();
 		const indexIsCurrent =
-			this.renderIndex?.eventSource === this.model.events &&
-			this.renderIndex.eventById.size === this.model.allEvents().length;
+			this.renderIndex?.eventSource === this.model.events && !this.renderQueued;
 		let eventById = this.renderIndex?.eventById;
 		if (!indexIsCurrent) {
 			eventById = new Map(this.model.allEvents().map(event => [event.id, event]));

@@ -4,7 +4,7 @@ import { TIMELINE_MODULES, readSources } from "./module-source.mjs";
 import { withEventEditing } from "../js/app/app-event-editing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
-import { timelineTipConnector } from "../js/render/timeline-helpers.js";
+import { timelineTipConnector, timelineTipSegments } from "../js/render/timeline-helpers.js";
 import { AB_LOOP_GRAB_DISTANCE, abLoopDragMarks, abLoopGrabIndex } from "../js/render/timeline-gestures.js";
 import { Rational } from "../js/core/rational.js";
 
@@ -110,6 +110,22 @@ test("timeline tip connector is fixed just beyond the largest event icon radius"
 	assert.equal(Math.hypot(connector[0].x - connector[1].x, connector[0].y - connector[1].y), 12);
 });
 
+test("timeline tip clipping only reads checkpoints around the visible time range", () => {
+	const values = Array.from({ length: 10000 }, (_, index) => ({ time: index, x: index, y: 0 }));
+	let reads = 0;
+	const checkpoints = new Proxy(values, {
+		get(target, property, receiver) {
+			if (property !== "length") {
+				reads += 1;
+			}
+			return Reflect.get(target, property, receiver);
+		},
+	});
+	const segments = timelineTipSegments(checkpoints, 5000, 5002);
+	assert.equal(segments.length, 4);
+	assert.ok(reads < 100, `expected logarithmic clipping reads, got ${reads}`);
+});
+
 // v18 reworked the Shift-drag A-B loop gesture: a press away from the marks starts a new pair
 // whose second mark only appears once the pointer reaches another subdivision, and a press on a
 // mark moves that one while the other stays put.
@@ -165,4 +181,11 @@ test("the manual documents the v18 A-B drag, volume ceiling, and saved clips and
 	assert.match(manual, /<code>fingers<\/code> for <code>requiredFingers<\/code>/);
 	assert.doesNotMatch(manual, /music volume defaults to 1 and uses a range slider from 0 to 1/);
 	assert.doesNotMatch(manual, /clears A-B marks and creates marks at mouse down and mouse up/);
+});
+
+test("timeline drawing reuses indexed lane offsets and selected groups during playback", async () => {
+	const source = await readSources(["../js/render/timeline-drawing.js"]);
+	assert.match(source, /this\.renderIndex\?\.eventLaneOffsets/);
+	assert.match(source, /this\.renderIndex\?\.selectedRootGroups/);
+	assert.match(source, /_drawTipPointLines[\s\S]*this\.renderIndex\?\.eventLaneOffsets/);
 });

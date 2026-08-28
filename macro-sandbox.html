@@ -6,6 +6,7 @@
 </head>
 <body>
 	<script src="js/boot/ruby-loader.js"></script>
-	<script type="module" src="js/macro/macro-sandbox.js"></script>
+	<!-- The sandbox has an opaque origin, so its classic bundled entry avoids module CORS checks. -->
+	<script src="js/macro/macro-sandbox.bundle.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 # Sviber v18 实现说明
 
-本文逐项对应 `PROMPT-v17.md` 与 `PROMPT-v18.md` 的 diff，记录到 v0.9.0 的代码、配置、测试与帮助文档改动。写完后又逐行复查了一遍 v17/v18 diff，逐条确认落地。
+本文逐项对应 `PROMPT-v17.md` 与 `PROMPT-v18.md` 的 diff，记录到 v0.9.1 的代码、配置、测试与帮助文档改动。写完后又逐行复查了一遍 v17/v18 diff，逐条确认落地。
 
 v17 → v18 的 diff 只有四处（`diff PROMPT-v17.md PROMPT-v18.md` 共 52 行）：波形上 `Shift` 拖动的 A-B 循环手势重写、音乐音量上限、`sviber` 顶层字段补 `clips` 与 `checks`、以及新增 `checks` 字段一节。除此之外本次发布还修掉了九个报告的可用性 bug，并按 有丘直方 的要求重整了 `js/` 与 `tests/` 的目录结构。
 
@@ -77,9 +77,9 @@ v17 的行为是"清除现有标记，在按下处和松开处各建一个"。v1
 
 ## 版本与缓存
 
-- `package.json` / `package-lock.json`：`0.9.0`。
-- `service-worker.js`：`CACHE_VERSION = "sviber-v0900"`，shell 列表补 `./js/boot/manifest-link.js`，`app.js` 的 cache-bust 同步到 `?v=45`。
-- `index.html`：`js/app/app.js?v=45`。
+- `package.json` / `package-lock.json`：`0.9.1`。
+- `service-worker.js`：`CACHE_VERSION = "sviber-v0910"`，shell 列表补 `./js/boot/manifest-link.js`，`app.js` 的 cache-bust 同步到 `?v=46`。
+- `index.html`：`js/app/app.js?v=46`。
 - 一次性的迁移脚本（`scripts/reorganize-*.mjs`）用完即删，没有进仓库。
 
 ## 验收

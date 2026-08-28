@@ -249,8 +249,36 @@ export function timelineTipSegments(checkpoints, beginning, ending) {
 			y: from.y + (to.y - from.y) * progress,
 		};
 	};
+	const lowerBound = target => {
+		let low = 0;
+		let high = checkpoints.length;
+		while (low < high) {
+			const middle = (low + high) >> 1;
+			if (checkpoints[middle].time < target) {
+				low = middle + 1;
+			} else {
+				high = middle;
+			}
+		}
+		return low;
+	};
+	const upperBound = target => {
+		let low = 0;
+		let high = checkpoints.length;
+		while (low < high) {
+			const middle = (low + high) >> 1;
+			if (checkpoints[middle].time <= target) {
+				low = middle + 1;
+			} else {
+				high = middle;
+			}
+		}
+		return low;
+	};
 	const segments = [];
-	for (let index = 0; index + 1 < checkpoints.length; index += 1) {
+	const first = Math.max(0, lowerBound(beginning) - 1);
+	const last = Math.min(checkpoints.length - 1, upperBound(ending));
+	for (let index = first; index < last; index += 1) {
 		const from = checkpoints[index];
 		const to = checkpoints[index + 1];
 		const fromVisible = from.time >= beginning && from.time <= ending;

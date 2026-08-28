@@ -10,7 +10,7 @@ The [help manual](docs/index.html) is the authoritative user guide, including th
 
 Download the appropriate archive from [GitHub Releases](https://github.com/Desom-fu/sviber/releases), extract the complete archive, and run the included sviber executable. Keep the executable and all neighboring runtime files together.
 
-Release builds are architecture-specific: Windows provides x86, x86_64, and aarch64 ZIP archives; macOS provides x86_64 and aarch64 ZIP archives; Linux provides x86_64 and aarch64 `tar.gz` archives. A runtime-free `.nw` package is also available for an existing NW.js installation.
+Release builds are architecture-specific: Windows provides x86, x86_64, and aarch64 ZIP archives; macOS provides x86_64 and aarch64 DMG images; Linux provides x86_64 and aarch64 `tar.gz` archives. A runtime-free `.nw` package is also available for an existing NW.js installation.
 
 ## Run from source in a browser
 

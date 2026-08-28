@@ -25,8 +25,9 @@ function abs(value) {
 	return Math.abs(Number(value) || 0);
 }
 
-function sgn(value) {
-	return Number(value) > 0 ? 1 : -1;
+export function sgn(value) {
+	const number = Number(value);
+	return number > 0 ? 1 : number < 0 ? -1 : 0;
 }
 
 function hashSeed(seed) {

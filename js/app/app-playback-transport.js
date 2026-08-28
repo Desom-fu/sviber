@@ -168,7 +168,9 @@ function bindPlaybackJumps(app) {
 		app._scheduleHits(time, 0);
 	});
 	app.audio.addEventListener("seek", () => {
-		app.stage.cancelScheduledHits();
+		if (app.audio.playing) {
+			app.stage.cancelScheduledHits();
+		}
 		clearScheduledSounds(app);
 		if (!app.audio.playing) {
 			return;
@@ -311,8 +313,10 @@ export const withPlaybackTransport = Base =>
 			const view = this.viewState();
 			this.timeline.setState(view);
 			this.stage.setState(view);
-			this.scrollView.setState(view);
-			this._updateStatus();
+			// The scroll view is a secondary overview; updating it every other frame keeps
+			// the playhead visible while leaving the main field and timeline at full rate.
+			this.scrollView.setState(view, { render: (this.playbackFrameCount || 0) % 2 === 0 });
+			this._updatePlaybackStatus?.();
 			this.playbackFrameCount = (this.playbackFrameCount || 0) + 1;
 		}
 

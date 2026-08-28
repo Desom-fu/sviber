@@ -241,6 +241,11 @@ test("view-only commits do not cancel playback hits", () => {
 	assert.equal(app.full, undefined);
 });
 
+test("paused seeks do not repaint hit particles", async () => {
+	const transport = await readFile(new URL("../js/app/app-playback-transport.js", import.meta.url), "utf8");
+	assert.match(transport, /if \(app\.audio\.playing\) \{[\s\S]*?app\.stage\.cancelScheduledHits\(\);[\s\S]*?\}/);
+});
+
 test("stopping playback keeps a visible range locked after playback starts", () => {
 	const app = {
 		playbackScheduleInvalidated: true,

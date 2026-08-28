@@ -44,6 +44,7 @@ export {
 	deterministicSpawnCandidates,
 	evaluateLyricaSpawn,
 	isLyricaFirstTipEvent,
+	sgn,
 } from "./lyrica-spawn.js";
 
 export { importLyricaChart, interpretLyricaEvent } from "./lyrica-import.js";

@@ -16,6 +16,7 @@ import {
 	parseLyricaChart,
 	parseLyricaEvent,
 	parseLyricaHeader,
+	sgn,
 } from "../js/core/lyrica.js";
 import { TimingMap } from "../js/core/timing.js";
 
@@ -87,6 +88,13 @@ const SAMPLE = [
 	"#4",
 	"",
 ].join("\n");
+
+test("Lyrica sign helper follows the documented -1, 0, 1 convention", () => {
+	assert.equal(sgn(-4), -1);
+	assert.equal(sgn(0), 0);
+	assert.equal(sgn("0"), 0);
+	assert.equal(sgn(7), 1);
+});
 
 // Every exported chain head repeats the same relative spawn fields; only its position, distance
 // and angle change, so the fixture below builds them from one shape.

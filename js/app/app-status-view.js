@@ -172,6 +172,12 @@ export const withStatusView = Base =>
 			renderOperationStatus(this);
 		}
 
+		_updatePlaybackStatus() {
+			const seconds = this.currentSeconds();
+			renderTimeReadouts(this, seconds);
+			renderComments(this, seconds);
+		}
+
 		requestStatusUpdate() {
 			if (this.statusUpdateFrame) {
 				return;

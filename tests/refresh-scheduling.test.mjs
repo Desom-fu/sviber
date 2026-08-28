@@ -38,7 +38,12 @@ test("drops bgNote angle and avoids long-session full snapshots/refreshes", asyn
 		assert.doesNotMatch(source, /JSON\.stringify\((?:this|app)\.model\.snapshot\(\)\)/);
 	}
 	assert.match(transport, /\.audio\.addEventListener\("play"[\s\S]*\.refreshPlaybackFrame\(\)/);
+	assert.match(transport, /refreshPlaybackFrame\(\)[\s\S]*?_updatePlaybackStatus\?\.\(\)/);
 	assert.doesNotMatch(editing, /JSON\.stringify\(this\.model\.snapshot\(\)\)/);
+	assert.doesNotMatch(
+		await readFile(new URL("../js/app/app-selection-preview.js", import.meta.url), "utf8"),
+		/renderIndex\.eventById\.size === this\.model\.allEvents\(\)\.length/,
+	);
 	assert.match(stage, /_canReuseStaticLayer/);
 	assert.match(stage, /snappeePaths\?\.get\(snappee\)/);
 	assert.match(index, /this\.snappeePaths = new Map\(\)/);

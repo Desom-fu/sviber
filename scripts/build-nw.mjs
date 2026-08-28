@@ -9,6 +9,7 @@ import JSZip from "jszip";
 import nwbuild from "nw-builder";
 import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
+import { bundleMacroSandbox } from "./macro-sandbox-bundle.cjs";
 import { builderApplicationOptions, PACKAGED_WINDOW_ICON } from "./nw-build-config.mjs";
 
 const { bundleAudioDecoder: bundleAudioDecoderFile } = decoderBundler;
@@ -426,6 +427,7 @@ async function copyApplication() {
 	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), {
 		minify: true,
 	});
+	await bundleMacroSandbox(path.join(applicationDirectory, "js", "macro", "macro-sandbox.bundle.js"));
 	await generatePackagedIcons(applicationDirectory, TARGET_PLATFORM);
 	await verifyPackagedFontCss(applicationDirectory);
 

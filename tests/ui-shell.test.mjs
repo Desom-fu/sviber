@@ -24,7 +24,8 @@ test("layout toggles preserve the stage grid slot when hiding a side", async () 
 });
 
 test("UI uses icon controls, sliders, fullscreen, read-only macros, and PWA caching", async () => {
-	const [index, styles, fields, core, shortcuts, macros, bridge, manifestText, worker] = await Promise.all([
+	const [index, styles, fields, core, shortcuts, macros, bridge, manifestText, worker, sandboxHtml] =
+		await Promise.all([
 		readFile(new URL("../index.html", import.meta.url), "utf8"),
 		readFile(new URL("../css/app-v11.css", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui/ui-fields.js", import.meta.url), "utf8"),
@@ -34,6 +35,7 @@ test("UI uses icon controls, sliders, fullscreen, read-only macros, and PWA cach
 		readFile(new URL("../js/app/app-macro-bridge.js", import.meta.url), "utf8"),
 		readFile(new URL("../manifest.webmanifest", import.meta.url), "utf8"),
 		readFile(new URL("../service-worker.js", import.meta.url), "utf8"),
+		readFile(new URL("../macro-sandbox.html", import.meta.url), "utf8"),
 	]);
 	for (const id of [
 		"lock-visible-range",
@@ -59,4 +61,6 @@ test("UI uses icon controls, sliders, fullscreen, read-only macros, and PWA cach
 	assert.match(worker, /json\/i18n\.en-US\.json/);
 	assert.match(worker, /json\/i18n\.zh-CN\.json/);
 	assert.match(worker, /js\/ui\/ui-layout\.js/);
+	assert.match(worker, /js\/macro\/macro-sandbox\.bundle\.js/);
+	assert.match(sandboxHtml, /macro-sandbox\.bundle\.js/);
 });

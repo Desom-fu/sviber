@@ -10,7 +10,7 @@ sviber 是面向 [Sunniesnow](https://sunniesnow.github.io/game-unstable) 的浏
 
 从 [GitHub Releases](https://github.com/Desom-fu/sviber/releases) 下载适合当前平台和架构的压缩包，完整解压后运行其中的 sviber 可执行文件。请把可执行文件与同目录的全部运行库文件保留在一起。
 
-发行构建按架构分别打包：Windows 提供 x86、x86_64 和 aarch64 ZIP，macOS 提供 x86_64 和 aarch64 ZIP，Linux 提供 x86_64 和 aarch64 的 `tar.gz`；另外还提供可交给现有 NW.js 运行时打开的 `.nw` 包。
+发行构建按架构分别打包：Windows 提供 x86、x86_64 和 aarch64 ZIP，macOS 提供 x86_64 和 aarch64 DMG 镜像，Linux 提供 x86_64 和 aarch64 的 `tar.gz`；另外还提供可交给现有 NW.js 运行时打开的 `.nw` 包。
 
 ## 在浏览器中从源码运行
 

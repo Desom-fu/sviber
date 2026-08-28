@@ -5,12 +5,14 @@ import { STAGE_NOTE_MODULES, readSources } from "./module-source.mjs";
 import { AFFINE_MATRIX_GRID } from "../js/core/geometry.js";
 
 test("documentation and release metadata describe the current v10 behavior", async () => {
-	const [manual, readme, readmeZh, rubyApi, sandbox] = await Promise.all([
+	const [manual, readme, readmeZh, rubyApi, sandbox, sandboxHtml, sandboxBundle] = await Promise.all([
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../README.md", import.meta.url), "utf8"),
 		readFile(new URL("../README.zh-CN.md", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro/macro-api.rb", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro/macro-sandbox.js", import.meta.url), "utf8"),
+		readFile(new URL("../macro-sandbox.html", import.meta.url), "utf8"),
+		readFile(new URL("../js/macro/macro-sandbox.bundle.js", import.meta.url), "utf8"),
 	]);
 	assert.match(manual, /same sound and level; there is no strong-beat\/weak-beat accent/);
 	assert.match(manual, /相对最近小节线为整数拍的位置/);
@@ -22,6 +24,9 @@ test("documentation and release metadata describe the current v10 behavior", asy
 	assert.match(rubyApi, /def puts\(\*values\)/);
 	assert.match(sandbox, /SviberMacroInternals\.load_json/);
 	assert.match(sandbox, /consolePrint: false/);
+	assert.match(sandboxHtml, /macro-sandbox\.bundle\.js/);
+	assert.doesNotMatch(sandboxHtml, /type="module"[^>]+macro-sandbox\.js/);
+	assert.match(sandboxBundle, /parent\.postMessage/);
 });
 
 test("Scroll View, manual, and release notes describe the implemented behavior", async () => {
@@ -47,8 +52,8 @@ test("Scroll View, manual, and release notes describe the implemented behavior",
 	assert.doesNotMatch(manualScript, /node\.hidden = !matched/);
 	assert.match(manualScript, /searchLabels/);
 	assert.match(manualStyles, /#manual-search-input/);
-	assert.match(readme, /macOS provides x86_64 and aarch64 ZIP archives/);
-	assert.match(readmeZh, /macOS 提供 x86_64 和 aarch64 ZIP/);
+	assert.match(readme, /macOS provides x86_64 and aarch64 DMG images/);
+	assert.match(readmeZh, /macOS 提供 x86_64 和 aarch64 DMG/);
 });
 
 test("manual documents only the prompt macro surface in both languages", async () => {

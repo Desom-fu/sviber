@@ -23,6 +23,7 @@ export default [
 			"assets/**",
 			"test-results/**",
 			"js/audio/audio-decode.bundle.js",
+			"js/macro/macro-sandbox.bundle.js",
 			"js/macro/macro-api.rb",
 		],
 	},

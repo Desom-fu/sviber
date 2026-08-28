@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 import { withHistoryCommands } from "../js/app/app-history-commands.js";
@@ -37,6 +38,14 @@ test("discarding startup recovery does not mark a manual save", () => {
 	manager.markManualSave();
 	assert.equal(manager.recoverable().length, 0);
 	assert.equal(manager.listed().length, 1);
+});
+
+test("startup recovery rejection is recorded without deleting the snapshot", async () => {
+	const source = await readFile(
+		new URL("../js/app/app-core.js", import.meta.url),
+		"utf8",
+	);
+	assert.match(source, /if \(!values\) \{[\s\S]*?this\.autosave\.markManualSave\(\);/);
 });
 
 test("applyAutosaveRecovery reopens the full project before overlaying the chart", async () => {

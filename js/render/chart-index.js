@@ -100,6 +100,7 @@ export class ChartRenderIndex {
 		this.stageSelectedEvents = new Set(
 			this.activeEventRecords.filter(record => this.isEventSelected(record.event)).map(record => record.event),
 		);
+		this.selectedRootGroups = this.flatEvents.filter(event => this.isRootSelectedGroup(event));
 	}
 
 	// One interval index per kind of query a frame performs. They differ only in which
@@ -395,6 +396,7 @@ export class ChartRenderIndex {
 				.filter(record => this.isEventSelected(record.event) && record.event.type !== "comment")
 				.map(record => record.event),
 		);
+		this.selectedRootGroups = this.flatEvents.filter(event => this.isRootSelectedGroup(event));
 	}
 
 	replaceSelection(events) {
@@ -407,6 +409,7 @@ export class ChartRenderIndex {
 		this.stageSelectedEvents = new Set(
 			this.selectedEvents.filter(event => this._isActive(event) && event.type !== "comment"),
 		);
+		this.selectedRootGroups = this.flatEvents.filter(event => this.isRootSelectedGroup(event));
 	}
 
 	removeEvents(events) {
