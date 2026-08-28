@@ -53,7 +53,7 @@ import {
 	selectedEvents,
 	pointInPolygon,
 } from "./stage-helpers.js";
-import { composeTraits } from "../mixin.js";
+import { composeTraits } from "../core/mixin.js";
 import {
 	drawFlickArrow,
 	drawHoldHalo,

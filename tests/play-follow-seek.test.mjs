@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { SviberAppCore } from "../js/app-core.js";
+import { SviberAppCore } from "../js/app/app-core.js";
 
 function bindAudioListeners(app) {
 	const listeners = new Map();

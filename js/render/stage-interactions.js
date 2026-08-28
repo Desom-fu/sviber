@@ -1,4 +1,4 @@
-import { composeTraits } from "../mixin.js";
+import { composeTraits } from "../core/mixin.js";
 import { StageHudTrait } from "./stage-hud.js";
 import { StagePointerTrait } from "./stage-pointer.js";
 import { StageTransformDragTrait } from "./stage-transform-drag.js";

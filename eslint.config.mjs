@@ -23,7 +23,7 @@ export default [
 			"assets/**",
 			"test-results/**",
 			"js/audio/audio-decode.bundle.js",
-			"js/macro-api.rb",
+			"js/macro/macro-api.rb",
 		],
 	},
 	{
@@ -71,7 +71,7 @@ export default [
 		rules: sharedRules,
 	},
 	{
-		files: ["js/cli-main.js", "scripts/**/*.cjs"],
+		files: ["js/cli/cli-main.js", "scripts/**/*.cjs"],
 		languageOptions: { sourceType: "commonjs" },
 		rules: sharedRules,
 	},

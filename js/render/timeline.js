@@ -28,7 +28,7 @@ import {
 	timingFor,
 } from "./timeline-helpers.js";
 export { timelineTipConnector } from "./timeline-helpers.js";
-import { installTraitMembers } from "../mixin.js";
+import { installTraitMembers } from "../core/mixin.js";
 import { TimelineDrawingTrait } from "./timeline-drawing.js";
 import { TimelinePointerTrait } from "./timeline-pointer.js";
 import {

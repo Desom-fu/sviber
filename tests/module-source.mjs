@@ -26,21 +26,21 @@ export const TIMELINE_MODULES = [
 ];
 
 export const EVENT_EDITING_MODULES = [
-	"../js/app-event-editing.js",
-	"../js/app-view-callbacks.js",
-	"../js/app-selection.js",
-	"../js/app-selection-preview.js",
-	"../js/app-stage-move-exception.js",
-	"../js/app-timeline-navigation.js",
-	"../js/app-event-move.js",
-	"../js/app-position-move.js",
-	"../js/app-group-anchor-move.js",
-	"../js/app-tip-spawn-move.js",
-	"../js/app-snappee-drag.js",
-	"../js/app-transform-targets.js",
-	"../js/app-selection-transform.js",
-	"../js/app-property-editing.js",
-	"../js/app-tip-point-modes.js",
+	"../js/app/app-event-editing.js",
+	"../js/app/app-view-callbacks.js",
+	"../js/app/app-selection.js",
+	"../js/app/app-selection-preview.js",
+	"../js/app/app-stage-move-exception.js",
+	"../js/app/app-timeline-navigation.js",
+	"../js/app/app-event-move.js",
+	"../js/app/app-position-move.js",
+	"../js/app/app-group-anchor-move.js",
+	"../js/app/app-tip-spawn-move.js",
+	"../js/app/app-snappee-drag.js",
+	"../js/app/app-transform-targets.js",
+	"../js/app/app-selection-transform.js",
+	"../js/app/app-property-editing.js",
+	"../js/app/app-tip-point-modes.js",
 ];
 
 export async function readSources(modules) {

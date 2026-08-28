@@ -17,7 +17,7 @@ import {
 	normalizeProjectManifest,
 	projectManagedFiles,
 } from "../js/core/project.js";
-import { FileManager } from "../js/platform.js";
+import { FileManager } from "../js/platform/platform.js";
 
 function restoreGlobal(name, value) {
 	if (value === undefined) {

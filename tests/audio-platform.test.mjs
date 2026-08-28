@@ -14,14 +14,14 @@ import { AudioPlayer, createSunniesnowHitSamples } from "../js/audio/player.js";
 import { collectHitSchedule, collectHoldReleaseSchedule, collectIndexedHitSchedule } from "../js/audio/scheduler.js";
 import { TimingMap } from "../js/core/timing.js";
 import { ChartModel } from "../js/core/chart-model.js";
-import { AutosaveManager } from "../js/platform.js";
+import { AutosaveManager } from "../js/platform/platform.js";
 import {
 	hitAudioTime,
 	playbackLoopCycle,
 	playbackLateTolerance,
 	playbackOriginBound,
 	markHitsBeforePlaybackOrigin,
-} from "../js/app-playback-scheduling.js";
+} from "../js/app/app-playback-scheduling.js";
 
 function wavBytes(sampleRate = 8000, sampleCount = 800) {
 	const buffer = new ArrayBuffer(44 + sampleCount * 2);
@@ -104,7 +104,7 @@ test("audio-decode uses the versioned CDN on web and the bundled module in NW.js
 	assert.ok(buffer.getChannelData(0).some(sample => sample !== 0));
 });
 
-test("audio volumes clamp SE to 0-2 and music to 0-1", () => {
+test("audio volumes clamp SE and music to 0-2", () => {
 	const player = new AudioPlayer();
 	player.setSeVolume(2.5);
 	player.setMusicVolume(-0.5);
@@ -112,8 +112,11 @@ test("audio volumes clamp SE to 0-2 and music to 0-1", () => {
 	assert.equal(player.musicVolume, 0);
 	player.setSeVolume(1.55);
 	assert.equal(player.seVolume, 1.55);
+	// v18 raises the music volume ceiling to 2, matching the SE volume.
 	player.setMusicVolume(1.5);
-	assert.equal(player.musicVolume, 1);
+	assert.equal(player.musicVolume, 1.5);
+	player.setMusicVolume(2.5);
+	assert.equal(player.musicVolume, 2);
 	player.setSeVolume("nope");
 	assert.equal(player.seVolume, 1.55);
 });
@@ -122,12 +125,12 @@ test("source NW.js startup prepares the same local decoder bundle", async () => 
 	const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
 	assert.equal(packageJson["sviber-source"], true);
 	const index = await readFile(new URL("../index.html", import.meta.url), "utf8");
-	const bootstrap = await readFile(new URL("../js/nw-source-bootstrap.js", import.meta.url), "utf8");
+	const bootstrap = await readFile(new URL("../js/boot/nw-source-bootstrap.js", import.meta.url), "utf8");
 	const buildScript = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
 	assert.match(bootstrap, /sviberSourcePreparation/);
 	assert.match(bootstrap, /bundleAudioDecoder\(/);
 	assert.doesNotMatch(bootstrap, /bundleAudioDecoderSync/);
-	assert.ok(index.indexOf("js/nw-source-bootstrap.js") < index.indexOf("js/app.js"));
+	assert.ok(index.indexOf("js/boot/nw-source-bootstrap.js") < index.indexOf("js/app/app.js"));
 	assert.match(buildScript, /bundleAudioDecoderFile/);
 });
 
@@ -812,7 +815,7 @@ test("service worker returns Response.error on an uncached offline CDN request",
 });
 
 test("new charts are explicitly left dirty", async () => {
-	const source = await readFile(new URL("../js/app-document-lifecycle.js", import.meta.url), "utf8");
+	const source = await readFile(new URL("../js/app/app-document-lifecycle.js", import.meta.url), "utf8");
 	const newChart = source.slice(
 		source.indexOf("async newProject(options = {})"),
 		source.indexOf("async showChartProperties"),

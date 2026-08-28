@@ -82,6 +82,16 @@
 	gap: 5px;
 }
 
+/* v18: a field with no label (the `details` parameter groups of "Automatic timing...")
+   occupies the whole width instead of the narrow label column. */
+.dialog-field.is-full {
+	grid-template-columns: minmax(0, 1fr);
+}
+
+.dialog-field.is-full > .dialog-details {
+	min-width: 0;
+}
+
 .dialog-field .field-help,
 .validation-message {
 	color: var(--text-muted);

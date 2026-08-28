@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { withHistoryCommands } from "../js/app-history-commands.js";
+import { withHistoryCommands } from "../js/app/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
-import { AutosaveManager } from "../js/platform.js";
+import { AutosaveManager } from "../js/platform/platform.js";
 
 class MemoryStorage {
 	constructor() {

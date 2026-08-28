@@ -1,0 +1,75 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+import { STAGE_NOTE_MODULES, readSources } from "./module-source.mjs";
+import { withChartTools } from "../js/app/app-chart-tools.js";
+import { withHistoryCommands } from "../js/app/app-history-commands.js";
+import { ChartModel } from "../js/core/chart-model.js";
+import { History } from "../js/core/history.js";
+
+test("curve-draft overlay is painted onto an offscreen static layer instead of copying the live canvas", async () => {
+	const [core, notes] = await Promise.all([
+		readFile(new URL("../js/render/stage-core.js", import.meta.url), "utf8"),
+		readSources(STAGE_NOTE_MODULES),
+	]);
+	assert.match(core, /_ensureStaticLayer\(width, height\)/);
+	assert.match(core, /const scene = draft \? this\._ensureStaticLayer\(width, height\) : context;/);
+	assert.doesNotMatch(core, /drawImage\(context\.canvas/);
+	assert.doesNotMatch(core, /_captureStaticLayer/);
+	assert.match(notes, /draft\.type === "bezierCurve"/);
+	assert.match(notes, /draft\.type === "circularArcCurve"/);
+	assert.match(notes, /draft\.type === "penCurve"/);
+	assert.match(notes, /_drawCurveDraft\(context, mapping\)/);
+});
+
+test("undoing a bezier control point restores the previous curve draft", () => {
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+			},
+		),
+	);
+	const app = new App();
+	app.model = ChartModel.createDefault();
+	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
+	app.freeTransform = null;
+	app.creationMode = null;
+	app.startCurveDraft("bezierCurve");
+	app.addCurvePoint({ x: -20, y: 0 });
+	app.addCurvePoint({ x: 0, y: 10 });
+	const twoPoints = app.curveDraft.points.map(point => ({ ...point }));
+	app.addCurvePoint({ x: 20, y: 0 });
+	assert.equal(app.curveDraft.type, "bezierCurve");
+	assert.equal(app.curveDraft.points.length, 3);
+	app.undo();
+	assert.equal(app.curveDraft.points.length, 2);
+	assert.deepEqual(app.curveDraft.points, twoPoints);
+	app.startCurveDraft("circularArcCurve");
+	app.addCurvePoint({ x: 0, y: 0 });
+	app.addCurvePoint({ x: 10, y: 0 });
+	assert.equal(app.curveDraft.points.length, 2);
+	app.undo();
+	assert.equal(app.curveDraft.type, "circularArcCurve");
+	assert.equal(app.curveDraft.points.length, 1);
+});

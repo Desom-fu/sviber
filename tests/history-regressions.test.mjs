@@ -4,9 +4,9 @@ import test from "node:test";
 import { History, captureHistoryView } from "../js/core/history.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
-import { withHistoryCommands } from "../js/app-history-commands.js";
-import { withFreeTransform } from "../js/app-free-transform.js";
-import { withChartTools } from "../js/app-chart-tools.js";
+import { withHistoryCommands } from "../js/app/app-history-commands.js";
+import { withFreeTransform } from "../js/app/app-free-transform.js";
+import { withChartTools } from "../js/app/app-chart-tools.js";
 
 test("History view restores the snapped beat mode and visible time range between patches", () => {
 	const base = {
@@ -240,7 +240,7 @@ test("restoreHistorySnapshot seeks audio to the restored current seconds", async
 			},
 		},
 	};
-	const { SviberAppCore } = await import("../js/app-core.js");
+	const { SviberAppCore } = await import("../js/app/app-core.js");
 	SviberAppCore.prototype.restoreHistorySnapshot.call(app, snapshot);
 	assert.deepEqual(app.model.editor.currentTime, [4, 0, 1]);
 	assert.deepEqual(seekTimes, [2]);

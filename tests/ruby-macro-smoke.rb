@@ -1,4 +1,4 @@
-require_relative "../js/macro-api.rb"
+require_relative "../js/macro/macro-api.rb"
 $stdout = STDOUT
 $stderr = STDERR
 

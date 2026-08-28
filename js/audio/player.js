@@ -224,7 +224,8 @@ export class AudioPlayer extends EventTarget {
 		if (!Number.isFinite(parsed)) {
 			return;
 		}
-		this.musicVolume = Math.max(0, Math.min(1, parsed));
+		// v18 raises the music volume ceiling to 2, matching the SE volume.
+		this.musicVolume = Math.max(0, Math.min(2, parsed));
 		if (this.gain) {
 			this.gain.gain.value = this.musicVolume;
 		}

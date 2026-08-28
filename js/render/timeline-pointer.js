@@ -2,7 +2,7 @@ import { Rational } from "../core/rational.js";
 import { descendants, eventTime, flattenEvents } from "../core/grouping.js";
 import { eventClickSelectionMode } from "./selection.js";
 import { TIMELINE_DURATION_TYPES as DURATION_TYPES, projectState } from "./timeline-helpers.js";
-import { abLoopMarks, bpmFromDrag, offsetFromDrag } from "./timeline-gestures.js";
+import { abLoopDragMarks, abLoopGrabIndex, bpmFromDrag, offsetFromDrag } from "./timeline-gestures.js";
 
 // Pointer handling of the timeline: hit testing its widgets, the press, drag and release
 // cycle that seeks, moves events, stretches durations, drags the scrollbars, marks an A-B
@@ -128,8 +128,10 @@ export class TimelinePointerTrait {
 			return { type: "channel-scroll", hit, start: point, offset: this.channelOffset };
 		}
 		if (point.y < layout.waveform.height) {
-			this._waveformPointerDown(event, point, project, layout, playing);
-			return null;
+			// v18 fix: the waveform press builds its own drag (seek, A-B loop or offset
+			// adjustment). Returning it is what makes `_pointerDown` listen for the move and
+			// release events, so the current time follows the pointer and snaps when let go.
+			return this._waveformPointerDown(event, point, project, layout, playing);
 		}
 		if (point.y < layout.scroll.y) {
 			return this._channelLanePressDrag(event, context);
@@ -260,21 +262,39 @@ export class TimelinePointerTrait {
 		};
 	}
 
+	// Returns the drag the press starts so that `_timelineDrag` can hand it to `_pointerDown`.
 	_waveformPointerDown(event, point, project, layout, playing) {
 		const seconds = this._xToSeconds(point.x, layout.waveform.width);
 		if (event.shiftKey && !playing) {
-			const beat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
-			this.drag = { type: "ab-loop", start: point, firstBeat: beat };
-			this.callbacks.onAbLoopMarks?.(abLoopMarks(beat, null), false);
-			return;
+			return this._abLoopPointerDown(point, project, layout, seconds);
 		}
 		if (this.offsetAdjustment && !event.altKey && !playing) {
-			this._offsetAdjustPointerDown(event, point, project, seconds);
-			return;
+			return this._offsetAdjustPointerDown(event, point, project, seconds);
 		}
-		this.drag = { type: "seek", start: point };
 		this.callbacks.onSeekStart?.();
 		this._seekAt(point.x);
+		return { type: "seek", start: point };
+	}
+
+	// v18: Shift-pressing the waveform either grabs the A-B loop mark under the pointer and
+	// moves it, or starts a fresh pair at the pressed subdivision. Either way the mark that
+	// follows the pointer is the one that is not the anchor, so the drag and the release share
+	// one code path.
+	_abLoopPointerDown(point, project, layout, seconds) {
+		const existing = (Array.isArray(project.editor.abLoopMarks) ? project.editor.abLoopMarks : [])
+			.slice(0, 2)
+			.map(mark => Rational.from(mark));
+		const grabbed = abLoopGrabIndex(
+			existing.map(mark => this.timing.beatToSeconds(mark)),
+			point.x,
+			value => this._timeToX(value, layout.waveform.width),
+		);
+		const beat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
+		// Grabbing a mark keeps the other one as the anchor; pressing elsewhere throws away a
+		// complete pair and makes the pressed subdivision the anchor of a new one.
+		const anchor = grabbed == null ? beat : (existing.find((_, index) => index !== grabbed) ?? null);
+		this.callbacks.onAbLoopMarks?.(abLoopDragMarks(anchor, beat), false);
+		return { type: "ab-loop", start: point, anchorBeat: anchor, movingBeat: beat, grabbed: grabbed != null };
 	}
 
 	_offsetAdjustPointerDown(event, point, project, seconds) {
@@ -282,13 +302,13 @@ export class TimelinePointerTrait {
 		const beatNumber = timing.secondsToBeatNumber(seconds);
 		const nearestBeat = Math.round(beatNumber);
 		if (!event.ctrlKey) {
-			this.drag = { type: "offset-adjust", start: point, startSeconds: seconds, offset: timing.offset };
-			return;
+			return { type: "offset-adjust", start: point, startSeconds: seconds, offset: timing.offset };
 		}
 		const changes = timing.bpmChanges.filter(change => change.time.toNumber() <= nearestBeat);
 		const anchorBeat = changes.length ? changes.at(-1).time.toNumber() : 0;
 		const distance = nearestBeat - anchorBeat;
-		this.drag = {
+		this.callbacks.onSeekStart?.();
+		return {
 			type: "bpm-adjust",
 			start: point,
 			anchorSeconds: timing.beatToSeconds(anchorBeat),
@@ -296,7 +316,6 @@ export class TimelinePointerTrait {
 			bpm: timing.bpmAtBeat(nearestBeat),
 			changeBeat: changes.length ? changes.at(-1).time.toJSON() : null,
 		};
-		this.callbacks.onSeekStart?.();
 	}
 
 	_pointerMove(event) {
@@ -325,13 +344,14 @@ export class TimelinePointerTrait {
 		this._seekAt(point.x);
 	}
 
-	// Dragging with Shift over the waveform marks an A-B loop; the view follows the pointer
-	// when it reaches the edge of the visible range.
+	// Dragging with Shift over the waveform moves one A-B loop mark; the view follows the
+	// pointer when it reaches the edge of the visible range. v18: the moving mark may pass the
+	// anchor, and the second mark only exists once the pointer reaches another subdivision.
 	_moveAbLoop({ point, project, layout, drag }) {
 		const seconds = this._xToSeconds(point.x, layout.waveform.width);
 		const beat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
-		drag.secondBeat = beat;
-		this.callbacks.onAbLoopMarks?.(abLoopMarks(drag.firstBeat, beat), false);
+		drag.movingBeat = beat;
+		this.callbacks.onAbLoopMarks?.(abLoopDragMarks(drag.anchorBeat, beat), false);
 		this._chaseVisibleRange(point.x, layout.waveform.width);
 	}
 
@@ -463,8 +483,9 @@ export class TimelinePointerTrait {
 			}
 		} else if (drag.type === "ab-loop") {
 			const seconds = this._xToSeconds(point.x, layout.waveform.width);
-			const secondBeat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
-			this.callbacks.onAbLoopMarks?.(abLoopMarks(drag.firstBeat, secondBeat), true);
+			const movingBeat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
+			// v18: when the moved mark ends up on the other mark, only one mark remains.
+			this.callbacks.onAbLoopMarks?.(abLoopDragMarks(drag.anchorBeat, movingBeat), true);
 		} else if (drag.type === "offset-adjust") {
 			const seconds = this._xToSeconds(point.x, layout.waveform.width);
 			this.callbacks.onAdjustTiming?.({

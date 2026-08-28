@@ -413,9 +413,14 @@ textarea:focus-visible,
 	min-height: 0;
 }
 
+/* v18: the two left-column panels are tabs, so the inactive one must not take part in
+   layout at all. The scroll view keeps its own rule because it is a WebGL surface that
+   has to stay measurable while hidden; `content-visibility` skips its painting without
+   collapsing the element the renderer sizes itself against. */
 .scroll-surface.is-inactive {
 	visibility: hidden;
 	pointer-events: none;
+	content-visibility: hidden;
 }
 
 .checks-panel[hidden] {

@@ -13,7 +13,7 @@ import {
 } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { ChartRenderIndex } from "./chart-index.js";
-import { installTraitMembers } from "../mixin.js";
+import { installTraitMembers } from "../core/mixin.js";
 import { StagePatternsTrait } from "./stage-patterns.js";
 import { StageSnappeesTrait } from "./stage-snappees.js";
 import { flattenEvents } from "../core/grouping.js";

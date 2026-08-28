@@ -1,6 +1,6 @@
 {
 	"name": "sviber",
-	"version": "0.8.2",
+	"version": "0.9.0",
 	"private": true,
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",
@@ -13,7 +13,7 @@
 		"url": "https://github.com/Desom-fu/sviber/issues"
 	},
 	"main": "index.html",
-	"node-main": "js/cli-main.js",
+	"node-main": "js/cli/cli-main.js",
 	"sviber-source": true,
 	"window": {
 		"title": "sviber",

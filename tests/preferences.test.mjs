@@ -9,7 +9,7 @@ import {
 	loadPreferences,
 	resolvePreferenceLanguage,
 	storePreferences,
-} from "../js/app-helpers.js";
+} from "../js/app/app-helpers.js";
 
 function memoryStorage(initial = {}) {
 	const values = new Map(Object.entries(initial));
@@ -41,12 +41,14 @@ test("preferences migrate old values and normalize theme and language choices", 
 	assert.deepEqual(loadPreferences(invalidStorage), DEFAULT_PREFERENCES);
 });
 
-test("SE volume clamps to 0-2 and music volume clamps to 0-1", () => {
+test("SE volume and music volume both clamp to 0-2", () => {
 	const storage = memoryStorage();
 	const stored = storePreferences({ seVolume: 2.5, musicVolume: -1 }, storage);
 	assert.equal(stored.seVolume, 2);
 	assert.equal(stored.musicVolume, 0);
-	assert.equal(storePreferences({ seVolume: 1, musicVolume: 1.5 }, storage).musicVolume, 1);
+	// v18 raises the music volume maximum from 1 to 2, matching the SE volume.
+	assert.equal(storePreferences({ seVolume: 1, musicVolume: 1.5 }, storage).musicVolume, 1.5);
+	assert.equal(storePreferences({ seVolume: 1, musicVolume: 2.5 }, storage).musicVolume, 2);
 	assert.equal(storePreferences({ seVolume: 1.55, musicVolume: 0.05 }, storage).seVolume, 1.55);
 	assert.equal(
 		loadPreferences(
@@ -123,8 +125,8 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../javascript.html", import.meta.url), "utf8"),
 		readFile(new URL("../source-viewer.html", import.meta.url), "utf8"),
-		readFile(new URL("../js/license-page.js", import.meta.url), "utf8"),
-		readFile(new URL("../js/theme-bootstrap.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/boot/license-page.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/boot/theme-bootstrap.js", import.meta.url), "utf8"),
 		readFile(new URL("../service-worker.js", import.meta.url), "utf8"),
 	]);
 	assert.match(themes, /:root\[data-theme="dark"\]/);
@@ -136,16 +138,16 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 		assert.match(standaloneStyles, /:root\[data-theme="dark"\]/);
 		assert.match(standaloneStyles, /:root:not\(\[data-theme\]\)/);
 	}
-	assert.match(macroPage, /src="js\/theme-bootstrap\.js"/);
-	assert.match(docsPage, /src="\.\.\/js\/theme-bootstrap\.js"/);
-	assert.match(index, /src="js\/theme-bootstrap\.js"/);
+	assert.match(macroPage, /src="js\/boot\/theme-bootstrap\.js"/);
+	assert.match(docsPage, /src="\.\.\/js\/boot\/theme-bootstrap\.js"/);
+	assert.match(index, /src="js\/boot\/theme-bootstrap\.js"/);
 	assert.match(bootstrap, /sviber\.preferences/);
 	assert.match(bootstrap, /sviber-theme-change/);
-	assert.match(serviceWorker, /\.\/js\/theme-bootstrap\.js/);
+	assert.match(serviceWorker, /\.\/js\/boot\/theme-bootstrap\.js/);
 	assert.match(index, /href="javascript\.html" target="sviber-license"/);
 	assert.match(labels, /data-return-editor/);
-	assert.match(labels, /data-view-source="js\/app\.js"/);
-	assert.match(labels, /data-view-source="js\/theme-bootstrap\.js"/);
+	assert.match(labels, /data-view-source="js\/app\/app\.js"/);
+	assert.match(labels, /data-view-source="js\/boot\/theme-bootstrap\.js"/);
 	assert.match(viewer, /href="javascript\.html"/);
 	assert.match(viewer, /data-return-editor/);
 	assert.match(navigation, /SOURCES\.has\(filename\)/);
@@ -153,16 +155,15 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 
 test("preferences dialog uses Sunniesnow volume sliders and the manual does not page-scroll sideways", async () => {
 	const [workflows, player, manual, styles, docsScript] = await Promise.all([
-		readFile(new URL("../js/app-preferences-media.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app/app-preferences-media.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/audio/player.js", import.meta.url), "utf8"),
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.css", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.js", import.meta.url), "utf8"),
 	]);
 	assert.match(workflows, /id: "seVolume",[\s\S]*?min: 0,[\s\S]*?max: 2,[\s\S]*?step: 0\.05/);
-	assert.match(workflows, /id: "musicVolume",[\s\S]*?min: 0,[\s\S]*?max: 1,[\s\S]*?step: 0\.05/);
+	assert.match(workflows, /id: "musicVolume",[\s\S]*?min: 0,[\s\S]*?max: 2,[\s\S]*?step: 0\.05/);
 	assert.match(player, /Math\.max\(0, Math\.min\(2, parsed\)\)/);
-	assert.match(player, /Math\.max\(0, Math\.min\(1, parsed\)\)/);
 	assert.match(styles, /html \{[^}]*overflow:\s*hidden/);
 	assert.match(styles, /body \{[^}]*overflow:\s*hidden/);
 	assert.match(styles, /body \{[^}]*flex-direction:\s*column/);

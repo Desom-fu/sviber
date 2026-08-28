@@ -63,3 +63,36 @@ export function abLoopMarks(firstBeat, secondBeat) {
 	const ordered = firstBeat.compare(secondBeat) <= 0 ? [firstBeat, secondBeat] : [secondBeat, firstBeat];
 	return ordered.map(mark => mark.toJSON());
 }
+
+// v18: how close (in pixels) the press has to be to an existing A-B loop mark for the
+// gesture to grab that mark instead of starting a new pair.
+export const AB_LOOP_GRAB_DISTANCE = 6;
+
+// Picks the A-B loop mark the press grabs, or null when the press is not close to one.
+// `marks` are the existing marks in seconds, `x` the press position and `toX` maps
+// seconds to the same pixel space.
+export function abLoopGrabIndex(marks, x, toX, tolerance = AB_LOOP_GRAB_DISTANCE) {
+	let best = null;
+	for (let index = 0; index < marks.length; index += 1) {
+		const distance = Math.abs(toX(marks[index]) - x);
+		if (distance <= tolerance && (!best || distance < best.distance)) {
+			best = { index, distance };
+		}
+	}
+	return best ? best.index : null;
+}
+
+// v18 Shift-drag on the waveform. `anchor` is the mark that stays put — the one the mouse
+// down created, or the mark that was not grabbed — and `moving` is the mark that follows the
+// pointer. While the pointer has not reached another subdivision there is only one mark; the
+// second appears as soon as it does, and the two collapse back to one whenever they land on
+// the same subdivision. `anchor` is null when the gesture grabbed the only existing mark.
+export function abLoopDragMarks(anchor, moving) {
+	if (!anchor) {
+		return moving ? [moving.toJSON()] : [];
+	}
+	if (!moving || anchor.equals(moving)) {
+		return [anchor.toJSON()];
+	}
+	return abLoopMarks(anchor, moving);
+}

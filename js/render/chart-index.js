@@ -17,7 +17,7 @@ import {
 } from "./stage-helpers.js";
 import { refreshDoubleTapTime } from "./double-tap-index.js";
 import { removeChannelFromIndex, removeEventsFromIndex } from "./chart-index-removal.js";
-import { installTraitMembers } from "../mixin.js";
+import { installTraitMembers } from "../core/mixin.js";
 import { ChartIndexMutationsTrait } from "./chart-index-mutations.js";
 import { ChartIndexTipGuidesTrait } from "./chart-index-tip-guides.js";
 import {

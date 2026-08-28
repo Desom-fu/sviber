@@ -155,7 +155,7 @@ async function checkLicensePages(context, page, outputDirectory) {
 	assert.equal(await licensePage.locator("[data-return-editor]").textContent(), "返回编辑器");
 	await licensePage.screenshot({ path: path.join(outputDirectory, "license-list.png"), fullPage: true });
 
-	await licensePage.locator('[data-view-source="js/app.js"]').click();
+	await licensePage.locator('[data-view-source="js/app/app.js"]').click();
 	await licensePage.waitForURL(/source-viewer\.html\?file=js%2Fapp\.js$/);
 	await licensePage.waitForFunction(() =>
 		document.querySelector("#source-code")?.textContent.includes('from "./i18n.js"'),
