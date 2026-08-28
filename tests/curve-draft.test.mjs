@@ -5,6 +5,7 @@ import { STAGE_NOTE_MODULES, readSources } from "./module-source.mjs";
 import { withChartTools } from "../js/app/app-chart-tools.js";
 import { withHistoryCommands } from "../js/app/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
+import { sampleSnappee } from "../js/core/geometry.js";
 import { History } from "../js/core/history.js";
 
 test("curve-draft overlay is painted onto an offscreen static layer instead of copying the live canvas", async () => {
@@ -217,4 +218,60 @@ test("undo during curve draft does not blank curveDraft before restore", () => {
 	assert.equal(refreshes.some(item => item.type === "restore"), false);
 	assert.equal(refreshes.some(item => item.type === "full"), false);
 	assert.equal(refreshes.some(item => item.type === "light" && item.stageOnly), true);
+});
+
+test("confirming the bezier segments dialog keeps the entered count", async () => {
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+
+				preview() {}
+
+				commit(_label, mutation) {
+					mutation(this.model);
+					return { ok: true };
+				}
+			},
+		),
+	);
+	const app = new App();
+	app.model = ChartModel.createDefault();
+	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
+	app.freeTransform = null;
+	app.creationMode = null;
+	app.dialogs = {
+		async form({ values }) {
+			return { ...values, segments: 5 };
+		},
+	};
+	app.startCurveDraft("bezierCurve");
+	app.addCurvePoint({ x: -40, y: 0 });
+	app.addCurvePoint({ x: 40, y: 10 });
+	await app.finishCurveDraft();
+	const bezier = app.model.snappees.find(snappee => snappee.type === "bezierCurve");
+	assert.ok(bezier);
+	assert.equal(bezier.segments, 5);
+	assert.equal(sampleSnappee(bezier).length, 6);
+	assert.equal(bezier.selected, true);
 });

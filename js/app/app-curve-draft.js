@@ -374,13 +374,17 @@ class CurveDraftTrait {
 		this.curveDraft = null;
 		let createdId = null;
 		this.commit(i18n.t("history.createSnappee"), model => {
-			createdId = model.addSnappee(draft.type, data).id;
+			const created = model.addSnappee(draft.type, data);
+			createdId = created.id;
+			for (const snappee of model.snappees) {
+				snappee.selected = snappee.id === createdId;
+			}
 		});
 		if (
 			createdId != null &&
 			["bezierCurve", "penCurve", "circularArcCurve"].includes(draft.type)
 		) {
-			void this.showSnappeeDialog(draft.type, createdId, { focusField: "segments" });
+			return this.showSnappeeDialog(draft.type, createdId, { focusField: "segments" });
 		}
 	}
 

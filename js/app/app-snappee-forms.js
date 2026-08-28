@@ -6,7 +6,13 @@ import { i18n } from "../ui/i18n.js";
 import { SNAPPEE_PRESETS, createPresetSnappee } from "../core/snappee-presets.js";
 import { penPathFieldDefinition } from "../ui/pen-path-field.js";
 import { createFieldControl } from "../ui/ui-fields.js";
-import { SNAPPEE_COLORS, deepClone, evaluateExpression, localizedErrorMessage } from "./app-helpers.js";
+import {
+	SNAPPEE_COLORS,
+	deepClone,
+	evaluateExpression,
+	localizedErrorMessage,
+	mutateSnappeeWithinBounds,
+} from "./app-helpers.js";
 
 function pairField(id, labelKey, extra = {}) {
 	return { id, type: "pair", labelKey, expression: true, required: true, ...extra };
