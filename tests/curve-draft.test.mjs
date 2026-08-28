@@ -73,3 +73,92 @@ test("undoing a bezier control point restores the previous curve draft", () => {
 	assert.equal(app.curveDraft.type, "circularArcCurve");
 	assert.equal(app.curveDraft.points.length, 1);
 });
+
+test("finishing an arc opens the segments dialog like bezier and pen", () => {
+	const dialogs = [];
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+
+				async showSnappeeDialog(type, id, options = {}) {
+					dialogs.push({ type, id, options });
+				}
+			},
+		),
+	);
+	const app = new App();
+	app.model = ChartModel.createDefault();
+	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
+	app.freeTransform = null;
+	app.creationMode = null;
+	app.startCurveDraft("circularArcCurve");
+	app.addCurvePoint({ x: 0, y: 0 });
+	app.addCurvePoint({ x: 20, y: 0 });
+	app.addCurvePoint({ x: 0, y: 20 });
+	assert.equal(app.curveDraft, null);
+	assert.equal(dialogs.length, 1);
+	assert.equal(dialogs[0].type, "circularArcCurve");
+	assert.equal(dialogs[0].options.focusField, "segments");
+});
+
+test("Enter on a one-point pen draft does not cancel the draft", () => {
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+			},
+		),
+	);
+	const app = new App();
+	app.model = ChartModel.createDefault();
+	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
+	app.freeTransform = null;
+	app.startCurveDraft("penCurve");
+	app.startPenNode({ x: -10, y: 0 });
+	assert.equal(app.curveDraft.penNodes.length, 1);
+	app.finishCurveDraft();
+	assert.ok(app.curveDraft);
+	assert.equal(app.curveDraft.type, "penCurve");
+	assert.equal(app.curveDraft.penNodes.length, 1);
+});

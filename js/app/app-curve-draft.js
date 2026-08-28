@@ -271,6 +271,7 @@ class CurveDraftTrait {
 			return;
 		}
 		const points = this.curveDraft.points;
+		// The second click of a double-click often inserts a duplicate node; drop it before commit.
 		if (
 			points.length > 2 &&
 			Math.hypot(points.at(-1).x - points.at(-2).x, points.at(-1).y - points.at(-2).y) < 3
@@ -280,6 +281,13 @@ class CurveDraftTrait {
 				this.curveDraft.penNodes?.pop();
 			}
 			this.recordCurveDraftAction();
+		}
+		const count =
+			this.curveDraft.type === "penCurve"
+				? this.curveDraft.penNodes?.length || points.length
+				: points.length;
+		if (count < 2) {
+			return;
 		}
 		this.finishCurveDraft();
 	}
@@ -312,14 +320,14 @@ class CurveDraftTrait {
 
 	finishCurveDraft() {
 		const draft = this.curveDraft;
-		if (!draft || draft.points.length < 2) {
-			this.curveDraft = null;
-			this._refreshLightweight?.({
-				rebuildIndex: false,
-				stageOnly: true,
-				skipInspector: true,
-				skipHistory: true,
-			});
+		const pointCount =
+			draft?.type === "penCurve" ? draft.penNodes?.length || draft.points.length : draft?.points.length;
+		// Keep drafting when there are not enough points yet (Enter/dblclick should not wipe a 1-point pen).
+		if (!draft || pointCount < 2) {
+			if (!draft) {
+				return;
+			}
+			this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 			return;
 		}
 		let data;
@@ -368,7 +376,10 @@ class CurveDraftTrait {
 		this.commit(i18n.t("history.createSnappee"), model => {
 			createdId = model.addSnappee(draft.type, data).id;
 		});
-		if (createdId != null && ["bezierCurve", "penCurve"].includes(draft.type)) {
+		if (
+			createdId != null &&
+			["bezierCurve", "penCurve", "circularArcCurve"].includes(draft.type)
+		) {
 			void this.showSnappeeDialog(draft.type, createdId, { focusField: "segments" });
 		}
 	}
