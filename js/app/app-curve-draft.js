@@ -282,10 +282,10 @@ class CurveDraftTrait {
 			}
 			this.recordCurveDraftAction();
 		}
-		const count =
-			this.curveDraft.type === "penCurve"
-				? this.curveDraft.penNodes?.length || points.length
-				: points.length;
+		let count = points.length;
+		if (this.curveDraft.type === "penCurve") {
+			count = this.curveDraft.penNodes?.length || points.length;
+		}
 		if (count < 2) {
 			return;
 		}
