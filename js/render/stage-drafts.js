@@ -195,9 +195,20 @@ export class StageDraftsTrait {
 		context.fillStyle = "#f6f8f9";
 		context.lineWidth = 1.5;
 		// A circular arc with only its centre placed is still undefined, so the ghost of the
-		// full circle is drawn faintly until the first point on the arc exists.
-		if (draft.type === "circularArcCurve" && draft.points.length === 1 && this.curvePreview) {
+		// full circle is drawn faintly until the first point on the arc exists. Keep a fallback
+		// ghost when curvePreview was cleared so the preview does not vanish mid-draw.
+		if (draft.type === "circularArcCurve" && draft.points.length === 1) {
 			context.globalAlpha = 0.4;
+			if (!this.curvePreview) {
+				const center = draft.points[0];
+				const ghost = { x: center.x + 20, y: center.y };
+				context.beginPath();
+				appendDraftPath(context, mapping, draft, [center, ghost], ghost);
+				context.stroke();
+				this._drawDraftPointHandles(context, mapping, draft);
+				context.restore();
+				return;
+			}
 		}
 		context.beginPath();
 		appendDraftPath(context, mapping, draft, previewPoints, this.curvePreview);

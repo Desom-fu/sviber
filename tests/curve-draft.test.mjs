@@ -162,3 +162,59 @@ test("Enter on a one-point pen draft does not cancel the draft", () => {
 	assert.equal(app.curveDraft.type, "penCurve");
 	assert.equal(app.curveDraft.penNodes.length, 1);
 });
+
+test("undo during curve draft does not blank curveDraft before restore", () => {
+	const refreshes = [];
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {
+					refreshes.push({ type: "full", draft: this.curveDraft ? this.curveDraft.points.length : null });
+				}
+
+				refreshInteractionPreview(options = {}) {
+					refreshes.push({
+						type: "light",
+						stageOnly: Boolean(options.stageOnly),
+						draft: this.curveDraft ? this.curveDraft.points.length : null,
+					});
+				}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+					refreshes.push({ type: "restore" });
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+			},
+		),
+	);
+	const app = new App();
+	app.model = ChartModel.createDefault();
+	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
+	app.historyPanel = { render() {} };
+	app.freeTransform = null;
+	app.creationMode = null;
+	app.startCurveDraft("circularArcCurve");
+	app.addCurvePoint({ x: 0, y: 0 });
+	app.addCurvePoint({ x: 10, y: 0 });
+	refreshes.length = 0;
+	app.undo();
+	assert.equal(app.curveDraft.type, "circularArcCurve");
+	assert.equal(app.curveDraft.points.length, 1);
+	assert.equal(refreshes.some(item => item.type === "restore"), false);
+	assert.equal(refreshes.some(item => item.type === "full"), false);
+	assert.equal(refreshes.some(item => item.type === "light" && item.stageOnly), true);
+});
