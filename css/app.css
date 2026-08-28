@@ -393,14 +393,29 @@ textarea:focus-visible,
 	position: relative;
 	display: grid;
 	grid-template-rows: 26px minmax(0, 1fr);
+	grid-template-areas: "tabs" "body";
 	min-width: 0;
 	min-height: 0;
+	overflow: hidden;
 	border-right: 1px solid var(--border-strong);
 	background: var(--timeline);
 }
 
 .scroll-view-panel .left-tabs {
+	grid-area: tabs;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.scroll-surface,
+.checks-panel {
+	grid-area: body;
+	min-width: 0;
+	min-height: 0;
+}
+
+.scroll-surface[hidden],
+.checks-panel[hidden] {
+	display: none;
 }
 
 .svg-path-field {
@@ -431,7 +446,8 @@ textarea:focus-visible,
 	padding-top: 3px;
 }
 
-.checks-panel {	display: flex;
+.checks-panel {
+	display: flex;
 	flex-direction: column;
 	gap: 2px;
 }

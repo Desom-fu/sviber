@@ -547,6 +547,17 @@ test("v17 source wiring for checks tab, icons, eslint, lint and editor defaults"
 	assert.equal(ChartModel.createDefault().editor.playBgNoteSe, false);
 });
 
+test("left-column checks list cannot cover the scroll view canvas", async () => {
+	const [html, css] = await Promise.all([
+		readFile(new URL("../index.html", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+	]);
+	assert.match(html, /id="checks-panel"[^>]*\bhidden\b/);
+	assert.match(css, /grid-template-areas:\s*"tabs"\s*"body"/);
+	assert.match(css, /\.scroll-surface,\s*\.checks-panel\s*\{[^}]*grid-area:\s*body/);
+	assert.match(css, /\.checks-panel\[hidden\][\s\S]*?display:\s*none/);
+});
+
 test("v17 music volume clamps to 1 while SE volume still allows 2", () => {
 	const stored = storePreferences({ seVolume: 2.5, musicVolume: 1.5 }, memoryStorage());
 	assert.equal(stored.seVolume, 2);
