@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v09110";
+const CACHE_VERSION = "sviber-v09120";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -115,6 +115,7 @@ const APP_SHELL = [
 	"./js/dsp/fft.js",
 	"./js/dsp/novelty.js",
 	"./js/dsp/onset-refine.js",
+	"./js/dsp/tempo-grid.js",
 	"./js/dsp/tempogram.js",
 	"./js/dsp/window.js",
 	"./js/boot/font-loader.js",

@@ -8,6 +8,7 @@ import { computeTempogram, DEFAULT_TEMPOGRAM_PARAMETERS, globalTempo, TEMPOGRAM_
 import { BEAT_ALGORITHMS, DEFAULT_BEAT_PARAMETERS, trackBeats } from "./beat-tracking.js";
 import { DEFAULT_DENOISE_PARAMETERS, denoiseBeats, timingFromDenoisedBeats } from "./beat-denoise.js";
 import { DEFAULT_REFINE_PARAMETERS, refineBeatTimes } from "./onset-refine.js";
+import { timingFromTempoGrid } from "./tempo-grid.js";
 
 export const AUTO_TIMING_ALGORITHMS = Object.freeze({
 	novelty: NOVELTY_ALGORITHMS,
@@ -76,7 +77,16 @@ export function runAutoTiming(samples, sampleRate, options = {}) {
 		refined = refineBeatTimes(samples, sampleRate, tracked.beats, options.refineParameters);
 	}
 	const denoised = denoiseBeats(refined, tracked.confidences, options.denoiseParameters);
-	const timing = timingFromDenoisedBeats(denoised);
+	// The original taut-string result remains available through `denoisedBeats`,
+	// while timing is fitted against a beat grid.  This prevents one missed or
+	// extra PLP peak from turning a constant song into dozens of BPM changes.
+	const gridTiming = timingFromTempoGrid(
+		noveltyResult.novelty,
+		noveltyResult.frameRate,
+		estimatedTempo,
+		{ ...options.gridParameters, offsetHint: refined[0] },
+	);
+	const timing = gridTiming || timingFromDenoisedBeats(denoised);
 	return {
 		timing,
 		estimatedTempo,
