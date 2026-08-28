@@ -27,9 +27,9 @@ export const withTimeDilation = Base =>
 			this.exitModes();
 			const values = await this.dialogs.form({
 				titleKey: "dialog.timeDilation",
-				values: { factor: [1, 0, 1], preserveDuration: false },
+				values: { factor: [1, 1], preserveDuration: false },
 				fields: [
-					{ id: "factor", type: "rational", labelKey: "field.factor", required: true },
+					{ id: "factor", type: "rational", style: "fraction", labelKey: "field.factor", required: true },
 					{ id: "preserveDuration", type: "checkbox", labelKey: "field.preserveDuration" },
 				],
 			});

@@ -443,20 +443,42 @@ function buildRadioControl({ documentRef, i18n, field, value }) {
 	};
 }
 
-// A rational is three integer inputs. Leaving the group rewrites them in canonical form so the
-// user sees the value the chart will actually store; a half-typed tuple is left alone.
-function buildRationalControl({ documentRef, value }) {
-	const tuple = Array.isArray(value) ? value : [0, 0, 1];
+// A rational is either three integer inputs (whole + numerator / denominator) or, when
+// field.style === "fraction", two inputs (numerator / denominator). Leaving the group
+// rewrites them in canonical form so the user sees the value the chart will actually store;
+// a half-typed tuple is left alone.
+function buildRationalControl({ documentRef, field, value }) {
+	const fraction = field?.style === "fraction";
+	const tuple = Array.isArray(value) ? value : fraction ? [0, 1] : [0, 0, 1];
 	const group = documentRef.createElement("div");
-	group.className = "rational-input";
-	const integer = makeInput(documentRef, "number", tuple[0] ?? 0, { step: 1 });
-	const numerator = makeInput(documentRef, "number", tuple[1] ?? 0, { step: 1 });
-	const denominator = makeInput(documentRef, "number", tuple[2] ?? 1, { step: 1, min: 1 });
-	group.append(integer, "+", numerator, "/", denominator);
-	const rawTuple = () => [Number(integer.value), Number(numerator.value), Number(denominator.value)];
+	group.className = fraction ? "rational-input rational-input-fraction" : "rational-input";
+	const numerator = makeInput(
+		documentRef,
+		"number",
+		fraction ? (tuple[0] ?? 0) : (tuple[1] ?? 0),
+		{ step: 1 },
+	);
+	const denominator = makeInput(
+		documentRef,
+		"number",
+		fraction ? (tuple[1] ?? 1) : (tuple[2] ?? 1),
+		{ step: 1, min: 1 },
+	);
+	let integer = null;
+	if (fraction) {
+		group.append(numerator, "/", denominator);
+	} else {
+		integer = makeInput(documentRef, "number", tuple[0] ?? 0, { step: 1 });
+		group.append(integer, "+", numerator, "/", denominator);
+	}
+	const rawTuple = () =>
+		fraction
+			? [Number(numerator.value), Number(denominator.value)]
+			: [Number(integer.value), Number(numerator.value), Number(denominator.value)];
 	const usableTuple = () => {
 		const raw = rawTuple();
-		return raw.every(Number.isSafeInteger) && raw[2] > 0 ? raw : null;
+		const den = fraction ? raw[1] : raw[2];
+		return raw.every(Number.isSafeInteger) && den > 0 ? raw : null;
 	};
 	group.addEventListener("focusout", event => {
 		if (group.contains(event.relatedTarget)) {
@@ -467,9 +489,14 @@ function buildRationalControl({ documentRef, value }) {
 			return;
 		}
 		const canonical = canonicalizeRationalTuple(raw);
-		integer.value = String(canonical[0]);
-		numerator.value = String(canonical[1]);
-		denominator.value = String(canonical[2]);
+		if (fraction) {
+			numerator.value = String(canonical[0]);
+			denominator.value = String(canonical[1]);
+		} else {
+			integer.value = String(canonical[0]);
+			numerator.value = String(canonical[1]);
+			denominator.value = String(canonical[2]);
+		}
 	});
 	return {
 		element: group,
@@ -477,7 +504,7 @@ function buildRationalControl({ documentRef, value }) {
 			const raw = usableTuple();
 			return raw ? canonicalizeRationalTuple(raw) : rawTuple();
 		},
-		focus: () => integer.focus(),
+		focus: () => (fraction ? numerator : integer).focus(),
 	};
 }
 
@@ -669,7 +696,21 @@ function isFiniteExpression(value) {
 }
 
 export function canonicalizeRationalTuple(value) {
-	if (!Array.isArray(value) || value.length !== 3 || !value.every(Number.isSafeInteger) || value[2] <= 0) {
+	if (!Array.isArray(value) || !value.every(Number.isSafeInteger)) {
+		return value;
+	}
+	if (value.length === 2) {
+		if (value[1] <= 0) {
+			return value;
+		}
+		try {
+			const rational = Rational.from(value);
+			return [Number(rational.numerator), Number(rational.denominator)];
+		} catch {
+			return value;
+		}
+	}
+	if (value.length !== 3 || value[2] <= 0) {
 		return value;
 	}
 	try {
@@ -715,10 +756,15 @@ function validateIntegerField(field, value, i18n) {
 }
 
 function validateRationalField(field, value, i18n) {
-	if (!value.every(Number.isInteger)) {
+	if (!Array.isArray(value) || !value.every(Number.isInteger)) {
 		return i18n.t("validation.integer");
 	}
-	if (value[2] <= 0) {
+	const fraction = field.style === "fraction";
+	if (fraction) {
+		if (value.length !== 2 || value[1] <= 0) {
+			return i18n.t("validation.denominator");
+		}
+	} else if (value.length !== 3 || value[2] <= 0) {
 		return i18n.t("validation.denominator");
 	}
 	if (field.positive && Rational.from(value).compare(0) <= 0) {

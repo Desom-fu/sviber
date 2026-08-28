@@ -24,6 +24,15 @@ test("rational validation waits for a canonical, reduced tuple", () => {
 	assert.notEqual(validateField({ type: "rational" }, [1, 1, 0]), "");
 });
 
+test("fraction-style rational uses a reduced 2-integer tuple", () => {
+	assert.deepEqual(canonicalizeRationalTuple([2, 4]), [1, 2]);
+	assert.deepEqual(canonicalizeRationalTuple([3, 1]), [3, 1]);
+	assert.equal(validateField({ type: "rational", style: "fraction" }, [3, 2], {}), "");
+	assert.equal(validateField({ type: "rational", style: "fraction" }, [5, 1], {}), "");
+	assert.notEqual(validateField({ type: "rational", style: "fraction" }, [1, 0], {}), "");
+	assert.notEqual(validateField({ type: "rational", style: "fraction" }, [1, 0, 1], {}), "");
+});
+
 // v18 fix: a field that hides its label contributes no cell for the label column, so without
 // `is-full` its control was squeezed into that narrow column. This is what made the
 // "Automatic timing..." parameter groups render as a malformed layout.
