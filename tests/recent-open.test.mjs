@@ -2,17 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { withDocumentLifecycle } from "../js/app/app-document-lifecycle.js";
 import { withOpenSave } from "../js/app/app-open-save.js";
-import { LAST_OPEN_KEY, RECENT_OPEN_KEY } from "../js/app/app-helpers.js";
-
-function memoryStorage() {
-	const values = new Map();
-	return {
-		getItem: key => (values.has(key) ? values.get(key) : null),
-		setItem: (key, value) => {
-			values.set(key, String(value));
-		},
-	};
-}
 
 function makeApp({
 	editingProject = false,
@@ -21,6 +10,10 @@ function makeApp({
 } = {}) {
 	const App = withOpenSave(withDocumentLifecycle(class {}));
 	const app = new App();
+	const remembered = [];
+	app.rememberLastOpen = (kind, pathname) => {
+		remembered.push({ kind, pathname });
+	};
 	app.freeTransform = null;
 	app.finishFreeTransform = () => {};
 	app.markSaved = () => {};
@@ -57,63 +50,35 @@ function makeApp({
 			return { location: this.projectPath, manifest: { charts: [] } };
 		},
 	};
-	return app;
-}
-
-async function withDesktopStorage(run) {
-	const previousNw = globalThis.nw;
-	const previousStorage = globalThis.localStorage;
-	const storage = memoryStorage();
-	globalThis.nw = {};
-	globalThis.localStorage = storage;
-	try {
-		await run(storage);
-	} finally {
-		globalThis.nw = previousNw;
-		globalThis.localStorage = previousStorage;
-	}
-}
-
-function recents(storage) {
-	return JSON.parse(storage.getItem(RECENT_OPEN_KEY) || "[]");
+	return { app, remembered };
 }
 
 test("saving a newly created standalone chart adds it to recents", async () => {
-	await withDesktopStorage(async storage => {
-		const app = makeApp();
-		await app.saveChart();
-		assert.equal(recents(storage)[0].kind, "chart");
-		assert.equal(recents(storage)[0].path, "/tmp/song-Master.json");
-		assert.deepEqual(JSON.parse(storage.getItem(LAST_OPEN_KEY)), {
-			kind: "chart",
-			path: "/tmp/song-Master.json",
-		});
-	});
+	const { app, remembered } = makeApp();
+	await app.saveChart();
+	assert.deepEqual(remembered, [{ kind: "chart", pathname: "/tmp/song-Master.json" }]);
 });
 
 test("saving a newly created project adds it to recents", async () => {
-	await withDesktopStorage(async storage => {
-		const app = makeApp({ editingProject: true });
+	const previousNw = globalThis.nw;
+	globalThis.nw = {};
+	try {
+		const { app, remembered } = makeApp({ editingProject: true });
 		await app.saveProject();
-		assert.equal(recents(storage)[0].kind, "project");
-		assert.equal(recents(storage)[0].path, "/tmp/my-project");
-	});
+		assert.deepEqual(remembered, [{ kind: "project", pathname: "/tmp/my-project" }]);
+	} finally {
+		globalThis.nw = previousNw;
+	}
 });
 
 test("saving a chart inside a project remembers the project", async () => {
-	await withDesktopStorage(async storage => {
-		const app = makeApp({ editingProject: true });
-		await app.saveChart();
-		assert.equal(recents(storage)[0].kind, "project");
-		assert.equal(recents(storage)[0].path, "/tmp/my-project");
-	});
+	const { app, remembered } = makeApp({ editingProject: true });
+	await app.saveChart();
+	assert.deepEqual(remembered, [{ kind: "project", pathname: "/tmp/my-project" }]);
 });
 
 test("Save As records the new standalone chart path", async () => {
-	await withDesktopStorage(async storage => {
-		const app = makeApp({ saveAsPath: "/tmp/copy.json" });
-		await app.saveChartAs();
-		assert.equal(recents(storage)[0].kind, "chart");
-		assert.equal(recents(storage)[0].path, "/tmp/copy.json");
-	});
+	const { app, remembered } = makeApp({ saveAsPath: "/tmp/copy.json" });
+	await app.saveChartAs();
+	assert.deepEqual(remembered, [{ kind: "chart", pathname: "/tmp/copy.json" }]);
 });
