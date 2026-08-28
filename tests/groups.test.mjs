@@ -206,3 +206,52 @@ test("selected-invisible dashed circles skip group events", async () => {
 	assert.match(fn, /setLineDash\(\[4, 3\]\)/);
 });
 
+test("multiple attached selected groups can move by group-anchor delta", async () => {
+	const { resolveAttachedPosition } = await import("../js/core/geometry.js");
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	const snappeeId = ChartModel.createDefault().snappees[0].id;
+	app.model = ChartModel.createDefault({
+		events: [
+			{
+				id: 10,
+				type: "group",
+				selected: true,
+				attached: true,
+				snappee: snappeeId,
+				snapPoint: [0, 0],
+				events: [{ id: 11, type: "tap", channel: 0, time: [0, 0, 1], x: 0, y: 0 }],
+			},
+			{
+				id: 20,
+				type: "group",
+				selected: true,
+				attached: true,
+				snappee: snappeeId,
+				snapPoint: [1, 0],
+				events: [{ id: 21, type: "tap", channel: 0, time: [1, 0, 1], x: 10, y: 0 }],
+			},
+		],
+	});
+	const before10 = resolveAttachedPosition(app.model.findEvent(10), app.model.snappees);
+	const before20 = resolveAttachedPosition(app.model.findEvent(20), app.model.snappees);
+	assert.ok(before10 && before20, "both groups resolve on the shared snappee");
+	app._applyGroupAnchorMove(app.model, 10, { x: before10.x + 5, y: before10.y + 7 });
+	const g10 = app.model.findEvent(10);
+	const g20 = app.model.findEvent(20);
+	assert.equal(g10.attached, false);
+	assert.equal(g20.attached, false);
+	assert.deepEqual({ x: g10.x, y: g10.y }, { x: before10.x + 5, y: before10.y + 7 });
+	assert.deepEqual({ x: g20.x, y: g20.y }, { x: before20.x + 5, y: before20.y + 7 });
+});
+
+test("selected group-anchor hit regions stay registered for multiple attached groups", async () => {
+	const source = await readFile(new URL("../js/render/stage-overlays.js", import.meta.url), "utf8");
+	const fn = source.slice(
+		source.indexOf("_drawSelectedGroupAnchors("),
+		source.indexOf("_groupBounds("),
+	);
+	assert.equal(fn.includes("movableGroups"), false);
+	assert.match(fn, /type: "group-anchor"/);
+	assert.match(fn, /if \(group\.selected\)/);
+});

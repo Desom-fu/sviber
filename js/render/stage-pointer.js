@@ -18,6 +18,7 @@ import {
 	selectedEvents,
 	pointInPolygon,
 } from "./stage-helpers.js";
+import { eventChannels } from "../core/grouping.js";
 
 // Pointer handling of the main field: hit testing, hover feedback and the press, drag and
 // release cycle that moves notes, snappees, tip point spawns and the free transform gizmo.
@@ -538,6 +539,14 @@ export class StagePointerTrait {
 	_emptyAreaDrag(event, context, shift) {
 		if (shift.primary) {
 			const position = this._eventPosition(shift.primary, context.project);
+			if (shift.primary.type === "group") {
+				return {
+					type: "group-anchor",
+					hit: { type: "group-anchor", event: shift.primary, position },
+					start: context.point,
+					startChart: position,
+				};
+			}
 			return {
 				type: "event",
 				hit: { type: "event", event: shift.primary, position },
@@ -554,13 +563,16 @@ export class StagePointerTrait {
 
 	// Closest selected movable event in chart space; used by the Shift drag gesture.
 	_closestSelectedMovable(project, mapping, point, activeChannels) {
-		const candidates = (this.renderIndex?.selectedEvents || selectedEvents(project)).filter(
-			candidate =>
-				candidate?.selected &&
-				MOVABLE_TYPES.has(candidate.type) &&
-				candidate.type !== "group" &&
-				activeChannels.has(candidate.channel),
-		);
+		const candidates = (this.renderIndex?.selectedEvents || selectedEvents(project)).filter(candidate => {
+			if (!candidate?.selected || !MOVABLE_TYPES.has(candidate.type)) {
+				return false;
+			}
+			if (candidate.type === "group") {
+				const channels = eventChannels(candidate);
+				return !channels.length || channels.some(channel => activeChannels.has(channel));
+			}
+			return activeChannels.has(candidate.channel);
+		});
 		let best = null;
 		let bestDistance = Infinity;
 		for (const candidate of candidates) {

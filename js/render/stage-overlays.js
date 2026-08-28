@@ -433,11 +433,7 @@ export class StageOverlaysTrait {
 				centerY: screen.y,
 				radius: 10,
 			});
-			const selectedGroups = this.renderIndex.eventRecords
-				.filter(record => record.event.type === "group" && record.event.selected)
-				.map(record => record.event);
-			const movableGroups = selectedGroups.length === 1 || selectedGroups.every(event => !event.attached);
-			if (movableGroups && group.selected) {
+			if (group.selected) {
 				this.hitRegions.push({
 					type: "group-anchor",
 					event: group,

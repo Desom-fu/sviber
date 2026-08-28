@@ -216,11 +216,14 @@ export class PositionMoveTrait {
 		if (movable.length > 1 && attached.length === movable.length) {
 			return;
 		}
-		const selectedGroupRoot = roots.length === 1 && roots[0].type === "group" && roots[0].id === primary.id;
+		const selectedGroupRoots =
+			roots.length > 0 &&
+			roots.every(event => event.type === "group") &&
+			roots.some(event => event.id === primary.id);
 		if (
 			movable.length > 1 &&
 			attached.length &&
-			!selectedGroupRoot &&
+			!selectedGroupRoots &&
 			!this._canUseStageMoveAttachmentException(model)
 		) {
 			return;

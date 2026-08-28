@@ -30,9 +30,6 @@ export class GroupAnchorMoveTrait {
 		if (!groups.length || !groups.includes(primary)) {
 			return;
 		}
-		if (groups.length > 1 && groups.some(group => group.attached)) {
-			return;
-		}
 		const original = resolveAttachedPosition(primary, model.snappees) || primary;
 		const target = point;
 		const requestedX = Number(target.x) - Number(original.x);

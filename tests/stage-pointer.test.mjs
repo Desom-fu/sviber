@@ -95,3 +95,13 @@ test("main-field flick-angle callbacks write angles without touching other notes
 	assert.equal(app.model.findEvent(1).angle, 0);
 	assert.equal(app.model.findEvent(3).type, "tap");
 });
+
+test("shift-drag can target selected group events via group-anchor", async () => {
+	const interactions = await readSources(STAGE_INTERACTION_MODULES);
+	assert.match(interactions, /candidate\.type === "group"/);
+	assert.match(
+		interactions,
+		/_emptyAreaDrag\(event, context, shift\)[\s\S]*?shift\.primary\.type === "group"[\s\S]*?type: "group-anchor"/,
+	);
+	assert.equal(interactions.includes('candidate.type !== "group"'), false);
+});
