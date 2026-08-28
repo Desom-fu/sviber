@@ -75,8 +75,8 @@ test("undoing a bezier control point restores the previous curve draft", () => {
 	assert.equal(app.curveDraft.points.length, 1);
 });
 
-test("finishing an arc opens the segments dialog like bezier and pen", () => {
-	const dialogs = [];
+test("finishing an arc opens the segments dialog like bezier and pen", async () => {
+	const forms = [];
 	const App = withHistoryCommands(
 		withChartTools(
 			class {
@@ -102,9 +102,7 @@ test("finishing an arc opens the segments dialog like bezier and pen", () => {
 
 				cancelFreeTransform() {}
 
-				async showSnappeeDialog(type, id, options = {}) {
-					dialogs.push({ type, id, options });
-				}
+				preview() {}
 
 				commit(_label, mutation) {
 					mutation(this.model);
@@ -118,14 +116,23 @@ test("finishing an arc opens the segments dialog like bezier and pen", () => {
 	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
 	app.freeTransform = null;
 	app.creationMode = null;
+	app.dialogs = {
+		async form(spec) {
+			forms.push(spec);
+			return { ...spec.values };
+		},
+	};
 	app.startCurveDraft("circularArcCurve");
 	app.addCurvePoint({ x: 0, y: 0 });
 	app.addCurvePoint({ x: 20, y: 0 });
-	app.addCurvePoint({ x: 0, y: 20 });
+	await app.addCurvePoint({ x: 0, y: 20 });
 	assert.equal(app.curveDraft, null);
-	assert.equal(dialogs.length, 1);
-	assert.equal(dialogs[0].type, "circularArcCurve");
-	assert.equal(dialogs[0].options.focusField, "segments");
+	assert.equal(forms.length, 1);
+	assert.equal(forms[0].focusField, "segments");
+	assert.equal(
+		app.model.snappees.some(snappee => snappee.type === "circularArcCurve"),
+		true,
+	);
 });
 
 test("Enter on a one-point pen draft does not cancel the draft", () => {
