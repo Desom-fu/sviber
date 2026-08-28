@@ -105,6 +105,11 @@ test("finishing an arc opens the segments dialog like bezier and pen", () => {
 				async showSnappeeDialog(type, id, options = {}) {
 					dialogs.push({ type, id, options });
 				}
+
+				commit(_label, mutation) {
+					mutation(this.model);
+					return { ok: true };
+				}
 			},
 		),
 	);
