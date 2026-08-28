@@ -1,7 +1,11 @@
 import { Rational } from "../core/rational.js";
 import { descendants, eventTime, flattenEvents } from "../core/grouping.js";
 import { eventClickSelectionMode } from "./selection.js";
-import { TIMELINE_DURATION_TYPES as DURATION_TYPES, ZERO_DURATION_TYPES, projectState } from "./timeline-helpers.js";
+import {
+	TIMELINE_DURATION_TYPES as DURATION_TYPES,
+	ZERO_DURATION_TYPES, projectState,
+	isBackgroundEvent,
+} from "./timeline-helpers.js";
 import { abLoopDragMarks, abLoopGrabIndex, bpmFromDrag, offsetFromDrag } from "./timeline-gestures.js";
 
 // Pointer handling of the timeline: hit testing its widgets, the press, drag and release
@@ -403,22 +407,14 @@ export class TimelinePointerTrait {
 		if (!this.pointerMoved) {
 			return;
 		}
-		const previousBeginning = projectState(this.state).editor.visibleRangeBeginning;
-		const previousOffset = this.channelOffset;
 		this._chaseVisibleRange(point.x, layout.channels.width);
 		this._chaseChannels(point.y, layout);
 		const origin = this._selectionBoxOrigin(drag, layout);
 		this.selectionBox = { x1: origin.x, y1: origin.y, x2: point.x, y2: point.y };
-		const x1 = Math.min(origin.x, point.x);
-		const x2 = Math.max(origin.x, point.x);
-		const y1 = Math.min(origin.y, point.y);
-		const y2 = Math.max(origin.y, point.y);
-		// eventCenters are from the last paint; shift them by this frame's chase so the preview matches the box.
-		const centers = this._selectionCentersAfterChase(layout, previousBeginning, previousOffset);
-		const ids = centers
-			.filter(center => center.x >= x1 && center.x <= x2 && center.y >= y1 && center.y <= y2)
-			.map(center => center.event.id);
-		this.callbacks.onPreviewBoxSelect?.(ids, drag.mode);
+		this.callbacks.onPreviewBoxSelect?.(
+			this._idsInSelectionBox(this.selectionBox, layout, projectState(this.state)),
+			drag.mode,
+		);
 		this.requestRender();
 	}
 
@@ -435,19 +431,51 @@ export class TimelinePointerTrait {
 		};
 	}
 
-	_selectionCentersAfterChase(layout, previousBeginning, previousOffset) {
-		const editor = projectState(this.state).editor;
-		const span = Math.max(0.001, editor.visibleRangeEnd - editor.visibleRangeBeginning);
-		const dx = ((previousBeginning - editor.visibleRangeBeginning) / span) * layout.channels.width;
-		const dy = (previousOffset - this.channelOffset) * layout.channelHeight;
-		if (!dx && !dy) {
-			return this.eventCenters;
+	// Icon positions in the current viewport mapping, including events scrolled out of view.
+	_boxSelectCenters(layout, project) {
+		const activeChannelIds =
+			this.renderIndex?.activeChannelIds ||
+			new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
+		const hideBackground = project.editor?.showBgEventsInTimeline === false;
+		const events = flattenEvents(project.events || [], false);
+		const offsets = this.renderIndex?.eventLaneOffsets || this._eventLaneOffsets(events);
+		const centers = [];
+		for (const event of events) {
+			if (event.type === "group" || !activeChannelIds.has(event.channel)) {
+				continue;
+			}
+			if (hideBackground && isBackgroundEvent(event)) {
+				continue;
+			}
+			const record = this.renderIndex?.recordFor(event);
+			const position = this._contentLanePosition(event, layout, project, offsets, record);
+			if (!position) {
+				continue;
+			}
+			const selectionEvent = this.renderIndex?.selectionTarget(event) || event;
+			centers.push({ event: selectionEvent, x: position.x, y: position.y });
 		}
-		return this.eventCenters.map(center => ({
-			...center,
-			x: center.x + dx,
-			y: center.y + dy,
-		}));
+		return centers;
+	}
+
+	_idsInSelectionBox(box, layout, project) {
+		const x1 = Math.min(box.x1, box.x2);
+		const x2 = Math.max(box.x1, box.x2);
+		const y1 = Math.min(box.y1, box.y2);
+		const y2 = Math.max(box.y1, box.y2);
+		const ids = [];
+		const seen = new Set();
+		for (const center of this._boxSelectCenters(layout, project)) {
+			if (center.x < x1 || center.x > x2 || center.y < y1 || center.y > y2) {
+				continue;
+			}
+			if (seen.has(center.event.id)) {
+				continue;
+			}
+			seen.add(center.event.id);
+			ids.push(center.event.id);
+		}
+		return ids;
 	}
 
 	_moveScrollCurrent({ point, drag }) {
@@ -501,14 +529,12 @@ export class TimelinePointerTrait {
 			if (this.pointerMoved) {
 				const origin = this._selectionBoxOrigin(drag, layout);
 				const corner = this.selectionBox? { x: this.selectionBox.x2, y: this.selectionBox.y2 }: point;
-				const x1 = Math.min(origin.x, corner.x);
-				const x2 = Math.max(origin.x, corner.x);
-				const y1 = Math.min(origin.y, corner.y);
-				const y2 = Math.max(origin.y, corner.y);
 				this.callbacks.onBoxSelect?.(
-					this.eventCenters
-						.filter(center => center.x >= x1 && center.x <= x2 && center.y >= y1 && center.y <= y2)
-						.map(center => center.event.id),
+					this._idsInSelectionBox(
+						{ x1: origin.x, y1: origin.y, x2: corner.x, y2: corner.y },
+						layout,
+						project,
+					),
 					drag.mode,
 				);
 			} else if (!drag.playing) {

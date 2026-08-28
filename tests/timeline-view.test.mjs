@@ -207,6 +207,23 @@ test("timeline rubber-band selection keeps its origin in content space while cha
 	assert.match(pointer, /drag\.type === "box"[\s\S]*?_selectionBoxOrigin\(drag, layout\)/);
 });
 
+test("timeline rubber-band selection includes events outside the painted viewport", async () => {
+	const pointer = await readFile(new URL("../js/render/timeline-pointer.js", import.meta.url), "utf8");
+	const timeline = await readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8");
+	assert.match(timeline, /_contentLanePosition\(event, layout, project, offsets, record/);
+	assert.match(pointer, /_idsInSelectionBox\(/);
+	assert.match(pointer, /_boxSelectCenters\(/);
+	assert.match(
+		pointer,
+		/_moveSelectionBox\([\s\S]*?_idsInSelectionBox\(this\.selectionBox, layout, projectState\(this\.state\)\)/,
+	);
+	assert.match(pointer, /drag\.type === "box"[\s\S]*?_idsInSelectionBox\(/);
+	assert.doesNotMatch(
+		pointer,
+		/drag\.type === "box"[\s\S]*?this\.eventCenters\s*\.filter/,
+	);
+});
+
 test("timeline duration drag allows zero length only for bgNote and comment", async () => {
 	assert.equal(ZERO_DURATION_TYPES.has("bgNote"), true);
 	assert.equal(ZERO_DURATION_TYPES.has("comment"), true);

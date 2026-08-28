@@ -192,3 +192,17 @@ test("selected group anchors stay drawable when main-field grouping rings are hi
 	assert.ok(anchorsCall > toggleBlockEnd, "selected group anchors draw outside the grouping toggle");
 	assert.equal(drawGrouping.includes("showGroupingInMainField === false"), false);
 });
+
+test("selected-invisible dashed circles skip group events", async () => {
+	const source = await readFile(new URL("../js/render/stage-notes.js", import.meta.url), "utf8");
+	const fn = source.slice(
+		source.indexOf("_drawSelectedInvisible("),
+		source.indexOf("_drawSelectedInvisibleText("),
+	);
+	const groupSkip = fn.indexOf('event.type === "group"');
+	const dashedArc = fn.indexOf("context.arc(");
+	assert.ok(groupSkip >= 0, "group events must be skipped");
+	assert.ok(groupSkip < dashedArc, "group skip must happen before the dashed circle is drawn");
+	assert.match(fn, /setLineDash\(\[4, 3\]\)/);
+});
+

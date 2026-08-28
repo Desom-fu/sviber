@@ -164,6 +164,9 @@ class StageNotesTrait {
 			) {
 				continue;
 			}
+			if (event.type === "group") {
+				continue;
+			}
 			if (MOVABLE_TYPES.has(event.type)) {
 				if (this._noteVisibility(event, now)) {
 					continue;
