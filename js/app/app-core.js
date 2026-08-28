@@ -594,6 +594,7 @@ export class SviberAppCore extends CoreShell {
 		this.cancelSelectionPreview?.();
 		this.cancelFreeTransform();
 		this.cancelPreview();
+		this.exitOffsetAdjustment?.();
 	}
 
 	destroy() {

@@ -4,6 +4,7 @@ import { NDArray } from "../js/core/ndarray.js";
 import { AUTO_TIMING_DEFAULTS, runAutoTiming, toMonoSamples } from "../js/dsp/auto-timing.js";
 import { nodesToValues, tautString, timingFromDenoisedBeats } from "../js/dsp/beat-denoise.js";
 import { computeNovelty } from "../js/dsp/novelty.js";
+import { SviberAppCore } from "../js/app/app-core.js";
 import { withAutoTiming } from "../js/app/app-auto-timing.js";
 import { renderClickTrack, steadyBeatTimes, tempoChangeBeatTimes } from "./auto-timing-signal.mjs";
 
@@ -202,4 +203,34 @@ test("a worker that reports an ErrorEvent still produces a result", async t => {
 	const result = await app.runAutoTimingAnalysis(samples, sampleRate, {});
 	assert.ok(Math.abs(result.timing.initialBpm - 120) < 0.5);
 	assert.match(String(warnings[0]?.[1]?.message ?? ""), /Cannot load module script/);
+});
+
+test("exitModes leaves offset adjustment", () => {
+	const App = withAutoTiming(SviberAppCore);
+	const app = Object.create(App.prototype);
+	app.creationMode = "tap";
+	app.curveDraft = { kind: "draft" };
+	app.offsetAdjustment = true;
+	let timelineActive = true;
+	let checked = true;
+	app.timeline = {
+		setOffsetAdjustment(active) {
+			timelineActive = Boolean(active);
+		},
+	};
+	app.registry = {
+		setChecked(_id, value) {
+			checked = value;
+		},
+	};
+	app.requestStatusUpdate = () => {};
+	app.cancelSelectionPreview = () => {};
+	app.cancelFreeTransform = () => {};
+	app.cancelPreview = () => {};
+	app.exitModes();
+	assert.equal(app.offsetAdjustment, false);
+	assert.equal(timelineActive, false);
+	assert.equal(checked, false);
+	assert.equal(app.creationMode, null);
+	assert.equal(app.curveDraft, null);
 });
