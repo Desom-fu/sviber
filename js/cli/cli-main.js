@@ -11,8 +11,29 @@ const { pathToFileURL } = require("node:url");
 
 // Relative dynamic imports need a string module base URL. NW.js `node-main` can
 // start without one, and V8 then aborts with "Check failed: base_url_value->IsString()."
+// `package.json` `"type": "module"` also means `nw .` may evaluate this file without
+// CJS wrappers, so `__dirname` is missing even when `require` is injected.
+function nodeMainDirectory() {
+	try {
+		if (typeof __dirname === "string") {
+			return __dirname;
+		}
+	} catch {
+		/* ESM / eval without CJS wrappers. */
+	}
+	try {
+		if (typeof module !== "undefined" && typeof module.filename === "string") {
+			return path.dirname(module.filename);
+		}
+	} catch {
+		/* ignore */
+	}
+	const root = global.nw?.App?.startPath || process.cwd();
+	return path.join(root, "js", "cli");
+}
+
 function siblingModuleUrl(name) {
-	return pathToFileURL(path.join(__dirname, name)).href;
+	return pathToFileURL(path.join(nodeMainDirectory(), name)).href;
 }
 
 function argumentList() {
