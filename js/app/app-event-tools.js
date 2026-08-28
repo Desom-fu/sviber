@@ -266,8 +266,6 @@ class EventToolsTrait {
 				view: captureHistoryView(model),
 			}),
 			lightweight: true,
-			selectionOnly: true,
-			selectionSynced: true,
 			rebuildIndex: false,
 			scheduleDirty: false,
 			skipCommands: true,
@@ -278,13 +276,21 @@ class EventToolsTrait {
 				for (const change of changes) {
 					change.event.channel = change.to;
 				}
-				if (!currentIndex?.moveEventsToChannels?.(changes)) {
+				try {
+					if (!currentIndex?.moveEventsToChannels?.(changes)) {
+						commitOptions.rebuildIndex = true;
+					}
+				} catch {
 					commitOptions.rebuildIndex = true;
 				}
 				return changes.map(change => ({ id: change.event.id, channel: change.to }));
 			},
 			commitOptions,
 		);
+		const target = changes[0]?.to;
+		if (target != null) {
+			this.timeline?.revealChannel?.(target);
+		}
 		this.registry.notify("events.moveChannelAbove");
 		this.registry.notify("events.moveChannelBelow");
 		return result;

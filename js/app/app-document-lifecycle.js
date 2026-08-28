@@ -13,6 +13,7 @@ import {
 	metadataFields,
 	applyPresetDifficultyColor,
 	difficultyColor,
+	trackDialogFieldEdits,
 } from "./app-helpers.js";
 
 class DocumentLifecycleTrait {
@@ -165,6 +166,7 @@ class DocumentLifecycleTrait {
 		const difficultyName = this.difficulties.some(
 			entry => entry.model.metadata.difficultyName.toLowerCase() === "master",
 		)? "Special": "Master";
+		const tracking = trackDialogFieldEdits(["charter"], applyPresetDifficultyColor);
 		const values = await this.dialogs.form({
 			titleKey: "dialog.newChart",
 			values: {
@@ -178,12 +180,14 @@ class DocumentLifecycleTrait {
 				initialBpm: 120,
 			},
 			fields: metadataFields(),
-			onChange: applyPresetDifficultyColor,
+			onChange: tracking.onChange,
 		});
 		if (!values) {
 			return null;
 		}
-		this.rememberCharter(values.charter);
+		if (tracking.userEdited("charter")) {
+			this.rememberCharter(values.charter);
+		}
 		values.difficultyColor = difficultyColor(values.difficultyName, values.difficultyColor);
 		this.projectName = values.title;
 		this.projectTitle = values.title;
@@ -309,6 +313,7 @@ class DocumentLifecycleTrait {
 			return;
 		}
 		const defaults = ChartModel.createDefault();
+		const tracking = trackDialogFieldEdits(["charter"], applyPresetDifficultyColor);
 		const values = await this.dialogs.form({
 			titleKey: options.chartOnly ? "dialog.newChart" : "dialog.newProject",
 			values: {
@@ -324,12 +329,14 @@ class DocumentLifecycleTrait {
 				initialBpm: 120,
 			},
 			fields: metadataFields(),
-			onChange: applyPresetDifficultyColor,
+			onChange: tracking.onChange,
 		});
 		if (!values) {
 			return;
 		}
-		this.rememberCharter(values.charter);
+		if (tracking.userEdited("charter")) {
+			this.rememberCharter(values.charter);
+		}
 		values.difficultyColor = difficultyColor(values.difficultyName, values.difficultyColor);
 		const model = ChartModel.createDefault({
 			metadata: values,
@@ -352,6 +359,7 @@ class DocumentLifecycleTrait {
 	}
 
 	async showChartProperties(newChart = false) {
+		const tracking = trackDialogFieldEdits(["charter"], applyPresetDifficultyColor);
 		const values = await this.dialogs.form({
 			titleKey: newChart ? "dialog.newChart" : "dialog.chartProperties",
 			values: {
@@ -360,12 +368,14 @@ class DocumentLifecycleTrait {
 				initialBpm: this.model.timing.initialBpm,
 			},
 			fields: metadataFields(),
-			onChange: applyPresetDifficultyColor,
+			onChange: tracking.onChange,
 		});
 		if (!values) {
 			return null;
 		}
-		this.rememberCharter(values.charter);
+		if (tracking.userEdited("charter")) {
+			this.rememberCharter(values.charter);
+		}
 		this.commit(i18n.t("dialog.chartProperties"), model => {
 			model.metadata = {
 				title: values.title,

@@ -64,3 +64,14 @@ test("UI uses icon controls, sliders, fullscreen, read-only macros, and PWA cach
 	assert.match(worker, /js\/macro\/macro-sandbox\.bundle\.js/);
 	assert.match(sandboxHtml, /macro-sandbox\.bundle\.js/);
 });
+
+test("NW.js source launches never request the web app manifest", async () => {
+	const [index, link] = await Promise.all([
+		readFile(new URL("../index.html", import.meta.url), "utf8"),
+		readFile(new URL("../js/boot/manifest-link.js", import.meta.url), "utf8"),
+	]);
+	assert.doesNotMatch(index, /rel="manifest"/);
+	assert.match(link, /chrome-extension:/);
+	assert.match(link, /process\?\.versions\?\.nw/);
+	assert.match(link, /link\[rel="manifest"\]/);
+});

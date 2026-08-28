@@ -105,7 +105,7 @@ export class ChartIndexTipGuidesTrait {
 		let settings = null;
 		for (const record of records) {
 			const event = record.event;
-			const declared = TIP_POINT_SPAWN_TYPES.has(event.tipPointSpawnType) ? event.tipPointSpawnType : "inherit";
+			const declared = declaredTipPointSpawnType(event);
 			if (declared !== "inherit") {
 				mode = declared;
 				settings = mode === "chain" || mode === "drop" ? event : null;

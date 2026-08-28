@@ -477,12 +477,47 @@ export function metadataFields() {
 	];
 }
 
+function dialogControlElement(entry) {
+	return entry?.control?.element;
+}
+
+export function dialogEventTargetsField(dialogState, fieldId) {
+	const entry = dialogState?.entries?.find(item => item.field.id === fieldId);
+	const element = dialogControlElement(entry);
+	const target = dialogState?.event?.target;
+	return Boolean(element && (element === target || element.contains?.(target)));
+}
+
+// Opening a form can fire `input` as the browser populates or autofills fields. Those events
+// have no `inputType`, or use `insertReplacementText`. Charter memory and the difficulty
+// color listener must wait for a real edit in the matching field.
+export function isUserFieldEdit(dialogState, fieldId) {
+	const event = dialogState?.event;
+	if (event?.type !== "input" || !event.inputType || event.inputType === "insertReplacementText") {
+		return false;
+	}
+	return dialogEventTargetsField(dialogState, fieldId);
+}
+
+export function trackDialogFieldEdits(fieldIds, onChange) {
+	const edited = new Set();
+	return {
+		onChange(values, dialogState) {
+			for (const id of fieldIds) {
+				if (isUserFieldEdit(dialogState, id)) {
+					edited.add(id);
+				}
+			}
+			return onChange?.(values, dialogState);
+		},
+		userEdited(id) {
+			return edited.has(id);
+		},
+	};
+}
+
 export function applyPresetDifficultyColor(values, dialogState) {
-	const nameEntry = dialogState.entries.find(item => item.field.id === "difficultyName");
-	if (
-		!nameEntry?.control?.element?.contains?.(dialogState.event?.target) &&
-		nameEntry?.control?.element !== dialogState.event?.target
-	) {
+	if (!isUserFieldEdit(dialogState, "difficultyName")) {
 		return;
 	}
 	const preset = DIFFICULTY_COLORS[String(values.difficultyName || "").toLowerCase()];

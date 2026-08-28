@@ -44,6 +44,13 @@ function sampleChart() {
 	return model;
 }
 
+test("NW.js node-main resolves CLI modules with absolute file URLs", async () => {
+	const source = await readFile(new URL("../js/cli/cli-main.js", import.meta.url), "utf8");
+	assert.match(source, /pathToFileURL/);
+	assert.match(source, /import\(siblingModuleUrl\("cli\.js"\)\)/);
+	assert.doesNotMatch(source, /^\s*import\("\.\/cli\.js"\)/m);
+});
+
 test("the CLI help message documents every documented usage", () => {
 	const text = helpText();
 	for (const fragment of [

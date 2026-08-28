@@ -195,8 +195,15 @@ test("moveSelectedChannel captures view and restores previous currentTime on und
 	});
 	app.history = new History(app.model.snapshot());
 	app.model.editor.currentTime = [8, 0, 1];
+	app.timeline = {
+		revealed: null,
+		revealChannel(id) {
+			this.revealed = id;
+		},
+	};
 	app.moveSelectedChannel(1);
 	assert.equal(app.model.events[0].channel, 1);
+	assert.equal(app.timeline.revealed, 1);
 	assert.deepEqual(app.history.current.editor.currentTime, [8, 0, 1]);
 	const undone = app.history.undo();
 	assert.equal(undone.events[0].channel, 0);

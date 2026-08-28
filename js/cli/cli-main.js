@@ -7,6 +7,13 @@
 
 const fs = require("node:fs");
 const path = require("node:path");
+const { pathToFileURL } = require("node:url");
+
+// Relative dynamic imports need a string module base URL. NW.js `node-main` can
+// start without one, and V8 then aborts with "Check failed: base_url_value->IsString()."
+function siblingModuleUrl(name) {
+	return pathToFileURL(path.join(__dirname, name)).href;
+}
 
 function argumentList() {
 	try {
@@ -27,9 +34,9 @@ function showWindow() {
 async function main() {
 	const argv = argumentList();
 	const [{ isHeadlessInvocation, parseCliArguments }, { runCli }, { createNodeCliIo }] = await Promise.all([
-		import("./cli.js"),
-		import("./cli-operations.js"),
-		import("./cli-node-io.js"),
+		import(siblingModuleUrl("cli.js")),
+		import(siblingModuleUrl("cli-operations.js")),
+		import(siblingModuleUrl("cli-node-io.js")),
 	]);
 	const args = parseCliArguments(argv);
 	if (!isHeadlessInvocation(args)) {

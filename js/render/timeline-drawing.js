@@ -449,6 +449,10 @@ export class TimelineDrawingTrait {
 		if (cached !== undefined) {
 			return cached;
 		}
+		if (!guide?.events?.[0]) {
+			this.tipPointCheckpointCache.guides.set(guide, null);
+			return null;
+		}
 		const channels = this._visibleChannels(project);
 		const channelIndex = channels.findIndex(channel => channel.id === guide.events[0].channel);
 		if (channelIndex < 0) {

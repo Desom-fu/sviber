@@ -139,6 +139,9 @@ export class ChartIndexMutationsTrait {
 		}
 		if (plan.noteChanges.length) {
 			this._rebuildTipGuideIndexes();
+			this._buildDoubleTapIndexes();
+		} else {
+			this.timelineTipRevision += 1;
 		}
 		return true;
 	}

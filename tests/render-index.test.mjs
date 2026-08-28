@@ -174,6 +174,41 @@ test("render index incrementally moves notes between channels", () => {
 	);
 });
 
+test("render index moves many inheriting notes between channels without throwing", () => {
+	const model = ChartModel.createDefault({
+		channels: [{ id: 0 }, { id: 1 }],
+		events: Array.from({ length: 6 }, (_, id) => ({
+			id: id + 1,
+			type: "tap",
+			time: [id, 0, 1],
+			channel: 0,
+			x: 0,
+			y: 0,
+			tipPointSpawnType: id === 0 ? "chain" : "inherit",
+			selected: id > 0,
+		})),
+	});
+	const index = new ChartRenderIndex(model, model.timing);
+	const initialRevision = index.timelineTipRevision;
+	const moved = model.events.filter(event => event.selected);
+	for (const event of moved) {
+		event.channel = 1;
+	}
+	assert.equal(
+		index.moveEventsToChannels(moved.map(event => ({ event, from: 0, to: 1 }))),
+		true,
+	);
+	assert.deepEqual(
+		index.noteEventRecordsByChannel.get(0).map(record => record.event.id),
+		[1],
+	);
+	assert.deepEqual(
+		index.noteEventRecordsByChannel.get(1).map(record => record.event.id),
+		[2, 3, 4, 5, 6],
+	);
+	assert.ok(index.timelineTipRevision > initialRevision);
+});
+
 test("render index removes nested events without rebuilding event records", () => {
 	const model = ChartModel.createDefault({
 		events: [

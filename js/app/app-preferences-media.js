@@ -11,6 +11,7 @@ import {
 	applyThemePreference,
 	applyPresetDifficultyColor,
 	difficultyColor,
+	trackDialogFieldEdits,
 } from "./app-helpers.js";
 
 class PreferencesMediaTrait {
@@ -118,6 +119,7 @@ class PreferencesMediaTrait {
 
 	async requestLyricaImportOptions() {
 		const defaults = ChartModel.createDefault().metadata;
+		const tracking = trackDialogFieldEdits(["charter"], applyPresetDifficultyColor);
 		const values = await this.dialogs.form({
 			titleKey: "dialog.importLyrica",
 			values: {
@@ -144,12 +146,14 @@ class PreferencesMediaTrait {
 					min: 1,
 				},
 			],
-			onChange: applyPresetDifficultyColor,
+			onChange: tracking.onChange,
 		});
 		if (!values) {
 			return null;
 		}
-		this.rememberCharter(values.charter);
+		if (tracking.userEdited("charter")) {
+			this.rememberCharter(values.charter);
+		}
 		return {
 			charter: values.charter,
 			difficultyName: values.difficultyName,
