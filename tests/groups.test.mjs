@@ -255,3 +255,63 @@ test("selected group-anchor hit regions stay registered for multiple attached gr
 	assert.match(fn, /type: "group-anchor"/);
 	assert.match(fn, /if \(group\.selected\)/);
 });
+
+test("group drag clamp keeps the group anchor rigid with contained events at the chart boundary", async () => {
+	const { CHART_BOUNDS, findNearestSnapPoint, resolveAttachedPosition } = await import("../js/core/geometry.js");
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	app.model = ChartModel.createDefault({
+		events: [
+			{
+				id: 10,
+				type: "group",
+				selected: true,
+				x: 0,
+				y: 0,
+				events: [{ id: 11, type: "tap", channel: 0, time: [0, 0, 1], x: 80, y: 0 }],
+			},
+		],
+	});
+	const snap = findNearestSnapPoint({ x: 95, y: 0 }, app.model.snappees, {
+		activeOnly: true,
+		maxDistance: 9,
+		bounds: CHART_BOUNDS,
+	});
+	assert.ok(snap?.snappeeId != null, "playfield grid should snap near the right boundary");
+	app._applyPositionMove(app.model, 10, snap);
+	const group = resolveAttachedPosition(app.model.findEvent(10), app.model.snappees) || app.model.findEvent(10);
+	const child = app.model.findEvent(11);
+	assert.deepEqual({ x: child.x - group.x, y: child.y - group.y }, { x: 80, y: 0 });
+	assert.equal(child.x, CHART_BOUNDS.maxX);
+	assert.equal(app.model.findEvent(10).attached, false);
+});
+
+test("group drag can still re-attach when the snap stays on the rigid translation", async () => {
+	const { findNearestSnapPoint, resolveAttachedPosition } = await import("../js/core/geometry.js");
+	const EditingApp = withEventEditing(class {});
+	const app = new EditingApp();
+	app.model = ChartModel.createDefault({
+		events: [
+			{
+				id: 10,
+				type: "group",
+				selected: true,
+				x: 0,
+				y: 0,
+				events: [{ id: 11, type: "tap", channel: 0, time: [0, 0, 1], x: 10, y: 0 }],
+			},
+		],
+	});
+	const snap = findNearestSnapPoint({ x: 12.5, y: 0 }, app.model.snappees, {
+		activeOnly: true,
+		maxDistance: 9,
+	});
+	assert.ok(snap?.snappeeId != null, "playfield grid should snap near the origin");
+	app._applyPositionMove(app.model, 10, snap);
+	const groupEvent = app.model.findEvent(10);
+	const group = resolveAttachedPosition(groupEvent, app.model.snappees) || groupEvent;
+	const child = app.model.findEvent(11);
+	assert.equal(groupEvent.attached, true);
+	assert.deepEqual({ x: child.x - group.x, y: child.y - group.y }, { x: 10, y: 0 });
+});
+

@@ -114,7 +114,17 @@ function applyDetachedPositionMove(model, movable, primary, point) {
 		delete event.snappee;
 		delete event.snapPoint;
 	}
-	if (point.snappeeId != null && pointAllowed(model, point)) {
+	// Re-attach the primary only when the snap sits on the clamped destination.
+	// Otherwise a boundary grid snap would pull just the group anchor onto the
+	// snappee while descendants stay on the rigid clamped translation.
+	const clampedX = Number(original.x) + deltaX;
+	const clampedY = Number(original.y) + deltaY;
+	if (
+		point.snappeeId != null &&
+		pointAllowed(model, point) &&
+		Math.abs(Number(point.x) - clampedX) <= 1e-9 &&
+		Math.abs(Number(point.y) - clampedY) <= 1e-9
+	) {
 		primary.attached = true;
 		primary.snappee = point.snappeeId;
 		primary.snapPoint = deepClone(point.snapPoint);
