@@ -4,6 +4,7 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { uniqueChartFilename } from "../core/project.js";
+import { snapshotsEqual } from "../core/history.js";
 import { Rational } from "../core/rational.js";
 import { LAST_OPEN_KEY, RECENT_OPEN_KEY, deepClone, localizedErrorMessage } from "./app-helpers.js";
 import { listRunnableMacros, runChosenMacro } from "./app-macro-bridge.js";
@@ -22,12 +23,9 @@ class HistoryCommandsTrait {
 		}
 		this.cancelPreview();
 		this.creationMode = null;
-		this.curveDraft = null;
-		this.restoreHistorySnapshot(this.history.goTo(index));
-		this.curveDraft = deepClone(this.history.currentMetadata?.curveDraft || null);
-		this.updateDirty();
-		this.queueMediaSync();
-		this.refresh();
+		const wasDrafting = Boolean(this.curveDraft);
+		const snapshot = this.history.goTo(index);
+		this._applyHistoryNavigation(snapshot, wasDrafting);
 		return true;
 	}
 
@@ -39,16 +37,12 @@ class HistoryCommandsTrait {
 		const previousMode = this.creationMode;
 		const creationAction = this.history.currentMetadata?.creationMode;
 		this.creationMode = creationAction ? previousMode || creationAction : null;
-		this.curveDraft = null;
+		const wasDrafting = Boolean(this.curveDraft);
 		const snapshot = this.history.undo();
 		if (!snapshot) {
 			return;
 		}
-		this.restoreHistorySnapshot(snapshot);
-		this.curveDraft = deepClone(this.history.currentMetadata?.curveDraft || null);
-		this.updateDirty();
-		this.queueMediaSync();
-		this.refresh();
+		this._applyHistoryNavigation(snapshot, wasDrafting);
 	}
 
 	redo() {
@@ -59,13 +53,29 @@ class HistoryCommandsTrait {
 		const previousMode = this.creationMode;
 		const creationAction = this.history.entries[this.history.cursor + 1]?.metadata?.creationMode;
 		this.creationMode = creationAction ? previousMode || creationAction : null;
-		this.curveDraft = null;
+		const wasDrafting = Boolean(this.curveDraft);
 		const snapshot = this.history.redo();
 		if (!snapshot) {
 			return;
 		}
+		this._applyHistoryNavigation(snapshot, wasDrafting);
+	}
+
+	// Curve-draft undo/redo only changes metadata; a full refresh blanks the static
+	// layer and flickers. Keep the draft continuous and restage lightly when the
+	// chart snapshot did not actually change.
+	_applyHistoryNavigation(snapshot, wasDrafting) {
+		const nextDraft = deepClone(this.history.currentMetadata?.curveDraft || null);
+		const draftNavigation = wasDrafting || Boolean(nextDraft);
+		if (draftNavigation && snapshotsEqual(this.model.snapshot(), snapshot)) {
+			this.curveDraft = nextDraft;
+			this.updateDirty();
+			this.historyPanel?.render?.(this.history, { readOnly: this.model.editor.readOnly });
+			this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
+			return;
+		}
 		this.restoreHistorySnapshot(snapshot);
-		this.curveDraft = deepClone(this.history.currentMetadata?.curveDraft || null);
+		this.curveDraft = nextDraft;
 		this.updateDirty();
 		this.queueMediaSync();
 		this.refresh();

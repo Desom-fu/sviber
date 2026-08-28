@@ -244,7 +244,12 @@ export class StagePointerTrait {
 			return;
 		}
 		this.creationPreview = null;
-		this.curvePreview = null;
+		// Keep the last curve ghost while drafting. Spurious leave events (HUD/chrome
+		// crossings) used to blank the arc preview; a click in that blank frame then
+		// grabbed the centre handle and jumped it.
+		if (!this.callbacks.getCurveDraft?.()) {
+			this.curvePreview = null;
+		}
 		this.callbacks.onCreationPreview?.(null);
 		this.requestRender();
 	}
@@ -341,21 +346,26 @@ export class StagePointerTrait {
 		if (context.playing) {
 			return;
 		}
-		if (hit?.type === "draft-pen-handle" || hit?.type === "draft-point") {
-			this.drag = { type: hit.type, hit, start: context.point };
-			this._listenForDrag();
-			return;
-		}
 		const chart = context.mapping.toChart(context.point);
-		if (context.curveDraft.type !== "penCurve") {
-			this.callbacks.onCurvePoint?.(chart, false);
-			return;
-		}
 		const snap = findNearestSnapPoint(chart, context.project.snappees, {
 			activeOnly: true,
 			maxDistance: 9 / context.mapping.scale,
 		});
-		const index = this.callbacks.onPenNodeStart?.(snap ? { x: snap.x, y: snap.y } : chart);
+		this.curvePreview = snap ? { x: snap.x, y: snap.y } : { x: chart.x, y: chart.y };
+		// While an arc is still collecting centre/start/end, never steal the press as a
+		// handle drag — a click near the centre must place the next point, not move it.
+		const arcPlacing =
+			context.curveDraft.type === "circularArcCurve" && (context.curveDraft.points?.length || 0) < 3;
+		if (!arcPlacing && (hit?.type === "draft-pen-handle" || hit?.type === "draft-point")) {
+			this.drag = { type: hit.type, hit, start: context.point };
+			this._listenForDrag();
+			return;
+		}
+		if (context.curveDraft.type !== "penCurve") {
+			this.callbacks.onCurvePoint?.(this.curvePreview, false);
+			return;
+		}
+		const index = this.callbacks.onPenNodeStart?.(this.curvePreview);
 		if (Number.isInteger(index)) {
 			this.drag = { type: "pen-new", index, start: context.point };
 			this._listenForDrag();
@@ -752,6 +762,9 @@ export class StagePointerTrait {
 	}
 
 	_moveDraftPoint(context) {
+		if (!this.pointerMoved) {
+			return false;
+		}
 		this.callbacks.onPreviewCurvePoint?.(context.drag.hit.index, this._draftPointTarget(context));
 	}
 

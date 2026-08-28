@@ -63,7 +63,12 @@ function bindModeKeys(app) {
 			void app.setFullscreen(!app._isFullscreen());
 		} else if (event.key === "Escape") {
 			escapeModes(app, event);
-		} else if (event.key === "Enter" && (app.freeTransform || app.curveDraft) && !app.dialogs.active) {
+		} else if (
+			event.key === "Enter" &&
+			!event.isComposing &&
+			(app.freeTransform || app.curveDraft) &&
+			!app.dialogs.active
+		) {
 			commitPendingDraft(app, event);
 		}
 	});
