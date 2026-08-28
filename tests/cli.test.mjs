@@ -44,13 +44,12 @@ function sampleChart() {
 	return model;
 }
 
-test("NW.js node-main resolves CLI modules with absolute file URLs", async () => {
+test("NW.js node-main does not dynamic-import CLI modules on GUI launch", async () => {
 	const source = await readFile(new URL("../js/cli/cli-main.js", import.meta.url), "utf8");
-	assert.match(source, /pathToFileURL/);
-	assert.match(source, /import\(siblingModuleUrl\("cli\.js"\)\)/);
-	assert.doesNotMatch(source, /^\s*import\("\.\/cli\.js"\)/m);
+	assert.match(source, /isCliOperation/);
+	assert.match(source, /require\(path\.join\(directory, "cli\.js"\)\)/);
+	assert.doesNotMatch(source, /\bimport\s*\(/);
 	assert.match(source, /startPath/);
-	assert.doesNotMatch(source, /path\.join\(__dirname,/);
 });
 
 test("the CLI help message documents every documented usage", () => {

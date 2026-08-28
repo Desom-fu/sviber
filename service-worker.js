@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v09100";
+const CACHE_VERSION = "sviber-v09110";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -73,7 +73,7 @@ const APP_SHELL = [
 	"./js/app/app-view-callbacks.js",
 	"./js/app/app-view-controls.js",
 	"./js/app/app-view-refresh.js",
-	"./js/app/app.js?v=55",
+	"./js/app/app.js?v=56",
 	"./js/audio/decoder.js",
 	"./js/audio/player.js",
 	"./js/audio/scheduler.js",

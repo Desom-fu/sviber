@@ -4,15 +4,31 @@
 // present the requested file operation is performed and the app quits without ever
 // showing the GUI; otherwise the window is revealed and a path argument is handed to
 // the editor through `global.sviberOpenPath`.
+//
+// A dynamic import from this file runs inside NW.js generated background page (Blink) and
+// aborts with "Check failed: base_url_value->IsString()." GUI launches must not do that.
 
 const fs = require("node:fs");
 const path = require("node:path");
-const { pathToFileURL } = require("node:url");
 
-// Relative dynamic imports need a string module base URL. NW.js `node-main` can
-// start without one, and V8 then aborts with "Check failed: base_url_value->IsString()."
-// `package.json` `"type": "module"` also means `nw .` may evaluate this file without
-// CJS wrappers, so `__dirname` is missing even when `require` is injected.
+const CLI_OPERATION_FLAGS = new Set(["--export", "--import", "--help", "-h"]);
+const VALUE_FLAGS = new Set([
+	"--export",
+	"--import",
+	"--offset",
+	"--initial-bpm",
+	"--largest-denominator",
+	"--bpm-change",
+	"--seed",
+	"--quantization-denominator",
+	"--charter",
+	"--difficulty-name",
+	"--difficulty-color",
+	"--difficulty",
+	"--difficulty-sup",
+	"--chart",
+]);
+
 function nodeMainDirectory() {
 	try {
 		if (typeof __dirname === "string") {
@@ -32,10 +48,6 @@ function nodeMainDirectory() {
 	return path.join(root, "js", "cli");
 }
 
-function siblingModuleUrl(name) {
-	return pathToFileURL(path.join(nodeMainDirectory(), name)).href;
-}
-
 function argumentList() {
 	try {
 		return Array.from(global.nw?.App?.argv || []);
@@ -52,29 +64,64 @@ function showWindow() {
 	}
 }
 
+function isCliOperation(argv) {
+	return argv.some(token => CLI_OPERATION_FLAGS.has(String(token)));
+}
+
+function firstInputPath(argv) {
+	for (let index = 0; index < argv.length; index += 1) {
+		const token = String(argv[index]);
+		if (token === "--help" || token === "-h") {
+			continue;
+		}
+		if (token === "--bpm-change" || VALUE_FLAGS.has(token)) {
+			index += 1;
+			continue;
+		}
+		if (token.startsWith("-")) {
+			continue;
+		}
+		return token;
+	}
+	return null;
+}
+
+function loadCliModules() {
+	const directory = nodeMainDirectory();
+	return {
+		cli: require(path.join(directory, "cli.js")),
+		operations: require(path.join(directory, "cli-operations.js")),
+		io: require(path.join(directory, "cli-node-io.js")),
+	};
+}
+
 async function main() {
 	const argv = argumentList();
-	const [{ isHeadlessInvocation, parseCliArguments }, { runCli }, { createNodeCliIo }] = await Promise.all([
-		import(siblingModuleUrl("cli.js")),
-		import(siblingModuleUrl("cli-operations.js")),
-		import(siblingModuleUrl("cli-node-io.js")),
-	]);
-	const args = parseCliArguments(argv);
-	if (!isHeadlessInvocation(args)) {
+	if (!isCliOperation(argv)) {
+		const input = firstInputPath(argv);
+		if (input) {
+			global.sviberOpenPath = path.resolve(input);
+		}
+		showWindow();
+		return;
+	}
+	const { cli, operations, io } = loadCliModules();
+	const args = cli.parseCliArguments(argv);
+	if (!cli.isHeadlessInvocation(args)) {
 		if (args.input) {
 			global.sviberOpenPath = path.resolve(args.input);
 		}
 		showWindow();
 		return;
 	}
-	const io = createNodeCliIo({
+	const cliIo = io.createNodeCliIo({
 		fs,
 		path,
 		JSZip: require("jszip"),
 		print: text => process.stdout.write(text),
 		printError: text => process.stderr.write(text),
 	});
-	const code = await runCli(argv, io);
+	const code = await operations.runCli(argv, cliIo);
 	process.exitCode = code ?? 0;
 	try {
 		global.nw?.App?.quit?.();
