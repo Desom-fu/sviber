@@ -7,6 +7,16 @@ import { eventUsesChannel } from "../core/grouping.js";
 // forwards a view gesture to an editing method — so they live apart from the editing logic
 // itself.
 
+function applyFlickAngles(model, id, angle, changes) {
+	const updates = changes instanceof Map ? changes : [[id, angle]];
+	for (const [eventId, nextAngle] of updates) {
+		const event = model.findEvent(eventId);
+		if (event) {
+			event.angle = nextAngle;
+		}
+	}
+}
+
 export class ViewCallbacksTrait {
 
 	_timelineCallbacks() {
