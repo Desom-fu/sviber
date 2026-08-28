@@ -81,14 +81,18 @@
 
 ## 发版配置
 
-- `package.json` / `package-lock.json`：`0.8.1`
-- Service Worker 缓存：`sviber-v0801`，并列入全部应用模块、`css/dialogs.css` 和新图标
+- `package.json` / `package-lock.json`：`0.8.2`
+- Service Worker 缓存：`sviber-v0802`，并列入全部应用模块、`css/dialogs.css` 和新图标
 - `*.pdf` 已在 `.gitignore`（参考书不入库）
 
 ## v0.8.1
 
 - 左侧检查列表的 `display: flex` 盖掉了 `[hidden]`，隐式网格行把滚动视图挤成 0 高。滚动视图与检查面板改到同一 `grid-area`，`[hidden]` 用更高优先级隐藏。
 - `npm run build` 的前置是完整 `npm test`。组织检查成功信息改为 `Source organization check passed.`
+
+## v0.8.2
+
+- 切回滚动视图时整列闪黄：`display: none` 把 canvas 收成 1×1，判定黄线被 CSS 拉满。滚动视图改为 `visibility: hidden` 留在布局里；canvas 在宿主宽高为 0 时不再改成 1×1。
 
 ## 验证
 

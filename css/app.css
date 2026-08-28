@@ -413,7 +413,11 @@ textarea:focus-visible,
 	min-height: 0;
 }
 
-.scroll-surface[hidden],
+.scroll-surface.is-inactive {
+	visibility: hidden;
+	pointer-events: none;
+}
+
 .checks-panel[hidden] {
 	display: none;
 }
@@ -447,9 +451,11 @@ textarea:focus-visible,
 }
 
 .checks-panel {
+	z-index: 1;
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
+	background: var(--panel);
 }
 
 .check-item {
@@ -479,6 +485,7 @@ textarea:focus-visible,
 }
 
 .scroll-surface {
+	z-index: 0;
 	width: 100%;
 	height: 100%;
 }

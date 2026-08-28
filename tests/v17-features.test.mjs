@@ -548,14 +548,20 @@ test("v17 source wiring for checks tab, icons, eslint, lint and editor defaults"
 });
 
 test("left-column checks list cannot cover the scroll view canvas", async () => {
-	const [html, css] = await Promise.all([
+	const [html, css, checks] = await Promise.all([
 		readFile(new URL("../index.html", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../js/app-checks.js", import.meta.url), "utf8"),
 	]);
 	assert.match(html, /id="checks-panel"[^>]*\bhidden\b/);
 	assert.match(css, /grid-template-areas:\s*"tabs"\s*"body"/);
 	assert.match(css, /\.scroll-surface,\s*\.checks-panel\s*\{[^}]*grid-area:\s*body/);
 	assert.match(css, /\.checks-panel\[hidden\][\s\S]*?display:\s*none/);
+	assert.match(css, /\.scroll-surface\.is-inactive\s*\{[^}]*visibility:\s*hidden/);
+	assert.match(
+		checks,
+		/if \(item\.id === "scroll-view"\) \{[\s\S]*is-inactive[\s\S]*\} else \{[\s\S]*item\.panel\.hidden = !active/,
+	);
 });
 
 test("v17 music volume clamps to 1 while SE volume still allows 2", () => {

@@ -62,7 +62,13 @@ class ChecksTrait {
 				const active = item.id === activeId;
 				item.tab.classList.toggle("is-active", active);
 				item.tab.setAttribute("aria-selected", String(active));
-				item.panel.hidden = !active;
+				if (item.id === "scroll-view") {
+					item.panel.classList.toggle("is-inactive", !active);
+					item.panel.inert = !active;
+					item.panel.setAttribute("aria-hidden", String(!active));
+				} else {
+					item.panel.hidden = !active;
+				}
 			}
 			if (activeId === "scroll-view") {
 				this.scrollView?.surface?.resize?.();

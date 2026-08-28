@@ -1,3 +1,14 @@
+// A collapsed host reports 0×0. Mapping that to 1×1 paints the 2px playhead as the whole
+// bitmap, which CSS then stretches into a yellow flash when the panel comes back.
+export function canvasHostSize(host) {
+	const width = Math.round(Number(host?.clientWidth) || 0);
+	const height = Math.round(Number(host?.clientHeight) || 0);
+	if (width <= 0 || height <= 0) {
+		return null;
+	}
+	return { width, height };
+}
+
 export class PixiCanvasSurface {
 	constructor(host, options = {}) {
 		this.host = host;
@@ -52,17 +63,16 @@ export class PixiCanvasSurface {
 	}
 
 	resize() {
-		const width = Math.max(1, Math.round(this.host.clientWidth));
-		const height = Math.max(1, Math.round(this.host.clientHeight));
-		if (width === this.width && height === this.height) {
+		const size = canvasHostSize(this.host);
+		if (!size || (size.width === this.width && size.height === this.height)) {
 			return false;
 		}
-		this.width = width;
-		this.height = height;
-		this.buffer.width = width;
-		this.buffer.height = height;
+		this.width = size.width;
+		this.height = size.height;
+		this.buffer.width = size.width;
+		this.buffer.height = size.height;
 		if (this.app) {
-			this.app.renderer.resize(width, height);
+			this.app.renderer.resize(size.width, size.height);
 			this.#replaceTexture();
 		}
 		return true;
@@ -78,7 +88,7 @@ export class PixiCanvasSurface {
 	}
 
 	render(draw) {
-		if (!this.context) {
+		if (!this.context || !canvasHostSize(this.host)) {
 			return;
 		}
 		const context = this.context;
