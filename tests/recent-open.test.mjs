@@ -14,7 +14,11 @@ function memoryStorage() {
 	};
 }
 
-function makeApp({ editingProject = false, saveAsPath = "/tmp/song-Master.json", projectPath = "/tmp/my-project" } = {}) {
+function makeApp({
+	editingProject = false,
+	saveAsPath = "/tmp/song-Master.json",
+	projectPath = "/tmp/my-project",
+} = {}) {
 	const App = withOpenSave(withDocumentLifecycle(class {}));
 	const app = new App();
 	app.freeTransform = null;
