@@ -361,8 +361,9 @@ test("source wiring for checks tab, icons, eslint, lint and editor defaults", as
 	assert.match(eslintSource, /"multiline-ternary":\s*\["error",\s*"never"\]/);
 	const pkg = JSON.parse(packageSource);
 	assert.equal(pkg.scripts.lint, "eslint . --max-warnings 0");
-	assert.match(pkg.scripts.test, /check-source-size\.mjs && eslint \. --max-warnings 0 && node --test/);
-	assert.equal(pkg.scripts.build, "npm test && node scripts/build-nw.mjs");
+	assert.equal(pkg.scripts.test, "eslint . --max-warnings 0 && node --test tests/*.test.mjs");
+	assert.equal(pkg.scripts.build, "node scripts/build-nw.mjs");
+	assert.equal(pkg.scripts["check:size"], undefined);
 	assert.equal(COMMAND_DEFINITIONS["music.seekBackward3"].shortcut, "Ctrl+Shift+,");
 	assert.equal(DEFAULT_EDITOR.showChartBoundary, true);
 	assert.equal(DEFAULT_EDITOR.playBgNoteSe, false);

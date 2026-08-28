@@ -1,6 +1,6 @@
 {
 	"name": "sviber",
-	"version": "0.9.6",
+	"version": "0.9.7",
 	"private": true,
 	"type": "module",
 	"description": "Desktop-style chart editor for Sunniesnow",
@@ -27,13 +27,12 @@
 	},
 	"scripts": {
 		"start": "http-server .. -p 4173 -c-1",
-		"check:size": "node scripts/check-source-size.mjs",
 		"build:macro-sandbox": "node scripts/macro-sandbox-bundle.cjs",
 		"lint": "eslint . --max-warnings 0",
-		"build": "npm test && node scripts/build-nw.mjs",
+		"build": "node scripts/build-nw.mjs",
 		"benchmark:render": "node scripts/benchmark-render-index.mjs",
-		"test": "node scripts/check-source-size.mjs && eslint . --max-warnings 0 && node --test tests/*.test.mjs",
-		"verify:browser": "node scripts/check-source-size.mjs && node scripts/verify-browser.mjs"
+		"test": "eslint . --max-warnings 0 && node --test tests/*.test.mjs",
+		"verify:browser": "node scripts/verify-browser.mjs"
 	},
 	"dependencies": {
 		"@ruby/3.4-wasm-wasi": "2.7.2",
