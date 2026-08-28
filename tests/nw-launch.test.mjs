@@ -9,6 +9,7 @@ import { spawn } from "node:child_process";
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const CHECK_PATTERN = /Check failed: base_url_value->IsString()/;
 const STARTUP_MS = 8000;
+const USER_DATA_DIR = path.join(root, "nw-user-data");
 
 function findNwBinary() {
 	const nwRoot = path.join(root, "node_modules", "nw");
@@ -50,10 +51,24 @@ function isCrashExit(code, signal) {
 	return signal === "SIGSEGV" || signal === "SIGABRT" || code === 139 || code === 134;
 }
 
+function emptyUserDataDir() {
+	fs.rmSync(USER_DATA_DIR, { recursive: true, force: true });
+	fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+}
+
 test("nw --headless . starts without the base_url CHECK", async () => {
 	const binary = findNwBinary();
 	assert.ok(binary);
-	const child = spawn(binary, [root, "--" + "ozone-platform=" + "headless"], { cwd: root });
+	emptyUserDataDir();
+	const child = spawn(
+		binary,
+		[
+			root,
+			"--user-data-dir=" + USER_DATA_DIR,
+			"--" + "ozone-platform=" + "headless",
+		],
+		{ cwd: root },
+	);
 	const output = collect(child);
 	const result = await new Promise((resolve, reject) => {
 		const timer = setTimeout(() => resolve({ timedOut: true }), STARTUP_MS);
