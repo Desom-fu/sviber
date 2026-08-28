@@ -344,6 +344,14 @@ class OpenSaveTrait {
 		}
 	}
 
+	rememberOpenAfterSave({ saveAs = false } = {}) {
+		if (!saveAs && this.editingProject && this.files?.projectPath) {
+			this.rememberLastOpen("project", this.files.projectPath);
+			return;
+		}
+		this.rememberLastOpen("chart", this.files?.chartPath);
+	}
+
 	async saveChart() {
 		try {
 			if (this.freeTransform) {
@@ -358,6 +366,7 @@ class OpenSaveTrait {
 			this.markSaved();
 			this.history.markCurrent("save");
 			this.autosave.markManualSave();
+			this.rememberOpenAfterSave();
 			this.toast.show("toast.saved");
 			this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipCommands: true });
 			return location;
@@ -396,6 +405,7 @@ class OpenSaveTrait {
 				entry.history.markCurrent("save");
 			}
 			this.autosave.markManualSave();
+			this.rememberLastOpen("project", this.files.projectPath);
 			this.toast.show("toast.projectSaved");
 			this.refresh();
 			return result.location;
@@ -417,6 +427,7 @@ class OpenSaveTrait {
 			this.markSaved();
 			this.history.markCurrent("save");
 			this.autosave.markManualSave();
+			this.rememberOpenAfterSave({ saveAs: true });
 			this.toast.show("toast.saved");
 			this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipCommands: true });
 			return location;
