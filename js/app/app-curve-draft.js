@@ -227,10 +227,9 @@ class CurveDraftTrait {
 		}
 		this.recordCurveDraftAction();
 		if (finish) {
-			this.finishCurveDraft();
-		} else {
-			this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
+			return this.finishCurveDraft();
 		}
+		this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
 	}
 
 	activateCurveDraftPoint(index) {
