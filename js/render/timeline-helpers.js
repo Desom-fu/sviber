@@ -42,6 +42,9 @@ export const TIMELINE_DURATION_TYPES = new Set([
 	"comment",
 ]);
 
+// bgNote and comment may be resized to zero length; other duration types may not.
+export const ZERO_DURATION_TYPES = new Set(["bgNote", "comment"]);
+
 export const BACKGROUND_EVENT_TYPES = new Set([
 	"bgNote",
 	"bigText",

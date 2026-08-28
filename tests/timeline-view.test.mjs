@@ -1,10 +1,11 @@
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { TIMELINE_MODULES, readSources } from "./module-source.mjs";
 import { withEventEditing } from "../js/app/app-event-editing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { TimingMap } from "../js/core/timing.js";
-import { timelineTipConnector, timelineTipSegments } from "../js/render/timeline-helpers.js";
+import { timelineTipConnector, timelineTipSegments, ZERO_DURATION_TYPES } from "../js/render/timeline-helpers.js";
 import { AB_LOOP_GRAB_DISTANCE, abLoopDragMarks, abLoopGrabIndex } from "../js/render/timeline-gestures.js";
 import { Rational } from "../js/core/rational.js";
 
@@ -188,4 +189,17 @@ test("timeline drawing reuses indexed lane offsets and selected groups during pl
 	assert.match(source, /this\.renderIndex\?\.eventLaneOffsets/);
 	assert.match(source, /this\.renderIndex\?\.selectedRootGroups/);
 	assert.match(source, /_drawTipPointLines[\s\S]*this\.renderIndex\?\.eventLaneOffsets/);
+});
+
+test("timeline duration drag allows zero length only for bgNote and comment", async () => {
+	assert.equal(ZERO_DURATION_TYPES.has("bgNote"), true);
+	assert.equal(ZERO_DURATION_TYPES.has("comment"), true);
+	assert.equal(ZERO_DURATION_TYPES.has("hold"), false);
+	const pointer = await readFile(new URL("../js/render/timeline-pointer.js", import.meta.url), "utf8");
+	assert.match(pointer, /ZERO_DURATION_TYPES/);
+	assert.match(pointer, /from "\.\/timeline-helpers\.js"/);
+	// Runtime binding: the pointer module must import the set, not rely on a sibling file const.
+	assert.match(pointer, /ZERO_DURATION_TYPES[,\s].*projectState|projectState.*ZERO_DURATION_TYPES/);
+	const source = await readSources(TIMELINE_MODULES);
+	assert.match(source, /comparison === 0 && !ZERO_DURATION_TYPES\.has\(record\.event\.type\)/);
 });

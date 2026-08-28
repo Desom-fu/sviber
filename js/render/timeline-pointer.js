@@ -1,7 +1,7 @@
 import { Rational } from "../core/rational.js";
 import { descendants, eventTime, flattenEvents } from "../core/grouping.js";
 import { eventClickSelectionMode } from "./selection.js";
-import { TIMELINE_DURATION_TYPES as DURATION_TYPES, projectState } from "./timeline-helpers.js";
+import { TIMELINE_DURATION_TYPES as DURATION_TYPES, ZERO_DURATION_TYPES, projectState } from "./timeline-helpers.js";
 import { abLoopDragMarks, abLoopGrabIndex, bpmFromDrag, offsetFromDrag } from "./timeline-gestures.js";
 
 // Pointer handling of the timeline: hit testing its widgets, the press, drag and release

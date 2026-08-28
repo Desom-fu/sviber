@@ -32,6 +32,8 @@ import {
 	setControlHidden,
 } from "./panel-controls.js";
 
+import { ZERO_DURATION_TYPES } from "../render/timeline-helpers.js";
+
 export { bindEscapeRestore, rememberInitialValues };
 export { ClipsPanel, drawClipThumbnail } from "./panel-clips.js";
 export { HistoryPanel } from "./panel-history.js";
@@ -52,7 +54,6 @@ const DURATION_TYPES = new Set([
 ]);
 const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText", "comment"]);
 const TIP_TYPES = new Set(["tap", "hold", "drag", "flick"]);
-const ZERO_DURATION_TYPES = new Set(["bgNote", "comment"]);
 const EVENT_TYPE_CHOICES = [
 	"tap",
 	"hold",

@@ -40,7 +40,6 @@ import {
 	offsetFromDrag,
 } from "./timeline-gestures.js";
 
-const ZERO_DURATION_TYPES = new Set(["bgNote", "comment"]);
 
 export class TimelineView {
 	constructor(host, callbacks = {}) {
