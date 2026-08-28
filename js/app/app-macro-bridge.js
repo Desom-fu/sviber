@@ -159,11 +159,11 @@ async function loadRubyResources() {
 		location.protocol === "file:" ||
 		/^(?:localhost|127\.0\.0\.1)$/.test(location.hostname);
 	const wasmSources = localFirst? [
-				"node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm",
-				"https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm",
+				"node_modules/@ruby/4.0-wasm-wasi/dist/ruby+stdlib.wasm",
+				"https://cdn.jsdelivr.net/npm/@ruby/4.0-wasm-wasi@2.10.1/dist/ruby+stdlib.wasm",
 			]: [
-				"https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm",
-				"node_modules/@ruby/3.4-wasm-wasi/dist/ruby+stdlib.wasm",
+				"https://cdn.jsdelivr.net/npm/@ruby/4.0-wasm-wasi@2.10.1/dist/ruby+stdlib.wasm",
+				"node_modules/@ruby/4.0-wasm-wasi/dist/ruby+stdlib.wasm",
 			];
 	let failure;
 	const fetchWasm = async () => {

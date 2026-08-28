@@ -302,7 +302,7 @@ async function copyProductionDependencies(applicationDirectory) {
 				if (relative === "node_modules" || relative.startsWith(`node_modules${path.sep}`)) {
 					return false;
 				}
-				if (packageName === "@ruby/3.4-wasm-wasi") {
+				if (packageName === "@ruby/4.0-wasm-wasi") {
 					const normalized = relative.split(path.sep).join("/");
 					return normalized !== "dist/ruby.debug+stdlib.wasm" && normalized !== "dist/ruby.wasm";
 				}

@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v0990";
+const CACHE_VERSION = "sviber-v09100";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -73,7 +73,7 @@ const APP_SHELL = [
 	"./js/app/app-view-callbacks.js",
 	"./js/app/app-view-controls.js",
 	"./js/app/app-view-refresh.js",
-	"./js/app/app.js?v=54",
+	"./js/app/app.js?v=55",
 	"./js/audio/decoder.js",
 	"./js/audio/player.js",
 	"./js/audio/scheduler.js",
@@ -221,7 +221,7 @@ const CDN_ASSETS = [
 	"https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
 	"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js",
 	"https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.10.1/dist/browser.umd.js",
-	"https://cdn.jsdelivr.net/npm/@ruby/3.4-wasm-wasi@2.7.2/dist/ruby+stdlib.wasm",
+	"https://cdn.jsdelivr.net/npm/@ruby/4.0-wasm-wasi@2.10.1/dist/ruby+stdlib.wasm",
 	"https://cdn.jsdelivr.net/npm/audio-decode@3.12.0/+esm",
 	"https://cdn.jsdelivr.net/npm/@audio/decode@3.12.0/+esm",
 	"https://cdn.jsdelivr.net/npm/audio-type@2.4.2/+esm",
