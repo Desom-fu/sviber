@@ -351,9 +351,19 @@ export class StageOverlaysTrait {
 	}
 
 	_drawGrouping(context, project, mapping, now) {
-		if (project.editor?.showGroupingInMainField === false || !this.renderIndex) {
+		if (!this.renderIndex) {
 			return;
 		}
+		// Grouping rings around notes follow the main-field toggle. Selected group anchors
+		// (and their bounds) stay visible whenever a group is selected, so the handle can
+		// still be dragged with the rings turned off.
+		if (project.editor?.showGroupingInMainField !== false) {
+			this._drawGroupingRings(context, mapping, now);
+		}
+		this._drawSelectedGroupAnchors(context, mapping);
+	}
+
+	_drawGroupingRings(context, mapping, now) {
 		const visibleRecords = this.renderIndex
 			.visibleMovableRecords(now)
 			.filter(record => record.event.type !== "group")
@@ -389,6 +399,9 @@ export class StageOverlaysTrait {
 					context.restore();
 				});
 		}
+	}
+
+	_drawSelectedGroupAnchors(context, mapping) {
 		for (const record of (this.renderIndex.groupRecords || []).filter(record => record.event.selected)) {
 			const group = record.event;
 			if (!this.renderIndex.isEventActive(group)) {

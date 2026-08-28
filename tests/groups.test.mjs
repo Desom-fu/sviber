@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { withEventEditing } from "../js/app/app-event-editing.js";
 import { ChartModel } from "../js/core/chart-model.js";
@@ -177,4 +178,17 @@ test("an attached selected group moves together with all descendants", () => {
 	assert.deepEqual({ x: app.model.findEvent(11).x, y: app.model.findEvent(11).y }, { x: 15, y: 7 });
 	assert.deepEqual(app.model.findEvent(10).time, undefined);
 	assert.deepEqual(app.model.findEvent(10).channel, undefined);
+});
+
+test("selected group anchors stay drawable when main-field grouping rings are hidden", async () => {
+	const source = await readFile(new URL("../js/render/stage-overlays.js", import.meta.url), "utf8");
+	const drawGrouping = source.slice(source.indexOf("_drawGrouping("), source.indexOf("_groupBounds("));
+	assert.match(drawGrouping, /_drawGroupingRings/);
+	assert.match(drawGrouping, /_drawSelectedGroupAnchors/);
+	assert.match(drawGrouping, /showGroupingInMainField !== false/);
+	const toggle = drawGrouping.indexOf("showGroupingInMainField !== false");
+	const toggleBlockEnd = drawGrouping.indexOf("}", toggle);
+	const anchorsCall = drawGrouping.indexOf("this._drawSelectedGroupAnchors");
+	assert.ok(anchorsCall > toggleBlockEnd, "selected group anchors draw outside the grouping toggle");
+	assert.equal(drawGrouping.includes("showGroupingInMainField === false"), false);
 });
