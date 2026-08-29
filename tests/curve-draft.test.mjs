@@ -232,6 +232,140 @@ test("undo during curve draft does not blank curveDraft before restore", () => {
 	assert.equal(refreshes.some(item => item.type === "light" && item.stageOnly), true);
 });
 
+test("Enter or double-click on a pen draft creates the snappee and opens the dialog", async () => {
+	const forms = [];
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+
+				preview() {}
+
+				commit(_label, mutation) {
+					mutation(this.model);
+					return { ok: true };
+				}
+			},
+		),
+	);
+	const app = new App();
+	app.model = ChartModel.createDefault();
+	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
+	app.freeTransform = null;
+	app.creationMode = null;
+	app.dialogs = {
+		async form(spec) {
+			forms.push(spec);
+			return { ...spec.values };
+		},
+	};
+	app.startCurveDraft("penCurve");
+	app.startPenNode({ x: -20, y: 0 });
+	app.startPenNode({ x: 20, y: 10 });
+	await app.finishCurveDraft();
+	assert.equal(app.curveDraft, null);
+	const pen = app.model.snappees.find(snappee => snappee.type === "penCurve");
+	assert.ok(pen);
+	assert.equal(pen.closed, false);
+	assert.deepEqual(pen.commands, [
+		{ type: "M", x: -20, y: 0 },
+		{ type: "L", x: 20, y: 10 },
+	]);
+	assert.equal(forms.length, 1);
+	assert.equal(forms[0].focusField, "segments");
+});
+
+test("closing a pen loop keeps the first point and appends the closing segment", async () => {
+	const forms = [];
+	const App = withHistoryCommands(
+		withChartTools(
+			class {
+				exitModes() {
+					this.creationMode = null;
+				}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				_refreshLightweight() {}
+
+				updateDirty() {}
+
+				queueMediaSync() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+				}
+
+				cancelPreview() {}
+
+				cancelFreeTransform() {}
+
+				preview() {}
+
+				commit(_label, mutation) {
+					mutation(this.model);
+					return { ok: true };
+				}
+			},
+		),
+	);
+	const app = new App();
+	app.model = ChartModel.createDefault();
+	app.history = new History(app.model.snapshot(), { initialLabel: "initial" });
+	app.freeTransform = null;
+	app.creationMode = null;
+	app.dialogs = {
+		async form(spec) {
+			forms.push(spec);
+			return { ...spec.values };
+		},
+	};
+	// Clicking the first point (activateCurveDraftPoint(0)) closes the loop.
+	app.startCurveDraft("penCurve");
+	app.startPenNode({ x: -20, y: 0 });
+	app.startPenNode({ x: 20, y: 10 });
+	assert.equal(app.activateCurveDraftPoint(0), true);
+	assert.equal(app.curveDraft, null);
+	const closed = app.model.snappees.find(snappee => snappee.type === "penCurve");
+	assert.ok(closed);
+	assert.equal(closed.closed, true);
+	assert.deepEqual(closed.commands, [
+		{ type: "M", x: -20, y: 0 },
+		{ type: "L", x: 20, y: 10 },
+		{ type: "L", x: -20, y: 0 },
+	]);
+	// A click near the first point (startPenNode close branch) closes too.
+	app.startCurveDraft("penCurve");
+	app.startPenNode({ x: 0, y: 0 });
+	app.startPenNode({ x: 30, y: 0 });
+	assert.equal(app.startPenNode({ x: 1, y: 0 }), null);
+	const nearClosed = app.model.snappees.filter(snappee => snappee.type === "penCurve").at(-1);
+	assert.equal(nearClosed.closed, true);
+	assert.deepEqual(nearClosed.commands.at(-1), { type: "L", x: 0, y: 0 });
+});
+
 test("confirming the bezier segments dialog keeps the entered count", async () => {
 	const App = withHistoryCommands(
 		withChartTools(

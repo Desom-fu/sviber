@@ -113,3 +113,11 @@
 
 - `npm test`（`eslint . --max-warnings 0 && node --test tests/*.test.mjs`）：lint 0 错误，370 项测试全部通过（含 1 项预先存在的 skip）。
 - 提交前已逐行复查 `dev-notes/v18-v19.diff`，上述 13 项全部落地，覆盖率 100%。
+
+## v0.10.1 修复：钢笔曲线无法用回车/双击确认，且闭环后首点被拖走
+
+- **现象**：钢笔工具画曲线时，回车键与双击都无法像贝塞尔工具那样确认并弹出参数提示框；点击第一个点闭环时确认同样失败，草稿残留在半闭合状态，之后的点击/微拖动会把最初的那个点拖走。
+- **根因**：`js/app/app-curve-draft.js` 的 `finishCurveDraft` 在 `penCurve` 分支引用了 `penCommandsFromNodes`，但该函数从未从 `../core/geometry.js` 导入。任何走完 pen 确认路径的调用（`finishCurveDraft`：回车/双击/闭环）都在构造 `commands` 时抛出 `ReferenceError`：snappee 未创建、提示框未弹出、`curveDraft` 未清空；闭环路径中 `closed = true` 已写入，草稿卡在破损状态，用户再次点击首点（命中 `draft-point` 区域）时轻微移动即被 `moveCurveDraftPoint` 当作拖动移点——表现为"闭环后把最开始的点弄走"。
+- **修复**：在 `js/app/app-curve-draft.js` 顶部导入 `penCommandsFromNodes`（一行）。确认路径恢复正常：回车/双击结束绘制并弹出 segments 提示框；点击（不拖动）首点或靠近首点处闭环时生成带闭合段（回到首点坐标）的闭合 penCurve 并弹出提示框。
+- **验证**：新增 `tests/curve-draft.test.mjs` 两项回归测试——"Enter or double-click on a pen draft creates the snappee and opens the dialog"（断言创建 snappee、`commands` 正确、弹出 `focusField: "segments"` 表单）与"closing a pen loop keeps the first point and appends the closing segment"（断言 `activateCurveDraftPoint(0)` 与 `startPenNode` 近首点两条闭环路径首点坐标不变、末尾为回到首点的闭合段）。未修复时两项均失败（ReferenceError），修复后通过；全部测试通过。
+

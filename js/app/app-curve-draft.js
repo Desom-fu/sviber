@@ -3,7 +3,7 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { Rational } from "../core/rational.js";
-import { findNearestSnapPoint, sampleSnappee } from "../core/geometry.js";
+import { findNearestSnapPoint, penCommandsFromNodes, sampleSnappee } from "../core/geometry.js";
 import { captureHistoryView } from "../core/history.js";
 import { SNAPPEE_COLORS, deepClone, eventTypeLabel, pointAllowed } from "./app-helpers.js";
 
