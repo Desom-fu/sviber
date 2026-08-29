@@ -218,12 +218,17 @@ export function evaluateExpression(value, fallback = 0) {
 		return Number.isFinite(value) ? value : fallback;
 	}
 	try {
-		const result = globalThis.math?.evaluate?.(String(value));
-		return Number.isFinite(Number(result)) ? Number(result) : fallback;
+		if (globalThis.math?.evaluate) {
+			const result = globalThis.math.evaluate(String(value));
+			if (Number.isFinite(Number(result))) {
+				return Number(result);
+			}
+		}
 	} catch {
-		const result = Number(value);
-		return Number.isFinite(result) ? result : fallback;
+		/* Fall through to direct numeric conversion */
 	}
+	const result = Number(value);
+	return Number.isFinite(result) ? result : fallback;
 }
 
 export function selected(model) {
