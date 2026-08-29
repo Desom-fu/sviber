@@ -1,6 +1,7 @@
 import { i18n } from "../ui/i18n.js";
 import { deepClone, eventTypeLabel } from "./app-helpers.js";
 import { eventUsesChannel } from "../core/grouping.js";
+import { createEvent } from "../core/chart-events.js";
 
 // The callback tables handed to the timeline and stage views when they are constructed.
 // Split out of app-event-editing.js: these two objects are pure wiring — every entry
@@ -55,31 +56,8 @@ export class ViewCallbacksTrait {
 			onAdjustTiming: payload => this.previewOffsetAdjustment(payload),
 			onPreviewMoveEvents: (delta, channelDelta, copy) => this.previewMoveEvents(delta, channelDelta, copy),
 			onMoveEvents: (delta, channelDelta, copy) => this.moveEvents(delta, channelDelta, copy),
-			onPreviewDurations: changes =>
-				this.preview(
-					"Resize events",
-					model => {
-						const durations = new Map(changes.map(change => [change.id, change.duration]));
-						for (const event of model.allEvents()) {
-							if (durations.has(event.id)) {
-								event.duration = deepClone(durations.get(event.id));
-							}
-						}
-					},
-					{ scheduleDirty: true, lightweight: true },
-				),
-			onResizeEvents: changes => {
-				const ids = new Set(changes.map(change => change.id));
-				const durations = new Map(changes.map(change => [change.id, change.duration]));
-				this.commit(i18n.t("history.editEvent", { type: "" }), model => {
-					for (const event of model.allEvents()) {
-						if (durations.has(event.id)) {
-							event.duration = deepClone(durations.get(event.id));
-						}
-					}
-				});
-				this.rememberCreationDefaults(this.model.allEvents().filter(event => ids.has(event.id)));
-			},
+			onPreviewDurations: changes => this._previewDurations(changes),
+			onResizeEvents: changes => this._resizeEvents(changes),
 			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode),
 			onBoxSelect: (ids, mode) => this.finishSelectionPreview(ids, mode),
 			onEndPreview: () => this.endInteractionPreview(),
@@ -90,6 +68,66 @@ export class ViewCallbacksTrait {
 			onMainFieldZoom: factor => this.setMainFieldZoom(factor),
 			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey),
 		};
+	}
+
+	// v21: duration resizes mutate the live events and splice the render index
+	// incrementally (`replaceEvents`), so dragging a hold tail neither rebuilds the whole
+	// index per pointer move nor right when the drag is released. The refresh options
+	// object doubles as the rebuild request channel: the mutation flips `rebuildIndex`
+	// when the incremental splice is not possible.
+	_applyDurationChanges(model, changes, refreshOptions) {
+		const currentIndex = this.renderIndex?.eventSource === model.events ? this.renderIndex : null;
+		const durations = new Map(changes.map(change => [change.id, change.duration]));
+		const replacements = [];
+		for (const event of model.allEvents()) {
+			const duration = durations.get(event.id);
+			if (duration === undefined) {
+				continue;
+			}
+			// The model swaps to the replacement object (like chooseEventTool), so the
+			// render index and the model keep referencing the same events across moves.
+			const newEvent = createEvent(event.type, {
+				...event,
+				duration: deepClone(duration),
+				id: event.id,
+				selected: event.selected,
+			});
+			model.replaceEvent(event.id, newEvent);
+			if (currentIndex) {
+				replacements.push({ oldEvent: event, newEvent });
+			}
+		}
+		if (!currentIndex?.replaceEvents?.(replacements)) {
+			refreshOptions.rebuildIndex = true;
+		}
+	}
+
+	_previewDurations(changes) {
+		const previewOptions = {
+			scheduleDirty: true,
+			lightweight: true,
+			incremental: true,
+			rebuildIndex: false,
+		};
+		this.preview(
+			"Resize events",
+			model => this._applyDurationChanges(model, changes, previewOptions),
+			previewOptions,
+		);
+	}
+
+	_resizeEvents(changes) {
+		const ids = new Set(changes.map(change => change.id));
+		// v21: the incremental previews already mutate the live events and the final
+		// mutation overwrites every previewed duration, so the commit skips the preview
+		// restore and splices the index in place instead of rebuilding it.
+		const commitOptions = { scheduleDirty: true, rebuildIndex: false, skipPreviewRestore: true };
+		this.commit(
+			i18n.t("history.editEvent", { type: "" }),
+			model => this._applyDurationChanges(model, changes, commitOptions),
+			commitOptions,
+		);
+		this.rememberCreationDefaults(this.model.allEvents().filter(event => ids.has(event.id)));
 	}
 
 	_stageCallbacks() {

@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { readManual } from "./module-source.mjs";
 import { withClipboard } from "../js/app/app-clipboard.js";
 import { SviberAppCore } from "../js/app/app-core.js";
 import { withFileWorkflows } from "../js/app/app-file-workflows.js";
@@ -337,7 +338,7 @@ test("workflows prompt for add-to-project and document the complete behavior", a
 		readFile(new URL("../js/app/app-clipboard.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app/app-status-bindings.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app/app-command-bindings.js", import.meta.url), "utf8"),
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8"),
 		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
 	]);

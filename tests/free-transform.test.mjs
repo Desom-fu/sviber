@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { readManual } from "./module-source.mjs";
 import { withEventEditing } from "../js/app/app-event-editing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { applyTransform, clampAffineToChartBounds, isPointWithinChartBounds } from "../js/core/geometry.js";
@@ -304,7 +305,7 @@ test("clamps free-transform translate/scale and keeps inspector Enter from finis
 		readFile(new URL("../js/app/app-free-transform.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/core/geometry.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui/panels.js", import.meta.url), "utf8"),
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 	]);
 	assert.match(geometry, /export function clampAffineToChartBounds/);
 	// The clamp call and its anchor points may be spelled across statements after the

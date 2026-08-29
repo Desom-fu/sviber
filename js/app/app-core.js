@@ -412,13 +412,22 @@ export class SviberAppCore extends CoreShell {
 			this.finishFreeTransform();
 		}
 		let previewScheduleDirty = false;
+		let previewBaseState = null;
 		if (this.previewBase) {
 			previewScheduleDirty = this.previewScheduleDirty;
-			this.model.restore(this.previewBase);
+			// v21: incremental previews mutate the live events in place, and a commit whose
+			// mutation overwrites every previewed field can keep the model identity, so the
+			// restore (and with it the index invalidation) is skipped. `previewBaseState`
+			// then serves as the history baseline instead of a fresh snapshot.
+			if (options.skipPreviewRestore) {
+				previewBaseState = this.previewBase;
+			} else {
+				this.model.restore(this.previewBase);
+			}
 			this.previewBase = null;
 			this.previewScheduleDirty = false;
 		}
-		return this._finishCommit(label, mutation, options, previewScheduleDirty);
+		return this._finishCommit(label, mutation, options, previewScheduleDirty, previewBaseState);
 	}
 
 	preview(label, mutation, options = {}) {

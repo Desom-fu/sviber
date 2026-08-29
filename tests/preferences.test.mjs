@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { readManual } from "./module-source.mjs";
 
 import {
 	DEFAULT_PREFERENCES,
@@ -157,7 +158,7 @@ test("preferences dialog uses Sunniesnow volume sliders and the manual does not 
 	const [workflows, player, manual, styles, docsScript] = await Promise.all([
 		readFile(new URL("../js/app/app-preferences-media.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/audio/player.js", import.meta.url), "utf8"),
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 		readFile(new URL("../docs/docs.css", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.js", import.meta.url), "utf8"),
 	]);

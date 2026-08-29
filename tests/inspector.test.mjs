@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { readManual } from "./module-source.mjs";
 import { ChartModel } from "../js/core/chart-model.js";
 import { fillInheritedTipPointParams, inheritedTipPointSource } from "../js/core/tip-point.js";
 
@@ -30,7 +31,7 @@ test("actually hides inapplicable tip-point inspector rows", async () => {
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui/panels.js", import.meta.url), "utf8"),
 		readFile(new URL("../scripts/verify-browser-regressions.mjs", import.meta.url), "utf8"),
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 	]);
 	assert.match(css, /\.property-row\[hidden\]\s*\{\s*display:\s*none;/);
 	assert.match(panels, /label: String\(item\.name \|\| `Channel \$\{index \+ 1\}`\)/);

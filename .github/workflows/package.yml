@@ -14,37 +14,44 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            platform: windows-x86
+            osName: windows
+            archName: x86
             nwPlatform: win
             arch: ia32
             archive: zip
           - os: windows-latest
-            platform: windows-x86_64
+            osName: windows
+            archName: x86_64
             nwPlatform: win
             arch: x64
             archive: zip
           - os: windows-latest
-            platform: windows-aarch64
+            osName: windows
+            archName: aarch64
             nwPlatform: win
             arch: arm64
             archive: zip
           - os: ubuntu-latest
-            platform: linux-x86_64
+            osName: linux
+            archName: x86_64
             nwPlatform: linux
             arch: x64
             archive: tar.gz
           - os: ubuntu-latest
-            platform: linux-aarch64
+            osName: linux
+            archName: aarch64
             nwPlatform: linux
             arch: arm64
             archive: tar.gz
           - os: macos-15-intel
-            platform: macos-x86_64
+            osName: macos
+            archName: x86_64
             nwPlatform: osx
             arch: x64
             archive: dmg
           - os: macos-15
-            platform: macos-aarch64
+            osName: macos
+            archName: aarch64
             nwPlatform: osx
             arch: arm64
             archive: dmg
@@ -56,25 +63,28 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Resolve release version
+        shell: bash
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
       - name: Build targeted NW.js app
         env:
           SVIBER_NW_PLATFORM: ${{ matrix.nwPlatform }}
           SVIBER_NW_ARCH: ${{ matrix.arch }}
         run: npm run build
       - name: Archive Windows app as ZIP
-        if: startsWith(matrix.platform, 'windows-')
+        if: startsWith(matrix.archName, 'x86')
         shell: pwsh
-        run: Compress-Archive -Path build/nw/* -DestinationPath sviber-${{ matrix.platform }}.zip
+        run: Compress-Archive -Path build/nw/* -DestinationPath sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.zip
       - name: Archive Linux app as tar.gz
-        if: startsWith(matrix.platform, 'linux-')
-        run: tar -czf sviber-${{ matrix.platform }}.tar.gz -C build/nw .
+        if: startsWith(matrix.osName, 'linux')
+        run: tar -czf sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.tar.gz -C build/nw .
       - name: Archive macOS app as DMG
-        if: startsWith(matrix.platform, 'macos-')
-        run: hdiutil create -volname sviber -srcfolder build/nw -ov -format UDZO sviber-${{ matrix.platform }}.dmg
+        if: startsWith(matrix.osName, 'macos')
+        run: hdiutil create -volname sviber -srcfolder build/nw -ov -format UDZO sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.dmg
       - uses: actions/upload-artifact@v7
         with:
-          name: sviber-${{ matrix.platform }}
-          path: sviber-${{ matrix.platform }}.${{ matrix.archive }}
+          name: sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}
+          path: sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.${{ matrix.archive }}
           if-no-files-found: error
 
   runtime-free:

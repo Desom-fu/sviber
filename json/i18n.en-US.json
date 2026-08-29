@@ -931,5 +931,18 @@
   "validation.svgPath": "The clipboard does not contain usable SVG path data.",
   "toast.svgPathCopied": "Path data copied to the clipboard.",
   "toast.svgPathImported": "Path data imported.",
-  "toast.svgPathImportFailed": "Importing path data failed: {message}"
+  "toast.svgPathImportFailed": "Importing path data failed: {message}",
+  "license.returnToEditor": "Return to editor",
+  "license.backToLicenseList": "Back to license list",
+  "license.title": "JavaScript license information",
+  "license.note": "Select a local JavaScript file to inspect it without leaving this license window.",
+  "license.file": "JavaScript file",
+  "license.license": "License",
+  "license.source": "Source",
+  "license.sourceUnavailable": "Source unavailable",
+  "license.sourceUnavailableHint": "The requested file is not part of the JavaScript license source list.",
+  "license.sourceViewerTitle": "sviber source viewer",
+  "license.sourceTitleSuffix": "sviber source viewer",
+  "license.loadFailed": "Unable to load {filename}: {message}",
+  "license.loading": "Loading..."
 }

@@ -11,6 +11,8 @@ class StageInteractionsTrait {
 		document.removeEventListener("pointermove", this.boundMove);
 		document.removeEventListener("pointerup", this.boundUp);
 		document.removeEventListener("pointercancel", this.boundUp);
+		document.removeEventListener("keydown", this.ctrlAltListener, true);
+		document.removeEventListener("keyup", this.ctrlAltListener, true);
 		cancelAnimationFrame(this.particleAnimationFrame);
 		cancelAnimationFrame(this.renderAnimationFrame);
 		cancelAnimationFrame(this.pointerMoveAnimationFrame);

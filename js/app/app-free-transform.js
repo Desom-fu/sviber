@@ -140,7 +140,7 @@ class FreeTransformTrait {
 		return true;
 	}
 
-	_finishCommit(label, mutation, options = {}, previewScheduleDirty = false) {
+	_finishCommit(label, mutation, options = {}, previewScheduleDirty = false, previewBaseState = null) {
 		const patchCommit = typeof options.historyPatch === "function";
 		const viewOnly = !patchCommit && Boolean(options.selectionOnly || options.viewOnly);
 		const refreshBaseline = panelRefreshState(this.model);
@@ -152,7 +152,7 @@ class FreeTransformTrait {
 				.map(event => event.id);
 			selectionBefore = new Set(selectedIds);
 		}
-		const before = viewOnly || patchCommit ? null : this.model.snapshot();
+		const before = viewOnly || patchCommit ? null : previewBaseState ?? this.model.snapshot();
 		const result = mutation(this.model);
 		const refreshOptions = this._resolveCommitRefresh(options, refreshBaseline);
 		this._normalizeGroupSelectionScope?.();

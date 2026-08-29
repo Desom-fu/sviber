@@ -7,6 +7,8 @@ import { TimingMap } from "../js/core/timing.js";
 import { withHistoryCommands } from "../js/app/app-history-commands.js";
 import { withFreeTransform } from "../js/app/app-free-transform.js";
 import { withChartTools } from "../js/app/app-chart-tools.js";
+import { withEventEditing } from "../js/app/app-event-editing.js";
+import { ChartRenderIndex } from "../js/render/chart-index.js";
 
 test("History view restores the snapped beat mode and visible time range between patches", () => {
 	const base = {
@@ -416,4 +418,115 @@ test("restoring a chart title leaves other difficulties unchanged", async () => 
 	SviberAppCore.prototype.restoreHistorySnapshot.call(app, snapshot);
 	assert.equal(app.model.metadata.title, "Easy Prime");
 	assert.equal(app.difficulties[1].model.metadata.title, "Hard Mix");
+});
+
+function makeDurationDragApp(trackRebuilds) {
+	return withHistoryCommands(
+		withEventEditing(
+			class {
+				commit(label, mutation, options = {}) {
+					if (this.model.editor.readOnly && !options.allowReadOnly) {
+						return null;
+					}
+					let previewScheduleDirty = false;
+					let previewBaseState = null;
+					if (this.previewBase) {
+						previewScheduleDirty = this.previewScheduleDirty;
+						if (options.skipPreviewRestore) {
+							previewBaseState = this.previewBase;
+						} else {
+							this.model.restore(this.previewBase);
+						}
+						this.previewBase = null;
+						this.previewScheduleDirty = false;
+					}
+					return this._finishCommit(label, mutation, options, previewScheduleDirty, previewBaseState);
+				}
+
+				_rebuildRenderIndex() {
+					if (trackRebuilds) {
+						trackRebuilds.count += 1;
+					}
+					this.renderIndex = new ChartRenderIndex(this.model, this.model.timing, {});
+					return this.renderIndex;
+				}
+
+				viewState() {
+					return { renderIndex: this.renderIndex };
+				}
+
+				timeline = { setState() {}, requestRender() {} };
+
+				stage = { setState() {}, requestRender() {} };
+
+				_invalidatePlaybackSchedule() {}
+
+				_normalizeGroupSelectionScope() {}
+
+				refresh() {}
+
+				refreshInteractionPreview() {}
+
+				cancelPreview() {}
+
+				restoreHistorySnapshot(snapshot) {
+					this.model.restore(snapshot);
+					this._rebuildRenderIndex();
+				}
+
+				queueMediaSync() {}
+
+				updateDirty() {}
+
+				preview(label, mutation, options = {}) {
+					if (!this.previewBase) {
+						this.previewBase = this.model.snapshot();
+					}
+					this.previewScheduleDirty ||= Boolean(options.scheduleDirty);
+					if (!options.incremental) {
+						this.model.restore(this.previewBase);
+					}
+					mutation(this.model);
+					if (options.lightweight) {
+						this.refreshInteractionPreview({
+							rebuildIndex: options.rebuildIndex !== false,
+							stageOnly: options.stageOnly,
+						});
+					} else {
+						this.refresh();
+					}
+				}
+
+				requestStatusUpdate() {}
+
+				syncActiveDifficultyState() {}
+
+				broadcastLiveChartUpdate() {}
+			},
+		),
+	);
+}
+
+test("a duration drag commits one undoable resize and keeps the render index usable", () => {
+	globalThis.document = { title: "", getElementById: () => null };
+	const trackRebuilds = { count: 0 };
+	const EditingApp = makeDurationDragApp(trackRebuilds);
+	const app = new EditingApp();
+	app.model = ChartModel.createDefault();
+	const hold = app.model.addEvent("hold", { time: [4, 0, 1], x: 0, y: 0, duration: [0, 2, 1] });
+	app.history = new History(app.model.snapshot());
+	app._rebuildRenderIndex();
+	const callbacks = app._timelineCallbacks();
+	const rebuildsBefore = trackRebuilds.count;
+	// Two incremental preview moves, then the release commit.
+	callbacks.onPreviewDurations([{ id: hold.id, duration: [0, 3, 1] }]);
+	callbacks.onPreviewDurations([{ id: hold.id, duration: [0, 5, 1] }]);
+	callbacks.onResizeEvents([{ id: hold.id, duration: [0, 6, 1] }]);
+	assert.equal(app.model.findEvent(hold.id).duration[0], 6);
+	// The whole drag runs without a single full index rebuild.
+	assert.equal(trackRebuilds.count - rebuildsBefore, 0);
+	// One undoable edit: undo restores the pre-drag duration and the index follows.
+	app.undo();
+	assert.equal(app.model.findEvent(hold.id).duration[0], 2);
+	assert.equal(app.renderIndex.eventSource, app.model.events);
 });

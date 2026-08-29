@@ -1,31 +1,17 @@
+// The manual body and its interface labels live in `json/manual.<lang>.json` (v21: no
+// translatable text is hardcoded in the page or in this script); this loader injects the
+// article for the selected language and then wires the contents list and search on top
+// of the resulting DOM.
 const languageSelect = document.getElementById("language");
 const contents = document.getElementById("contents");
 const supported = new Set(["en", "zh-CN"]);
-const languageLabels = Object.freeze({
-	en: { en: "English", "zh-CN": "Simplified Chinese" },
-	"zh-CN": { en: "英文", "zh-CN": "简体中文" },
-});
-const searchLabels = Object.freeze({
-	en: {
-		label: "Search",
-		placeholder: "Search manual",
-		clear: "Clear search",
-		matches: (index, count) => `${index}/${count} matches`,
-		none: "No matches",
-	},
-	"zh-CN": {
-		label: "搜索",
-		placeholder: "搜索手册",
-		clear: "清除搜索",
-		matches: (index, count) => `${index}/${count} 项匹配`,
-		none: "没有匹配内容",
-	},
-});
 const searchInput = document.getElementById("manual-search-input");
 const searchClear = document.getElementById("manual-search-clear");
 const searchStatus = document.getElementById("manual-search-status");
+const loadedManuals = new Map();
 let activeArticle = null;
-let activeLanguage = "en";
+let activeLanguage = "";
+let activeUi = null;
 let searchMatches = [];
 let searchMatchIndex = -1;
 
@@ -51,6 +37,23 @@ function requestedLanguage() {
 		return stored;
 	}
 	return normalizeLanguage(navigator.language) || "en";
+}
+
+function formatMessage(template, values) {
+	return String(template || "").replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
+}
+
+async function loadManual(language) {
+	if (loadedManuals.has(language)) {
+		return loadedManuals.get(language);
+	}
+	const response = await fetch(`../json/manual.${language}.json`, { cache: "no-cache" });
+	if (!response.ok) {
+		throw new Error(`HTTP ${response.status}`);
+	}
+	const manual = await response.json();
+	loadedManuals.set(language, manual);
+	return manual;
 }
 
 function buildContents(article) {
@@ -92,7 +95,10 @@ function focusSearchMatch(index, behavior = "smooth") {
 		node.classList.toggle("search-match-current", node === target);
 	}
 	target.scrollIntoView({ behavior, block: "center" });
-	searchStatus.textContent = searchLabels[activeLanguage].matches(searchMatchIndex + 1, searchMatches.length);
+	searchStatus.textContent = formatMessage(activeUi.search.matches, {
+		index: searchMatchIndex + 1,
+		count: searchMatches.length,
+	});
 }
 
 function applySearch(value = "") {
@@ -134,28 +140,36 @@ function applySearch(value = "") {
 	if (searchMatches.length) {
 		focusSearchMatch(0, "auto");
 	} else {
-		searchStatus.textContent = searchLabels[activeLanguage].none;
+		searchStatus.textContent = activeUi.search.none;
 	}
 	syncContents();
 }
 
-function setLanguage(language) {
-	const selected = supported.has(language) ? language : "en";
-	activeLanguage = selected;
-	document.documentElement.lang = selected;
-	languageSelect.value = selected;
-	languageSelect.setAttribute("aria-label", selected === "zh-CN" ? "语言" : "Language");
+function applyChrome() {
+	languageSelect.setAttribute("aria-label", activeUi.languageLabel);
 	for (const option of languageSelect.options) {
-		option.textContent = languageLabels[selected][option.value];
+		option.textContent = activeUi.languages[option.value];
 	}
-	document.getElementById("manual-search-label").textContent = searchLabels[selected].label;
-	searchInput.placeholder = searchLabels[selected].placeholder;
-	searchInput.setAttribute("aria-label", searchLabels[selected].label);
-	searchClear.setAttribute("aria-label", searchLabels[selected].clear);
-	localStorage.setItem("sviber.documentationLanguage", selected);
+	document.getElementById("manual-search-label").textContent = activeUi.search.label;
+	searchInput.placeholder = activeUi.search.placeholder;
+	searchInput.setAttribute("aria-label", activeUi.search.label);
+	searchClear.setAttribute("aria-label", activeUi.search.clear);
+}
+
+function setArticle(language, manual) {
+	activeLanguage = language;
+	activeUi = manual.ui;
+	document.documentElement.lang = language;
+	languageSelect.value = language;
+	applyChrome();
 	let visible = null;
 	for (const article of document.querySelectorAll("article[data-language]")) {
-		article.hidden = article.dataset.language !== selected;
+		const isTarget = article.dataset.language === language;
+		article.hidden = !isTarget;
+		if (isTarget && !article.dataset.filled) {
+			article.innerHTML = manual.article;
+			article.dataset.filled = "true";
+		}
 		if (!article.hidden) {
 			visible = article;
 		}
@@ -164,6 +178,18 @@ function setLanguage(language) {
 	if (visible) {
 		buildContents(visible);
 		applySearch(searchInput.value);
+	}
+}
+
+async function setLanguage(language) {
+	const selected = supported.has(language) ? language : "en";
+	localStorage.setItem("sviber.documentationLanguage", selected);
+	try {
+		const manual = await loadManual(selected);
+		setArticle(selected, manual);
+	} catch (error) {
+		activeUi = null;
+		searchStatus.textContent = `Unable to load the manual: ${error.message}`;
 	}
 }
 
@@ -213,5 +239,4 @@ document.addEventListener("click", event => {
 	target.scrollIntoView({ behavior: "smooth", block: "start" });
 });
 
-setLanguage(requestedLanguage());
-scrollToHash();
+setLanguage(requestedLanguage()).then(scrollToHash);

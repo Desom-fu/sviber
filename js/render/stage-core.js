@@ -118,6 +118,18 @@ export class StageViewCore {
 		};
 		document.addEventListener("keydown", this.spaceKeyDown, true);
 		document.addEventListener("keyup", this.spaceKeyUp, true);
+		// v21: Ctrl+Alt enlarges the selection handles (flick, tip spawn, group anchor),
+		// so track the pair and repaint when it changes.
+		this.ctrlAltHeld = false;
+		this.ctrlAltListener = event => {
+			const held = event.type === "keydown" && Boolean(event.ctrlKey && event.altKey);
+			if (held !== this.ctrlAltHeld) {
+				this.ctrlAltHeld = held;
+				this.requestRender();
+			}
+		};
+		document.addEventListener("keydown", this.ctrlAltListener, true);
+		document.addEventListener("keyup", this.ctrlAltListener, true);
 		this.boundMove = event => this._queuePointerMove(event);
 		this.boundUp = event => {
 			this._flushPointerMove();
@@ -463,6 +475,23 @@ export class StageViewCore {
 		return sunniesnowEventVisualState(event, start, end, now, this.state?.preferences?.noteSpeed);
 	}
 
+	// v21 fix: deterministic stacking for note bodies — by time, then by channel order
+	// (the channel lower in the timeline covers the one above it when notes are
+	// simultaneous), then by creation order inside the lane. The interval index returns
+	// records in tree order, which used to make the covering flip per chart region.
+	_sortNoteRecordsForStacking(noteRecords, project) {
+		const channelOrder =
+			this.renderIndex?.channelOrder ||
+			new Map((project.channels || []).map((channel, index) => [channel.id, index]));
+		noteRecords.sort(
+			(left, right) =>
+				left.start - right.start ||
+				(channelOrder.get(left.event.channel) ?? Infinity) -
+					(channelOrder.get(right.event.channel) ?? Infinity) ||
+				left.sequence - right.sequence,
+		);
+	}
+
 	_drawNotes(context, project, mapping, now) {
 		const doubleTapIds = this._doubleTapIds(project);
 		const records = [];
@@ -478,6 +507,7 @@ export class StageViewCore {
 			if (project.editor?.showBgEventsInMainField === false && event.type === "bgNote") {
 				continue;
 			}
+			const start = indexed.start ?? this.timing.beatToSeconds(event.time);
 			const visibility =
 				indexed.start == null? this._noteVisibility(event, now): sunniesnowEventVisualState(
 							event,
@@ -495,7 +525,15 @@ export class StageViewCore {
 					y: Number(event.y) || 0,
 				};
 			const screen = mapping.toScreen(position);
-			const record = { event, position, screen, visibility, doubleTap: doubleTapIds.has(event.id) };
+			const record = {
+				event,
+				position,
+				screen,
+				visibility,
+				doubleTap: doubleTapIds.has(event.id),
+				start,
+				sequence: indexed.sequence ?? event.id,
+			};
 			records.push(record);
 			if (event.type === "bgNote") {
 				backgroundRecords.push(record);
@@ -504,6 +542,7 @@ export class StageViewCore {
 			}
 			this.visibleEvents.push(record);
 		}
+		this._sortNoteRecordsForStacking(noteRecords, project);
 		for (const record of backgroundRecords) {
 			this._drawNoteBody(
 				context,

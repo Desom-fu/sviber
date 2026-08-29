@@ -931,5 +931,18 @@
   "validation.svgPath": "剪贴板中没有可用的 SVG 路径数据。",
   "toast.svgPathCopied": "路径数据已复制到剪贴板。",
   "toast.svgPathImported": "已导入路径数据。",
-  "toast.svgPathImportFailed": "导入路径数据失败：{message}"
+  "toast.svgPathImportFailed": "导入路径数据失败：{message}",
+  "license.returnToEditor": "返回编辑器",
+  "license.backToLicenseList": "返回许可证列表",
+  "license.title": "JavaScript 许可证信息",
+  "license.note": "选择本地 JavaScript 文件时，将在当前许可证窗口内查看。",
+  "license.file": "JavaScript 文件",
+  "license.license": "许可证",
+  "license.source": "源代码",
+  "license.sourceUnavailable": "源代码不可用",
+  "license.sourceUnavailableHint": "请求的文件不在 JavaScript 许可证源列表中。",
+  "license.sourceViewerTitle": "sviber 源代码查看器",
+  "license.sourceTitleSuffix": "sviber 源代码查看器",
+  "license.loadFailed": "无法加载 {filename}：{message}",
+  "license.loading": "加载中..."
 }

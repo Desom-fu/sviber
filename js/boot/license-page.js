@@ -1,3 +1,30 @@
+// v21: the page texts come from the JSON i18n data instead of being hardcoded in the
+// HTML attributes.
+let vocabulary = null;
+
+function translate(key) {
+	return vocabulary?.[key] ?? key;
+}
+
+function formatMessage(template, values) {
+	return String(template || "").replace(/\{(\w+)\}/g, (match, key) => values[key] ?? match);
+}
+
+async function loadVocabulary(language) {
+	const response = await fetch(`json/i18n.${language}.json`, { cache: "no-cache" });
+	if (!response.ok) {
+		throw new Error(`HTTP ${response.status}`);
+	}
+	vocabulary = await response.json();
+}
+
+function applyTexts() {
+	document.title = `${translate("license.title")} - sviber`;
+	for (const element of document.querySelectorAll("[data-i18n-key]")) {
+		element.textContent = translate(element.dataset.i18nKey);
+	}
+}
+
 (function () {
 	"use strict";
 
@@ -29,6 +56,10 @@
 	const language = stored.language === "zh-CN" || stored.language === "en-US" ? stored.language : systemLanguage;
 	document.documentElement.lang = language;
 
+	loadVocabulary(language)
+		.then(applyTexts)
+		.catch(error => console.warn("License i18n data unavailable", error));
+
 	function returnToEditor(event) {
 		event.preventDefault();
 		const fallback = event.currentTarget.href;
@@ -49,12 +80,12 @@
 		const filename = new URLSearchParams(location.search).get("file") || "";
 		const title = document.getElementById("source-title");
 		if (!SOURCES.has(filename)) {
-			title.textContent = "Source unavailable";
-			output.textContent = "The requested file is not part of the JavaScript license source list.";
+			title.textContent = translate("license.sourceUnavailable");
+			output.textContent = translate("license.sourceUnavailableHint");
 			return;
 		}
 		title.textContent = filename;
-		document.title = `${filename} - sviber source viewer`;
+		document.title = `${filename} - ${translate("license.sourceViewerTitle")}`;
 		try {
 			const response = await fetch(new URL(filename, location.href));
 			if (!response.ok) {
@@ -62,14 +93,14 @@
 			}
 			output.textContent = await response.text();
 		} catch (error) {
-			output.textContent = `Unable to load ${filename}: ${error.message}`;
+			output.textContent = formatMessage(translate("license.loadFailed"), {
+				filename,
+				message: error.message,
+			});
 		}
 	}
 
 	document.addEventListener("DOMContentLoaded", () => {
-		for (const element of document.querySelectorAll("[data-license-en]")) {
-			element.textContent = element.dataset[language === "zh-CN" ? "licenseZh" : "licenseEn"];
-		}
 		for (const link of document.querySelectorAll("[data-return-editor]")) {
 			link.addEventListener("click", returnToEditor);
 		}

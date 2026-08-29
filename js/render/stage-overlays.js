@@ -50,14 +50,16 @@ export class StageOverlaysTrait {
 				visibility && visibility.phase !== "fadingOut"? 1 - 0.05 * Math.cos(visibility.relativeTime * 5): 1;
 			const distance = sunniesnowNoteRadius("flick") * 2 * pulse * mapping.scale;
 			const handle = { x: screen.x + Math.cos(angle) * distance, y: screen.y - Math.sin(angle) * distance };
-			this._drawDiamond(context, handle.x, handle.y, 6);
+			// v21: Ctrl+Alt enlarges the handle and its hit box.
+			const half = this.ctrlAltHeld ? 17 : 10;
+			this._drawDiamond(context, handle.x, handle.y, half - 4);
 			this.hitRegions.push({
 				type: "flick-handle",
 				event,
-				x: handle.x - 10,
-				y: handle.y - 10,
-				width: 20,
-				height: 20,
+				x: handle.x - half,
+				y: handle.y - half,
+				width: half * 2,
+				height: half * 2,
 			});
 		}
 		if (selected.length !== 1) {
@@ -83,15 +85,17 @@ export class StageOverlaysTrait {
 				context.moveTo(handle.x, handle.y);
 				context.lineTo(screen.x, screen.y);
 				context.stroke();
-				this._drawDiamond(context, handle.x, handle.y, 6);
+				// v21: Ctrl+Alt enlarges the handle and its hit box.
+				const half = this.ctrlAltHeld ? 17 : 10;
+				this._drawDiamond(context, handle.x, handle.y, half - 4);
 				this.hitRegions.push({
 					type: "tip-handle",
 					event,
 					settingsEvent: tipGuide.spawnSettings,
-					x: handle.x - 10,
-					y: handle.y - 10,
-					width: 20,
-					height: 20,
+					x: handle.x - half,
+					y: handle.y - half,
+					width: half * 2,
+					height: half * 2,
 				});
 			}
 		}
@@ -416,12 +420,14 @@ export class StageOverlaysTrait {
 			context.strokeStyle = group.color || "#ff9d3d";
 			context.fillStyle = this.renderIndex.isEventSelected(group) ? "#ff3158" : "#f7f8f9";
 			context.lineWidth = 1.5;
+			// v21: Ctrl+Alt enlarges the anchor (and its hit box).
+			const crosshair = this.ctrlAltHeld ? 16 : 9;
 			context.beginPath();
-			context.arc(screen.x, screen.y, 6, 0, Math.PI * 2);
-			context.moveTo(screen.x - 9, screen.y);
-			context.lineTo(screen.x + 9, screen.y);
-			context.moveTo(screen.x, screen.y - 9);
-			context.lineTo(screen.x, screen.y + 9);
+			context.arc(screen.x, screen.y, this.ctrlAltHeld ? 10 : 6, 0, Math.PI * 2);
+			context.moveTo(screen.x - crosshair, screen.y);
+			context.lineTo(screen.x + crosshair, screen.y);
+			context.moveTo(screen.x, screen.y - crosshair);
+			context.lineTo(screen.x, screen.y + crosshair);
 			context.stroke();
 			context.fill();
 			this.hitRegions.push({
@@ -437,17 +443,18 @@ export class StageOverlaysTrait {
 				radius: 10,
 			});
 			if (group.selected) {
+				const half = this.ctrlAltHeld ? 14 : 8;
 				this.hitRegions.push({
 					type: "group-anchor",
 					event: group,
 					position,
-					x: screen.x - 8,
-					y: screen.y - 8,
-					width: 16,
-					height: 16,
+					x: screen.x - half,
+					y: screen.y - half,
+					width: half * 2,
+					height: half * 2,
 					centerX: screen.x,
 					centerY: screen.y,
-					radius: 8,
+					radius: half,
 				});
 			}
 			const bounds = this._groupBounds(group);

@@ -79,6 +79,18 @@ export class TimelineView {
 		};
 		document.addEventListener("keydown", this.spaceKeyDown, true);
 		document.addEventListener("keyup", this.spaceKeyUp, true);
+		// v21: holding Ctrl+Alt enlarges the duration tail handles, so the modifier pair is
+		// tracked here and a change asks for a repaint to resize them live.
+		this.ctrlAltHeld = false;
+		this.ctrlAltListener = event => {
+			const held = event.type === "keydown" && Boolean(event.ctrlKey && event.altKey);
+			if (held !== this.ctrlAltHeld) {
+				this.ctrlAltHeld = held;
+				this.requestRender();
+			}
+		};
+		document.addEventListener("keydown", this.ctrlAltListener, true);
+		document.addEventListener("keyup", this.ctrlAltListener, true);
 		this.boundMove = event => this._queuePointerMove(event);
 		this.boundUp = event => {
 			this._flushPointerMove();
@@ -353,6 +365,8 @@ export class TimelineView {
 		this.surface.destroy();
 		document.removeEventListener("keydown", this.spaceKeyDown, true);
 		document.removeEventListener("keyup", this.spaceKeyUp, true);
+		document.removeEventListener("keydown", this.ctrlAltListener, true);
+		document.removeEventListener("keyup", this.ctrlAltListener, true);
 	}
 }
 

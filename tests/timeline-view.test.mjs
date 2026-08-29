@@ -8,6 +8,8 @@ import { TimingMap } from "../js/core/timing.js";
 import { timelineTipConnector, timelineTipSegments, ZERO_DURATION_TYPES } from "../js/render/timeline-helpers.js";
 import { AB_LOOP_GRAB_DISTANCE, abLoopDragMarks, abLoopGrabIndex } from "../js/render/timeline-gestures.js";
 import { Rational } from "../js/core/rational.js";
+import { TimelinePointerTrait } from "../js/render/timeline-pointer.js";
+import { readManual } from "./module-source.mjs";
 
 function scrollbarApp(editor) {
 	const App = withEventEditing(class {});
@@ -172,7 +174,7 @@ test("the waveform Shift-drag handlers keep the anchor and chase the visible ran
 });
 
 test("the manual documents the v18 A-B drag, volume ceiling, and saved clips and checks", async () => {
-	const manual = await readSources(["../docs/index.html"]);
+	const manual = await readManual();
 	assert.match(manual, /within six pixels\) moves that mark instead and keeps the other one fixed/);
 	assert.match(manual, /releasing on the other mark's subdivision leaves a single mark/);
 	assert.match(manual, /六像素内）按下则改为移动该标记/);
@@ -235,4 +237,57 @@ test("timeline duration drag allows zero length only for bgNote and comment", as
 	assert.match(pointer, /ZERO_DURATION_TYPES[,\s].*projectState|projectState.*ZERO_DURATION_TYPES/);
 	const source = await readSources(TIMELINE_MODULES);
 	assert.match(source, /comparison === 0 && !ZERO_DURATION_TYPES\.has\(record\.event\.type\)/);
+});
+
+test("Alt+Shift drag in the channels moves the selection from the closest selected event", () => {
+	const timeline = Object.create(TimelinePointerTrait.prototype);
+	timeline.channelOffset = 0;
+	timeline.renderIndex = {
+		ancestorsById: new Map(),
+		selectionTarget: event => event,
+		isEventSelected: event => Boolean(event.selected),
+	};
+	const near = { id: 1, type: "tap", time: [4, 0, 1], channel: 0, selected: true };
+	const far = { id: 2, type: "tap", time: [8, 0, 1], channel: 0, selected: true };
+	const project = { channels: [{ id: 0, active: true }], events: [near, far], editor: { subdivision: 4 } };
+	timeline.timing = {
+		beatToSeconds: time => time[0] + time[1] / time[2],
+		secondsToSnappedBeat: seconds => Rational.from(Math.round(seconds * 4), 4),
+	};
+	timeline._timeToX = seconds => seconds * 10;
+	const layout = {
+		waveform: { height: 50 },
+		channels: { y: 50, width: 800, height: 100 },
+		scroll: { y: 150 },
+		channelHeight: 50,
+		visibleCount: 2,
+	};
+	const drag = timeline._timelineDrag(
+		{ altKey: true, shiftKey: true, ctrlKey: false },
+		{ point: { x: 800, y: 60 }, hit: { type: "event", event: near }, project, layout, playing: false },
+	);
+	assert.equal(drag.type, "event");
+	// The press sits closest to the later event, so it governs the drag baseline even
+	// though the pointer technically landed on the earlier event.
+	assert.equal(drag.event.id, 2);
+	assert.equal(drag.collapseSelectionOnClick, false);
+	// Without Alt the same press keeps its ordinary semantics (plain event drag on the hit).
+	const plainDrag = timeline._timelineDrag(
+		{ altKey: false, shiftKey: false, ctrlKey: false },
+		{ point: { x: 800, y: 60 }, hit: { type: "event", event: near }, project, layout, playing: false },
+	);
+	assert.equal(plainDrag.type, "event");
+	assert.equal(plainDrag.event.id, 1);
+});
+
+test("Ctrl+Alt enlarges every draggable handle and its hit box", async () => {
+	const [timelineDrawing, stageOverlays, stageSnappees] = await Promise.all([
+		readFile(new URL("../js/render/timeline-drawing.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/stage-overlays.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/stage-snappees.js", import.meta.url), "utf8"),
+	]);
+	assert.match(timelineDrawing, /this\.ctrlAltHeld \? 12 : 7/);
+	assert.match(stageOverlays, /this\.ctrlAltHeld \? 17 : 10/);
+	assert.match(stageOverlays, /this\.ctrlAltHeld \? 14 : 8/);
+	assert.match(stageSnappees, /this\.ctrlAltHeld \? 9 : 5/);
 });

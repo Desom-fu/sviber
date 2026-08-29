@@ -4,6 +4,7 @@ import { withEventEditing } from "../js/app/app-event-editing.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { EVENT_EDITING_MODULES, STAGE_INTERACTION_MODULES, readSources } from "./module-source.mjs";
 import { withStageInteractions } from "../js/render/stage-interactions.js";
+import { StageViewCore as StageView } from "../js/render/stage-core.js";
 
 test("shift-dragging the stage never retargets another event", async () => {
 	const interactions = await readSources(STAGE_INTERACTION_MODULES);
@@ -104,4 +105,48 @@ test("shift-drag can target selected group events via group-anchor", async () =>
 		/_emptyAreaDrag\(event, context, shift\)[\s\S]*?shift\.primary\.type === "group"[\s\S]*?type: "group-anchor"/,
 	);
 	assert.equal(interactions.includes('candidate.type !== "group"'), false);
+});
+
+test("Alt+Shift drag moves the selection exactly like Shift", () => {
+	const InteractionApp = withStageInteractions(class {});
+	const stage = new InteractionApp();
+	const near = { id: 1, type: "tap", selected: true, channel: 0 };
+	const far = { id: 2, type: "tap", selected: true, channel: 0 };
+	stage.renderIndex = {
+		selectedEvents: [near, far],
+		activeChannelIds: new Set([0]),
+		positionFor: event => (event.id === 1 ? { x: 10, y: 10 } : { x: 300, y: 300 }),
+		isEventSelected: event => Boolean(event.selected),
+		selectionTarget: event => event,
+	};
+	stage.callbacks = {};
+	const context = {
+		point: { x: 12, y: 12 },
+		project: { channels: [{ id: 0, active: true }], events: [near, far] },
+		mapping: { scale: 1, toScreen: point => point },
+	};
+	const drag = stage._selectionDrag({ shiftKey: true, altKey: true }, context, null);
+	assert.equal(drag.type, "event");
+	assert.equal(drag.hit.event.id, 1);
+});
+
+test("simultaneous notes stack by channel order with the lower channel on top", () => {
+	const stage = Object.create(StageView.prototype);
+	stage.renderIndex = { channelOrder: new Map([[0, 0], [1, 1]]) };
+	const make = (id, channel, sequence) => ({ event: { id, channel }, start: 1, sequence });
+	// Same time, different channels: the channel lower in the timeline (id 1) is painted
+	// last and therefore covers the upper channel's note.
+	const records = [make(1, 1, 2), make(2, 0, 1)];
+	stage._sortNoteRecordsForStacking(records, { channels: [] });
+	assert.deepEqual(records.map(record => record.event.id), [2, 1]);
+	// Same time on the same channel: the later-added note stays on top.
+	const sameChannel = [make(5, 0, 1), make(4, 0, 2)];
+	stage._sortNoteRecordsForStacking(sameChannel, { channels: [] });
+	assert.deepEqual(sameChannel.map(record => record.event.id), [5, 4]);
+	// Different times paint in time order.
+	const timed = [make(7, 0, 3), make(6, 1, 4)];
+	timed[0].start = 2;
+	timed[1].start = 1;
+	stage._sortNoteRecordsForStacking(timed, { channels: [] });
+	assert.deepEqual(timed.map(record => record.event.id), [6, 7]);
 });

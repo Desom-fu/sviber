@@ -71,27 +71,39 @@ test("NW.js builds pass an explicit target platform and architecture", async () 
 
 test("release workflows archive each target with the required format", async () => {
 	const workflow = await readFile(new URL("../.github/workflows/package.yml", import.meta.url), "utf8");
-	for (const platform of ["windows-x86", "windows-x86_64", "windows-aarch64"]) {
-		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: zip`));
+	// v21: every bundle is named sviber-${version}-${os}-${arch}.${ext}.
+	const targets = [
+		["windows", "x86", "ia32", "win", "zip"],
+		["windows", "x86_64", "x64", "win", "zip"],
+		["windows", "aarch64", "arm64", "win", "zip"],
+		["linux", "x86_64", "x64", "linux", "tar.gz"],
+		["linux", "aarch64", "arm64", "linux", "tar.gz"],
+		["macos", "x86_64", "x64", "osx", "dmg"],
+		["macos", "aarch64", "arm64", "osx", "dmg"],
+	];
+	for (const [osName, archName, arch, nwPlatform, archive] of targets) {
+		const extension = archive.replace(".", "\\.");
+		const pattern = [
+			`osName: ${osName}[\\s\\S]*?`,
+			`archName: ${archName}[\\s\\S]*?`,
+			`nwPlatform: ${nwPlatform}[\\s\\S]*?`,
+			`arch: ${arch}[\\s\\S]*?`,
+			`archive: ${extension}`,
+		].join("");
+		assert.match(workflow, new RegExp(pattern));
 	}
-	for (const platform of ["linux-x86_64", "linux-aarch64"]) {
-		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: tar\\.gz`));
-	}
-	for (const platform of ["macos-x86_64", "macos-aarch64"]) {
-		assert.match(workflow, new RegExp(`platform: ${platform}[\\s\\S]*?archive: dmg`));
-	}
-	assert.match(workflow, /platform: windows-x86[\s\S]*?nwPlatform: win[\s\S]*?arch: ia32/);
-	assert.match(workflow, /platform: windows-aarch64[\s\S]*?nwPlatform: win[\s\S]*?arch: arm64/);
-	assert.match(workflow, /platform: macos-aarch64[\s\S]*?nwPlatform: osx[\s\S]*?arch: arm64/);
-	assert.match(workflow, /platform: linux-aarch64[\s\S]*?nwPlatform: linux[\s\S]*?arch: arm64/);
 	assert.match(workflow, /SVIBER_NW_PLATFORM: \$\{\{ matrix\.nwPlatform \}\}/);
 	assert.match(workflow, /SVIBER_NW_ARCH: \$\{\{ matrix\.arch \}\}/);
-	assert.match(workflow, /startsWith\(matrix\.platform, 'windows-'\)[\s\S]*?Compress-Archive/);
-	assert.match(workflow, /startsWith\(matrix\.platform, 'macos-'\)[\s\S]*?hdiutil create/);
+	assert.match(workflow, /startsWith\(matrix\.archName, 'x86'\)[\s\S]*?Compress-Archive/);
+	assert.match(workflow, /startsWith\(matrix\.osName, 'macos'\)[\s\S]*?hdiutil create/);
 	assert.doesNotMatch(workflow, /ditto -c -k/);
 	assert.doesNotMatch(workflow, /--keepParent build\/nw/);
-	assert.match(workflow, /if: startsWith\(matrix\.platform, 'linux-'\)[\s\S]*?tar -czf/);
-	assert.match(workflow, /path: sviber-\$\{\{ matrix\.platform \}\}\.\$\{\{ matrix\.archive \}\}/);
+	assert.match(workflow, /if: startsWith\(matrix\.osName, 'linux'\)[\s\S]*?tar -czf/);
+	assert.match(
+		workflow,
+		/path: sviber-\$\{\{ env\.version \}\}-\$\{\{ matrix\.osName \}\}-\$\{\{ matrix\.archName \}\}\.\$\{\{ matrix\.archive \}\}/,
+	);
+	assert.match(workflow, /node -p "require\('\.\/package\.json'\)\.version"/);
 	const release = await readFile(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");
 	assert.match(release, /release\/\*\.zip/);
 	assert.match(release, /release\/\*\.dmg/);

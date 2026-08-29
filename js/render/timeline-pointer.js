@@ -117,6 +117,11 @@ export class TimelinePointerTrait {
 	// changed the selection, seeked, or is not allowed during playback.
 	_timelineDrag(event, context) {
 		const { point, hit, project, layout, playing } = context;
+		// v21: Alt+Shift drag in the channels moves every selected event exactly like a
+		// plain drag, so the mouse can neither select anything else nor grab a handle.
+		if (event.altKey && event.shiftKey && point.y >= layout.waveform.height && point.y < layout.scroll.y) {
+			return this._altShiftMoveDrag(event, context);
+		}
 		if (hit?.type === "bpm") {
 			return { type: "bpm-click", hit, start: point };
 		}
@@ -302,6 +307,47 @@ export class TimelinePointerTrait {
 			channelId: channel?.id,
 			mode: rangeSelectMode(event),
 			playing,
+		};
+	}
+
+	// v21: the Alt+Shift channel drag moves every selected event with the ordinary event
+	// drag semantics; the governing event is the selected event closest to the press (time
+	// distance plus lane distance in content space). The move itself reads the selection
+	// (_selectedLeafEvents), so aiming does not matter and handles cannot be grabbed.
+	_altShiftMoveDrag(event, { point, project, layout, playing }) {
+		const selectedEvents = this._selectedLeafEvents(project).filter(candidate => {
+			const channel = project.channels.find(entry => entry.id === candidate.channel);
+			return channel && channel.active !== false;
+		});
+		if (!selectedEvents.length || playing) {
+			return null;
+		}
+		const pointerChannelIndex =
+			(point.y - layout.channels.y) / layout.channelHeight + this.channelOffset;
+		let governing = null;
+		let bestDistance = Infinity;
+		for (const candidate of selectedEvents) {
+			const seconds = this.timing.beatToSeconds(candidate.time);
+			const x = this._timeToX(seconds, layout.channels.width);
+			const channelIndex = project.channels.findIndex(entry => entry.id === candidate.channel);
+			const distance =
+				(x - point.x) ** 2 + ((channelIndex - pointerChannelIndex) * layout.channelHeight) ** 2;
+			if (distance < bestDistance) {
+				bestDistance = distance;
+				governing = candidate;
+			}
+		}
+		const simultaneous = selectedEvents.every(candidate =>
+			Rational.from(eventTime(candidate)).equals(governing.time));
+		return {
+			type: "event",
+			event: governing,
+			selectionId: governing.id,
+			start: point,
+			startBeat: Rational.from(governing.time),
+			copy: event.ctrlKey,
+			absoluteBeatSnap: simultaneous,
+			collapseSelectionOnClick: false,
 		};
 	}
 

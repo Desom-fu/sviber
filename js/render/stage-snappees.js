@@ -198,23 +198,26 @@ export class StageSnappeesTrait {
 			context.fillStyle = "#f7f8f9";
 			context.strokeStyle = "#101215";
 			context.lineWidth = 1;
+			// v21: Ctrl+Alt enlarges the handles and their hit boxes.
+			const radius = this.ctrlAltHeld ? 9 : 5;
 			if (handle.shape === "circle") {
 				context.beginPath();
-				context.arc(point.x, point.y, 5, 0, Math.PI * 2);
+				context.arc(point.x, point.y, radius, 0, Math.PI * 2);
 				context.fill();
 				context.stroke();
 			} else {
-				context.fillRect(point.x - 5, point.y - 5, 10, 10);
-				context.strokeRect(point.x - 5, point.y - 5, 10, 10);
+				context.fillRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
+				context.strokeRect(point.x - radius, point.y - radius, radius * 2, radius * 2);
 			}
+			const half = this.ctrlAltHeld ? 14 : 8;
 			this.hitRegions.push({
 				type: "snappee-handle",
 				snappee,
 				index: handle.handleIndex ?? index,
-				x: point.x - 8,
-				y: point.y - 8,
-				width: 16,
-				height: 16,
+				x: point.x - half,
+				y: point.y - half,
+				width: half * 2,
+				height: half * 2,
 			});
 		}
 	}

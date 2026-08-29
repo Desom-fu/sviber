@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { STAGE_NOTE_MODULES, readSources } from "./module-source.mjs";
+import { STAGE_NOTE_MODULES, readSources, readManual } from "./module-source.mjs";
 import { AFFINE_MATRIX_GRID } from "../js/core/geometry.js";
 
 test("documentation and release metadata describe the current v10 behavior", async () => {
 	const [manual, readme, readmeZh, rubyApi, sandbox, sandboxHtml, sandboxBundle] = await Promise.all([
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 		readFile(new URL("../README.md", import.meta.url), "utf8"),
 		readFile(new URL("../README.zh-CN.md", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro/macro-api.rb", import.meta.url), "utf8"),
@@ -30,8 +30,9 @@ test("documentation and release metadata describe the current v10 behavior", asy
 });
 
 test("Scroll View, manual, and release notes describe the implemented behavior", async () => {
-	const [scrollView, manual, manualScript, manualStyles, readme, readmeZh] = await Promise.all([
+	const [scrollView, manual, manualPage, manualScript, manualStyles, readme, readmeZh] = await Promise.all([
 		readFile(new URL("../js/render/scroll-view.js", import.meta.url), "utf8"),
+		readManual(),
 		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.js", import.meta.url), "utf8"),
 		readFile(new URL("../docs/docs.css", import.meta.url), "utf8"),
@@ -44,23 +45,26 @@ test("Scroll View, manual, and release notes describe the implemented behavior",
 	assert.match(manual, /状态栏图标控件没有可见文字/);
 	assert.match(manual, /same pixels-per-second scale/);
 	assert.match(manual, /纵向每秒像素比例与时间轴/);
-	assert.match(manual, /id="manual-search-input"/);
+	assert.match(manualPage, /id="manual-search-input"/);
 	assert.match(manualScript, /function applySearch/);
 	assert.match(manualScript, /focusSearchMatch/);
 	assert.match(manualScript, /event\.shiftKey \? -1 : 1/);
 	assert.match(manualScript, /target\.scrollIntoView/);
 	assert.doesNotMatch(manualScript, /node\.hidden = !matched/);
-	assert.match(manualScript, /searchLabels/);
+	assert.match(manualScript, /activeUi\.search/);
+	assert.match(manualScript, /loadedManuals/);
 	assert.match(manualStyles, /#manual-search-input/);
 	assert.match(readme, /macOS provides x86_64 and aarch64 DMG images/);
 	assert.match(readmeZh, /macOS 提供 x86_64 和 aarch64 DMG/);
 });
 
 test("manual documents only the prompt macro surface in both languages", async () => {
-	const manual = await readFile(new URL("../docs/index.html", import.meta.url), "utf8");
-	const english = manual.slice(manual.indexOf('id="en-macro-api"'), manual.indexOf('id="en-data"'));
-	const chinese = manual.slice(manual.indexOf('id="zh-macro-api"'), manual.indexOf('id="zh-data"'));
-	const chineseArticle = manual.slice(manual.indexOf('<article data-language="zh-CN"'));
+	const manual = await readManual();
+	// The manual JSON stores the article HTML as one escaped string, so the section
+	// slices anchor on the plain id fragments instead of quoted attribute values.
+	const english = manual.slice(manual.indexOf("en-macro-api"), manual.indexOf("en-data"));
+	const chinese = manual.slice(manual.indexOf("zh-macro-api"), manual.indexOf("zh-data"));
+	const chineseArticle = manual;
 	for (const section of [english, chinese]) {
 		assert.match(section, /Chart/);
 		assert.match(section, /AffineMatrix2D/);
@@ -92,7 +96,7 @@ test("help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0", a
 	const [en, zh, help, core, shortcuts, notes, macros] = await Promise.all([
 		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8"),
 		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 		readFile(new URL("../js/app/app-core.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app/app-global-shortcuts.js", import.meta.url), "utf8"),
 		readSources(STAGE_NOTE_MODULES),
@@ -122,7 +126,7 @@ test("help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0", a
 
 test("help and inspector Enter apply the focused field", async () => {
 	const [help, panels, zh] = await Promise.all([
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 		readFile(new URL("../js/ui/panels.js", import.meta.url), "utf8"),
 		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
 	]);
@@ -139,7 +143,7 @@ test("help and inspector Enter apply the focused field", async () => {
 
 test("documentation and independent macro code are linked", async () => {
 	const [manual, macroPage, macroCode, labels, workflows] = await Promise.all([
-		readFile(new URL("../docs/index.html", import.meta.url), "utf8"),
+		readManual(),
 		readFile(new URL("../macros.html", import.meta.url), "utf8"),
 		readFile(new URL("../js/macro/macros.js", import.meta.url), "utf8"),
 		readFile(new URL("../javascript.html", import.meta.url), "utf8"),

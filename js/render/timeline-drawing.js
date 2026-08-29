@@ -183,7 +183,7 @@ export class TimelineDrawingTrait {
 			});
 		}
 		for (const handle of durationHandles) {
-			this._drawDiamond(context, handle.endX, handle.y, 7);
+			this._drawDiamond(context, handle.endX, handle.y, handle.half);
 		}
 	}
 
@@ -241,9 +241,11 @@ export class TimelineDrawingTrait {
 		}
 		// v19: the duration tail handle does not appear for locked events.
 		// v20: the diamond paints after the event pass so nothing covers it.
+		// v21: holding Ctrl+Alt enlarges the handle and its hit box.
 		if (interactive && selected && !event.locked && DURATION_TYPES.has(event.type)) {
-			durationHandles?.push({ endX, y: position.y });
-			const region = { x: endX - 7, y: position.y - 7, width: 14, height: 14 };
+			const half = this.ctrlAltHeld ? 12 : 7;
+			durationHandles?.push({ endX, y: position.y, half });
+			const region = { x: endX - half, y: position.y - half, width: half * 2, height: half * 2 };
 			this.hitRegions.push({ type: "duration", event, ...region });
 		}
 		context.restore();
