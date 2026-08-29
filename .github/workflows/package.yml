@@ -72,7 +72,7 @@ jobs:
           SVIBER_NW_ARCH: ${{ matrix.arch }}
         run: npm run build
       - name: Archive Windows app as ZIP
-        if: startsWith(matrix.archName, 'x86')
+        if: startsWith(matrix.osName, 'windows')
         shell: pwsh
         run: Compress-Archive -Path build/nw/* -DestinationPath sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.zip
       - name: Archive Linux app as tar.gz

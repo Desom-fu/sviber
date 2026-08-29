@@ -94,7 +94,10 @@ test("release workflows archive each target with the required format", async () 
 	}
 	assert.match(workflow, /SVIBER_NW_PLATFORM: \$\{\{ matrix\.nwPlatform \}\}/);
 	assert.match(workflow, /SVIBER_NW_ARCH: \$\{\{ matrix\.arch \}\}/);
-	assert.match(workflow, /startsWith\(matrix\.archName, 'x86'\)[\s\S]*?Compress-Archive/);
+	// v0.13.0 fix: the ZIP step must key off the OS, not the architecture name —
+	// "aarch64" does not start with "x86", which skipped the windows-arm64 archive.
+	assert.match(workflow, /if: startsWith\(matrix\.osName, 'windows'\)[\s\S]*?Compress-Archive/);
+	assert.doesNotMatch(workflow, /startsWith\(matrix\.archName/);
 	assert.match(workflow, /startsWith\(matrix\.osName, 'macos'\)[\s\S]*?hdiutil create/);
 	assert.doesNotMatch(workflow, /ditto -c -k/);
 	assert.doesNotMatch(workflow, /--keepParent build\/nw/);
