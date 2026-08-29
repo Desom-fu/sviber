@@ -1,6 +1,8 @@
 {
   "app.name": "sviber",
   "loading": "Loading editor...",
+  "loading.chart": "Opening chart...",
+  "loading.project": "Opening project...",
   "aria.applicationMenu": "Application menu",
   "aria.chartTools": "Chart tools",
   "aria.difficulties": "Project difficulties",

@@ -162,3 +162,12 @@
 - `npm test`（`eslint . --max-warnings 0 && node --test tests/*.test.mjs`）：lint 0 错误，377 项测试全部通过（含 1 项预先存在的环境相关 skip）。
 - `npm run build`：本地 NW.js 打包成功（`build/sviber-*.nw` 与 `build/nw`）。
 
+## v0.10.3 打开文档时的居中加载遮罩
+
+- **背景**：打开谱面/工程偏慢（大谱面导入与音乐/封面解码），期间没有可见反馈。
+- **实现**：
+  - 复用启动时的 `#loading-screen` 全屏遮罩（居中的三色条动画 + 文案）：`js/app/app-shell-bindings.js` 新增 `showLoadingOverlay`/`hideLoadingOverlay`/`withLoadingOverlay`。深度计数器支持嵌套打开（谱面拉起所在工程时外层遮罩不提前消失）；`withLoadingOverlay` 在开始前等待一帧（双 rAF），确保遮罩先绘制再进入阻塞导入；对缺失 DOM 的环境静默降级。
+  - `js/app/app-open-save.js`：`openProject` 的解析/导入/装填/媒体同步整体包进遮罩（文案 `loading.project`）；`openFile` 只包住模型构建后的装填阶段（文案 `loading.chart`）——导入选项对话框出现在遮罩之前，不会被 z-index 2000 的遮罩盖住。
+  - i18n 新增 `loading.chart`（"正在打开谱面..."/"Opening chart..."）与 `loading.project`（"正在打开工程..."/"Opening project..."）。
+- **验证**：`tests/project-workflows.test.mjs` 新增两项——遮罩接线源码断言、深度计数行为测试（嵌套打开时内层结束不隐藏遮罩）；两个打开流程测试的组合补上 `withShellBindings` 以匹配真实应用表面。`npm test` 379 项全部通过；`npm run build` 正常出包。
+

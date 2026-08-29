@@ -7,6 +7,7 @@ import test from "node:test";
 import { withClipboard } from "../js/app/app-clipboard.js";
 import { SviberAppCore } from "../js/app/app-core.js";
 import { withFileWorkflows } from "../js/app/app-file-workflows.js";
+import { withShellBindings } from "../js/app/app-shell-bindings.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { createProjectManifest } from "../js/core/project.js";
 import { FileManager } from "../js/platform/platform.js";
@@ -36,7 +37,7 @@ test("switching clean difficulties does not create a dirty project", () => {
 });
 
 test("opening a chart from the project folder adds it without dropping other difficulties", async () => {
-	const WorkflowApp = withClipboard(withFileWorkflows(class {}));
+	const WorkflowApp = withClipboard(withFileWorkflows(withShellBindings(class {})));
 	const app = new WorkflowApp();
 	const master = ChartModel.createDefault({ metadata: { title: "Project", difficultyName: "Master" } });
 	const special = ChartModel.createDefault({ metadata: { title: "Project", difficultyName: "Special" } });
@@ -251,7 +252,7 @@ test("new project charts inherit the active chart media", async () => {
 });
 
 test("desktop file opening uses the common add-to-project confirmation", async () => {
-	const WorkflowApp = withFileWorkflows(class {});
+	const WorkflowApp = withFileWorkflows(withShellBindings(class {}));
 	const app = new WorkflowApp();
 	const previousNw = globalThis.nw;
 	globalThis.nw = {};
@@ -492,5 +493,40 @@ test("standalone chart saves do not copy assets into a project folder", async ()
 		} else {
 			globalThis.nw = previousNw;
 		}
+	}
+});
+
+test("slow document opens show the centred loading screen", async () => {
+	const [shell, openSave] = await Promise.all([
+		readFile(new URL("../js/app/app-shell-bindings.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app/app-open-save.js", import.meta.url), "utf8"),
+	]);
+	assert.match(shell, /showLoadingOverlay\(textKey\)/);
+	assert.match(shell, /loadingOverlayDepth/);
+	assert.match(openSave, /withLoadingOverlay\(async \(\) => \{/);
+	assert.match(openSave, /"loading\.project"/);
+	assert.match(openSave, /"loading\.chart"/);
+});
+
+test("the loading overlay stays up until every nested open finished", () => {
+	const previousDocument = globalThis.document;
+	const screens = new Map();
+	globalThis.document = { getElementById: id => screens.get(id) || null };
+	try {
+		const ShellApp = withShellBindings(class {});
+		const app = new ShellApp();
+		const screen = { hidden: true, querySelector: () => ({ textContent: "" }) };
+		screens.set("loading-screen", screen);
+
+		app.showLoadingOverlay("loading.chart");
+		assert.equal(screen.hidden, false);
+		// A chart open that pulls in its containing project nests a second overlay.
+		app.showLoadingOverlay("loading.project");
+		app.hideLoadingOverlay();
+		assert.equal(screen.hidden, false);
+		app.hideLoadingOverlay();
+		assert.equal(screen.hidden, true);
+	} finally {
+		globalThis.document = previousDocument;
 	}
 });

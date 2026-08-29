@@ -35,6 +35,54 @@ function describeToggle(button, hidden, { glyphs, keys }) {
 
 export const withShellBindings = Base =>
 	class extends Base {
+		// v19: the boot loading screen doubles as the busy overlay for slow document opens.
+		// The depth counter keeps nested opens (a chart that pulls in its containing
+		// project) from hiding the screen while the outer open is still running.
+		showLoadingOverlay(textKey) {
+			const screen =
+				typeof document === "undefined" ? null : document.getElementById("loading-screen");
+			if (!screen) {
+				return;
+			}
+			this.loadingOverlayDepth = (this.loadingOverlayDepth || 0) + 1;
+			const text = screen.querySelector("span[data-i18n='loading']");
+			if (text && textKey) {
+				text.textContent = i18n.t(textKey);
+			}
+			screen.hidden = false;
+		}
+
+		hideLoadingOverlay() {
+			this.loadingOverlayDepth = Math.max(0, (this.loadingOverlayDepth || 0) - 1);
+			if (this.loadingOverlayDepth) {
+				return;
+			}
+			const screen =
+				typeof document === "undefined" ? null : document.getElementById("loading-screen");
+			if (screen) {
+				screen.hidden = true;
+			}
+		}
+
+		// The overlay has to paint before the work starts: chart import blocks the main
+		// thread, so without one yielded frame it would only appear once the slow part was
+		// already over.
+		async withLoadingOverlay(work, textKey) {
+			this.showLoadingOverlay(textKey);
+			await new Promise(resolve => {
+				if (typeof requestAnimationFrame !== "function") {
+					resolve();
+					return;
+				}
+				requestAnimationFrame(() => requestAnimationFrame(resolve));
+			});
+			try {
+				return await work();
+			} finally {
+				this.hideLoadingOverlay();
+			}
+		}
+
 		_bindTabs() {
 			const tabs = PANEL_TABS.map(id => ({
 				id,

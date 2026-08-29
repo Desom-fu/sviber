@@ -1,6 +1,8 @@
 {
   "app.name": "sviber",
   "loading": "正在加载编辑器...",
+  "loading.chart": "正在打开谱面...",
+  "loading.project": "正在打开工程...",
   "aria.applicationMenu": "应用菜单",
   "aria.chartTools": "谱面工具",
   "aria.difficulties": "工程难度",

@@ -19,35 +19,37 @@ class OpenSaveTrait {
 			return null;
 		}
 		try {
-			const parsed = await this.files.openProject(options);
-			if (!parsed) {
-				return null;
-			}
-			const charts = parsed.charts.map(entry => ({
-				...entry,
-				model: ChartModel.import(entry.document),
-			}));
-			await this.clearRuntimeMedia();
-			this.installProject(charts, {
-				activeChart: parsed.manifest.activeChart,
-				name: parsed.projectName,
-				saved: true,
-			});
-			this.editingProject = true;
-			this.projectMusic = String(this.model.music || "");
-			this.projectImage = String(this.model.image || "");
-			await this.syncMediaFromModel();
-			this.markProjectSaved();
-			this.rememberLastOpen("project", this.files.projectPath);
-			if (!options.silent) {
-				this.toast.show("toast.projectOpened");
-			}
-			const warnings = this.difficulties.flatMap(entry => entry.model.importWarnings || []);
-			if (warnings.length) {
-				this.toast.show(warnings.map(localizedImportWarning).join("\n"), {}, { raw: true, duration: 6500 });
-			}
-			this.refresh();
-			return parsed;
+			return await this.withLoadingOverlay(async () => {
+				const parsed = await this.files.openProject(options);
+				if (!parsed) {
+					return null;
+				}
+				const charts = parsed.charts.map(entry => ({
+					...entry,
+					model: ChartModel.import(entry.document),
+				}));
+				await this.clearRuntimeMedia();
+				this.installProject(charts, {
+					activeChart: parsed.manifest.activeChart,
+					name: parsed.projectName,
+					saved: true,
+				});
+				this.editingProject = true;
+				this.projectMusic = String(this.model.music || "");
+				this.projectImage = String(this.model.image || "");
+				await this.syncMediaFromModel();
+				this.markProjectSaved();
+				this.rememberLastOpen("project", this.files.projectPath);
+				if (!options.silent) {
+					this.toast.show("toast.projectOpened");
+				}
+				const warnings = this.difficulties.flatMap(entry => entry.model.importWarnings || []);
+				if (warnings.length) {
+					this.toast.show(warnings.map(localizedImportWarning).join("\n"), {}, { raw: true, duration: 6500 });
+				}
+				this.refresh();
+				return parsed;
+			}, "loading.project");
 		} catch (error) {
 			console.error(error);
 			if (!options.silent) {
@@ -254,12 +256,16 @@ class OpenSaveTrait {
 			if (!model) {
 				return;
 			}
-			const projectFilename = this.files.projectChartFilename(parsed.chartPath);
-			const stayInProject = addToProject || (!options.offerAddToProject && projectFilename);
-			if (!options.forceStandalone && stayInProject) {
-				return this.installOpenedChartInProject(model, parsed, addToProject, options);
-			}
-			return this.installOpenedChartStandalone(model, parsed, options);
+			// The overlay only covers the install phase: modelFromParsedFile may still open
+			// the import options dialog, which sits below the loading screen.
+			return await this.withLoadingOverlay(async () => {
+				const projectFilename = this.files.projectChartFilename(parsed.chartPath);
+				const stayInProject = addToProject || (!options.offerAddToProject && projectFilename);
+				if (!options.forceStandalone && stayInProject) {
+					return this.installOpenedChartInProject(model, parsed, addToProject, options);
+				}
+				return this.installOpenedChartStandalone(model, parsed, options);
+			}, "loading.chart");
 		} catch (error) {
 			console.error(error);
 			if (!options.silent) {
