@@ -407,7 +407,16 @@ async function copyApplication() {
 	await rm(effectiveBuildDirectory, { recursive: true, force: true });
 	const applicationDirectory = path.join(stageDirectory, "sviber");
 	await mkdir(applicationDirectory, { recursive: true });
-	const excludedEntries = new Set([".git", "build", "tests", "test-results", "node_modules", "package-lock.json"]);
+	// dev-notes holds development iteration records, so it stays out of the packaged application.
+	const excludedEntries = new Set([
+		".git",
+		"build",
+		"dev-notes",
+		"tests",
+		"test-results",
+		"node_modules",
+		"package-lock.json",
+	]);
 	for (const entry of await readdir(sviberDirectory, { withFileTypes: true })) {
 		if (excludedEntries.has(entry.name)) {
 			continue;
