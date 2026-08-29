@@ -64,7 +64,9 @@ export class StageOverlaysTrait {
 			return;
 		}
 		const event = selected[0];
-		if (!event.selected) {
+		// v19: like the flick direction handle, the tip spawn handle does not appear for a
+		// locked event.
+		if (!event.selected || event.locked) {
 			return;
 		}
 		const position = this.renderIndex?.positionFor(event) ||

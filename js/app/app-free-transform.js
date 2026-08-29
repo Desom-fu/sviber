@@ -56,9 +56,12 @@ class FreeTransformTrait {
 	_refreshAfterCommit(options) {
 		if (options.fullRefresh) {
 			this.refresh();
-		} else {
-			this._refreshLightweight({ ...options, lightweight: true });
+			return;
 		}
+		this._refreshLightweight({ ...options, lightweight: true });
+		// v19: lightweight commits still change the chart, so the live checks panel and its
+		// tab badge must follow them too instead of waiting for a full refresh.
+		this.refreshChecks?.();
 	}
 
 	_refreshLightweight(options = {}) {

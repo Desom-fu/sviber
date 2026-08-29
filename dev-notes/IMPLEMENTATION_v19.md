@@ -69,12 +69,12 @@
 - **实现**：`js/app/app-chart-dialogs.js` `showBpmDialog` 改用 `dialogs.open` + 三按钮（ok/delete/cancel）；delete 分支在存在 BPM 变化时提交移除。i18n 新增 `dialog.delete`。
 - **验证**：全部测试通过。
 
-### 9. Lock / Unlock（Ctrl+L）与锁定语义
+### 9. Lock / Unlock（Ctrl+L / Ctrl+Shift+L）与锁定语义
 
-- **diff**：Events 菜单在 Ungroup 后新增 Lock/Unlock（均 Ctrl+L）；事件默认未锁定；锁定事件被编辑/变换/删除操作忽略（视为未选中）；全锁定时自由变换置灰；锁定事件不显示 flick 方向手柄与时间轴时长尾柄；Delete channel 仍删除锁定事件；事件 JSON 增加 `locked` 布尔字段。
+- **diff**：Events 菜单在 Ungroup 后新增 Lock/Unlock（v0.10.2 起 Lock 为 Ctrl+L、Unlock 为 Ctrl+Shift+L；prompt 原文误写为共用 Ctrl+L）；事件默认未锁定；锁定事件被编辑/变换/删除操作忽略（视为未选中）；全锁定时自由变换置灰；锁定事件不显示 flick 方向手柄与时间轴时长尾柄；Delete channel 仍删除锁定事件；事件 JSON 增加 `locked` 布尔字段。
 - **实现**：
   - 数据：`js/core/chart-events.js` `createEvent` 增加 `locked: Boolean(overrides.locked)`（随 `normalizeEventTree`/序列化往返保留）。
-  - 命令：`js/app/commands.js` 新增 `events.lock`/`events.unlock`（均 `Ctrl+L`，菜单置于 Ungroup 之后）；`handleKeyboard` 中禁用命令不再拦截同键位命令（`return false` → `continue`），保证全锁定时 Ctrl+L 触发 Unlock。
+  - 命令：`js/app/commands.js` 新增 `events.lock`（Ctrl+L）/`events.unlock`（Ctrl+Shift+L，快捷键 0.10.2 修正），菜单置于 Ungroup 之后；`handleKeyboard` 中禁用命令不再拦截同键位命令（`return false` → `continue`，该行为现由共用 Ctrl+Shift+V 的两条粘贴命令继续依赖）。
   - 绑定：`js/app/app-command-bindings.js` 注册两命令（Lock：存在未锁定选中时可用；Unlock：存在锁定选中时可用）；group/ungroup/delete/时间平移/伸缩/反转等命令的启用条件改为“存在未锁定选中”。
   - 动作：`js/app/app-event-tools.js` 新增 `lockSelected`/`unlockSelected`（历史标签 `history.lockEvents`/`history.unlockEvents`）。
   - 语义（“视为未选中”）：`deleteSelected`（跳过锁定事件；被删 group 中的锁定后代原位保留）、`chooseEventTool` 类型转换、`_selectedChannelLeaves`、`reverseSelectedTime`、`js/core/chart-model.js` `groupSelected`/`ungroupSelected`、`js/app/app-event-move.js`、`_applyEventMove`/`moveSelectedInTime`、`js/app/app-time-dilation.js`、`js/app/app-attachment.js` `showTimeTranslationDialog`、`js/app/app-transform-targets.js`（变换目标与 `transformationAvailable`，从而实现全锁定置灰）、`attachSelected`/`detachSelected`（`app-snappee-attach.js` 与 `app-selection-transform.js` 两处）、`js/app/app-property-editing.js` 检查器编辑、`js/render/timeline-pointer.js` `_selectedLeafEvents`/`_durationPressDrag`。
@@ -120,4 +120,45 @@
 - **根因**：`js/app/app-curve-draft.js` 的 `finishCurveDraft` 在 `penCurve` 分支引用了 `penCommandsFromNodes`，但该函数从未从 `../core/geometry.js` 导入。任何走完 pen 确认路径的调用（`finishCurveDraft`：回车/双击/闭环）都在构造 `commands` 时抛出 `ReferenceError`：snappee 未创建、提示框未弹出、`curveDraft` 未清空；闭环路径中 `closed = true` 已写入，草稿卡在破损状态，用户再次点击首点（命中 `draft-point` 区域）时轻微移动即被 `moveCurveDraftPoint` 当作拖动移点——表现为"闭环后把最开始的点弄走"。
 - **修复**：在 `js/app/app-curve-draft.js` 顶部导入 `penCommandsFromNodes`（一行）。确认路径恢复正常：回车/双击结束绘制并弹出 segments 提示框；点击（不拖动）首点或靠近首点处闭环时生成带闭合段（回到首点坐标）的闭合 penCurve 并弹出提示框。
 - **验证**：新增 `tests/curve-draft.test.mjs` 两项回归测试——"Enter or double-click on a pen draft creates the snappee and opens the dialog"（断言创建 snappee、`commands` 正确、弹出 `focusField: "segments"` 表单）与"closing a pen loop keeps the first point and appends the closing segment"（断言 `activateCurveDraftPoint(0)` 与 `startPenNode` 近首点两条闭环路径首点坐标不变、末尾为回到首点的闭合段）。未修复时两项均失败（ReferenceError），修复后通过；全部测试通过。
+
+## v0.10.2 修复与调整
+
+### 1. 解锁快捷键修正为 Ctrl+Shift+L
+
+- **背景**：PROMPT-v19 原文把 Lock/Unlock 写成共用 Ctrl+L，实现照做；用户更正 prompt（Unlock 应为 Ctrl+Shift+L），本次同步功能与帮助文档。
+- **实现**：`js/app/commands.js` `events.unlock` 快捷键 `Ctrl+L` → `Ctrl+Shift+L`；`docs/index.html` 中英两处 Lock/Unlock 行同步为 "Ctrl+L / Ctrl+Shift+L" 并去掉"共用快捷键"描述。`handleKeyboard` "禁用命令不遮蔽同键命令"的 `continue` 行为保留（`edit.pasteOptions`/`edit.pasteDuplicateSnappees` 共用 Ctrl+Shift+V 仍依赖）。
+- **验证**：`tests/event-lock.test.mjs` 更新快捷键断言（lock=Ctrl+L、unlock=Ctrl+Shift+L），"禁用命令不遮蔽同键命令"测试改用 Ctrl+Shift+V 粘贴命令对作为夹具；全部通过。
+
+### 2. 状态面板与下方面板等宽
+
+- **实现**：`css/app.css` `.timeline-row` 右列宽度 `clamp(148px, 14vw, 190px)` → `clamp(260px, 24vw, 320px)`，与 `.editor-row` 右侧 side-panel 列完全一致，上下两框右缘对齐；状态选项图标网格（`app-v11.css` 的 30px 瓦片）随之放下更多列。
+- **验证**：`npm test` 通过；本地 `npm run build` 正常出包。
+
+### 3. 锁定事件在主编辑区不可拖动
+
+- **现象**：锁定事件仍能在主编辑区拖动改变位置。
+- **根因**：v0.10.0 的锁定语义覆盖了时间轴拖动（`timeline-pointer.js` 已过滤）与各类命令，但漏掉了主编辑区的位置拖动链路：`stage-pointer.js` 的事件按压/Shift 拖动不检查 `locked`，`app-position-move.js` `_applyPositionMove` 的 movable 集合也不过滤锁定，`app-group-anchor-move.js` 允许拖动锁定 group 的锚点，`stage-overlays.js` 的 tip 生成位置手柄对锁定事件仍然显示。
+- **实现**（锁定一律"视为未选中"）：
+  - `js/render/stage-pointer.js` `_eventPressDrag`：锁定事件按压仍可选择（品红选中色可见）但不启动拖动；`_closestSelectedMovable`（Shift 拖动的生效事件）与 `_flickPressDrag`（联动转动的选中 flick 列表）跳过锁定事件。
+  - `js/app/app-position-move.js` `_applyPositionMove`：primary 锁定时整个移动不生效；选中集合过滤锁定根事件与锁定后代（拖动 group 时锁定的子事件原位保留）；movable 为空时提前返回。
+  - `js/app/app-group-anchor-move.js` `_applyGroupAnchorMove`：过滤锁定 group（锚点拖不动）。
+  - `js/render/stage-overlays.js`：锁定事件不显示 tip 生成位置手柄。
+- **验证**：`tests/event-lock.test.mjs` 新增三项——按压锁定事件只选中不产生拖动、位置拖动只移动未锁定事件（含拖锁定事件本身不动）、按事件或锚点拖动 group 时锁定的子事件原位保留且锁定 group 锚点拖不动；全部通过。
+
+### 4. 界面翻译修正
+
+- **实现**：`json/i18n.zh-CN.json`：`panel.inspector` "检查器" → "属性"（`docs/index.html` 中文帮助中 7 处"检查器"同步改为"属性"，"游标检查器"标题改为"游标属性"）；checks 相关 7 条字符串的"尖点"统一改为"游标"（`check.shortTipPoint*`、`check.sharpTipPointTurn*`、`check.teleportingTipPoint*`），与"显示游标""游标模式"等既有译法一致。
+- **验证**：`npm test` 全部通过。
+
+### 5. 检查面板随修改实时刷新
+
+- **现象**：修改事件后 Checks 面板内容与标签页红色计数不更新，要等一次完整刷新。
+- **根因**：`refreshChecks` 只挂在完整刷新（`refreshNow`）里；绝大多数事件修改走 `commit` 的轻量刷新路径（`_finishCommit` → `_refreshAfterCommit` → `_refreshLightweight`），不经过 `refreshNow`。拖动预览帧依旧只做 `refreshInteractionPreview`（`preview` 的 lightweight 分支），不重跑检查，性能无影响。
+- **实现**：`js/app/app-free-transform.js` `_refreshAfterCommit`：非 fullRefresh 分支在 `_refreshLightweight` 之后调用 `this.refreshChecks?.()`（内部有签名比对，未变化时只重渲染缓存结果）。
+- **验证**：`tests/checks.test.mjs` 新增"轻量提交刷新实时检查面板"测试——桩 `refresh()` 不触碰 checks 面板，轻量 commit 引入超界音符后面板立即渲染出 `outOfBoundaryNotes` 违规；全部通过。
+
+### 验收
+
+- `npm test`（`eslint . --max-warnings 0 && node --test tests/*.test.mjs`）：lint 0 错误，377 项测试全部通过（含 1 项预先存在的环境相关 skip）。
+- `npm run build`：本地 NW.js 打包成功（`build/sviber-*.nw` 与 `build/nw`）。
 

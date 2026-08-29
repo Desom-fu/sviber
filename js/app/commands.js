@@ -83,9 +83,9 @@ const DEFINITIONS = [
 	define("events.comment", "Ctrl+M", null, { blockDuringPlayback: true, requiresSnappedTime: true }),
 	define("events.group", "Ctrl+G", null, { blockDuringPlayback: true }),
 	define("events.ungroup", "Ctrl+Shift+G", null, { blockDuringPlayback: true }),
-	// v19: both share Ctrl+L; which one fires depends on the lock state of the selection.
 	define("events.lock", "Ctrl+L", null, { blockDuringPlayback: true }),
-	define("events.unlock", "Ctrl+L", null, { blockDuringPlayback: true }),
+	// v19: unlock keeps its own modifier so locking never needs to reason about lock state.
+	define("events.unlock", "Ctrl+Shift+L", null, { blockDuringPlayback: true }),
 	define("events.moveChannelAbove", "Ctrl+Shift+ArrowUp", "move-to-channel-above"),
 	define("events.moveChannelBelow", "Ctrl+Shift+ArrowDown", "move-to-channel-below"),
 	define("events.fillCurveDrag", null, null, { blockDuringPlayback: true }),
@@ -782,7 +782,7 @@ export class CommandRegistry {
 			}
 			if (!this.isEnabled(definition.id, context)) {
 				// A disabled match must not shadow another command bound to the same keys
-				// (v19: Lock/Unlock share Ctrl+L and are enabled complementarily).
+				// (e.g. Paste options / Paste with duplicate snappees share Ctrl+Shift+V).
 				continue;
 			}
 			event.preventDefault();

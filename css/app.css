@@ -322,7 +322,9 @@ textarea:focus-visible,
 }
 
 .timeline-row {
-	grid-template-columns: minmax(0, 1fr) clamp(148px, 14vw, 190px);
+	/* v19: the status panel column mirrors the editor row's side panel width so the two
+	   right-hand boxes stack with equal width. */
+	grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 320px);
 	border-bottom: 1px solid var(--border-strong);
 }
 

@@ -26,7 +26,11 @@ export class GroupAnchorMoveTrait {
 		if (primary?.type !== "group") {
 			return;
 		}
-		const groups = model.allEvents().filter(event => event.type === "group" && event.selected);
+		// v19: locked groups behave as if they were not selected, so their anchor cannot be
+		// dragged either.
+		const groups = model.allEvents().filter(
+			event => event.type === "group" && event.selected && !event.locked,
+		);
 		if (!groups.length || !groups.includes(primary)) {
 			return;
 		}

@@ -503,6 +503,11 @@ export class StagePointerTrait {
 		if (!selected) {
 			this.callbacks.onSelectEvents?.([target.event.id], selectionMode);
 		}
+		// v19: a locked event behaves as if it were not selected, so a press may select it
+		// but never starts a move drag.
+		if (target.event.locked) {
+			return null;
+		}
 		return {
 			type: "event",
 			hit: target,
@@ -516,7 +521,7 @@ export class StagePointerTrait {
 	_flickPressDrag(context, hit) {
 		const stageSelected = this.renderIndex?.stageSelectedEvents || selectedEvents(context.project);
 		const selectedFlicks = [...stageSelected].filter(
-			candidate => candidate?.selected && candidate.type === "flick",
+			candidate => candidate?.selected && !candidate.locked && candidate.type === "flick",
 		);
 		const flicks = selectedFlicks.length ? selectedFlicks : [hit.event];
 		const primary = flicks.find(candidate => candidate.id === hit.event.id) || hit.event;
@@ -564,7 +569,7 @@ export class StagePointerTrait {
 	// Closest selected movable event in chart space; used by the Shift drag gesture.
 	_closestSelectedMovable(project, mapping, point, activeChannels) {
 		const candidates = (this.renderIndex?.selectedEvents || selectedEvents(project)).filter(candidate => {
-			if (!candidate?.selected || !MOVABLE_TYPES.has(candidate.type)) {
+			if (!candidate?.selected || candidate.locked || !MOVABLE_TYPES.has(candidate.type)) {
 				return false;
 			}
 			if (candidate.type === "group") {

@@ -5,6 +5,10 @@ import { COMMAND_DEFINITIONS } from "../js/app/commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { DEFAULT_EDITOR, DIFFICULTY_COLORS } from "../js/core/chart-vocabulary.js";
 import { CHECK_DEFINITIONS, CHECK_IDS, defaultChecks, runChecks } from "../js/core/checks.js";
+import { withChecks } from "../js/app/app-checks.js";
+import { withFreeTransform } from "../js/app/app-free-transform.js";
+import { withHistoryCommands } from "../js/app/app-history-commands.js";
+import { History } from "../js/core/history.js";
 
 const CHECK_ID_LIST = [
 	"emptyMetadata",
@@ -472,4 +476,48 @@ test("dragScreening ignores covered, drag-only, distant and after-window cases",
 	addNote(defaults, "drag", 2, 0, 0);
 	addNote(defaults, "tap", 3, 0, 0);
 	assert.equal(violationsFor(defaults, "dragScreening").length, 0);
+});
+
+test("a lightweight commit refreshes the live checks panel without a full refresh", () => {
+	globalThis.document = { title: "", getElementById: () => null };
+	const renders = [];
+	// The stub refresh() deliberately does not touch the checks panel (only refreshNow
+	// does in the real app), so the assertion below can only pass through the lightweight
+	// commit path.
+	const App = withHistoryCommands(
+		withChecks(
+			withFreeTransform(
+				class {
+					commit(label, mutation, options = {}) {
+						return this._finishCommit(label, mutation, options, false);
+					}
+
+					_invalidatePlaybackSchedule() {}
+
+					_normalizeGroupSelectionScope() {}
+
+					refresh() {}
+
+					refreshInteractionPreview() {}
+
+					requestStatusUpdate() {}
+
+					syncActiveDifficultyState() {}
+
+					broadcastLiveChartUpdate() {}
+				},
+			),
+		),
+	);
+	const app = new App();
+	app.model = validChart();
+	app.history = new History(app.model.snapshot());
+	app.checksPanel = { render: violations => renders.push(violations.map(item => item.check)) };
+	app.refreshChecks();
+	assert.deepEqual(renders.at(-1), []);
+
+	app.commit("break checks", model => {
+		model.addEvent("tap", { time: [1, 0, 1], x: 500, y: 0, selected: true });
+	});
+	assert.deepEqual(renders.at(-1), ["outOfBoundaryNotes"]);
 });

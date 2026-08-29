@@ -164,17 +164,28 @@ export class PositionMoveTrait {
 
 	_applyPositionMove(model, primaryId, point) {
 		const primary = model.findEvent(primaryId);
-		if (!primary) {
+		// v19: a locked primary means the gesture grabbed a locked event, so nothing moves.
+		if (!primary || primary.locked) {
 			return;
 		}
-		const roots = model.allEvents().filter(event => event.selected && MOVABLE_TYPES.has(event.type));
+		// v19: locked events behave as if they were not selected; a locked descendant of a
+		// dragged group stays behind while the rest of the group moves.
+		const roots = model.allEvents().filter(
+			event => event.selected && !event.locked && MOVABLE_TYPES.has(event.type),
+		);
 		const movable = [
 			...new Set(
-				roots.flatMap(event =>
-					event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event],
-				),
+				roots.flatMap(event => {
+					if (event.type !== "group") {
+						return [event];
+					}
+					return [event, ...model.groupDescendants(event.id).filter(item => !item.locked)];
+				}),
 			),
 		];
+		if (!movable.length) {
+			return;
+		}
 		const attached = movable.filter(event => event.attached);
 		const snappeeIds = new Set(attached.map(event => event.snappee));
 		let sharedSnappeeId = null;

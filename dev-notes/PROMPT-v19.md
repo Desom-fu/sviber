@@ -2195,7 +2195,7 @@ The "Events" menu has the following submenu items:
 - Ungroup (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd>)
 - (separator)
 - Lock (<kbd>Ctrl</kbd>+<kbd>L</kbd>)
-- Unlock (<kbd>Ctrl</kbd>+<kbd>L</kbd>)
+- Unlock (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>)
 - (separator)
 - Fill curve with drag notes
 
