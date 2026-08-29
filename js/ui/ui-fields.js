@@ -237,24 +237,16 @@ function createArrayControl(field, value, environment) {
 
 // A nested field may declare `disabled` as a predicate over the group's current values, so the
 // whole group is re-evaluated whenever anything inside it changes.
-function detailsFieldDisabled(entry, current) {
-	if (typeof entry.field.disabled === "function") {
-		return Boolean(entry.field.disabled(current));
+function nestedFieldDisabled(field, current) {
+	if (typeof field.disabled === "function") {
+		return Boolean(field.disabled(current));
 	}
-	return Boolean(entry.field.disabled);
+	return Boolean(field.disabled);
 }
 
-function createDetailsControl(field, value, environment) {
-	const { document: documentRef, i18n, onChange, tooltip } = environment;
-	const details = documentRef.createElement("details");
-	details.className = "dialog-details";
-	const summary = documentRef.createElement("summary");
-	summary.textContent = field.summaryKey ? i18n.t(field.summaryKey) : String(field.summary || field.id);
-	details.appendChild(summary);
-	if (field.open) {
-		details.open = true;
-	}
-	const controls = (field.fields || []).map(subfield => {
+function createNestedFieldEntries(field, value, environment, root) {
+	const { document: documentRef } = environment;
+	return (field.fields || []).map(subfield => {
 		const wrapper = documentRef.createElement("div");
 		wrapper.className = "dialog-field";
 		const label = createSubfieldLabel(subfield, environment);
@@ -265,35 +257,69 @@ function createDetailsControl(field, value, environment) {
 			environment,
 		);
 		wrapper.append(label, control.element);
-		details.appendChild(wrapper);
+		root.appendChild(wrapper);
 		return { field: subfield, control, label, wrapper };
 	});
+}
+
+function bindNestedEntries(root, entries, environment) {
+	const { onChange, tooltip } = environment;
 	const read = () =>
-		Object.fromEntries(controls.map(({ field: subfield, control }) => [subfield.id, control.read()]));
+		Object.fromEntries(entries.map(({ field: subfield, control }) => [subfield.id, control.read()]));
 	const refresh = () => {
 		const current = read();
-		for (const entry of controls) {
-			const disabled = detailsFieldDisabled(entry, current);
+		for (const entry of entries) {
+			const disabled = nestedFieldDisabled(entry.field, current);
 			entry.control.setDisabled(disabled);
 			entry.wrapper.classList.toggle("is-disabled", disabled);
 		}
 	};
-	details.addEventListener("input", () => {
+	root.addEventListener("input", () => {
 		refresh();
-		onChange?.({ target: details, type: "input" });
+		onChange?.({ target: root, type: "input" });
 	});
 	refresh();
 	return {
-		element: details,
+		element: root,
 		read,
-		setDisabled: disabled => controls.forEach(({ control }) => control.setDisabled(disabled)),
-		focus: () => controls[0]?.control.focus?.(),
-		destroy: () =>
-			controls.forEach(({ control, label }) => {
-				control.destroy?.();
-				tooltip?.unregister(label);
-			}),
+		setDisabled: disabled => {
+			if (disabled) {
+				for (const entry of entries) {
+					entry.control.setDisabled(true);
+					entry.wrapper.classList.toggle("is-disabled", true);
+				}
+				return;
+			}
+			refresh();
+		},
+		focus: () => entries[0]?.control.focus?.(),
+		destroy: () => {
+			for (const entry of entries) {
+				entry.control.destroy?.();
+				tooltip?.unregister(entry.label);
+			}
+		},
 	};
+}
+
+function createDetailsControl(field, value, environment) {
+	const { document: documentRef, i18n } = environment;
+	const details = documentRef.createElement("details");
+	details.className = "dialog-details";
+	const summary = documentRef.createElement("summary");
+	summary.textContent = field.summaryKey ? i18n.t(field.summaryKey) : String(field.summary || field.id);
+	details.appendChild(summary);
+	if (field.open) {
+		details.open = true;
+	}
+	return bindNestedEntries(details, createNestedFieldEntries(field, value, environment, details), environment);
+}
+
+function createGroupControl(field, value, environment) {
+	const { document: documentRef } = environment;
+	const group = documentRef.createElement("fieldset");
+	group.className = "dialog-group";
+	return bindNestedEntries(group, createNestedFieldEntries(field, value, environment, group), environment);
 }
 
 function buildTextareaControl({ documentRef, field, value }) {
@@ -596,8 +622,8 @@ function buildMatrixControl({ documentRef, field, value }) {
 	};
 }
 
-// One builder per leaf field type. The composite types (`custom`, `array` and `details`) are
-// handled by createFieldControl itself because they nest other fields.
+// One builder per leaf field type. The composite types (`custom`, `array`, `details` and `group`)
+// are handled by createFieldControl itself because they nest other fields.
 const LEAF_CONTROL_BUILDERS = {
 	textarea: buildTextareaControl,
 	number: buildNumberControl,
@@ -648,6 +674,9 @@ export function createFieldControl(field, value, environment = {}) {
 	}
 	if (type === "details") {
 		return createDetailsControl(field, value, { ...environment, document: documentRef, i18n, onChange: notify });
+	}
+	if (type === "group") {
+		return createGroupControl(field, value, { ...environment, document: documentRef, i18n, onChange: notify });
 	}
 
 	const build = LEAF_CONTROL_BUILDERS[type];
@@ -853,6 +882,20 @@ function validateArrayField(field, value, i18n) {
 	return "";
 }
 
+function validateNestedFields(field, value, i18n) {
+	const current = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+	for (const subfield of field.fields || []) {
+		if (nestedFieldDisabled(subfield, current)) {
+			continue;
+		}
+		const error = validateField(subfield, current[subfield.id], current, i18n);
+		if (error) {
+			return error;
+		}
+	}
+	return "";
+}
+
 // One validator per field type that has constraints of its own; types not listed here are only
 // subject to `required` and the field's own `validate` callback.
 const FIELD_VALIDATORS = {
@@ -865,6 +908,8 @@ const FIELD_VALIDATORS = {
 	range: validateRangeField,
 	matrix: validateMatrixField,
 	array: validateArrayField,
+	details: validateNestedFields,
+	group: validateNestedFields,
 };
 
 export function validateField(field, value, values, i18n = defaultI18n) {

@@ -1,6 +1,6 @@
-// Project-level state that every difficulty shares: the title/artist metadata and the media
-// paths, mirrored across all charts and across their history stacks. Split out of
-// app-core.js so this mirroring is described in one place.
+// Project-level state that every difficulty shares: the artist metadata and the media
+// paths, mirrored across all charts and across their history stacks. Chart titles stay
+// per-chart. Split out of app-core.js so this mirroring is described in one place.
 
 export const withProjectState = Base =>
 	class extends Base {
@@ -14,19 +14,18 @@ export const withProjectState = Base =>
 		}
 
 		// Shared fields live on the project, so the active chart pushes them onto every
-		// difficulty (and onto itself, since it may have just been swapped in).
+		// difficulty (and onto itself, since it may have just been swapped in). Titles are
+		// per-chart and are not mirrored here.
 		syncProjectSharedFields() {
 			for (const entry of this.difficulties) {
-				entry.model.metadata.title = this.projectTitle;
 				entry.model.metadata.artist = this.projectArtist;
 			}
-			this.model.metadata.title = this.projectTitle;
 			this.model.metadata.artist = this.projectArtist;
 			this.model.music = this.projectMusic;
 			this.model.image = this.projectImage;
 		}
 
-		// Undoing inside one difficulty must not resurrect a stale project title in another,
+		// Undoing inside one difficulty must not resurrect a stale project artist in another,
 		// so the shared fields are rewritten through every recorded history state too.
 		syncProjectHistorySharedFields(options = {}) {
 			const excludeDifficultyId = options.excludeDifficultyId ?? null;
@@ -37,7 +36,6 @@ export const withProjectState = Base =>
 				}
 				entry.history.transformStates(state => {
 					if (metadata) {
-						state.metadata.title = this.projectTitle;
 						state.metadata.artist = this.projectArtist;
 					}
 					return state;
@@ -46,18 +44,15 @@ export const withProjectState = Base =>
 		}
 
 		restoreHistorySnapshot(snapshot) {
-			const title = String(snapshot.metadata?.title ?? this.projectTitle);
 			const artist = String(snapshot.metadata?.artist ?? this.projectArtist);
-			const metadataChanged = title !== this.projectTitle || artist !== this.projectArtist;
+			const artistChanged = artist !== this.projectArtist;
 			this.model.restore(snapshot);
 			this.projectMusic = String(this.model.music || "");
 			this.projectImage = String(this.model.image || "");
 			this._normalizeGroupSelectionScope();
 			this._invalidatePlaybackSchedule();
-			if (metadataChanged) {
-				this.projectTitle = title;
+			if (artistChanged) {
 				this.projectArtist = artist;
-				this.projectName = title;
 				this.syncProjectHistorySharedFields({ excludeDifficultyId: this.activeDifficultyId, media: false });
 			}
 			this.syncProjectSharedFields();

@@ -92,6 +92,36 @@
 	min-width: 0;
 }
 
+.dialog-field.is-full > .dialog-group {
+	min-width: 0;
+}
+
+.dialog-group {
+	min-width: 0;
+	min-inline-size: 0;
+	margin: 0 0 8px;
+	padding: 0;
+	border: 0;
+	border-bottom: 1px solid var(--border);
+}
+
+.dialog-group > .dialog-field {
+	margin-bottom: 6px;
+}
+
+.dialog-group > .dialog-field:last-child {
+	margin-bottom: 2px;
+}
+
+.dialog-group > .dialog-field:not(:first-child) {
+	padding-left: 18px;
+}
+
+.dialog-field.is-disabled {
+	opacity: 0.55;
+}
+
+
 .dialog-field .field-help,
 .validation-message {
 	color: var(--text-muted);

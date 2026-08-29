@@ -189,8 +189,6 @@ class DocumentLifecycleTrait {
 			this.rememberCharter(values.charter);
 		}
 		values.difficultyColor = difficultyColor(values.difficultyName, values.difficultyColor);
-		this.projectName = values.title;
-		this.projectTitle = values.title;
 		this.projectArtist = values.artist;
 		this.syncProjectSharedFields();
 		this.syncProjectHistorySharedFields({ media: false });
@@ -389,8 +387,6 @@ class DocumentLifecycleTrait {
 			model.timing.setOffset(values.offset);
 			model.timing.setInitialBpm(values.initialBpm);
 		});
-		this.projectName = values.title;
-		this.projectTitle = values.title;
 		this.projectArtist = values.artist;
 		this.syncProjectSharedFields();
 		this.syncProjectHistorySharedFields({ excludeDifficultyId: this.activeDifficultyId, media: false });
