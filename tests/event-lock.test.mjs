@@ -3,8 +3,10 @@ import test from "node:test";
 import { COMMAND_DEFINITIONS, CommandRegistry } from "../js/app/commands.js";
 import { withEventEditing } from "../js/app/app-event-editing.js";
 import { ChartModel } from "../js/core/chart-model.js";
+import { History } from "../js/core/history.js";
 import { createEvent } from "../js/core/chart-events.js";
 import { withStageInteractions } from "../js/render/stage-interactions.js";
+import { TimelinePointerTrait } from "../js/render/timeline-pointer.js";
 
 function chartWithEvents() {
 	const model = ChartModel.createDefault();
@@ -167,3 +169,69 @@ test("dragging a group by its event or anchor leaves locked descendants in place
 	assert.equal(app.model.findEvent(group.id).x, 80);
 });
 
+
+test("pressing a locked event in the timeline selects it but never starts a time drag", () => {
+	const timeline = Object.create(TimelinePointerTrait.prototype);
+	const locked = { id: 9, type: "tap", time: [2, 0, 1], channel: 0, selected: false, locked: true };
+	const selections = [];
+	timeline.renderIndex = {
+		selectionTarget: event => event,
+		isEventSelected: event => Boolean(event.selected),
+		ancestorsById: new Map(),
+	};
+	timeline.callbacks = { onSelectEvents: (ids, mode) => selections.push([ids, mode]) };
+	const drag = timeline._eventPressDrag(
+		{ shiftKey: false, ctrlKey: false, altKey: false },
+		{ point: { x: 0, y: 0 }, hit: { event: locked }, project: { events: [locked] }, playing: false },
+	);
+	assert.equal(drag, null);
+	assert.deepEqual(selections, [[[9], "replace"]]);
+
+	const unlocked = { id: 10, type: "tap", time: [2, 0, 1], channel: 0, selected: false, locked: false };
+	const unlockedDrag = timeline._eventPressDrag(
+		{ shiftKey: false, ctrlKey: false, altKey: false },
+		{ point: { x: 0, y: 0 }, hit: { event: unlocked }, project: { events: [unlocked] }, playing: false },
+	);
+	assert.equal(unlockedDrag.type, "event");
+	assert.equal(unlockedDrag.event.id, 10);
+});
+
+test("the inspector skips locked events when applying property edits", () => {
+	globalThis.document = { title: "", getElementById: () => null };
+	const EditingApp = withEventEditing(
+		class {
+			commit(label, mutation, options = {}) {
+				return this._finishCommit(label, mutation, options, false);
+			}
+
+			_invalidatePlaybackSchedule() {}
+
+			_normalizeGroupSelectionScope() {}
+
+			refresh() {}
+
+			refreshInteractionPreview() {}
+
+			requestStatusUpdate() {}
+
+			syncActiveDifficultyState() {}
+
+			broadcastLiveChartUpdate() {}
+		},
+	);
+	const app = new EditingApp();
+	app.model = ChartModel.createDefault({
+		channels: [
+			{ id: 0 },
+			{ id: 1 },
+		],
+	});
+	app.history = new History(app.model.snapshot());
+	const locked = app.model.addEvent("tap", { time: [1, 0, 1], x: 0, y: 0, channel: 0, selected: true, locked: true });
+	const free = app.model.addEvent("tap", { time: [2, 0, 1], x: 0, y: 0, channel: 0, selected: true });
+	app.editSelectedProperty("channel", 1);
+	// The locked event behaves as if it were not selected: the unlocked neighbour moves,
+	// the locked one keeps its channel.
+	assert.equal(app.model.findEvent(free.id).channel, 1);
+	assert.equal(app.model.findEvent(locked.id).channel, 0);
+});

@@ -543,16 +543,18 @@ textarea:focus-visible,
 	margin: 0;
 }
 
-.status-item {
-	display: grid;
-	grid-template-columns: minmax(42px, 1fr) auto;
-	align-items: baseline;
-	min-height: 18px;
-	padding: 0 2px;
+/* v20: the time, beat and speed readouts share one label-free line to save space, and
+   wrap as whole values when the line runs out. */
+.status-readouts {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0 12px;
+	margin: 0;
 }
 
-.status-item dt {
-	color: var(--text-muted);
+.status-item {
+	min-height: 18px;
+	padding: 0 2px;
 }
 
 .status-item dd {
@@ -560,6 +562,7 @@ textarea:focus-visible,
 	font-family: "Cascadia Mono", Consolas, monospace;
 	font-variant-numeric: tabular-nums;
 	font-weight: 600;
+	white-space: nowrap;
 }
 
 .status-comments:not(:empty) {

@@ -156,6 +156,9 @@ export class TimelineDrawingTrait {
 			new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 		const records = this._timelineEventRecords(project);
 		this._drawSelectedGroupBounds(context, layout, project, offsets);
+		// v20: the duration tail handles are collected and painted after every event so a
+		// later-drawn event can never cover the handle of an earlier one.
+		const durationHandles = [];
 		for (const record of records) {
 			const { event } = record;
 			if (project.editor?.showBgEventsInTimeline === false && isBackgroundEvent(event)) {
@@ -169,7 +172,18 @@ export class TimelineDrawingTrait {
 			if (Math.max(position.x, endX) < -20 || Math.min(position.x, endX) > layout.channels.width + 20) {
 				continue;
 			}
-			this._drawTimelineEvent(context, { event, position, endX, layout, project, activeChannelIds });
+			this._drawTimelineEvent(context, {
+				event,
+				position,
+				endX,
+				layout,
+				project,
+				activeChannelIds,
+				durationHandles,
+			});
+		}
+		for (const handle of durationHandles) {
+			this._drawDiamond(context, handle.endX, handle.y, 7);
 		}
 	}
 
@@ -203,7 +217,7 @@ export class TimelineDrawingTrait {
 	}
 
 	_drawTimelineEvent(context, entry) {
-		const { event, position, endX, activeChannelIds, project } = entry;
+		const { event, position, endX, activeChannelIds, project, durationHandles } = entry;
 		const interactive = activeChannelIds.has(event.channel);
 		const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
 		// v19: selected locked events use a magenta tint instead of the bright red one.
@@ -226,8 +240,9 @@ export class TimelineDrawingTrait {
 			this._drawEventLabel(context, event, position, endX, color);
 		}
 		// v19: the duration tail handle does not appear for locked events.
+		// v20: the diamond paints after the event pass so nothing covers it.
 		if (interactive && selected && !event.locked && DURATION_TYPES.has(event.type)) {
-			this._drawDiamond(context, endX, position.y, 7);
+			durationHandles?.push({ endX, y: position.y });
 			const region = { x: endX - 7, y: position.y - 7, width: 14, height: 14 };
 			this.hitRegions.push({ type: "duration", event, ...region });
 		}

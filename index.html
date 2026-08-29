@@ -38,10 +38,10 @@
 			<section class="timeline-row" aria-label="Timeline" data-i18n-aria-label="aria.timeline">
 				<div id="timeline-surface" class="render-surface timeline-surface" tabindex="0"></div>
 				<aside id="status-panel" class="status-panel" aria-label="Playback status" data-i18n-aria-label="aria.playbackStatus">
-					<dl>
-						<div class="status-item" data-tooltip-key="tooltip.time"><dt data-i18n="status.time">Time</dt><dd id="status-time">0:00.000</dd></div>
-						<div class="status-item" data-tooltip-key="tooltip.beat"><dt data-i18n="status.beat">Beat</dt><dd id="status-beat">0+0/2</dd></div>
-						<div class="status-item" data-tooltip-key="tooltip.speed"><dt data-i18n="status.speed">Speed</dt><dd id="status-speed">1.0</dd></div>
+					<dl class="status-readouts">
+						<div class="status-item" data-tooltip-key="tooltip.time"><dd id="status-time">0:00.000</dd></div>
+						<div class="status-item" data-tooltip-key="tooltip.beat"><dd id="status-beat">0+0/2</dd></div>
+						<div class="status-item" data-tooltip-key="tooltip.speed"><dd id="status-speed">1.0</dd></div>
 					</dl>
 					<div class="status-options" role="group" aria-label="Playback options" data-i18n-aria-label="status.options">
 						<label class="status-option" data-tooltip-key="status.lockVisibleRange"><input id="lock-visible-range" type="checkbox" aria-label="Lock visible range" data-i18n-aria-label="status.lockVisibleRange"><img src="svg/icons/lock-visible-range.svg" alt="" aria-hidden="true"></label>
@@ -123,6 +123,6 @@
 
 	<script src="js/boot/nw-source-bootstrap.js"></script>
 	<script src="js/boot/vendor-loader.js"></script>
-	<script type="module" src="js/app/app.js?v=61"></script>
+	<script type="module" src="js/app/app.js?v=62"></script>
 </body>
 </html>

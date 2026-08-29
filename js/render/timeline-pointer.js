@@ -181,6 +181,11 @@ export class TimelinePointerTrait {
 		if (!selected) {
 			this.callbacks.onSelectEvents?.([selectionEvent.id], selectionMode);
 		}
+		// v20: a locked event behaves as if it were not selected, so a press may select it
+		// but never starts a time drag.
+		if (selectionEvent.locked) {
+			return null;
+		}
 		const selectedEvents = this._selectedLeafEvents(project);
 		const simultaneous =
 			selectedEvents.length > 0 &&
