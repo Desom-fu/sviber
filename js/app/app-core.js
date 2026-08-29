@@ -264,7 +264,6 @@ export class SviberAppCore extends CoreShell {
 		this.activeDifficultyId = "difficulty-0";
 		this.projectName = this.model.metadata.title;
 		this.editingProject = false;
-		this.projectTitle = this.model.metadata.title;
 		this.projectArtist = this.model.metadata.artist;
 		this.projectMusic = String(this.model.music || "");
 		this.projectImage = String(this.model.image || "");

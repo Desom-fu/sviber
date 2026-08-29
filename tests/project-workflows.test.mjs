@@ -354,3 +354,143 @@ test("workflows prompt for add-to-project and document the complete behavior", a
 	assert.match(help, /absolute media paths/);
 	assert.match(help, /绝对媒体路径/);
 });
+
+test("project charts keep independent titles and the window title uses the open chart", async () => {
+	const app = Object.create(SviberAppCore.prototype);
+	const first = ChartModel.createDefault({
+		metadata: { title: "Easy Song", artist: "Artist", difficultyName: "Easy" },
+	});
+	const second = ChartModel.createDefault({
+		metadata: { title: "Hard Mix", artist: "Artist", difficultyName: "Hard" },
+	});
+	app.installProject(
+		[
+			{ id: "difficulty-1", file: "easy.json", model: first },
+			{ id: "difficulty-2", file: "hard.json", model: second },
+		],
+		{ activeChart: "difficulty-1", name: "Folder", artist: "Artist", saved: true },
+	);
+	assert.equal(app.model.metadata.title, "Easy Song");
+	assert.equal(app.difficulties[1].model.metadata.title, "Hard Mix");
+	app.model.metadata.title = "Renamed Easy";
+	app.projectArtist = "Shared Artist";
+	app.syncProjectSharedFields();
+	assert.equal(app.difficulties[0].model.metadata.title, "Renamed Easy");
+	assert.equal(app.difficulties[1].model.metadata.title, "Hard Mix");
+	assert.equal(app.difficulties[0].model.metadata.artist, "Shared Artist");
+	assert.equal(app.difficulties[1].model.metadata.artist, "Shared Artist");
+
+	const [core, projectState, lifecycle] = await Promise.all([
+		readFile(new URL("../js/app/app-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app/app-project-state.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app/app-document-lifecycle.js", import.meta.url), "utf8"),
+	]);
+	assert.match(core, /metadata\.title\} \$\{metadata\.difficultyName\} - sviber/);
+	assert.doesNotMatch(projectState, /metadata\.title = this\.projectTitle/);
+	assert.doesNotMatch(projectState, /this\.projectTitle/);
+	assert.doesNotMatch(lifecycle, /this\.projectTitle = values\.title/);
+});
+
+test("saving a project chart copies outside music and image into the project folder", async () => {
+	const previousNw = globalThis.nw;
+	globalThis.nw = {};
+	try {
+		const WorkflowApp = withFileWorkflows(class {});
+		const app = new WorkflowApp();
+		const copied = [];
+		app.freeTransform = null;
+		app.model = ChartModel.createDefault({
+			music: "/tmp/outside/song.ogg",
+			image: "/tmp/outside/art.png",
+		});
+		app.projectMusic = app.model.music;
+		app.projectImage = app.model.image;
+		app.projectArtist = "";
+		app.difficulties = [{ id: "difficulty-0", model: app.model }];
+		app.syncProjectSharedFields = SviberAppCore.prototype.syncProjectSharedFields.bind(app);
+		app.activeDifficultyState = () => ({ file: "Master.json" });
+		app.markSaved = () => {};
+		app.history = { markCurrent() {} };
+		app.autosave = { markManualSave() {} };
+		app.rememberOpenAfterSave = () => {};
+		app.toast = { show() {}, error() {} };
+		app._refreshLightweight = () => {};
+		app.files = {
+			projectPath: "/proj",
+			async fileForAsset(reference) {
+				return { name: path.basename(reference) };
+			},
+			async copyAssetIntoProject(file, fallback, reference) {
+				copied.push({ name: file.name, fallback, reference });
+				return file.name;
+			},
+			async saveChart(model) {
+				return "/proj/chart.json";
+			},
+		};
+		assert.equal(await app.saveChart(), "/proj/chart.json");
+		assert.deepEqual(
+			copied.map(item => item.name),
+			["song.ogg", "art.png"],
+		);
+		assert.equal(app.model.music, "song.ogg");
+		assert.equal(app.projectMusic, "song.ogg");
+		assert.equal(app.model.image, "art.png");
+		assert.equal(app.projectImage, "art.png");
+
+		copied.length = 0;
+		app.files.copyAssetIntoProject = async (_file, _fallback, reference) => {
+			copied.push(reference);
+			return reference;
+		};
+		assert.equal(await app.saveChart(), "/proj/chart.json");
+		assert.deepEqual(copied, ["song.ogg", "art.png"]);
+		assert.equal(app.model.music, "song.ogg");
+	} finally {
+		if (previousNw === undefined) {
+			delete globalThis.nw;
+		} else {
+			globalThis.nw = previousNw;
+		}
+	}
+});
+
+test("standalone chart saves do not copy assets into a project folder", async () => {
+	const previousNw = globalThis.nw;
+	globalThis.nw = {};
+	try {
+		const WorkflowApp = withFileWorkflows(class {});
+		const app = new WorkflowApp();
+		let copied = 0;
+		app.freeTransform = null;
+		app.model = ChartModel.createDefault({ music: "/tmp/outside/song.ogg" });
+		app.projectMusic = app.model.music;
+		app.projectImage = "";
+		app.activeDifficultyState = () => ({ file: "Master.json" });
+		app.markSaved = () => {};
+		app.history = { markCurrent() {} };
+		app.autosave = { markManualSave() {} };
+		app.rememberOpenAfterSave = () => {};
+		app.toast = { show() {}, error() {} };
+		app._refreshLightweight = () => {};
+		app.files = {
+			projectPath: "",
+			async copyAssetIntoProject() {
+				copied += 1;
+				return "song.ogg";
+			},
+			async saveChart() {
+				return "/tmp/song-Master.json";
+			},
+		};
+		assert.equal(await app.saveChart(), "/tmp/song-Master.json");
+		assert.equal(copied, 0);
+		assert.equal(app.model.music, "/tmp/outside/song.ogg");
+	} finally {
+		if (previousNw === undefined) {
+			delete globalThis.nw;
+		} else {
+			globalThis.nw = previousNw;
+		}
+	}
+});

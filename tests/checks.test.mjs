@@ -403,3 +403,30 @@ test("each check carries exactly the extra parameters v18 documents", () => {
 		assert.deepEqual(parameters.get(id), [], `${id} should have no parameters`);
 	}
 });
+
+test("checks dialog groups parameters under their check and disables them when it is off", async () => {
+	const { withChecks } = await import("../js/app/app-checks.js");
+	const [css, fieldsSource] = await Promise.all([
+		readFile(new URL("../css/dialogs.css", import.meta.url), "utf8"),
+		readFile(new URL("../js/ui/ui-fields.js", import.meta.url), "utf8"),
+	]);
+	const fields = new (withChecks(class {}))()._checkFields();
+	assert.equal(fields.length, CHECK_DEFINITIONS.length);
+	for (const field of fields) {
+		assert.equal(field.type, "group", field.id);
+		assert.equal(field.hideLabel, true, field.id);
+		assert.equal(field.fields[0].id, "enabled");
+		assert.equal(field.fields[0].type, "checkbox");
+		const definition = CHECK_DEFINITIONS.find(item => item.id === field.id);
+		assert.equal(field.fields.length, 1 + definition.parameters.length, field.id);
+		for (const parameter of definition.parameters) {
+			const nested = field.fields.find(item => item.id === parameter.id);
+			assert.ok(nested, `${field.id}.${parameter.id}`);
+			assert.equal(nested.disabled({ enabled: false }), true);
+			assert.equal(nested.disabled({ enabled: true }), false);
+		}
+	}
+	assert.match(fieldsSource, /type === "group"/);
+	assert.match(css, /\.dialog-group > \.dialog-field:not\(:first-child\)/);
+	assert.match(css, /\.dialog-field\.is-disabled/);
+});

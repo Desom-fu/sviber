@@ -84,7 +84,6 @@ function applyMacroState(app, source, message) {
 			throw new Error("Macro state exceeds the editor limits.");
 		}
 		app.commit(i18n.t("history.runMacro"), model => model.restore(next.snapshot()));
-		app.projectTitle = next.metadata.title;
 		app.projectArtist = next.metadata.artist;
 		app.projectMusic = next.music;
 		app.projectImage = next.image;
@@ -254,7 +253,6 @@ export async function runChosenMacro(app, macroId) {
 		throw new Error("Macro state exceeds the editor limits.");
 	}
 	app.commit(i18n.t("history.runMacro"), model => model.restore(next.snapshot()));
-	app.projectTitle = next.metadata.title;
 	app.projectArtist = next.metadata.artist;
 	app.projectMusic = next.music;
 	app.projectImage = next.image;

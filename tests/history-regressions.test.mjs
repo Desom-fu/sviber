@@ -390,3 +390,30 @@ test("closed bezier curve draft appends starting point to controlPoints to match
 	assert.deepEqual(created.controlPoints.at(-1), { x: 0, y: 0 });
 	assert.equal(created.degree, 5);
 });
+
+test("restoring a chart title leaves other difficulties unchanged", async () => {
+	const { SviberAppCore } = await import("../js/app/app-core.js");
+	const app = Object.create(SviberAppCore.prototype);
+	const first = ChartModel.createDefault({
+		metadata: { title: "Easy Song", artist: "Artist" },
+	});
+	const second = ChartModel.createDefault({
+		metadata: { title: "Hard Mix", artist: "Artist" },
+	});
+	app.installProject(
+		[
+			{ id: "difficulty-1", file: "easy.json", model: first },
+			{ id: "difficulty-2", file: "hard.json", model: second },
+		],
+		{ activeChart: "difficulty-1", name: "Folder", artist: "Artist", saved: true },
+	);
+	app._normalizeGroupSelectionScope = () => {};
+	app._invalidatePlaybackSchedule = () => {};
+	app.audio = { playing: false, seek() {} };
+	app.currentSeconds = () => 0;
+	const snapshot = app.model.snapshot();
+	snapshot.metadata = { ...snapshot.metadata, title: "Easy Prime" };
+	SviberAppCore.prototype.restoreHistorySnapshot.call(app, snapshot);
+	assert.equal(app.model.metadata.title, "Easy Prime");
+	assert.equal(app.difficulties[1].model.metadata.title, "Hard Mix");
+});

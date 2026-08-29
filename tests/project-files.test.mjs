@@ -287,3 +287,24 @@ test("project folders round-trip all difficulties and level export contains only
 		await rm(directory, { recursive: true, force: true });
 	}
 });
+
+test("copyAssetIntoProject reuses a file already in the project folder", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "sviber-copy-"));
+	try {
+		await withNwRequire(async () => {
+			const musicPath = path.join(directory, "song.ogg");
+			await writeFile(musicPath, new Uint8Array([1, 2, 3]));
+			const manager = new FileManager();
+			manager.projectPath = directory;
+			const file = await manager.fileFromLocalPath(musicPath, "audio/ogg");
+			const first = await manager.copyAssetIntoProject(file, "music", "song.ogg");
+			const second = await manager.copyAssetIntoProject(file, "music", "song.ogg");
+			assert.equal(first, "song.ogg");
+			assert.equal(second, "song.ogg");
+			const copied = await manager.fileForAsset("song.ogg", "music");
+			assert.deepEqual([...new Uint8Array(await copied.arrayBuffer())], [1, 2, 3]);
+		});
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});

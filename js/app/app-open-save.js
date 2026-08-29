@@ -352,11 +352,22 @@ class OpenSaveTrait {
 		this.rememberLastOpen("chart", this.files?.chartPath);
 	}
 
+	async prepareProjectChartAssets() {
+		if (!globalThis.nw || !this.files?.projectPath) {
+			return;
+		}
+		await this.copyChartAssetsIntoProject(this.model);
+		this.projectMusic = String(this.model.music || "");
+		this.projectImage = String(this.model.image || "");
+		this.syncProjectSharedFields();
+	}
+
 	async saveChart() {
 		try {
 			if (this.freeTransform) {
 				this.finishFreeTransform();
 			}
+			await this.prepareProjectChartAssets();
 			const location = await this.files.saveChart(this.model, {
 				projectFilename: this.activeDifficultyState()?.file,
 			});
@@ -420,6 +431,7 @@ class OpenSaveTrait {
 			if (this.freeTransform) {
 				this.finishFreeTransform();
 			}
+			await this.prepareProjectChartAssets();
 			const location = await this.files.saveChart(this.model, { saveAs: true });
 			if (!location) {
 				return null;

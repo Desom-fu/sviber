@@ -124,44 +124,45 @@ class ChecksTrait {
 	}
 
 	_checkFields() {
-		const fields = [];
-		for (const definition of CHECK_DEFINITIONS) {
-			fields.push({
-				id: `${definition.id}.enabled`,
-				type: "checkbox",
-				labelKey: `check.${definition.id}`,
-				tooltipKey: `check.${definition.id}.hint`,
-				choiceLabelKey: "field.checkEnabled",
-			});
-			for (const parameter of definition.parameters) {
-				fields.push({
-					id: `${definition.id}.${parameter.id}`,
+		return CHECK_DEFINITIONS.map(definition => ({
+			id: definition.id,
+			type: "group",
+			hideLabel: true,
+			fields: [
+				{
+					id: "enabled",
+					type: "checkbox",
+					labelKey: `check.${definition.id}`,
+					tooltipKey: `check.${definition.id}.hint`,
+					choiceLabelKey: "field.checkEnabled",
+				},
+				...definition.parameters.map(parameter => ({
+					id: parameter.id,
 					type: parameter.type,
 					labelKey: `check.${definition.id}.${parameter.id}`,
 					tooltipKey: `check.${definition.id}.${parameter.id}.hint`,
 					min: parameter.min,
 					step: parameter.type === "integer" ? 1 : "any",
-					disabled: values => !values[`${definition.id}.enabled`],
-				});
-			}
-		}
-		return fields;
+					disabled: values => !values.enabled,
+				})),
+			],
+		}));
 	}
 
 	async showChecksDialog(focusCheck = null) {
 		const current = normalizeChecks(this.model.checks);
 		const values = {};
 		for (const definition of CHECK_DEFINITIONS) {
-			values[`${definition.id}.enabled`] = current[definition.id].enabled;
+			values[definition.id] = { enabled: current[definition.id].enabled };
 			for (const parameter of definition.parameters) {
-				values[`${definition.id}.${parameter.id}`] = current[definition.id][parameter.id];
+				values[definition.id][parameter.id] = current[definition.id][parameter.id];
 			}
 		}
 		const result = await this.dialogs.form({
 			titleKey: "command.edit.checks",
 			messageKey: "dialog.checksMessage",
 			dialogClass: "is-wide",
-			focusField: focusCheck ? `${focusCheck}.enabled` : undefined,
+			focusField: focusCheck || undefined,
 			values,
 			fields: this._checkFields(),
 		});
@@ -170,9 +171,10 @@ class ChecksTrait {
 		}
 		const next = {};
 		for (const definition of CHECK_DEFINITIONS) {
-			next[definition.id] = { enabled: Boolean(result[`${definition.id}.enabled`]) };
+			const group = result[definition.id] || {};
+			next[definition.id] = { enabled: Boolean(group.enabled) };
 			for (const parameter of definition.parameters) {
-				next[definition.id][parameter.id] = Number(result[`${definition.id}.${parameter.id}`]);
+				next[definition.id][parameter.id] = Number(group[parameter.id]);
 			}
 		}
 		this.commit(i18n.t("history.editChecks"), model => {

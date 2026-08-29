@@ -75,7 +75,6 @@ export const withDifficultyState = Base =>
 			this.history = active.history;
 			this.savedSignature = active.savedSignature;
 			this.projectName = String(options.name || this.model.metadata.title || "Untitled");
-			this.projectTitle = String(options.title ?? this.model.metadata.title ?? "Untitled");
 			this.projectArtist = String(options.artist ?? this.model.metadata.artist ?? "");
 			this.projectMusic = String(this.model.music ?? "");
 			this.projectImage = String(this.model.image ?? "");
