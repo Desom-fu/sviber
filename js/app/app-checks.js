@@ -54,6 +54,25 @@ class ChecksTrait {
 		badge.textContent = count ? String(count) : "";
 	}
 
+	// v19: checks re-scan the whole chart, so running them on the critical path of every
+	// edit stuttered note placement on large charts. Edits schedule the refresh for the
+	// next idle slice instead; bursts coalesce because a pending run re-reads the model.
+	_scheduleChecksRefresh() {
+		if (this.checksRefreshScheduled) {
+			return;
+		}
+		this.checksRefreshScheduled = true;
+		const run = () => {
+			this.checksRefreshScheduled = false;
+			this.refreshChecks();
+		};
+		if (typeof requestIdleCallback === "function") {
+			requestIdleCallback(run, { timeout: 200 });
+		} else {
+			setTimeout(run, 32);
+		}
+	}
+
 	_bindChecksTabs() {
 		const tabs = [
 			{

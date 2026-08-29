@@ -517,7 +517,7 @@ export class SviberAppCore extends CoreShell {
 		this.channelsPanel.render(this.model, { readOnly });
 		this.clipsPanel.render(this.model, { readOnly });
 		this.historyPanel.render(this.history, { readOnly });
-		this.refreshChecks?.();
+		this._scheduleChecksRefresh?.();
 		this._refreshDifficultyUi();
 		this.registry.notifyAll();
 		this._syncCheckedCommands();

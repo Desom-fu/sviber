@@ -478,7 +478,7 @@ test("dragScreening ignores covered, drag-only, distant and after-window cases",
 	assert.equal(violationsFor(defaults, "dragScreening").length, 0);
 });
 
-test("a lightweight commit refreshes the live checks panel without a full refresh", () => {
+test("a lightweight commit refreshes the live checks panel off the interaction path", async () => {
 	globalThis.document = { title: "", getElementById: () => null };
 	const renders = [];
 	// The stub refresh() deliberately does not touch the checks panel (only refreshNow
@@ -519,5 +519,9 @@ test("a lightweight commit refreshes the live checks panel without a full refres
 	app.commit("break checks", model => {
 		model.addEvent("tap", { time: [1, 0, 1], x: 500, y: 0, selected: true });
 	});
+	// The commit must not re-run the checks synchronously; the scheduled refresh follows
+	// on an idle slice.
+	assert.deepEqual(renders.at(-1), []);
+	await new Promise(resolve => setTimeout(resolve, 60));
 	assert.deepEqual(renders.at(-1), ["outOfBoundaryNotes"]);
 });

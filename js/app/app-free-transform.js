@@ -60,8 +60,8 @@ class FreeTransformTrait {
 		}
 		this._refreshLightweight({ ...options, lightweight: true });
 		// v19: lightweight commits still change the chart, so the live checks panel and its
-		// tab badge must follow them too instead of waiting for a full refresh.
-		this.refreshChecks?.();
+		// tab badge must follow them too — scheduled off the interaction's critical path.
+		this._scheduleChecksRefresh?.();
 	}
 
 	_refreshLightweight(options = {}) {

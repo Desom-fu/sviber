@@ -171,3 +171,28 @@
   - i18n 新增 `loading.chart`（"正在打开谱面..."/"Opening chart..."）与 `loading.project`（"正在打开工程..."/"Opening project..."）。
 - **验证**：`tests/project-workflows.test.mjs` 新增两项——遮罩接线源码断言、深度计数行为测试（嵌套打开时内层结束不隐藏遮罩）；两个打开流程测试的组合补上 `withShellBindings` 以匹配真实应用表面。`npm test` 379 项全部通过；`npm run build` 正常出包。
 
+## v0.10.4 交互卡顿排查与修复
+
+### 排查结论（playwright 真实浏览器探针 + node 基准，4000 事件谱面）
+
+- **滚动视图/时间轴每帧绘制本身不慢**：播放帧（三个视图重绘 + 状态更新）中位数约 1.5ms；单独重绘滚动视图 0.2-0.3ms、时间轴 0.5-1ms、主编辑区 0.4-0.5ms；把 3000 个音符全部塞进可见窗口的密集场景也在 1ms 量级。渲染索引在播放帧间复用（`viewState` 携带 `renderIndex`），逐帧查询（`scrollEventRecords` 等）合计约 0.2ms，波形读取走金字塔分层。绘制路径里没有 shadowBlur/渐变等高开销调用，`getTimelineWidth` 读的是缓存尺寸不触发 reflow。
+- **增量索引没有丢**：v0.9.0 模块拆分把增量变更搬进了 `js/render/chart-index-mutations.js`（`appendRootEvent`/`replaceEvents`/`moveEventsToChannels`/`setActiveChannels` 等，经 `ChartIndexMutationsTrait` 组合进 `ChartRenderIndex`），放置 note 仍是增量更新索引（实测放置后索引含新事件且无重建）。undo/redo 自始至终走快照恢复 + 全量重建，与拆分前一致。
+- **放置 note 卡顿的根因是 v0.10.2 的同步检查刷新**：实测放置中位数 48.5ms，屏蔽 `refreshChecks` 后仅 3.8ms——`checksSignature` 全量 JSON 序列化（12ms@10k 事件）加 `runChecks` 全谱扫描（30ms@10k）都压在了点击的关键路径上。
+- **undo 卡顿**：同步段约 57ms（快照基线深克隆 + patch 链回放 + `model.restore` 全量导入 + 随后一帧的 `refreshNow` 全量重建），与检查无关（屏蔽后不变），属历史设计的固有成本；defer 检查刷新能把随后一帧的 ~40ms 检查开销移出交互路径。
+
+### 修复：检查刷新改为空闲调度
+
+- **实现**：`js/app/app-checks.js` 新增 `_scheduleChecksRefresh`——用 `requestIdleCallback`（无则 `setTimeout` 32ms）在空闲切片执行 `refreshChecks`，进行中合并（挂起期间不重复排程，运行时读取最新模型）；`js/app/app-free-transform.js` `_refreshAfterCommit` 与 `js/app/app-core.js` `refreshNow` 的检查调用都改走调度（`showChecksDialog` 确认后的 `refreshChecks({force: true})` 仍同步）。检查面板与标签页红色计数在编辑后约一帧内更新，肉眼无感，但不再阻塞放置/撤销的关键路径。
+- **验证**：真实浏览器复测放置中位数 48.5ms → **3.5ms**（p95 67.9 → 5.4ms）；`tests/checks.test.mjs` 更新为断言"提交不同步重跑检查、空闲切片后面板更新"。
+
+### 术语：checks 里 Hold/Tap/Flick/Drag 不翻译
+
+- **实现**：`json/i18n.zh-CN.json` 的 8 条 check 字符串把"长按/点击/拖动/滑动/drag"改为大写英文并与中文之间留空格（盘古之白）："Hold 过短"、"Tap、Hold、Drag 与 Flick 都必须在谱面边界内。"、"Hold 会占用自己的手指直到结束。"、"未判定的 Drag 不得遮挡…"等。"游标"（tip point）译法维持不变。
+- **验证**：`npm test` 全部通过。
+
+### 验收
+
+- `npm test`（`eslint . --max-warnings 0 && node --test tests/*.test.mjs`）：lint 0 错误，378 项测试全部通过（含 1 项预先存在的环境相关 skip）。
+- `npm run build`：本地 NW.js 打包成功。
+- 若滚动视图在实际谱面中仍有可感知的掉帧，需要用户提供具体谱面文件复现（合成数据下绘制与索引路径均在预算内）。
+
