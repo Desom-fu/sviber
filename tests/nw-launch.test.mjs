@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -9,7 +10,6 @@ import { spawn } from "node:child_process";
 const root = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const CHECK_PATTERN = /Check failed: base_url_value->IsString()/;
 const STARTUP_MS = 8000;
-const USER_DATA_DIR = path.join(root, "nw-user-data");
 
 function findNwBinary() {
 	const nwRoot = path.join(root, "node_modules", "nw");
@@ -51,27 +51,37 @@ function isCrashExit(code, signal) {
 	return signal === "SIGSEGV" || signal === "SIGABRT" || code === 139 || code === 134;
 }
 
-function emptyUserDataDir() {
-	fs.rmSync(USER_DATA_DIR, { recursive: true, force: true });
-	fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+// A fresh directory per run isolates the launch without deleting an existing one, which
+// some sandboxes refuse to do.
+function createUserDataDir() {
+	return fs.mkdtempSync(path.join(os.tmpdir(), "sviber-nw-user-data-"));
+}
+
+function discardUserDataDir(directory) {
+	try {
+		fs.rmSync(directory, { recursive: true, force: true });
+	} catch {
+		// Best effort only: a leftover temporary directory must never fail the launch check.
+	}
 }
 
 test("nw --headless . starts without the base_url CHECK", async t => {
 	const binary = findNwBinary();
 	assert.ok(binary);
+	const userDataDir = createUserDataDir();
 	let child;
 	try {
-		emptyUserDataDir();
 		child = spawn(
 			binary,
 			[
 				root,
-				"--user-data-dir=" + USER_DATA_DIR,
+				"--user-data-dir=" + userDataDir,
 				"--" + "ozone-platform=" + "headless",
 			],
 			{ cwd: root },
 		);
 	} catch (error) {
+		discardUserDataDir(userDataDir);
 		t.skip(`NW.js launch environment unavailable (${error.code || error.message})`);
 		return;
 	}
@@ -88,6 +98,7 @@ test("nw --headless . starts without the base_url CHECK", async t => {
 		});
 	});
 	if (result.error) {
+		discardUserDataDir(userDataDir);
 		t.skip(`NW.js launch environment unavailable (${result.error.code || result.error.message})`);
 		return;
 	}
@@ -100,4 +111,5 @@ test("nw --headless . starts without the base_url CHECK", async t => {
 		child.kill();
 		await new Promise(resolve => child.once("close", resolve));
 	}
+	discardUserDataDir(userDataDir);
 });
