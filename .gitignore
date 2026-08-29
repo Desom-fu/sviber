@@ -11,3 +11,6 @@ assets/
 
 # Reference literature (not redistributable)
 *.pdf
+
+# workbuddy
+.workbuddy/
