@@ -471,10 +471,12 @@ function buildRationalControl({ documentRef, field, value }) {
 		integer = makeInput(documentRef, "number", tuple[0] ?? 0, { step: 1 });
 		group.append(integer, "+", numerator, "/", denominator);
 	}
-	const rawTuple = () =>
-		fraction
-			? [Number(numerator.value), Number(denominator.value)]
-			: [Number(integer.value), Number(numerator.value), Number(denominator.value)];
+	const rawTuple = () => {
+		if (fraction) {
+			return [Number(numerator.value), Number(denominator.value)];
+		}
+		return [Number(integer.value), Number(numerator.value), Number(denominator.value)];
+	};
 	const usableTuple = () => {
 		const raw = rawTuple();
 		const den = fraction ? raw[1] : raw[2];
