@@ -23,6 +23,7 @@ import {
 	TIP_POINT_TRAIL_TAIL_DURATION,
 	SUNNIESNOW_AUTOPLAY_GRADIENT,
 	SUNNIESNOW_SKIN,
+	selectionTintFor,
 	noteSpeedPreference,
 	sunniesnowNoteRadius,
 	sunniesnowNoteTextColor,
@@ -100,7 +101,7 @@ class StageNotesTrait {
 		}
 		context.save();
 		context.globalAlpha = alpha;
-		context.strokeStyle = event.selected ? SUNNIESNOW_SKIN.selectionTint : SUNNIESNOW_SKIN.approachCircle;
+		context.strokeStyle = event.selected ? selectionTintFor(event) : SUNNIESNOW_SKIN.approachCircle;
 		context.lineWidth = lineWidth;
 		context.beginPath();
 		context.arc(screen.x, screen.y, Math.max(0, radius - lineWidth / 2), 0, Math.PI * 2);
@@ -176,7 +177,7 @@ class StageNotesTrait {
 				const screen = mapping.toScreen(position);
 				const radius = sunniesnowNoteRadius(event.type) * mapping.scale;
 				context.save();
-				context.strokeStyle = SUNNIESNOW_SKIN.selectionTint;
+				context.strokeStyle = selectionTintFor(event);
 				context.lineWidth = 2;
 				context.globalAlpha = 0.72;
 				context.setLineDash([4, 3]);
@@ -194,7 +195,7 @@ class StageNotesTrait {
 			} else if (PATTERN_TYPES.has(event.type) && event !== displayedPattern) {
 				const center = mapping.toScreen({ x: 0, y: 0 });
 				context.save();
-				context.strokeStyle = SUNNIESNOW_SKIN.selectionTint;
+				context.strokeStyle = selectionTintFor(event);
 				context.lineWidth = 2;
 				context.globalAlpha = 0.72;
 				context.setLineDash([5, 3]);

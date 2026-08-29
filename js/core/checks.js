@@ -344,6 +344,46 @@ function checkCjkTexts(context, violations) {
 	}
 }
 
+// Lyrica 5 drag screening: an unjudged drag can absorb a touch down that would have hit
+// another note. A drag is a violation when nothing else is near it in the screening
+// window before it (so it is still unjudged) while a non-drag note sits near it in the
+// window after it (so that note becomes unhittable only because of the screening).
+function checkDragScreening(context, violations) {
+	const settings = context.settings.dragScreening;
+	const screeningTime = Math.max(0, Number(settings.seconds));
+	const screeningDistance = Math.max(0, Number(settings.distance));
+	const notes = context.leafEvents
+		.filter(event => NOTE_TYPES.has(event.type))
+		.map(event => ({ event, start: context.startOf(event), position: context.positionOf(event) }));
+	const nonDrags = notes.filter(record => record.event.type !== "drag");
+	const near = (left, right) =>
+		Math.hypot(left.position.x - right.position.x, left.position.y - right.position.y) <=
+		screeningDistance + CHECK_EPSILON;
+	for (const drag of notes.filter(record => record.event.type === "drag")) {
+		const t0 = drag.start;
+		const coveredBefore = notes.some(
+			record =>
+				record !== drag &&
+				record.start >= t0 - screeningTime - CHECK_EPSILON &&
+				record.start <= t0 + CHECK_EPSILON &&
+				near(record, drag),
+		);
+		if (coveredBefore) {
+			continue;
+		}
+		const hitAfter = nonDrags.some(
+			record =>
+				record.start >= t0 - CHECK_EPSILON &&
+				record.start <= t0 + screeningTime + CHECK_EPSILON &&
+				near(record, drag),
+		);
+		if (!hitAfter) {
+			continue;
+		}
+		violations.push(violation("dragScreening", { time: t0, eventIds: [drag.event.id] }));
+	}
+}
+
 function checkEventsOutsideMusic(context, violations) {
 	const music = context.music;
 	if (!music || !Number.isFinite(music.duration)) {
@@ -426,6 +466,9 @@ export function runChecks(model, options = {}) {
 	}
 	if (settings.eventsOutsideMusic.enabled) {
 		checkEventsOutsideMusic(context, violations);
+	}
+	if (settings.dragScreening.enabled) {
+		checkDragScreening(context, violations);
 	}
 	// Violations without a time sort to the top; the rest sort by time.
 	return violations.sort((left, right) => {

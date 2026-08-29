@@ -2,6 +2,7 @@ import { i18n } from "../ui/i18n.js";
 import { ChartModel } from "../core/chart-model.js";
 import { uniqueChartFilename } from "../core/project.js";
 import { TimingMap } from "../core/timing.js";
+import { SNAPPEE_TYPE_SET } from "../core/chart-vocabulary.js";
 import { deepClone, localizedErrorMessage, selected } from "./app-helpers.js";
 import { applyClipboardPaste, buildClipboardPayload, resolveClipboardPayload } from "../cli/clipboard-payload.js";
 import { composeTraits } from "../core/mixin.js";
@@ -118,6 +119,42 @@ class ClipboardTrait {
 	async copyTiming() {
 		try {
 			await navigator.clipboard.writeText(JSON.stringify(this.model.timing.toJSON()));
+		} catch (error) {
+			this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) });
+		}
+	}
+
+	async copySnappee() {
+		const snappee = this.model.snappees.find(item => item.selected);
+		if (!snappee) {
+			return;
+		}
+		try {
+			await navigator.clipboard.writeText(JSON.stringify(snappee));
+			this.toast.show("toast.snappeeCopied");
+		} catch (error) {
+			this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) });
+		}
+	}
+
+	async pasteSnappee() {
+		try {
+			const data = JSON.parse(await navigator.clipboard.readText());
+			if (!data || typeof data !== "object" || !SNAPPEE_TYPE_SET.has(data.type)) {
+				throw new TypeError("Clipboard does not contain snappee JSON data");
+			}
+			this.commit(i18n.t("history.createSnappee"), model => {
+				const created = model.addSnappee({
+					...data,
+					id: null,
+					selected: false,
+					name: this.uniqueSnappeeName(String(data.name ?? data.type)),
+				});
+				for (const snappee of model.snappees) {
+					snappee.selected = snappee.id === created.id;
+				}
+			});
+			this.toast.show("toast.snappeePasted");
 		} catch (error) {
 			this.toast.error("toast.clipboardFailed", { message: localizedErrorMessage(error) });
 		}

@@ -371,7 +371,9 @@ class DocumentLifecycleTrait {
 		if (!values) {
 			return null;
 		}
-		if (tracking.userEdited("charter")) {
+		// v19: the next default charter is only set when a chart is created; editing the
+		// properties of an existing chart (or opening/importing one) leaves it alone.
+		if (newChart && tracking.userEdited("charter")) {
 			this.rememberCharter(values.charter);
 		}
 		this.commit(i18n.t("dialog.chartProperties"), model => {

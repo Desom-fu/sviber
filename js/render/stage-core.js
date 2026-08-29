@@ -28,6 +28,7 @@ import {
 	TIP_POINT_TRAIL_TAIL_DURATION,
 	SUNNIESNOW_AUTOPLAY_GRADIENT,
 	SUNNIESNOW_SKIN,
+	selectionTintFor,
 	noteSpeedPreference,
 	sunniesnowNoteRadius,
 	sunniesnowNoteTextColor,
@@ -612,7 +613,8 @@ export class StageViewCore {
 			};
 			context.save();
 			context.globalAlpha = alpha;
-			context.strokeStyle = event1.selected || event2.selected ? SUNNIESNOW_SKIN.selectionTint : "#f9f9e9";
+			const selectedEvent = event1.selected ? event1 : event2.selected ? event2 : null;
+			context.strokeStyle = selectedEvent ? selectionTintFor(selectedEvent) : "#f9f9e9";
 			context.lineWidth = (SUNNIESNOW_SKIN.noteRadius * mapping.scale) / 12;
 			context.setLineDash([
 				(SUNNIESNOW_SKIN.noteRadius * mapping.scale) / 4,

@@ -46,7 +46,7 @@ export const withSnappeeAttach = Base =>
 			}
 			this.commit(i18n.t("command.snappee.attach"), model => {
 				for (const event of model.allEvents()) {
-					if (!event.selected || !MOVABLE_TYPES.has(event.type)) {
+					if (!event.selected || event.locked || !MOVABLE_TYPES.has(event.type)) {
 						continue;
 					}
 					const position = resolveAttachedPosition(event, model.snappees);
@@ -72,7 +72,7 @@ export const withSnappeeAttach = Base =>
 		detachSelected() {
 			this.commit(i18n.t("command.snappee.detach"), model => {
 				for (const event of model.allEvents()) {
-					if (!event.selected || !event.attached || !MOVABLE_TYPES.has(event.type)) {
+					if (!event.selected || event.locked || !event.attached || !MOVABLE_TYPES.has(event.type)) {
 						continue;
 					}
 					const position = resolveAttachedPosition(event, model.snappees);

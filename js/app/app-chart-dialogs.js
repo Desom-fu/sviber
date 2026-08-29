@@ -200,14 +200,31 @@ class ChartDialogsTrait {
 		}
 		const current = index >= 0 ? this.model.timing.bpmChanges[index] : null;
 		const eventBeat = current ? Rational.from(current.time) : beat;
-		const values = await this.dialogs.form({
+		const result = await this.dialogs.open({
 			titleKey: "dialog.bpmChange",
 			values: { bpm: current?.bpm || this.model.timing.bpmAtBeat(beat) },
 			fields: [{ id: "bpm", type: "number", labelKey: "field.bpm", positive: true, min: 0.001, step: "any" }],
+			buttons: [
+				{ id: "ok", labelKey: "dialog.ok", primary: true, submit: true },
+				{ id: "delete", labelKey: "dialog.delete", value: "delete", validate: false },
+				{ id: "cancel", labelKey: "dialog.cancel", value: null, cancel: true, validate: false },
+			],
 		});
-		if (!values) {
+		if (!result || result.button === "cancel") {
 			return;
 		}
+		if (result.button === "delete") {
+			if (index < 0) {
+				return;
+			}
+			this.commit(i18n.t("dialog.bpmChange"), model => {
+				const changes = model.timing.toJSON().bpmChanges;
+				changes.splice(index, 1);
+				model.timing.setBpmChanges(changes);
+			});
+			return;
+		}
+		const values = result.values;
 		this.commit(i18n.t("dialog.bpmChange"), model => {
 			const changes = model.timing.toJSON().bpmChanges;
 			if (index >= 0) {

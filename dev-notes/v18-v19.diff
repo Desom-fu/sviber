@@ -1,0 +1,250 @@
+--- PROMPT-v18.md	2026-08-28 09:40:21.341455500 +0800
++++ PROMPT-v19.md	2026-08-29 11:15:14.050225600 +0800
+@@ -386,7 +386,8 @@
+ Add those events to the selection without deselecting previously selected events if the user is also holding <kbd>Ctrl</kbd>
+ Remove those events from the selection if the user is also holding <kbd>Alt</kbd>.
+ 
+-Selected events appear with a bright red tint.
++Selected events appear with a bright red tint
++(magenta tint for selected locked events).
+ Additionally, a selected `group` event appears with a rectangle enclosing the events directly or indirectly contained in it,
+ and the rectangle uses the same color as the user-set color of the `group` event.
+ 
+@@ -546,6 +547,11 @@
+ The user can also use <kbd>PageUp</kbd> (to shift the visible range by negative amount)
+ and <kbd>PageDown</kbd> (to shift the visible range by positive amount) to do the same operation.
+ 
++When the user clicks and possibly drags on the scroll bar
++while holding <kbd>Ctrl</kbd>, the current time is set according to where the mouse is, snapped to subdivisions.
++If the visible range initially contains the current time,
++the visible range is changed together so that the visual position of the current time does not change.
++
+ Clicking the scroll bar has higher priority than clicking events in channels.
+ 
+ ### Status panel
+@@ -758,9 +764,12 @@
+ otherwise, all angles can change by integer multiples of $\pi/4$ without changing their differences.
+ This snapping does not affect directly changing angles in the inspection panel.
+ 
+-Selected events and events contained directly or indirectly in selected `group` events appear with a bright red tint.
++Selected events and events contained directly or indirectly in selected `group` events appear with a bright red tint
++(magenta tint for selected locked events).
+ Even if some selected event is not visible at the current time,
+-its red tint or outline is still visible to indicate that something not visible is being selected.
++its red tint or outline is still visible to indicate that something not visible is being selected
++(this rule does not apply to `group` events but applies to other types of events,
++including those contained directly or indirectly in selected `group` events).
+ A selected `group` event (not including those nested inside selected `group` events) additionally appears with a rectangle
+ bounding all events directly or indicrectly contained in it,
+ and the rectangle uses the user-set color of the `group` event.
+@@ -1222,6 +1231,9 @@
+ Double clicking an item shows the popup form for [setting checks](#checks),
+ with the checkbox for disabling the corresponding type of check focused.
+ 
++The clickable tab of the checks panel also shows the number of violations in red font if it is not zero.
++The number updates at real time.
++
+ ### Tooltip bar
+ 
+ At the bottom of the window, there is the tooltip bar.
+@@ -1360,6 +1372,19 @@
+ 
+ A regular polygon curve is naturally a closed loop.
+ 
++### Circular arc curve
++
++The circular arc curve has two parameters for the coordinates of the center,
++two coordinates for the start and end angles,
++one parameter $m$ for the number of segments,
++and two boolean parameters for whether the arc is clockwise or anticlockwise
++and whether it is a closed curve (full circle).
++The snap points are the vertices of segments of the curve,
++and the segments are determined by dividing the curve into $m$ segments with equal curve lengths.
++
++After creating curve, open a popup form for editing its parameters.
++The input is focused at the field for changing the number of segments.
++
+ ### B&eacute;zier curve
+ 
+ The B&eacute;zier curve has one parameter $n$ for its degree,
+@@ -1496,6 +1521,8 @@
+ 
+ The difficulty color input automatically changes to a preset color if difficulty name is changed to one of "Easy", "Normal", "Hard", "Master", and "Special"
+ as found by `input` event listener of the text input of the difficulty name.
++This listener only runs if the user edits the difficulty name,
++but it does not run before the user edits anything.
+ The user can still change the difficulty color to other values.
+ The preset colors are:
+ 
+@@ -1510,9 +1537,12 @@
+ ```
+ 
+ The charter name is by default the same as the last time the user fills in this value
+-(because probably the same user writes these charts and wants to use the same name).
+-The difficulty name is by default "Master";
+-but if that difficulty already exists in the project, the difficulty name is by default "Special".
++(because probably the same user writes these charts and wants to use the same name)
++when creating a new chart.
++Opening a chart or importing a chart does not set the value for the next default charter.
++The difficulty name is by default "Master", and the difficulty color is by default the preset color for master;
++but if that difficulty already exists in the project, the difficulty name is by default "Special",
++and the difficulty color is by default the preset color for special.
+ The difficulty is by default "12".
+ The offset is by default 0.
+ The initial BPM is by default 120.
+@@ -1998,7 +2028,8 @@
+ 
+ Enter offset adjustment mode.
+ In the offset adjustment mode, clicking and dragging on the waveform drags the beat lines by changing the offset.
+-Clicking and dragging on the waveform while holding <kbd>Ctrl</kbd> drags the beat line closest to the mouse by changing the BPM of the last BPM change
++Clicking and dragging on the waveform while holding <kbd>Ctrl</kbd> drags the beat line (including subdivision beat lines) closest to the mouse by changing the BPM of the last BPM change
++before (exclusive) the beat line
+ (or the initial BPM if there is no BPM change before the closest beat line).
+ Clicking on the waveform still sets the current time.
+ Clicking (and possibly dragging) on the waveform while holding <kbd>Alt</kbd> is the original behavior
+@@ -2110,10 +2141,14 @@
+ 
+ Show a popup form to enter information.
+ The only information to enter is the BPM number.
+-After that, a BPM change is created on the timeline at the current time.
++After the user confirms the popup form, a BPM change is created on the timeline at the current time.
+ If there is already a BPM change at the current time,
+ edit it instead.
+ 
++Besides the confirmation button and the cancellation button,
++there is a deletion button.
++If the user clicks the deletion button, the BPM change at the current time is deleted.
++
+ #### Bar line
+ 
+ Add a bar line at the current time if there is not already one at the current time.
+@@ -2159,6 +2194,9 @@
+ - Group (<kbd>Ctrl</kbd>+<kbd>G</kbd>)
+ - Ungroup (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd>)
+ - (separator)
++- Lock (<kbd>Ctrl</kbd>+<kbd>L</kbd>)
++- Unlock (<kbd>Ctrl</kbd>+<kbd>L</kbd>)
++- (separator)
+ - Fill curve with drag notes
+ 
+ #### Tap, Hold, Drag, Flick, Bg note
+@@ -2253,6 +2291,17 @@
+ If a selected `group` event is nested inside a `group` event, put the events in its outer `group`.
+ This option is grayed out if no `group` events are selected.
+ 
++#### Lock, Unlock
++
++Lock or unlock all selected events.
++
++Any event is unlocked by default.
++If an event is locked, any operation that edits, transforms, or deletes selected events ignores it when it is selected.
++Such operations behave as if locked events are not selected at all.
++For example, [free transform](#free-transform) should be grayed out if all selected events are locked.
++The flick direction handles in the main editor field
++and the duration tail handles in the timeline do not appear for locked events.
++
+ #### Fill curve with drag notes
+ 
+ This item is not grayed out only if a curve is currently selected from the snappees panel.
+@@ -2301,7 +2350,7 @@
+ 
+ #### Delete channel
+ 
+-Delete the current channel along with all events in this channel.
++Delete the current channel along with all events (even locked ones) in this channel.
+ Change the current channel to the channel above it.
+ This option is grayed out if the current channel is the only channel.
+ 
+@@ -2335,6 +2384,9 @@
+ - Detach (<kbd>Shift</kbd>+<kbd>S</kbd>) (`../maker/svg/icons/detach.svg`)
+ - Attach to curve by order
+ - Attach to curve by time
++- (separator)
++- Copy snappee
++- Paste snappee
+ 
+ #### Rectangular mesh...
+ 
+@@ -2540,6 +2592,15 @@
+ and then after this operation, they are attached to the snap points
+ $i=0$, $i=1$, $i=4$, $i=4$, and $i=6$, repectively.
+ 
++#### Copy snappee
++
++Copy the JSON data of the selected snappee to the clipboard.
++Grayed out if no snappee is selected.
++
++#### Paste snappee
++
++Create a new snappee according to the JSON data in the clipboard.
++
+ ### Transform
+ 
+ The "Transform" menu has the following submenu items:
+@@ -2717,6 +2778,7 @@
+ - (separator)
+ - Subtract speed by 0.1 (<kbd>[</kbd>)
+ - Add speed by 0.1 (<kbd>]</kbd>)
++- Set speed to 0.1 (<kbd>Ctrl</kbd>+<kbd>&grave;</kbd>) (`speed-0-1.svg`)
+ - Set speed to 0.25 (<kbd>Ctrl</kbd>+<kbd>4</kbd>) (`../maker/svg/icons/speed-0-25.svg`)
+ - Set speed to 0.5 (<kbd>Ctrl</kbd>+<kbd>2</kbd>) (`../maker/svg/icons/speed-0-5.svg`)
+ - Set speed to 1 (<kbd>Ctrl</kbd>+<kbd>1</kbd>) (`../maker/svg/icons/speed-1.svg`)
+@@ -2846,7 +2908,7 @@
+ Decrease or increase the playback rate by 0.1.
+ The playback rate cannot be lower than 0.1.
+ 
+-#### Set speed to 0.25, Set speed to 0.5, Set speed to 1
++#### Set speed to 0.1, Set speed to 0.25, Set speed to 0.5, Set speed to 1
+ 
+ Directly set the playback rate.
+ 
+@@ -2989,6 +3051,7 @@
+ - Seek to start (Music)
+ - Set subdivision to 1/2 beats (Music)
+ - Set subdivision to 1/4 beats (Music)
++- Set speed to 0.1 (Music)
+ - Set speed to 0.25 (Music)
+ - Set speed to 0.5 (Music)
+ - Set speed to 1 (Music)
+@@ -3313,6 +3376,25 @@
+ or ends later than the end of the music.
+ When a violation is clicked, the violating event is selected.
+ 
++### Drag screening
++
++In Sunniesnow, one of the judgement settings is whether to enable Lyrica 5 mechanics.
++With Lyrica 5 mechanics, an unjudged `drag` note can screen a touch down from hitting another note.
++This check checks that, the drag screening does not make a note that is hittable without Lyrica 5 mechanics
++become unhittable with Lyrica 5 mechanics.
++
++A violation to this check is a `drag` event at time $t_0$ (seconds) that satisfies both the conditions:
++(1) there is no other note (`tap`, `hold`, `drag`, `flick`)
++that is both within spatial distance $L$ from the `drag` event
++and is at a time (seconds) between (inclusive) $t_0-T$ and $t_0$;
++(2) there is some other non-`drag` note (`tap`, `hold`, `flick`)
++that is both within spatial distance $L$ from the `drag` event
++and is at a time (seconds) between (inclusive) $t_0$ and $t_0+T$.
++Here, the screening time $T$ and the screening distance $L$ are parameters of this check,
++whose default values are respectively 0.4 and 40.
++
++When a violation is clicked, the violating `drag` event is selected.
++
+ ## Live hosting
+ 
+ Live hosting is the feature that sets up a server for Sunniesnow to connect to
+@@ -3737,6 +3819,7 @@
+ - `speed`: playback rate.
+ - `lockVisibleRange`: boolean.
+ - `playSe`: boolean.
++- `playBgNoteSe`: boolean.
+ - `seekBackAfterPlaying`: boolean.
+ - `metronome`: boolean.
+ - `abLoopMarks`: array of either one or two rational 3-tuples.
+@@ -3787,6 +3870,7 @@
+ - `type`: string, one of `tap`, `hold`, `flick`, `drag`, `bgNote`,`bigText`,
+   `grid`, `hexagon`, `checkerboard`, `diamondGrid`, `pentagon`, `turntable`, `hexagram`, `comment`, `group`.
+ - `selected`: boolean, whether it is selected.
++- `locked`: boolean, whether it is locked.
+ 
+ Other fields depend on the type.
+ 

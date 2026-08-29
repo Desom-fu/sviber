@@ -206,7 +206,8 @@ export class TimelineDrawingTrait {
 		const { event, position, endX, activeChannelIds, project } = entry;
 		const interactive = activeChannelIds.has(event.channel);
 		const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
-		const color = selected ? "#ff3158" : NOTE_COLORS[event.type] || "#d5dade";
+		// v19: selected locked events use a magenta tint instead of the bright red one.
+		const color = selected ? (event.locked ? "#e83dff" : "#ff3158") : NOTE_COLORS[event.type] || "#d5dade";
 		context.save();
 		if (project.editor?.showGroupingInTimeline !== false) {
 			this._drawEventGroupRings(context, event, position, interactive);
@@ -224,7 +225,8 @@ export class TimelineDrawingTrait {
 		if ((event.type === "bigText" || event.type === "comment") && event.text) {
 			this._drawEventLabel(context, event, position, endX, color);
 		}
-		if (interactive && selected && DURATION_TYPES.has(event.type)) {
+		// v19: the duration tail handle does not appear for locked events.
+		if (interactive && selected && !event.locked && DURATION_TYPES.has(event.type)) {
 			this._drawDiamond(context, endX, position.y, 7);
 			const region = { x: endX - 7, y: position.y - 7, width: 14, height: 14 };
 			this.hitRegions.push({ type: "duration", event, ...region });

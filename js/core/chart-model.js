@@ -244,10 +244,11 @@ export class ChartModel {
 	}
 
 	groupSelected(color = "#ff9d3d") {
-		const firstSelected = this.allEvents().find(event => event.selected);
+		const firstSelected = this.allEvents().find(event => event.selected && !event.locked);
 		const container = firstSelected && eventAncestors(this.events, firstSelected.id);
 		const siblings = firstSelected ? container.at(-1)?.events || this.events : [];
-		const selectedIds = new Set(siblings.filter(event => event.selected).map(event => event.id));
+		// v19: locked events behave as if they were not selected, so they stay out of the group.
+		const selectedIds = new Set(siblings.filter(event => event.selected && !event.locked).map(event => event.id));
 		const members = siblings.filter(event => selectedIds.has(event.id));
 		if (!members.length) {
 			return null;
@@ -306,7 +307,7 @@ export class ChartModel {
 
 	ungroupSelected() {
 		const groups = this.allEvents()
-			.filter(event => event.type === "group" && event.selected)
+			.filter(event => event.type === "group" && event.selected && !event.locked)
 			.sort((left, right) => this.ancestorsOf(right.id).length - this.ancestorsOf(left.id).length);
 		let changed = false;
 		for (const group of groups) {

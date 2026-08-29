@@ -151,9 +151,7 @@ class PreferencesMediaTrait {
 		if (!values) {
 			return null;
 		}
-		if (tracking.userEdited("charter")) {
-			this.rememberCharter(values.charter);
-		}
+		// v19: importing a chart does not set the next default charter.
 		return {
 			charter: values.charter,
 			difficultyName: values.difficultyName,

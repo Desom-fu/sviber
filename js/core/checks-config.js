@@ -33,6 +33,14 @@ export const CHECK_DEFINITIONS = Object.freeze([
 	Object.freeze({ id: "teleportingTipPoint", target: "event", parameters: Object.freeze([]) }),
 	Object.freeze({ id: "multiCharacterCjk", target: "event", parameters: Object.freeze([]) }),
 	Object.freeze({ id: "eventsOutsideMusic", target: "event", parameters: Object.freeze([]) }),
+	Object.freeze({
+		id: "dragScreening",
+		target: "event",
+		parameters: Object.freeze([
+			Object.freeze({ id: "seconds", type: "number", default: 0.4, min: 0 }),
+			Object.freeze({ id: "distance", type: "number", default: 40, min: 0 }),
+		]),
+	}),
 ]);
 
 export const CHECK_IDS = Object.freeze(CHECK_DEFINITIONS.map(definition => definition.id));

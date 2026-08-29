@@ -239,7 +239,8 @@ export const withStatusView = Base =>
 				this.registry.setChecked(`music.subdivision${value}`, this.model.editor.subdivision === value);
 			}
 			for (const [id, value] of [
-				["music.speed025", 0.25],
+				["music.speed01", 0.1],
+			["music.speed025", 0.25],
 				["music.speed05", 0.5],
 				["music.speed1", 1],
 			]) {

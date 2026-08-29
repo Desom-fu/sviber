@@ -110,7 +110,8 @@ function applyOneEventProperty(model, event, property, value) {
 }
 
 function applySelectedPropertyMutation(model, property, value, defaults) {
-	const chosen = model.allEvents().filter(event => event.selected);
+	// v19: locked events behave as if they were not selected, so the inspector skips them.
+	const chosen = model.allEvents().filter(event => event.selected && !event.locked);
 	const channelExists = model.channels.some(
 		channel => channel.id === Number(value) && channel.active !== false,
 	);

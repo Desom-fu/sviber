@@ -83,6 +83,9 @@ const DEFINITIONS = [
 	define("events.comment", "Ctrl+M", null, { blockDuringPlayback: true, requiresSnappedTime: true }),
 	define("events.group", "Ctrl+G", null, { blockDuringPlayback: true }),
 	define("events.ungroup", "Ctrl+Shift+G", null, { blockDuringPlayback: true }),
+	// v19: both share Ctrl+L; which one fires depends on the lock state of the selection.
+	define("events.lock", "Ctrl+L", null, { blockDuringPlayback: true }),
+	define("events.unlock", "Ctrl+L", null, { blockDuringPlayback: true }),
 	define("events.moveChannelAbove", "Ctrl+Shift+ArrowUp", "move-to-channel-above"),
 	define("events.moveChannelBelow", "Ctrl+Shift+ArrowDown", "move-to-channel-below"),
 	define("events.fillCurveDrag", null, null, { blockDuringPlayback: true }),
@@ -130,6 +133,8 @@ const DEFINITIONS = [
 	define("snappee.detach", "Shift+S", "detach"),
 	define("snappee.attachCurveOrder", null, null, { blockDuringPlayback: true }),
 	define("snappee.attachCurveTime", null, null, { blockDuringPlayback: true }),
+	define("snappee.copy", null, null, { allowWhenReadOnly: true }),
+	define("snappee.paste", null, null, { blockDuringPlayback: true }),
 
 	define("transform.moveLeft", "ArrowLeft"),
 	define("transform.moveDown", "ArrowDown"),
@@ -197,6 +202,7 @@ const DEFINITIONS = [
 	define("music.subdivisionOther", "0", null, { allowWhenBlocked: true }),
 	define("music.speedDecrease", "[", null, { allowWhenBlocked: true }),
 	define("music.speedIncrease", "]", null, { allowWhenBlocked: true }),
+	define("music.speed01", "Ctrl+`", "speed-0-1", { checkable: true, group: "speed", allowWhenBlocked: true }),
 	define("music.speed025", "Ctrl+4", "speed-0-25", { checkable: true, group: "speed", allowWhenBlocked: true }),
 	define("music.speed05", "Ctrl+2", "speed-0-5", { checkable: true, group: "speed", allowWhenBlocked: true }),
 	define("music.speed1", "Ctrl+1", "speed-1", { checkable: true, group: "speed", allowWhenBlocked: true }),
@@ -327,6 +333,9 @@ export const MENU_DEFINITION = Object.freeze([
 			item("events.group"),
 			item("events.ungroup"),
 			separator,
+			item("events.lock"),
+			item("events.unlock"),
+			separator,
 			item("events.fillCurveDrag"),
 		]),
 	}),
@@ -375,6 +384,9 @@ export const MENU_DEFINITION = Object.freeze([
 			item("snappee.detach"),
 			item("snappee.attachCurveOrder"),
 			item("snappee.attachCurveTime"),
+			separator,
+			item("snappee.copy"),
+			item("snappee.paste"),
 		]),
 	}),
 	Object.freeze({
@@ -431,6 +443,7 @@ export const MENU_DEFINITION = Object.freeze([
 			separator,
 			item("music.speedDecrease"),
 			item("music.speedIncrease"),
+			item("music.speed01"),
 			item("music.speed025"),
 			item("music.speed05"),
 			item("music.speed1"),
@@ -497,6 +510,7 @@ export const TOOLBAR_ITEMS = Object.freeze([
 	"music.seekStart",
 	"music.subdivision2",
 	"music.subdivision4",
+	"music.speed01",
 	"music.speed025",
 	"music.speed05",
 	"music.speed1",
@@ -767,7 +781,9 @@ export class CommandRegistry {
 				return true;
 			}
 			if (!this.isEnabled(definition.id, context)) {
-				return false;
+				// A disabled match must not shadow another command bound to the same keys
+				// (v19: Lock/Unlock share Ctrl+L and are enabled complementarily).
+				continue;
 			}
 			event.preventDefault();
 			event.stopImmediatePropagation();

@@ -211,7 +211,7 @@ const APP_SHELL = [
 		"rulers.svg", "save.svg", "se.svg", "seek-back-after-playing.svg", "seek-to-start.svg",
 		"show-bg-events-in-main-field.svg", "show-bg-events-in-timeline.svg", "show-chart-boundary.svg",
 		"show-grouping-in-main-field.svg", "show-grouping-in-timeline.svg", "show-hud.svg",
-		"show-tip-points.svg", "speed-0-25.svg", "speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",
+		"show-tip-points.svg", "speed-0-1.svg", "speed-0-25.svg", "speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",
 		"time-lattice-2.svg", "time-lattice-3.svg", "time-lattice-4.svg", "time-lattice-6.svg",
 		"time-lattice-8.svg", "up.svg", "zoom-in.svg", "zoom-out.svg",
 	].map(name => `svg/icons/${name}`),

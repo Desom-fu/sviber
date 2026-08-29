@@ -47,7 +47,7 @@ class EventToolsTrait {
 		this.cancelFreeTransform();
 		this.cancelPreview();
 		const chosen = selected(this.model).filter(
-			event => event.type !== "group" && !PATTERN_TYPES.has(event.type),
+			event => event.type !== "group" && !PATTERN_TYPES.has(event.type) && !event.locked,
 		);
 		if (!alreadyCreating && chosen.length) {
 			const changes = chosen.map(event => {
@@ -154,13 +154,32 @@ class EventToolsTrait {
 			model => {
 				const currentIndex = this.renderIndex?.eventSource === model.events ? this.renderIndex : null;
 				const removed = [];
+				// v19: a locked event behaves as if it were not selected, so deletion skips
+				// it; locked descendants of a deleted group are kept in the group's place.
 				const removeSelected = items => {
 					const kept = [];
 					for (const event of items || []) {
-						if (event.type === "group" && event.selected) {
-							removed.push(...flattenEvents([event], true));
+						if (event.locked) {
+							kept.push(event);
 							continue;
 						}
+					if (event.type === "group" && event.selected) {
+						const survivors = [];
+						const collectLocked = children => {
+							for (const child of children || []) {
+								if (child.locked) {
+									survivors.push(child);
+								} else if (child.type === "group") {
+									collectLocked(child.events);
+								}
+							}
+						};
+						collectLocked(event.events);
+						const survivorSet = new Set(survivors.flatMap(item => flattenEvents([item], true)));
+						removed.push(...flattenEvents([event], true).filter(item => !survivorSet.has(item)));
+						kept.push(...survivors);
+						continue;
+					}
 						if (event.type === "group") {
 							const children = removeSelected(event.events);
 							event.events.splice(0, event.events.length, ...children);
@@ -229,13 +248,13 @@ class EventToolsTrait {
 
 	_selectedChannelLeaves() {
 		if (this.renderIndex?.eventSource === this.model.events) {
-			return this.renderIndex.selectedEvents.filter(event => event.type !== "group");
+			return this.renderIndex.selectedEvents.filter(event => event.type !== "group" && !event.locked);
 		}
-		const chosen = selected(this.model);
+		const chosen = selected(this.model).filter(event => !event.locked);
 		return [
 			...new Set(
 				chosen.flatMap(event =>
-					groupEventLeaves(this.model, event),
+					groupEventLeaves(this.model, event).filter(item => !item.locked),
 				),
 			),
 		];
@@ -296,16 +315,36 @@ class EventToolsTrait {
 		return result;
 	}
 
+	lockSelected() {
+		this.commit(i18n.t("history.lockEvents"), model => {
+			for (const event of model.allEvents()) {
+				if (event.selected) {
+					event.locked = true;
+				}
+			}
+		});
+	}
+
+	unlockSelected() {
+		this.commit(i18n.t("history.unlockEvents"), model => {
+			for (const event of model.allEvents()) {
+				if (event.selected) {
+					event.locked = false;
+				}
+			}
+		});
+	}
+
 	reverseSelectedTime() {
 		this.commit(i18n.t("history.moveEvents"), model => {
-			const chosen = model.allEvents().filter(event => event.selected);
+			const chosen = model.allEvents().filter(event => event.selected && !event.locked);
 			if (!chosen.length) {
 				return;
 			}
 			const moved = [
 				...new Set(
 					chosen.flatMap(event =>
-						groupEventLeaves(model, event),
+						groupEventLeaves(model, event).filter(item => !item.locked),
 					),
 				),
 			];

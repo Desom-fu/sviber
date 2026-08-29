@@ -10,13 +10,18 @@ export class TransformTargetsTrait {
 
 	attachedSnappeeIds(model = this.model) {
 		const available = new Set(model.snappees.map(snappee => snappee.id));
+		// v19: locked events behave as if they were not selected.
+		const unlockedWithDescendants = event => {
+			if (event.type !== "group") {
+				return [event];
+			}
+			return [event, ...model.groupDescendants(event.id).filter(item => !item.locked)];
+		};
 		const selectedEvents = new Set(
 			model
 				.allEvents()
-				.filter(event => event.selected)
-				.flatMap(event =>
-					event.type === "group" ? [event, ...model.groupDescendants(event.id)] : [event],
-				),
+				.filter(event => event.selected && !event.locked)
+				.flatMap(unlockedWithDescendants),
 		);
 		return new Set(
 			model
@@ -37,13 +42,15 @@ export class TransformTargetsTrait {
 			}
 		}
 		const allEvents = model.allEvents();
-		const selectedGroups = allEvents.filter(event => event.selected && event.type === "group");
-		const groupedDescendants = new Set(selectedGroups.flatMap(group => model.groupDescendants(group.id)));
+		const selectedGroups = allEvents.filter(event => event.selected && !event.locked && event.type === "group");
+		const groupedDescendants = new Set(
+			selectedGroups.flatMap(group => model.groupDescendants(group.id).filter(event => !event.locked)),
+		);
 		const directEvents = options.onlySnappee? []: allEvents.filter(event => {
 					if (!MOVABLE_TYPES.has(event.type)) {
 						return false;
 					}
-					if (event.selected && !event.attached) {
+					if (event.selected && !event.locked && !event.attached) {
 						return true;
 					}
 					return groupedDescendants.has(event) && !event.attached;

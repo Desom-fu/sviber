@@ -38,7 +38,8 @@ export class StageOverlaysTrait {
 		const selected = [...(this.renderIndex?.stageSelectedEvents || selectedEvents(project))].filter(event =>
 			MOVABLE_TYPES.has(event.type),
 		);
-		const selectedFlicks = selected.filter(event => event.selected && event.type === "flick");
+		// v19: flick direction handles do not appear for locked events.
+		const selectedFlicks = selected.filter(event => event.selected && !event.locked && event.type === "flick");
 		for (const event of selectedFlicks) {
 			const position = this.renderIndex?.positionFor(event) ||
 				resolveAttachedPosition(event, project.snappees) || { x: event.x || 0, y: event.y || 0 };

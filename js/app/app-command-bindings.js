@@ -93,7 +93,7 @@ function registerEditCommands(app) {
 		() => app.model.snappees.some(snappee => snappee.selected),
 	);
 	register(app, "edit.selectFilter", () => void app.showSelectionFilter(), () => app.model.allEvents().length > 0);
-	register(app, "edit.delete", () => app.deleteSelected(), () => selected(app.model).length > 0);
+	register(app, "edit.delete", () => app.deleteSelected(), () => selected(app.model).some(event => !event.locked));
 	register(app, "edit.checks", () => void app.showChecksDialog());
 }
 
@@ -123,12 +123,26 @@ function registerEventCommands(app) {
 	register(app, "events.bgPattern", () => void app.showBackgroundPatternDialog(), () => app.currentChannelActive());
 	register(app, "events.bpmChange", () => void app.showBpmDialog());
 	register(app, "events.comment", () => void app.showCommentDialog());
-	register(app, "events.group", () => app.groupSelected(), () => selected(app.model).length > 0);
+	register(app, "events.group", () => app.groupSelected(), () =>
+		selected(app.model).some(event => !event.locked),
+	);
 	register(
 		app,
 		"events.ungroup",
 		() => app.ungroupSelected(),
-		() => selected(app.model).some(event => event.type === "group"),
+		() => selected(app.model).some(event => event.type === "group" && !event.locked),
+	);
+	register(
+		app,
+		"events.lock",
+		() => app.lockSelected(),
+		() => selected(app.model).some(event => !event.locked),
+	);
+	register(
+		app,
+		"events.unlock",
+		() => app.unlockSelected(),
+		() => selected(app.model).some(event => event.locked),
 	);
 	register(app, "events.moveChannelAbove", () => app.moveSelectedChannel(-1), () => app.canMoveSelectedChannel(-1));
 	register(app, "events.moveChannelBelow", () => app.moveSelectedChannel(1), () => app.canMoveSelectedChannel(1));
@@ -220,6 +234,13 @@ function registerSnappeeCommands(app) {
 	);
 	register(app, "snappee.attachCurveOrder", () => app.attachSelectedToCurveByOrder(), () => app.canAttachToCurve());
 	register(app, "snappee.attachCurveTime", () => app.attachSelectedToCurveByTime(), () => app.canAttachToCurve());
+	register(
+		app,
+		"snappee.copy",
+		() => void app.copySnappee(),
+		() => app.model.snappees.some(snappee => snappee.selected),
+	);
+	register(app, "snappee.paste", () => void app.pasteSnappee());
 }
 
 function registerTransformCommands(app) {
@@ -261,21 +282,27 @@ function registerTransformCommands(app) {
 	);
 	register(app, "transform.free", () => app.startFreeTransform(), () => app.transformationAvailable());
 	register(app, "transform.matrix", () => void app.showTransformDialog(), () => app.transformationAvailable());
-	register(app, "transform.moveForward", () => app.moveSelectedInTime(1), () => selected(app.model).length > 0);
-	register(app, "transform.moveBackward", () => app.moveSelectedInTime(-1), () => selected(app.model).length > 0);
+	register(app, "transform.moveForward", () => app.moveSelectedInTime(1), () =>
+		selected(app.model).some(event => !event.locked),
+	);
+	register(app, "transform.moveBackward", () => app.moveSelectedInTime(-1), () =>
+		selected(app.model).some(event => !event.locked),
+	);
 	register(
 		app,
 		"transform.timeDilation",
 		() => void app.showTimeDilationDialog(),
-		() => selected(app.model).length > 0,
+		() => selected(app.model).some(event => !event.locked),
 	);
 	register(
 		app,
 		"transform.timeTranslation",
 		() => void app.showTimeTranslationDialog(),
-		() => selected(app.model).length > 0,
+		() => selected(app.model).some(event => !event.locked),
 	);
-	register(app, "transform.reverseTime", () => app.reverseSelectedTime(), () => selected(app.model).length > 0);
+	register(app, "transform.reverseTime", () => app.reverseSelectedTime(), () =>
+		selected(app.model).some(event => !event.locked),
+	);
 }
 
 function registerMusicCommands(app) {
@@ -305,6 +332,7 @@ function registerMusicCommands(app) {
 	register(app, "music.subdivisionOther", () => void app.showSubdivisionDialog());
 	register(app, "music.speedDecrease", () => app.setSpeed(app.model.editor.speed - 0.1));
 	register(app, "music.speedIncrease", () => app.setSpeed(app.model.editor.speed + 0.1));
+	register(app, "music.speed01", () => app.setSpeed(0.1));
 	register(app, "music.speed025", () => app.setSpeed(0.25));
 	register(app, "music.speed05", () => app.setSpeed(0.5));
 	register(app, "music.speed1", () => app.setSpeed(1));

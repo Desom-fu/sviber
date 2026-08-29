@@ -4,6 +4,14 @@ import { SUNNIESNOW_SKIN, polygonPath, sunniesnowNoteTextColor } from "./stage-h
 // the note text and the flick arrow. They are plain functions on a 2D context translated
 // to the note centre, so the stage only has to decide where a note goes, not how it looks.
 
+// v19: selected locked events use a magenta tint instead of the bright red one.
+function selectionTint(selected, event) {
+	if (!selected) {
+		return null;
+	}
+	return event?.locked ? SUNNIESNOW_SKIN.selectionLockedTint : SUNNIESNOW_SKIN.selectionTint;
+}
+
 const NOTE_PALETTES = {
 	tap: [SUNNIESNOW_SKIN.tapFill, SUNNIESNOW_SKIN.tapStroke],
 	doubleTap: [SUNNIESNOW_SKIN.doubleTapFill, SUNNIESNOW_SKIN.doubleTapStroke],
@@ -54,7 +62,8 @@ export function drawHoldHalo(context, event, radius, visibility, selected) {
 	} else {
 		context.arc(0, 0, haloRadius, 0, Math.PI * 2);
 	}
-	context.fillStyle = selected ? "rgba(255,46,89,0.72)" : SUNNIESNOW_SKIN.holdHalo;
+	const haloTint = event.locked ? "rgba(232,61,255,0.72)" : "rgba(255,46,89,0.72)";
+	context.fillStyle = selected ? haloTint : SUNNIESNOW_SKIN.holdHalo;
 	context.fill();
 }
 
@@ -74,13 +83,13 @@ function noteShapeFade(event, visibility) {
 	return { bodyScale: 1 + (1 - (1 - progress) ** 2) * 0.5, bodyAlpha: (1 - progress) ** 3 };
 }
 
-function drawBgNoteShape(context, radius, selected) {
-	context.fillStyle = selected ? "rgba(255,46,89,0.82)" : "rgba(0,0,0,0.7)";
+function drawBgNoteShape(context, event, radius, selected) {
+	context.fillStyle = selected? event.locked? "rgba(232,61,255,0.82)": "rgba(255,46,89,0.82)": "rgba(0,0,0,0.7)";
 	polygonPath(context, 0, 0, radius, 6, 0);
 	context.fill();
 }
 
-function drawDragShape(context, radius, selected) {
+function drawDragShape(context, event, radius, selected) {
 	let lineWidth = radius / 20;
 	context.strokeStyle = selected ? "#ffd1da" : SUNNIESNOW_SKIN.dragOuterStroke;
 	context.lineWidth = lineWidth;
@@ -88,7 +97,7 @@ function drawDragShape(context, radius, selected) {
 	context.arc(0, 0, radius - lineWidth / 2, 0, Math.PI * 2);
 	context.stroke();
 	lineWidth = radius / 9;
-	context.strokeStyle = selected ? SUNNIESNOW_SKIN.selectionTint : SUNNIESNOW_SKIN.dragStroke;
+	context.strokeStyle = selectionTint(selected, event) || SUNNIESNOW_SKIN.dragStroke;
 	context.lineWidth = lineWidth;
 	const radius2 = (radius * 3) / 4;
 	const radius1 = radius / 2;
@@ -108,7 +117,7 @@ function drawDragShape(context, radius, selected) {
 function drawDiscShape(context, event, radius, selected, doubleTap) {
 	const palette = notePalette(event, doubleTap);
 	const lineWidth = radius / 8;
-	context.fillStyle = selected ? SUNNIESNOW_SKIN.selectionTint : palette[0];
+	context.fillStyle = selectionTint(selected, event) || palette[0];
 	context.strokeStyle = selected ? "#ffd1da" : palette[1];
 	context.lineWidth = lineWidth;
 	context.beginPath();
@@ -126,9 +135,9 @@ export function drawNoteShape(context, event, radius, visibility, selected, doub
 	context.scale(fade.bodyScale, fade.bodyScale);
 	context.globalAlpha *= fade.bodyAlpha;
 	if (event.type === "bgNote") {
-		drawBgNoteShape(context, radius, selected);
+		drawBgNoteShape(context, event, radius, selected);
 	} else if (event.type === "drag") {
-		drawDragShape(context, radius, selected);
+		drawDragShape(context, event, radius, selected);
 	} else {
 		drawDiscShape(context, event, radius, selected, doubleTap);
 	}
@@ -228,7 +237,7 @@ export function drawFlickArrow(context, event, radius, visibility, selected) {
 	context.arc(0, 0, innerDistance, -Math.PI / 4, Math.PI / 4);
 	context.lineTo(tipDistance, 0);
 	context.closePath();
-	context.fillStyle = selected ? SUNNIESNOW_SKIN.selectionTint : SUNNIESNOW_SKIN.flickArrow;
+	context.fillStyle = selectionTint(selected, event) || SUNNIESNOW_SKIN.flickArrow;
 	context.fill();
 	context.beginPath();
 	context.moveTo(tipDistance, 0);

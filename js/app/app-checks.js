@@ -33,12 +33,25 @@ class ChecksTrait {
 		const signature = `${checksSignature(this.model)}|${this.audio?.buffer?.duration ?? ""}`;
 		if (!options.force && signature === this.checksSignature) {
 			this.checksPanel.render(this.checkViolations || []);
+			this._updateChecksTabCount((this.checkViolations || []).length);
 			return this.checkViolations || [];
 		}
 		this.checksSignature = signature;
 		this.checkViolations = runChecks(this.model, { music: this.musicBoundsForChecks() });
 		this.checksPanel.render(this.checkViolations);
+		this._updateChecksTabCount(this.checkViolations.length);
 		return this.checkViolations;
+	}
+
+	// The clickable checks tab carries a live red count of the violations while there
+	// is at least one.
+	_updateChecksTabCount(count) {
+		const badge = document.getElementById("checks-tab-count");
+		if (!badge) {
+			return;
+		}
+		badge.hidden = !count;
+		badge.textContent = count ? String(count) : "";
 	}
 
 	_bindChecksTabs() {

@@ -1,5 +1,6 @@
 import { flattenEvents } from "../core/grouping.js";
-import { SUNNIESNOW_SKIN, appendPolygonPath, polygonPath, sunniesnowDisplayedPattern } from "./stage-helpers.js";
+import { SUNNIESNOW_SKIN,
+	selectionTintFor, appendPolygonPath, polygonPath, sunniesnowDisplayedPattern } from "./stage-helpers.js";
 
 // Drawing of the background patterns of Sunniesnow: the grids, the polygons and the big text
 // that fill the playfield behind the notes. One pattern is visible at a time; the stage picks
@@ -14,7 +15,7 @@ function patternStyle(event) {
 	const selected = Boolean(event.selected);
 	return {
 		selected,
-		stroke: selected ? SUNNIESNOW_SKIN.selectionTint : SUNNIESNOW_SKIN.patternStroke,
+		stroke: selected ? selectionTintFor(event) : SUNNIESNOW_SKIN.patternStroke,
 		fill: selected ? PATTERN_SELECTED_FILL : PATTERN_FILL,
 	};
 }
@@ -84,7 +85,7 @@ function drawBigTextPattern(context, unit, style, event, mapping) {
 	context.font = `${fontSize}px ${BIG_TEXT_FAMILY}`;
 	context.textAlign = "center";
 	context.textBaseline = "middle";
-	context.fillStyle = style.selected ? SUNNIESNOW_SKIN.selectionTint : "rgba(255,255,255,0.8)";
+	context.fillStyle = style.selected ? selectionTintFor(event) : "rgba(255,255,255,0.8)";
 	context.fillText(text, 0, 0);
 }
 

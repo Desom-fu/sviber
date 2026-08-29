@@ -397,7 +397,8 @@ export class ScrollView {
 			const { event, point } = record;
 			const screen = mapping.toScreen(point.x, record.start);
 			const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
-			const color = selected ? "#ff3158" : TIMELINE_EVENT_COLORS[event.type] || "#d5dade";
+			const selectedColor = event.locked ? "#e83dff" : "#ff3158";
+			const color = selected ? selectedColor : TIMELINE_EVENT_COLORS[event.type] || "#d5dade";
 			let ancestors = [];
 			if (project.editor?.showGroupingInTimeline !== false) {
 				ancestors = this.renderIndex?.ancestorsById.get(event.id) || [];

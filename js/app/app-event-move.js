@@ -39,14 +39,19 @@ export class EventMoveTrait {
 	_applyEventMove(model, deltaBeat, channelDelta, copy) {
 		let events = model
 			.allEvents()
-			.filter(event => event.selected && !model.ancestorsOf(event.id).some(ancestor => ancestor.selected));
+			.filter(
+				event =>
+					event.selected &&
+					!event.locked &&
+					!model.ancestorsOf(event.id).some(ancestor => ancestor.selected),
+			);
 		if (!events.length) {
 			return;
 		}
 		const movedEvents = [
 			...new Set(
 				events.flatMap(event =>
-					leafEventsOf(model, event),
+					leafEventsOf(model, event).filter(item => !item.locked),
 				),
 			),
 		];
@@ -77,7 +82,7 @@ export class EventMoveTrait {
 		const moved = [
 			...new Set(
 				events.flatMap(event =>
-					leafEventsOf(model, event),
+					leafEventsOf(model, event).filter(item => !item.locked),
 				),
 			),
 		];
@@ -100,12 +105,15 @@ export class EventMoveTrait {
 			const roots = model
 				.allEvents()
 				.filter(
-					event => event.selected && !model.ancestorsOf(event.id).some(ancestor => ancestor.selected),
+					event =>
+						event.selected &&
+						!event.locked &&
+						!model.ancestorsOf(event.id).some(ancestor => ancestor.selected),
 				);
 			const moved = [
 				...new Set(
 					roots.flatMap(event =>
-						leafEventsOf(model, event),
+						leafEventsOf(model, event).filter(item => !item.locked),
 					),
 				),
 			];

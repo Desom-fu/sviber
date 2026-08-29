@@ -177,6 +177,7 @@ test("Ctrl+Space does not activate a focused status checkbox", () => {
 test("shortcuts describe reverse playback, A-B marks, exact speed, channels, and page direction", () => {
 	assert.equal(COMMAND_DEFINITIONS["music.playReverse"].shortcut, "Shift+Space");
 	assert.equal(COMMAND_DEFINITIONS["music.abLoop"].shortcut, "L");
+	assert.equal(COMMAND_DEFINITIONS["music.speed01"].shortcut, "Ctrl+`");
 	assert.equal(COMMAND_DEFINITIONS["music.speed025"].shortcut, "Ctrl+4");
 	assert.equal(COMMAND_DEFINITIONS["channel.selectLast"].shortcut, "Alt+0");
 	assert.equal(COMMAND_DEFINITIONS["timeline.pageForward"].shortcut, "PageUp");

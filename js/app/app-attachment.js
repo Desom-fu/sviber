@@ -285,12 +285,15 @@ class AttachmentTrait {
 			const roots = model
 				.allEvents()
 				.filter(
-					event => event.selected && !model.ancestorsOf(event.id).some(ancestor => ancestor.selected),
+					event =>
+						event.selected &&
+						!event.locked &&
+						!model.ancestorsOf(event.id).some(ancestor => ancestor.selected),
 				);
 			const events = [
 				...new Set(
 					roots.flatMap(event =>
-						groupEventLeaves(model, event),
+						groupEventLeaves(model, event).filter(item => !item.locked),
 					),
 				),
 			];

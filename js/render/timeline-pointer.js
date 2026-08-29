@@ -31,6 +31,7 @@ const TIMELINE_MOVE_HANDLERS = {
 	duration: "_moveDurations",
 	box: "_moveSelectionBox",
 	"scroll-current": "_moveScrollCurrent",
+	"scroll-ctrl": "_moveScrollCtrl",
 	"scroll-begin": "_moveVisibleRangeDrag",
 	"scroll-end": "_moveVisibleRangeDrag",
 	"scroll-range": "_moveVisibleRangeDrag",
@@ -126,7 +127,7 @@ export class TimelinePointerTrait {
 			return this._durationPressDrag(context);
 		}
 		if (hit?.type?.startsWith("scroll-")) {
-			return this._scrollbarPressDrag(context);
+			return this._scrollbarPressDrag(event, context);
 		}
 		if (hit?.type === "channel-scroll") {
 			return { type: "channel-scroll", hit, start: point, offset: this.channelOffset };
@@ -144,17 +145,19 @@ export class TimelinePointerTrait {
 	}
 
 	// Selected leaf events, expanding a selected group into the events it contains.
+	// Locked events (v19) behave as if they were not selected.
 	_selectedLeafEvents(project) {
 		const roots = flattenEvents(project.events || [], true).filter(
 			candidate =>
 				candidate.selected &&
+				!candidate.locked &&
 				!(this.renderIndex?.ancestorsById.get(candidate.id) || []).some(ancestor => ancestor.selected),
 		);
 		const leaves = roots.flatMap(candidate => {
 			if (candidate.type !== "group") {
 				return [candidate];
 			}
-			return descendants(candidate).filter(item => item.type !== "group");
+			return descendants(candidate).filter(item => item.type !== "group" && !item.locked);
 		});
 		return [...new Set(leaves)];
 	}
@@ -200,7 +203,10 @@ export class TimelinePointerTrait {
 		const activeChannelIds = this._activeChannelIds(project);
 		const events = flattenEvents(project.events || [], true).filter(
 			candidate =>
-				candidate.selected && DURATION_TYPES.has(candidate.type) && activeChannelIds.has(candidate.channel),
+				candidate.selected &&
+				!candidate.locked &&
+				DURATION_TYPES.has(candidate.type) &&
+				activeChannelIds.has(candidate.channel),
 		);
 		const records = events.map(candidate => ({
 			event: candidate,
@@ -221,8 +227,32 @@ export class TimelinePointerTrait {
 		};
 	}
 
-	// Pressing the empty part of the scrollbar track jumps there instead of paging.
-	_scrollbarPressDrag({ point, hit, project }) {
+	// Pressing the empty part of the scrollbar track jumps there instead of paging. A
+	// Ctrl press anywhere on the scrollbar (v19) sets the current time instead: it snaps
+	// to subdivisions, and when the visible range contained the current time the range
+	// slides along so the current time keeps its position inside the range.
+	_scrollbarPressDrag(event, { point, hit, project }) {
+		if (event.ctrlKey) {
+			const beginning = Number(project.editor.visibleRangeBeginning);
+			const ending = Number(project.editor.visibleRangeEnd);
+			const editor = project.editor;
+			let current = Number(editor.currentTime) || 0;
+			if (editor.timeSnapped !== false) {
+				current = this.timing.beatToSeconds(editor.currentTime || [0, 0, 1]);
+			}
+			const drag = {
+				type: "scroll-ctrl",
+				hit,
+				start: point,
+				beginning,
+				ending,
+				followRange: current >= beginning && current <= ending,
+				offsetInside: current - beginning,
+			};
+			this.callbacks.onSeekStart?.();
+			this._scrollCtrlSeek(point.x, drag, project);
+			return drag;
+		}
 		if (hit.type === "scroll-track") {
 			this._scrollSeek(point.x, hit, true);
 			return null;
@@ -308,20 +338,24 @@ export class TimelinePointerTrait {
 	_offsetAdjustPointerDown(event, point, project, seconds) {
 		const timing = this.timing;
 		const beatNumber = timing.secondsToBeatNumber(seconds);
-		const nearestBeat = Math.round(beatNumber);
 		if (!event.ctrlKey) {
 			return { type: "offset-adjust", start: point, startSeconds: seconds, offset: timing.offset };
 		}
-		const changes = timing.bpmChanges.filter(change => change.time.toNumber() <= nearestBeat);
+		// v19: the dragged line can also be a subdivision beat line, and the BPM that
+		// changes is the last BPM change strictly before it (or the initial BPM when
+		// there is no BPM change before the closest beat line).
+		const subdivision = Math.max(1, Math.floor(project.editor.subdivision || 1));
+		const nearest = Math.round(beatNumber * subdivision) / subdivision;
+		const changes = timing.bpmChanges.filter(change => change.time.toNumber() < nearest);
 		const anchorBeat = changes.length ? changes.at(-1).time.toNumber() : 0;
-		const distance = nearestBeat - anchorBeat;
+		const distance = nearest - anchorBeat;
 		this.callbacks.onSeekStart?.();
 		return {
 			type: "bpm-adjust",
 			start: point,
 			anchorSeconds: timing.beatToSeconds(anchorBeat),
 			beatDistance: distance,
-			bpm: timing.bpmAtBeat(nearestBeat),
+			bpm: timing.bpmAtBeat(anchorBeat),
 			changeBeat: changes.length ? changes.at(-1).time.toJSON() : null,
 		};
 	}
@@ -482,6 +516,26 @@ export class TimelinePointerTrait {
 		this._scrollSeek(point.x, drag.hit);
 	}
 
+	// v19 Ctrl scrollbar gesture: the current time follows the pointer (snapped), and
+	// the visible range captured at the press slides by the same amount when it
+	// originally contained the current time.
+	_moveScrollCtrl({ point, project, drag }) {
+		this._scrollCtrlSeek(point.x, drag, project);
+	}
+
+	_scrollCtrlSeek(x, drag, project) {
+		const hit = drag.hit;
+		const progress = Math.max(0, Math.min(1, (x - hit.rectangle.x) / Math.max(1, hit.rectangle.width)));
+		const seconds = hit.bounds[0] + progress * (hit.bounds[1] - hit.bounds[0]);
+		const beat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
+		(this.callbacks.onPreviewSeekBeat || this.callbacks.onSeekBeat)?.(beat.toJSON(), null, false);
+		if (drag.followRange) {
+			const span = drag.ending - drag.beginning;
+			const snapped = this.timing.beatToSeconds(beat);
+			this.callbacks.onVisibleRange?.(snapped - drag.offsetInside, snapped - drag.offsetInside + span);
+		}
+	}
+
 	_moveVisibleRangeDrag({ point }) {
 		this._moveVisibleRange(point.x);
 	}
@@ -567,9 +621,11 @@ export class TimelinePointerTrait {
 			}
 		} else if (drag.type === "seek") {
 			this._seekAt(point.x, true);
+		} else if (drag.type === "scroll-ctrl") {
+			this._scrollCtrlSeek(point.x, drag, project);
 		}
 		this.callbacks.onEndPreview?.();
-		if (drag.type === "seek" || drag.type === "scroll-current") {
+		if (drag.type === "seek" || drag.type === "scroll-current" || drag.type === "scroll-ctrl") {
 			this.callbacks.onSeekEnd?.();
 		}
 		this.selectionBox = null;

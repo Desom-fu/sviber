@@ -167,6 +167,7 @@ export function createEvent(type, overrides = {}) {
 		type,
 		time: Rational.from(overrides.time ?? 0).toJSON(),
 		selected: Boolean(overrides.selected),
+		locked: Boolean(overrides.locked),
 		channel: validId(overrides.channel) ? overrides.channel : 0,
 	};
 	stripUnsupportedFields(event, type);

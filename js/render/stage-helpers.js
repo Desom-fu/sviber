@@ -37,6 +37,11 @@ export const SUNNIESNOW_AUTOPLAY_GRADIENT = Object.freeze({
 });
 
 // These are the default-skin values in game-unstable/js/ui/event and ui/fx.
+// v19: selected locked events use a magenta tint instead of the bright red one.
+export function selectionTintFor(event) {
+	return event?.locked ? "#e83dff" : "#ff2e59";
+}
+
 export const SUNNIESNOW_SKIN = Object.freeze({
 	noteRadius: 12.5,
 	noteSize: Object.freeze({ tap: 0.95, hold: 0.95, drag: 0.65, flick: 0.95, bgNote: 0.95 }),
@@ -48,6 +53,7 @@ export const SUNNIESNOW_SKIN = Object.freeze({
 	backgroundBlur: 20,
 	backgroundBrightness: 0.5,
 	selectionTint: "#ff2e59",
+	selectionLockedTint: "#e83dff",
 	tapFill: "#29a9b9",
 	tapStroke: "#e8f8b8",
 	doubleTapFill: "#3171d1",

@@ -19,6 +19,7 @@ const CHECK_ID_LIST = [
 	"teleportingTipPoint",
 	"multiCharacterCjk",
 	"eventsOutsideMusic",
+	"dragScreening",
 ];
 
 function validChart(overrides = {}) {
@@ -57,9 +58,9 @@ function enabledOnly(id, extra = {}) {
 	return settings;
 }
 
-test("all 12 chart checks exist and are enabled by default", () => {
+test("all 13 chart checks exist and are enabled by default", () => {
 	assert.deepEqual([...CHECK_IDS], CHECK_ID_LIST);
-	assert.equal(CHECK_DEFINITIONS.length, 12);
+	assert.equal(CHECK_DEFINITIONS.length, 13);
 	const defaults = defaultChecks();
 	for (const id of CHECK_ID_LIST) {
 		assert.equal(defaults[id].enabled, true, id);
@@ -68,6 +69,8 @@ test("all 12 chart checks exist and are enabled by default", () => {
 	assert.equal(defaults.shortHold.seconds, 0.1);
 	assert.equal(defaults.shortBgPattern.seconds, 0.1);
 	assert.equal(defaults.shortTipPoint.seconds, 0.3);
+	assert.equal(defaults.dragScreening.seconds, 0.4);
+	assert.equal(defaults.dragScreening.distance, 40);
 	for (const id of ["emptyMetadata", "irregularDifficulty"]) {
 		const definition = CHECK_DEFINITIONS.find(item => item.id === id);
 		assert.equal(definition.target, "chartProperties");
@@ -389,16 +392,17 @@ test("left-column checks list cannot cover the scroll view canvas", async () => 
 });
 
 
-// v18 documents which checks carry extra parameters, so the definitions have to keep matching
+// v19 documents which checks carry extra parameters, so the definitions have to keep matching
 // that list; the ids themselves are compared against CHECK_ID_LIST above.
-test("each check carries exactly the extra parameters v18 documents", () => {
+test("each check carries exactly the extra parameters v19 documents", () => {
 	const parameters = new Map(CHECK_DEFINITIONS.map(definition =>
 		[definition.id, definition.parameters.map(parameter => parameter.id)]));
 	assert.deepEqual(parameters.get("requiredFingers"), ["fingers"]);
 	assert.deepEqual(parameters.get("shortHold"), ["seconds"]);
 	assert.deepEqual(parameters.get("shortBgPattern"), ["seconds"]);
 	assert.deepEqual(parameters.get("shortTipPoint"), ["seconds"]);
-	const parameterized = ["requiredFingers", "shortHold", "shortBgPattern", "shortTipPoint"];
+	assert.deepEqual(parameters.get("dragScreening"), ["seconds", "distance"]);
+	const parameterized = ["requiredFingers", "shortHold", "shortBgPattern", "shortTipPoint", "dragScreening"];
 	for (const id of CHECK_ID_LIST.filter(id => !parameterized.includes(id))) {
 		assert.deepEqual(parameters.get(id), [], `${id} should have no parameters`);
 	}
@@ -429,4 +433,43 @@ test("checks dialog groups parameters under their check and disables them when i
 	assert.match(fieldsSource, /type === "group"/);
 	assert.match(css, /\.dialog-group > \.dialog-field:not\(:first-child\)/);
 	assert.match(css, /\.dialog-field\.is-disabled/);
+});
+
+test("dragScreening flags an unjudged drag that screens a later non-drag note", () => {
+	// Default timing is 120 BPM, so one beat lasts 0.5 s; with a 0.6 s screening
+	// window a tap one beat after the drag sits inside the after window.
+	const model = validChart();
+	const drag = addNote(model, "drag", 2, 0, 0);
+	addNote(model, "tap", 3, 10, 0);
+	const hits = violationsFor(model, "dragScreening", { seconds: 0.6 });
+	assert.deepEqual(hits.map(item => item.eventIds[0]), [drag.id]);
+	assert.equal(hits[0].target, "event");
+});
+
+test("dragScreening ignores covered, drag-only, distant and after-window cases", () => {
+	const covered = validChart();
+	addNote(covered, "drag", 2, 0, 0);
+	addNote(covered, "tap", 1, 0, 0);
+	addNote(covered, "tap", 3, 0, 0);
+	assert.equal(violationsFor(covered, "dragScreening", { seconds: 0.6 }).length, 0);
+
+	const dragOnly = validChart();
+	addNote(dragOnly, "drag", 2, 0, 0);
+	addNote(dragOnly, "drag", 3, 0, 0);
+	assert.equal(violationsFor(dragOnly, "dragScreening", { seconds: 0.6 }).length, 0);
+
+	const distant = validChart();
+	addNote(distant, "drag", 2, 0, 0);
+	addNote(distant, "tap", 3, 50, 0);
+	assert.equal(violationsFor(distant, "dragScreening", { seconds: 0.6 }).length, 0);
+
+	const afterWindow = validChart();
+	addNote(afterWindow, "drag", 2, 0, 0);
+	addNote(afterWindow, "tap", 4, 0, 0);
+	assert.equal(violationsFor(afterWindow, "dragScreening", { seconds: 0.6 }).length, 0);
+
+	const defaults = validChart();
+	addNote(defaults, "drag", 2, 0, 0);
+	addNote(defaults, "tap", 3, 0, 0);
+	assert.equal(violationsFor(defaults, "dragScreening").length, 0);
 });

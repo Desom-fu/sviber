@@ -117,6 +117,12 @@ test("chart property forms remember charter only after a user edit", async () =>
 	]);
 	assert.match(lifecycle, /trackDialogFieldEdits\(\["charter"\]/);
 	assert.match(lifecycle, /tracking\.userEdited\("charter"\)/);
+	// v19: importing a chart no longer sets the next default charter, so the Lyrica
+	// import options form tracks the edit (for the preset colour listener) but never
+	// remembers the charter.
 	assert.match(media, /trackDialogFieldEdits\(\["charter"\]/);
-	assert.match(media, /tracking\.userEdited\("charter"\)/);
+	assert.doesNotMatch(media, /rememberCharter/);
+	// ...and the chart properties of an existing chart only remember the charter when
+	// the form is the new-chart one.
+	assert.match(lifecycle, /if \(newChart && tracking\.userEdited\("charter"\)\)/);
 });

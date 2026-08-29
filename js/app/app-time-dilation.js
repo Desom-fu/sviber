@@ -43,8 +43,10 @@ export const withTimeDilation = Base =>
 		}
 
 		_dilateSelection(model, factor, preserveDuration) {
-			const roots = model.allEvents().filter(event => event.selected);
-			const events = [...new Set(roots.flatMap(event => dilationTargets(model, event)))];
+			const roots = model.allEvents().filter(event => event.selected && !event.locked);
+			const events = [
+				...new Set(roots.flatMap(event => dilationTargets(model, event).filter(item => !item.locked))),
+			];
 			if (!events.length) {
 				return;
 			}
