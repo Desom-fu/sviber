@@ -219,6 +219,8 @@ export class SviberAppCore extends CoreShell {
 			tooltip: this.tooltip,
 			onSelect: id => this.selectChannel(id),
 			onToggle: id => this.toggleChannel(id),
+			onSetHidden: (id, hidden) => this.setChannelHidden(id, hidden),
+			onCreate: (id, relative) => this.createChannel(relative, id),
 			onDuplicate: id => this.duplicateChannel(id),
 			onDelete: id => void this.deleteChannel(id),
 			onEdit: id => void this.editChannel(id),
@@ -511,7 +513,8 @@ export class SviberAppCore extends CoreShell {
 		this._rebuildRenderIndex();
 		this._syncAudioLoop();
 		const view = this.viewState();
-		const timelineHeight = 88 + Math.min(3, Math.max(1, this.model.channels.length)) * 48;
+		const shownChannels = this.model.channels.filter(c => c.hidden !== true).length;
+		const timelineHeight = 88 + Math.min(3, Math.max(1, shownChannels)) * 48;
 		document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${timelineHeight}px`);
 		this.timeline.setState(view);
 		this.stage.setState(view);

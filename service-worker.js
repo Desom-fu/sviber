@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v01200";
+const CACHE_VERSION = "sviber-v01300";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -73,7 +73,7 @@ const APP_SHELL = [
 	"./js/app/app-view-callbacks.js",
 	"./js/app/app-view-controls.js",
 	"./js/app/app-view-refresh.js",
-	"./js/app/app.js?v=63",
+	"./js/app/app.js?v=64",
 	"./js/audio/decoder.js",
 	"./js/audio/player.js",
 	"./js/audio/scheduler.js",
@@ -186,6 +186,7 @@ const APP_SHELL = [
 	"./js/ui/ui-panels.js",
 	"./js/ui/ui-shared.js",
 	"./js/ui/ui-shell.js",
+	"./js/ui/item-menu.js",
 	"./js/ui/ui.js",
 	"./js/boot/vendor-loader.js",
 	"./json/i18n.en-US.json",
@@ -211,9 +212,11 @@ const APP_SHELL = [
 		"metronome.svg", "move-channel-down.svg", "move-channel-up.svg", "move-to-channel-above.svg",
 		"move-to-channel-below.svg", "paste.svg", "pen.svg", "play-pause.svg", "read-only.svg",
 		"rulers.svg", "save.svg", "se.svg", "seek-back-after-playing.svg", "seek-to-start.svg",
-		"show-bg-events-in-main-field.svg", "show-bg-events-in-timeline.svg", "show-chart-boundary.svg",
+		"hide-channel.svg", "show-bg-events-in-main-field.svg", "show-bg-events-in-timeline.svg",
+		"show-chart-boundary.svg",
 		"show-grouping-in-main-field.svg", "show-grouping-in-timeline.svg", "show-hud.svg",
-		"show-tip-points.svg", "speed-0-1.svg", "speed-0-25.svg", "speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",
+		"menu.svg", "show-channel.svg", "show-tip-points.svg", "speed-0-1.svg", "speed-0-25.svg",
+		"speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",
 		"time-lattice-2.svg", "time-lattice-3.svg", "time-lattice-4.svg", "time-lattice-6.svg",
 		"time-lattice-8.svg", "up.svg", "zoom-in.svg", "zoom-out.svg",
 	].map(name => `svg/icons/${name}`),

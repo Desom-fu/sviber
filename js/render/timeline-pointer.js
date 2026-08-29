@@ -5,6 +5,7 @@ import {
 	TIMELINE_DURATION_TYPES as DURATION_TYPES,
 	ZERO_DURATION_TYPES, projectState,
 	isBackgroundEvent,
+	visibleTimelineChannels,
 } from "./timeline-helpers.js";
 import { abLoopDragMarks, abLoopGrabIndex, bpmFromDrag, offsetFromDrag } from "./timeline-gestures.js";
 
@@ -314,10 +315,15 @@ export class TimelinePointerTrait {
 	// drag semantics; the governing event is the selected event closest to the press (time
 	// distance plus lane distance in content space). The move itself reads the selection
 	// (_selectedLeafEvents), so aiming does not matter and handles cannot be grabbed.
+	// v22: like the main field's Shift drag, this gesture is fully absolute — the governing
+	// event lands on the snapped beat and the channel lane under the mouse — and there is
+	// no minimum drag distance.
 	_altShiftMoveDrag(event, { point, project, layout, playing }) {
+		const visibleChannels = visibleTimelineChannels(project);
+		const visibleChannelIds = new Set(visibleChannels.map(channel => channel.id));
 		const selectedEvents = this._selectedLeafEvents(project).filter(candidate => {
 			const channel = project.channels.find(entry => entry.id === candidate.channel);
-			return channel && channel.active !== false;
+			return channel && channel.active !== false && visibleChannelIds.has(candidate.channel);
 		});
 		if (!selectedEvents.length || playing) {
 			return null;
@@ -329,7 +335,7 @@ export class TimelinePointerTrait {
 		for (const candidate of selectedEvents) {
 			const seconds = this.timing.beatToSeconds(candidate.time);
 			const x = this._timeToX(seconds, layout.channels.width);
-			const channelIndex = project.channels.findIndex(entry => entry.id === candidate.channel);
+			const channelIndex = visibleChannels.findIndex(entry => entry.id === candidate.channel);
 			const distance =
 				(x - point.x) ** 2 + ((channelIndex - pointerChannelIndex) * layout.channelHeight) ** 2;
 			if (distance < bestDistance) {
@@ -337,16 +343,17 @@ export class TimelinePointerTrait {
 				governing = candidate;
 			}
 		}
-		const simultaneous = selectedEvents.every(candidate =>
-			Rational.from(eventTime(candidate)).equals(governing.time));
 		return {
 			type: "event",
 			event: governing,
 			selectionId: governing.id,
 			start: point,
 			startBeat: Rational.from(governing.time),
+			governingLaneIndex: visibleChannels.findIndex(entry => entry.id === governing.channel),
 			copy: event.ctrlKey,
-			absoluteBeatSnap: simultaneous,
+			absoluteBeatSnap: true,
+			absoluteChannel: true,
+			noThreshold: true,
 			collapseSelectionOnClick: false,
 		};
 	}
@@ -416,7 +423,8 @@ export class TimelinePointerTrait {
 			return;
 		}
 		const point = this.surface.toLocal(event);
-		if (Math.hypot(point.x - this.drag.start.x, point.y - this.drag.start.y) > 3) {
+		// v22: an Alt+Shift drag has no minimum distance — any pointer movement applies.
+		if (this.drag.noThreshold || Math.hypot(point.x - this.drag.start.x, point.y - this.drag.start.y) > 3) {
 			this.pointerMoved = true;
 		}
 		const project = projectState(this.state);
@@ -465,7 +473,9 @@ export class TimelinePointerTrait {
 	}
 
 	// Events move by the snapped beat distance the pointer covered, or to the absolute snapped
-	// beat under the pointer when the whole selection started on one beat.
+	// beat under the pointer when the whole selection started on one beat. An Alt+Shift drag
+	// (v22) is absolute in the channel as well: the governing event lands on the lane under
+	// the pointer, regardless of where the press happened.
 	_moveEvents({ point, project, layout, drag }) {
 		if (!this.pointerMoved) {
 			return;
@@ -476,7 +486,11 @@ export class TimelinePointerTrait {
 				project.editor.subdivision,
 			);
 		const ending = snap(point.x);
-		const channelDelta = Math.round((point.y - drag.start.y) / layout.channelHeight);
+		let channelDelta = Math.round((point.y - drag.start.y) / layout.channelHeight);
+		if (drag.absoluteChannel) {
+			const pointerLane = (point.y - layout.channels.y) / layout.channelHeight + this.channelOffset;
+			channelDelta = Math.round(pointerLane) - drag.governingLaneIndex;
+		}
 		const delta = drag.absoluteBeatSnap ? ending.sub(drag.startBeat) : ending.sub(snap(drag.start.x));
 		this.callbacks.onPreviewMoveEvents?.(delta.toJSON(), channelDelta, drag.copy);
 	}
@@ -620,7 +634,12 @@ export class TimelinePointerTrait {
 				this._xToSeconds(point.x, layout.channels.width),
 				project.editor.subdivision,
 			);
-			const channelDelta = Math.round((point.y - drag.start.y) / layout.channelHeight);
+			// v22: an Alt+Shift drag commits the same absolute channel target it previewed.
+			let channelDelta = Math.round((point.y - drag.start.y) / layout.channelHeight);
+			if (drag.absoluteChannel) {
+				const pointerLane = (point.y - layout.channels.y) / layout.channelHeight + this.channelOffset;
+				channelDelta = Math.round(pointerLane) - drag.governingLaneIndex;
+			}
 			const delta = drag.absoluteBeatSnap ? ending.sub(drag.startBeat) : ending.sub(beginning);
 			this.callbacks.onMoveEvents?.(delta.toJSON(), channelDelta, drag.copy);
 		} else if (drag.type === "event" && drag.collapseSelectionOnClick) {
@@ -765,7 +784,7 @@ export class TimelinePointerTrait {
 			this.callbacks.onMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12);
 			return;
 		}
-		if (project.channels.length > 3 && event.shiftKey) {
+		if (visibleTimelineChannels(project).length > 3 && event.shiftKey) {
 			this.scrollChannelsBy(event.deltaY);
 			return;
 		}

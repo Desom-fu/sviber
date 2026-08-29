@@ -128,6 +128,42 @@ test("Alt+Shift drag moves the selection exactly like Shift", () => {
 	const drag = stage._selectionDrag({ shiftKey: true, altKey: true }, context, null);
 	assert.equal(drag.type, "event");
 	assert.equal(drag.hit.event.id, 1);
+	// v22: a Shift drag moves the selection to the mouse without a minimum distance.
+	assert.equal(drag.noThreshold, true);
+});
+
+test("a Shift drag applies without the minimum drag distance", () => {
+	const InteractionApp = withStageInteractions(class {});
+	const stage = new InteractionApp();
+	const near = { id: 1, type: "tap", selected: true, channel: 0 };
+	stage.renderIndex = {
+		selectedEvents: [near],
+		activeChannelIds: new Set([0]),
+		positionFor: () => ({ x: 10, y: 10 }),
+		isEventSelected: event => Boolean(event.selected),
+		selectionTarget: event => event,
+	};
+	stage.requestRender = () => {};
+	stage.callbacks = {};
+	const mapping = { scale: 1, toScreen: point => point, toChart: point => ({ x: point.x, y: point.y }) };
+	const context = {
+		point: { x: 12, y: 12 },
+		project: { channels: [{ id: 0, active: true }], events: [near], editor: {}, snappees: [] },
+		mapping,
+	};
+	const drag = stage._selectionDrag({ shiftKey: true }, context, null);
+	assert.equal(drag.noThreshold, true);
+	stage.state = context.project;
+	stage.surface = { toLocal: () => ({ x: 12.5, y: 12.5 }) };
+	stage._mapping = () => mapping;
+	stage.drag = drag;
+	stage.pointerMoved = false;
+	let previews = 0;
+	stage.callbacks = { onPreviewPosition: () => (previews += 1) };
+	stage._pointerMove({});
+	// A sub-3px movement still marks the drag as moved and previews the position.
+	assert.equal(stage.pointerMoved, true);
+	assert.equal(previews, 1);
 });
 
 test("simultaneous notes stack by channel order with the lower channel on top", () => {

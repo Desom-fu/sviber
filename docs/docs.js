@@ -156,6 +156,26 @@ function applyChrome() {
 	searchClear.setAttribute("aria-label", activeUi.search.clear);
 }
 
+// v22: on Mac keyboards Ctrl is Command and Alt is Option, so every keyboard shortcut
+// written in the manual is respelled inside its <kbd> elements when running there.
+function isMacPlatform() {
+	return /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent || "");
+}
+
+function localizeShortcutKeys(article) {
+	if (!isMacPlatform()) {
+		return;
+	}
+	const substitutions = [["Ctrl", "Command"], ["Alt", "Option"]];
+	for (const kbd of article.querySelectorAll("kbd")) {
+		let text = kbd.textContent;
+		for (const [from, to] of substitutions) {
+			text = text.split(from).join(to);
+		}
+		kbd.textContent = text;
+	}
+}
+
 function setArticle(language, manual) {
 	activeLanguage = language;
 	activeUi = manual.ui;
@@ -168,6 +188,7 @@ function setArticle(language, manual) {
 		article.hidden = !isTarget;
 		if (isTarget && !article.dataset.filled) {
 			article.innerHTML = manual.article;
+			localizeShortcutKeys(article);
 			article.dataset.filled = "true";
 		}
 		if (!article.hidden) {

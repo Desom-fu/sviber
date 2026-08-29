@@ -550,6 +550,9 @@ export class StagePointerTrait {
 					hit: { type: "group-anchor", event: shift.primary, position },
 					start: context.point,
 					startChart: position,
+					// v22: a Shift drag moves the selection to the mouse without a minimum
+					// distance, unlike the ordinary press drags.
+					noThreshold: true,
 				};
 			}
 			return {
@@ -558,10 +561,12 @@ export class StagePointerTrait {
 				start: context.point,
 				startChart: position,
 				collapseSelectionOnClick: false,
+				noThreshold: true,
 			};
 		}
 		if (shift.snappee) {
-			return this._snappeeMoveDrag(context, { type: "snappee-body", snappee: shift.snappee });
+			const drag = this._snappeeMoveDrag(context, { type: "snappee-body", snappee: shift.snappee });
+			return { ...drag, noThreshold: true };
 		}
 		return { type: "box", start: context.point, mode: boxSelectionMode(event) };
 	}
@@ -613,7 +618,9 @@ export class StagePointerTrait {
 		if (!this.drag) {
 			return;
 		}
-		if (Math.hypot(point.x - this.drag.start.x, point.y - this.drag.start.y) > 3) {
+		// v22: a Shift drag has no minimum distance — any pointer movement applies, so the
+		// selection follows the mouse immediately instead of waiting for a 3 px threshold.
+		if (this.drag.noThreshold || Math.hypot(point.x - this.drag.start.x, point.y - this.drag.start.y) > 3) {
 			this.pointerMoved = true;
 		}
 		const context = this._pointerContextFor(event);

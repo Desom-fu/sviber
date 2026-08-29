@@ -31,6 +31,7 @@ export { timelineTipConnector } from "./timeline-helpers.js";
 import { installTraitMembers } from "../core/mixin.js";
 import { TimelineDrawingTrait } from "./timeline-drawing.js";
 import { TimelinePointerTrait } from "./timeline-pointer.js";
+import { visibleTimelineChannels } from "./timeline-helpers.js";
 import {
 	abLoopMarks,
 	bpmFromDrag,
@@ -107,7 +108,7 @@ export class TimelineView {
 	setState(state, options = {}) {
 		this.state = state;
 		const project = projectState(state);
-		const maxOffset = Math.max(0, project.channels.length - 3);
+		const maxOffset = Math.max(0, visibleTimelineChannels(project).length - 3);
 		const savedOffset = Number(project.editor?.timelineChannelOffset);
 		this.channelOffset = Number.isFinite(savedOffset)? Math.max(0, Math.min(maxOffset, Math.round(savedOffset))): 0;
 		this.renderIndex =
@@ -145,7 +146,8 @@ export class TimelineView {
 
 	revealChannel(channelId) {
 		const project = projectState(this.state);
-		const index = project.channels.findIndex(channel => channel.id === channelId);
+		const channels = visibleTimelineChannels(project);
+		const index = channels.findIndex(channel => channel.id === channelId);
 		if (index < 0) {
 			return;
 		}
@@ -160,7 +162,7 @@ export class TimelineView {
 
 	scrollChannelsBy(delta) {
 		const project = projectState(this.state);
-		const maxOffset = Math.max(0, (project?.channels?.length || 0) - 3);
+		const maxOffset = Math.max(0, visibleTimelineChannels(project).length - 3);
 		const nextOffset = Math.max(0, Math.min(maxOffset, this.channelOffset + Math.sign(Number(delta) || 0)));
 		if (nextOffset === this.channelOffset) {
 			return nextOffset;
@@ -227,7 +229,7 @@ export class TimelineView {
 		const scrollHeight = 25;
 		const channelsHeight = Math.max(45, height - waveformHeight - scrollHeight);
 		const project = projectState(this.state);
-		const visibleCount = Math.max(1, Math.min(3, project.channels.length));
+		const visibleCount = Math.max(1, Math.min(3, visibleTimelineChannels(project).length));
 		return {
 			waveform: { x: 0, y: 0, width, height: waveformHeight },
 			channels: { x: 0, y: waveformHeight, width, height: channelsHeight },
@@ -277,10 +279,13 @@ export class TimelineView {
 		}
 	}
 
+	// v22: hidden channels collapse out of the timeline, so the lanes only ever show the
+	// non-hidden channels; the channel offset scrolls over that collapsed list.
 	_visibleChannels(project) {
-		const maxOffset = Math.max(0, project.channels.length - 3);
+		const channels = visibleTimelineChannels(project);
+		const maxOffset = Math.max(0, channels.length - 3);
 		this.channelOffset = Math.max(0, Math.min(this.channelOffset, maxOffset));
-		return project.channels.slice(this.channelOffset, this.channelOffset + 3);
+		return channels.slice(this.channelOffset, this.channelOffset + 3);
 	}
 
 	_eventLaneOffsets(events) {
@@ -319,7 +324,7 @@ export class TimelineView {
 	// scrolled out of the timeline viewport. Rubber-band hit testing uses this so the
 	// selection region is content-space, not "what the last paint happened to draw".
 	_contentLanePosition(event, layout, project, offsets, record = null) {
-		const channelIndex = project.channels.findIndex(channel => channel.id === event.channel);
+		const channelIndex = visibleTimelineChannels(project).findIndex(channel => channel.id === event.channel);
 		if (channelIndex < 0) {
 			return null;
 		}

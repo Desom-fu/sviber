@@ -178,6 +178,30 @@ function registerChannelCommands(app) {
 		() => app.activateAllChannels(),
 		() => app.model.channels.some(channel => channel.active === false),
 	);
+	register(
+		app,
+		"channel.hide",
+		() => app.hideCurrentChannel(),
+		() => app.currentChannelHidden() === false,
+	);
+	register(
+		app,
+		"channel.showAll",
+		() => app.showAllChannels(),
+		() => app.model.channels.some(channel => channel.hidden === true),
+	);
+	register(
+		app,
+		"channel.moveAboveWithinChannel",
+		() => app.moveSelectedWithinChannel(-1),
+		() => app.canMoveSelectedWithinChannel(-1),
+	);
+	register(
+		app,
+		"channel.moveBelowWithinChannel",
+		() => app.moveSelectedWithinChannel(1),
+		() => app.canMoveSelectedWithinChannel(1),
+	);
 	register(app, "channel.delete", () => void app.deleteCurrentChannel(), () => app.model.channels.length > 1);
 	register(app, "channel.moveUp", () => app.moveCurrentChannel(-1), () => app.currentChannelIndex() > 0);
 	register(

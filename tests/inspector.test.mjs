@@ -6,8 +6,9 @@ import { ChartModel } from "../js/core/chart-model.js";
 import { fillInheritedTipPointParams, inheritedTipPointSource } from "../js/core/tip-point.js";
 
 test("inspector hides inactive tip-point input rows and preserves panel scroll", async () => {
-	const [panels, css] = await Promise.all([
+	const [panels, lists, css] = await Promise.all([
 		readFile(new URL("../js/ui/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/ui/panel-lists.js", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 	]);
 	assert.match(css, /\.property-row\[hidden\]\s*\{\s*display:\s*none;/);
@@ -19,11 +20,8 @@ test("inspector hides inactive tip-point input rows and preserves panel scroll",
 	);
 	assert.match(panels, /setControlHidden\(secondsControl, !spawnFieldsEnabled \|\| timeInBeats !== false\)/);
 	assert.match(panels, /setControlHidden\(beatsControl, !spawnFieldsEnabled \|\| timeInBeats !== true\)/);
-	const snappeeStart = panels.indexOf("export class SnappeesPanel");
-	const channelsStart = panels.indexOf("export class ChannelsPanel");
-	const snappees = panels.slice(snappeeStart, channelsStart);
-	assert.match(snappees, /const scrollTop = Number\(this\.element\.scrollTop\)/);
-	assert.match(snappees, /this\.element\.scrollTop = scrollTop/);
+	assert.match(lists, /const scrollTop = Number\(this\.element\.scrollTop\)/);
+	assert.match(lists, /this\.element\.scrollTop = scrollTop/);
 });
 
 test("actually hides inapplicable tip-point inspector rows", async () => {

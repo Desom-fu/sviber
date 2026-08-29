@@ -335,6 +335,7 @@ export class ChartModel {
 			id: this._allocate("channel"),
 			name: String(data.name ?? `Channel ${ordinal}`),
 			active: data.active !== false,
+			hidden: data.hidden === true,
 		};
 		const insertion = Math.max(0, Math.min(this.channels.length, Number(index) || 0));
 		this.channels.splice(insertion, 0, channel);

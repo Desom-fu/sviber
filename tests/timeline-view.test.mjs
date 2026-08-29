@@ -97,6 +97,45 @@ test("timeline zoom keeps the visual position of the current time", () => {
 	assert.ok(Math.abs((app.model.editor.visibleRangeBeginning + app.model.editor.visibleRangeEnd) / 2 - 50) < 1e-9);
 });
 
+// v22 fix: while playing, the armed follow offset used to slide the range back to its
+// pre-zoom anchor on the next timeupdate, so the playhead's position inside the range
+// jumped back after every zoom tick. The zoom must re-arm the offset instead.
+test("timeline zoom during playback re-arms the follow offset to keep the playhead position", () => {
+	const app = scrollbarApp({
+		currentTime: 20,
+		timeSnapped: false,
+		visibleRangeBeginning: 0,
+		visibleRangeEnd: 100,
+	});
+	app.audio = { playing: true, seek() {} };
+	app.currentSeconds = () => 20;
+	app.timeBounds = () => [0, 100];
+	// Forward playback, playhead past the middle: follow keeps `time - beginning`.
+	app.playFollowOffset = { direction: 1, value: 20 };
+	app.navigateWheel(-1, true, true);
+	assert.ok(Math.abs(app.model.editor.visibleRangeBeginning - 3.6) < 1e-9);
+	assert.ok(Math.abs(app.model.editor.visibleRangeEnd - 85.6) < 1e-9);
+	assert.ok(Math.abs(app.playFollowOffset.value - 16.4) < 1e-9);
+	// Simulating the next playback frame: the playhead keeps its new offset.
+	const forwardTime = 20.5;
+	const forwardBeginning = forwardTime - app.playFollowOffset.value;
+	assert.ok(Math.abs((forwardTime - forwardBeginning) - app.playFollowOffset.value) < 1e-9);
+
+	// Reverse playback keeps `visibleRangeEnd - time` instead.
+	app.model.editor.visibleRangeBeginning = 0;
+	app.model.editor.visibleRangeEnd = 100;
+	app.playFollowOffset = { direction: -1, value: 80 };
+	app.navigateWheel(-1, true, true);
+	assert.ok(Math.abs(app.playFollowOffset.value - 65.6) < 1e-9);
+
+	// A disabled follow (bounds reached) must not be revived by zooming.
+	app.model.editor.visibleRangeBeginning = 0;
+	app.model.editor.visibleRangeEnd = 100;
+	app.playFollowOffset = false;
+	app.navigateWheel(-1, true, true);
+	assert.equal(app.playFollowOffset, false);
+});
+
 test("timeline scrollbar track click jumps instead of paging", async () => {
 	const source = await readSources(TIMELINE_MODULES);
 	assert.match(source, /_scrollSeek\(point\.x, hit, true\)/);
@@ -252,7 +291,7 @@ test("Alt+Shift drag in the channels moves the selection from the closest select
 	const project = { channels: [{ id: 0, active: true }], events: [near, far], editor: { subdivision: 4 } };
 	timeline.timing = {
 		beatToSeconds: time => time[0] + time[1] / time[2],
-		secondsToSnappedBeat: seconds => Rational.from(Math.round(seconds * 4), 4),
+		secondsToSnappedBeat: seconds => Rational.from([Math.round(seconds * 4), 4]),
 	};
 	timeline._timeToX = seconds => seconds * 10;
 	const layout = {
@@ -271,6 +310,35 @@ test("Alt+Shift drag in the channels moves the selection from the closest select
 	// though the pointer technically landed on the earlier event.
 	assert.equal(drag.event.id, 2);
 	assert.equal(drag.collapseSelectionOnClick, false);
+	// v22: like the main field's Shift drag, the gesture is fully absolute in time and
+	// channel and has no minimum drag distance.
+	assert.equal(drag.absoluteBeatSnap, true);
+	assert.equal(drag.absoluteChannel, true);
+	assert.equal(drag.noThreshold, true);
+	assert.equal(drag.governingLaneIndex, 0);
+
+	// The move points at the position under the mouse: the governing event's beat follows
+	// the snapped x, and the channel delta targets the lane under the pointer.
+	timeline.state = project;
+	timeline.drag = drag;
+	timeline.pointerMoved = true;
+	let preview = null;
+	timeline.callbacks = { onPreviewMoveEvents: (delta, channelDelta) => (preview = [delta, channelDelta]) };
+	timeline._xToSeconds = x => x / 10;
+	timeline._moveEvents({ point: { x: 400, y: 120 }, project, layout, drag });
+	// x 400 → 40 s → snapped beat 40, so the delta from beat 8 is 32; the pointer sits at
+	// lane (120 − 50) / 50 = 1.4 → round 1, so the selection moves one lane down.
+	assert.deepEqual(preview, [[32, 0, 1], 1]);
+
+	// Any pointer movement counts — a sub-pixel move already applies for this gesture.
+	timeline.surface = { toLocal: () => ({ x: 400.2, y: 120.1 }), width: 800, height: 200 };
+	timeline._layout = () => layout;
+	timeline.pointerMoved = false;
+	preview = null;
+	timeline._pointerMove({});
+	assert.equal(timeline.pointerMoved, true);
+	assert.ok(preview, "the sub-threshold movement previewed a move");
+
 	// Without Alt the same press keeps its ordinary semantics (plain event drag on the hit).
 	const plainDrag = timeline._timelineDrag(
 		{ altKey: false, shiftKey: false, ctrlKey: false },
@@ -278,6 +346,7 @@ test("Alt+Shift drag in the channels moves the selection from the closest select
 	);
 	assert.equal(plainDrag.type, "event");
 	assert.equal(plainDrag.event.id, 1);
+	assert.equal(plainDrag.noThreshold, undefined);
 });
 
 test("Ctrl+Alt enlarges every draggable handle and its hit box", async () => {

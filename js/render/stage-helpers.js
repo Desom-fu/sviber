@@ -361,6 +361,9 @@ export function buildTipPointGuides(project, timing) {
 			eventsByChannel.get(event.channel).push({ event, sequence, time: Rational.from(event.time) });
 		}
 	}
+	// v22: simultaneous events of the same channel chain in the stacking order of the
+	// timeline channels — the event stacked at the top (earlier in the event list) is the
+	// previous one, the bottom-most is the next.
 	return (project.channels || []).flatMap(channel =>
 		buildTipPointGuidesForOrderedEvents(
 			eventsByChannel

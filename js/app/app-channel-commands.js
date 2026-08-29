@@ -4,6 +4,7 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { captureHistoryView } from "../core/history.js";
+import { Rational } from "../core/rational.js";
 import { deepClone } from "./app-helpers.js";
 import { eventUsesChannel } from "../core/grouping.js";
 
@@ -18,6 +19,12 @@ class ChannelCommandsTrait {
 		);
 	}
 
+	currentChannelHidden() {
+		return this.model.channels.some(
+			channel => channel.id === this.model.editor.currentChannel && channel.hidden === true,
+		);
+	}
+
 	canChangeCurrentChannel(direction) {
 		const step = Math.sign(Number(direction));
 		const current = this.currentChannelIndex();
@@ -29,12 +36,12 @@ class ChannelCommandsTrait {
 		return false;
 	}
 
-	createChannel(relative) {
+	createChannel(relative, id = this.model.editor.currentChannel) {
 		this.exitModes();
 		this.commit(
 			i18n.t("history.createChannel"),
 			model => {
-				const index = model.channels.findIndex(channel => channel.id === model.editor.currentChannel);
+				const index = model.channels.findIndex(channel => channel.id === id);
 				return model.addChannel(index + relative);
 			},
 			{
@@ -115,6 +122,73 @@ class ChannelCommandsTrait {
 		return true;
 	}
 
+	// v22: hiding a channel collapses it out of the timeline lanes only; its events keep
+	// appearing in the scroll view and the main editor field, and the selection is untouched.
+	setChannelHidden(id, hidden = true) {
+		const channel = this.model.channels.find(candidate => candidate.id === id);
+		if (!channel || channel.hidden === hidden) {
+			return false;
+		}
+		this.commit(
+			i18n.t("command.channel.hide"),
+			model => {
+				const target = model.channels.find(candidate => candidate.id === id);
+				if (!target) {
+					return;
+				}
+				target.hidden = hidden;
+				if (hidden && model.editor.currentChannel === id) {
+					const index = model.channels.findIndex(candidate => candidate.id === id);
+					const above = model.channels.slice(0, index).reverse().find(candidate => candidate.hidden !== true);
+					const below = model.channels.slice(index + 1).find(candidate => candidate.hidden !== true);
+					const fallback = model.channels.find(candidate => candidate.hidden !== true);
+					const next = above || below || fallback;
+					if (next) {
+						model.editor.currentChannel = next.id;
+					}
+				}
+			},
+			{
+				allowReadOnly: true,
+				lightweight: true,
+				channelOnly: true,
+				channelLayout: true,
+				rebuildIndex: false,
+				scheduleDirty: true,
+				skipCommands: true,
+			},
+		);
+		return true;
+	}
+
+	hideCurrentChannel() {
+		return this.setChannelHidden(this.model.editor.currentChannel, true);
+	}
+
+	showAllChannels() {
+		if (!this.model.channels.some(channel => channel.hidden === true)) {
+			return false;
+		}
+		this.commit(
+			i18n.t("command.channel.showAll"),
+			model => {
+				for (const channel of model.channels) {
+					channel.hidden = false;
+				}
+			},
+			{
+				allowReadOnly: true,
+				lightweight: true,
+				channelOnly: true,
+				channelLayout: true,
+				rebuildIndex: false,
+				scheduleDirty: true,
+				skipCommands: true,
+			},
+		);
+		return true;
+	}
+
 	toggleChannel(id) {
 		this.commit(
 			i18n.t("history.editChannel"),
@@ -180,6 +254,7 @@ class ChannelCommandsTrait {
 			const duplicate = model.addChannel(index + 1, {
 				name: this.uniqueChannelName(source.name),
 				active: source.active !== false,
+				hidden: source.hidden === true,
 			});
 			const sourceEvents = model
 				.allEvents({ includeGroups: false })
@@ -289,6 +364,91 @@ class ChannelCommandsTrait {
 				skipCommands: true,
 			},
 		);
+	}
+
+	// v22: reorders simultaneous events of the same channel without touching their times.
+	// The stacking order of the timeline lanes (top to bottom) is the order of the events
+	// array, and "moving above" swaps each selected event with the unselected event directly
+	// above it, walking the group from top to bottom (bottom to top for "below").
+	_withinChannelReorder(model, direction) {
+		const groups = new Map();
+		model.events.forEach((event, index) => {
+			if (event.type === "group") {
+				return;
+			}
+			let time;
+			try {
+				time = Rational.from(event.time).toString();
+			} catch {
+				return;
+			}
+			const key = `${event.channel}:${time}`;
+			if (!groups.has(key)) {
+				groups.set(key, []);
+			}
+			groups.get(key).push(index);
+		});
+		const next = model.events.slice();
+		let changed = false;
+		for (const indices of groups.values()) {
+			if (indices.length < 2) {
+				continue;
+			}
+			const ordered = indices.map(index => model.events[index]);
+			const isSelected = event => event.selected === true;
+			if (direction < 0) {
+				for (let position = 1; position < ordered.length; position += 1) {
+					if (isSelected(ordered[position]) && !isSelected(ordered[position - 1])) {
+						[ordered[position - 1], ordered[position]] = [ordered[position], ordered[position - 1]];
+					}
+				}
+			} else {
+				for (let position = ordered.length - 2; position >= 0; position -= 1) {
+					if (isSelected(ordered[position]) && !isSelected(ordered[position + 1])) {
+						[ordered[position + 1], ordered[position]] = [ordered[position], ordered[position + 1]];
+					}
+				}
+			}
+			if (ordered.some((event, position) => event !== model.events[indices[position]])) {
+				changed = true;
+				indices.forEach((index, position) => {
+					next[index] = ordered[position];
+				});
+			}
+		}
+		return changed ? next : null;
+	}
+
+	canMoveSelectedWithinChannel(direction) {
+		const roots = this.model.events || [];
+		if (!roots.some(event => event.selected)) {
+			return false;
+		}
+		if (roots.some(event => event.selected && event.type === "group")) {
+			return false;
+		}
+		return this._withinChannelReorder(this.model, direction) !== null;
+	}
+
+	moveSelectedWithinChannel(direction) {
+		if (!this.canMoveSelectedWithinChannel(direction)) {
+			return false;
+		}
+		this.commit(
+			i18n.t("history.moveWithinChannel"),
+			model => {
+				const next = this._withinChannelReorder(model, direction);
+				if (next) {
+					model.events = next;
+				}
+			},
+			{
+				lightweight: true,
+				scheduleDirty: true,
+				skipInspector: true,
+			},
+		);
+		return true;
 	}
 }
 

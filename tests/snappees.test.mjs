@@ -11,9 +11,10 @@ import { ChartModel } from "../js/core/chart-model.js";
 import { CHART_BOUNDS, sampleSnappee } from "../js/core/geometry.js";
 
 test("snaps dragged pen handles and orients snappee previews like the stage", async () => {
-	const [interactions, panels, editing, tools, transform, history] = await Promise.all([
+	const [interactions, panels, lists, editing, tools, transform, history] = await Promise.all([
 		readSources(STAGE_INTERACTION_MODULES),
 		readFile(new URL("../js/ui/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/ui/panel-lists.js", import.meta.url), "utf8"),
 		readSources(EVENT_EDITING_MODULES),
 		readFile(new URL("../js/app/app-curve-draft.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app/app-free-transform.js", import.meta.url), "utf8"),
@@ -26,8 +27,8 @@ test("snaps dragged pen handles and orients snappee previews like the stage", as
 	assert.match(interactions, /_movePenHandle\([\s\S]*?_snapChartPoint\(chart, project, mapping\)/);
 	assert.match(interactions, /"pen-new": "_movePenNode"/);
 	assert.match(interactions, /"draft-pen-handle": "_movePenHandle"/);
-	assert.match(panels, /y: offsetY \+ \(maxY - point\.y\) \* scale/);
-	assert.doesNotMatch(panels, /y: offsetY \+ \(point\.y - minY\) \* scale/);
+	assert.match(lists, /y: offsetY \+ \(maxY - point\.y\) \* scale/);
+	assert.doesNotMatch(lists, /y: offsetY \+ \(point\.y - minY\) \* scale/);
 	assert.match(history, /recordView\(view, label/);
 	assert.match(transform, /history\.recordView\(\s*captureHistoryView\(this\.model[\s\S]*?selectedEventIds/);
 	assert.match(editing, /this\.history\.recordView\(captureHistoryView\(this\.model\)/);
@@ -48,7 +49,7 @@ test("snaps dragged pen handles and orients snappee previews like the stage", as
 		await readFile(new URL("../js/app/app-channel-commands.js", import.meta.url), "utf8"),
 		/moveChannel[\s\S]*?channelOnly: true[\s\S]*?scheduleDirty: false/,
 	);
-	assert.match(panels, /syncFlags\(model, context = \{\}\)/);
+	assert.match(lists, /syncFlags\(model, context = \{\}\)/);
 	// The history panel now lives in js/panel-history.js, re-exported from js/panels.js.
 	assert.match(await readFile(new URL("../js/ui/panel-history.js", import.meta.url), "utf8"), /dataset\.historyId/);
 });

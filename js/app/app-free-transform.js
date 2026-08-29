@@ -82,7 +82,8 @@ class FreeTransformTrait {
 			this.channelsPanel?.render?.(this.model, { readOnly: this.model.editor.readOnly });
 		}
 		if (options.channelLayout) {
-			const height = 88 + Math.min(3, Math.max(1, this.model.channels.length)) * 48;
+			const shownChannels = this.model.channels.filter(c => c.hidden !== true).length;
+			const height = 88 + Math.min(3, Math.max(1, shownChannels)) * 48;
 			document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${height}px`);
 		}
 		if (options.channelState) {

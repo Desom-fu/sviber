@@ -69,6 +69,12 @@ export function projectState(state) {
 	return state?.sviber ? { ...state.sviber, metadata: state } : state;
 }
 
+// v22: hidden channels collapse out of the timeline lanes; the scroll view and the main
+// editor field keep showing their events, so only the timeline should filter by this.
+export function visibleTimelineChannels(project) {
+	return (project.channels || []).filter(channel => channel.hidden !== true);
+}
+
 export function timingFor(state) {
 	return new TimingMap(projectState(state)?.timing || {});
 }

@@ -108,7 +108,11 @@ test("commands move Channel items, add Lyrica export, bar-line icon, and shortcu
 	assert.ok(!events.items.some(item => item.command === "events.moveChannelBelow"));
 	assert.equal(channel.items[0].command, "events.moveChannelAbove");
 	assert.equal(channel.items[1].command, "events.moveChannelBelow");
-	assert.equal(channel.items[2].type, "separator");
+	assert.equal(channel.items[2].command, "channel.moveAboveWithinChannel");
+	assert.equal(channel.items[3].command, "channel.moveBelowWithinChannel");
+	assert.equal(channel.items[4].type, "separator");
+	assert.ok(channel.items.some(item => item.command === "channel.hide"));
+	assert.ok(channel.items.some(item => item.command === "channel.showAll"));
 	assert.ok(TOOLBAR_ITEMS.includes("timing.barLine"));
 	assert.ok(TOOLBAR_ITEMS.includes("events.moveChannelAbove"));
 });
@@ -148,8 +152,12 @@ test("command definitions cover the new file, edit, timing and channel actions",
 		icon: "svg/icons/adjust-offset.svg",
 	});
 	assertCommand("timing.automatic", {});
-	assertCommand("channel.deactivate", { shortcut: "Ctrl+," });
-	assertCommand("channel.activateAll", { shortcut: "Ctrl+Alt+," });
+	assertCommand("channel.deactivate", { shortcut: "Ctrl+K" });
+	assertCommand("channel.activateAll", { shortcut: "Ctrl+Alt+K" });
+	assertCommand("channel.hide", { shortcut: "Ctrl+J" });
+	assertCommand("channel.showAll", { shortcut: "Ctrl+Alt+J" });
+	assertCommand("channel.moveAboveWithinChannel", { shortcut: "Ctrl+Alt+ArrowUp" });
+	assertCommand("channel.moveBelowWithinChannel", { shortcut: "Ctrl+Alt+ArrowDown" });
 	assertCommand("snappee.deactivateAll", { shortcut: "Alt+Shift+A" });
 	assertCommand("snappee.attachCurveOrder", {});
 	assertCommand("snappee.attachCurveTime", {});

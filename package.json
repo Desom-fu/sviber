@@ -1,56 +1,56 @@
 {
-	"name": "sviber",
-	"version": "0.12.0",
-	"private": true,
-	"type": "module",
-	"description": "Desktop-style chart editor for Sunniesnow",
-	"license": "AGPL-3.0-or-later",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/Desom-fu/sviber.git"
-	},
-	"bugs": {
-		"url": "https://github.com/Desom-fu/sviber/issues"
-	},
-	"main": "index.html",
-	"node-main": "js/cli/cli-main.js",
-	"sviber-source": true,
-	"window": {
-		"title": "sviber",
-		"width": 1440,
-		"height": 900,
-		"min_width": 960,
-		"min_height": 620,
-		"position": "center",
-		"show": false,
-		"icon": "icon.png"
-	},
-	"scripts": {
-		"start": "http-server .. -p 4173 -c-1",
-		"build:macro-sandbox": "node scripts/macro-sandbox-bundle.cjs",
-		"lint": "eslint . --max-warnings 0",
-		"build": "node scripts/build-nw.mjs",
-		"benchmark:render": "node scripts/benchmark-render-index.mjs",
-		"test": "eslint . --max-warnings 0 && node --test tests/*.test.mjs",
-		"verify:browser": "node scripts/verify-browser.mjs"
-	},
-	"dependencies": {
-		"@ruby/4.0-wasm-wasi": "2.10.1",
-		"audio-decode": "^3.12.0",
-		"jszip": "^3.10.1",
-		"mathjs": "^15.2.0",
-		"monaco-editor": "^0.52.2",
-		"pixi.js": "^8.19.0"
-	},
-	"devDependencies": {
-		"esbuild": "^0.28.2",
-		"eslint": "^9.39.0",
-		"http-server": "^14.1.1",
-		"nw": "^0.114.2",
-		"nw-builder": "^4.18.0",
-		"playwright-core": "^1.62.1",
-		"pngjs": "^7.0.0",
-		"prettier": "^3.6.2",
-		"sharp": "^0.35.3"
-	}
+  "name": "sviber",
+  "version": "0.13.0",
+  "private": true,
+  "type": "module",
+  "description": "Desktop-style chart editor for Sunniesnow",
+  "license": "AGPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Desom-fu/sviber.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Desom-fu/sviber/issues"
+  },
+  "main": "index.html",
+  "node-main": "js/cli/cli-main.js",
+  "sviber-source": true,
+  "window": {
+    "title": "sviber",
+    "width": 1440,
+    "height": 900,
+    "min_width": 960,
+    "min_height": 620,
+    "position": "center",
+    "show": false,
+    "icon": "icon.png"
+  },
+  "scripts": {
+    "start": "http-server .. -p 4173 -c-1",
+    "build:macro-sandbox": "node scripts/macro-sandbox-bundle.cjs",
+    "lint": "eslint . --max-warnings 0",
+    "build": "node scripts/build-nw.mjs",
+    "benchmark:render": "node scripts/benchmark-render-index.mjs",
+    "test": "eslint . --max-warnings 0 && node --test tests/*.test.mjs",
+    "verify:browser": "node scripts/verify-browser.mjs"
+  },
+  "dependencies": {
+    "@ruby/4.0-wasm-wasi": "2.10.1",
+    "audio-decode": "^3.12.0",
+    "jszip": "^3.10.1",
+    "mathjs": "^15.2.0",
+    "monaco-editor": "^0.52.2",
+    "pixi.js": "^8.19.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.0",
+    "http-server": "^14.1.1",
+    "nw": "^0.114.2",
+    "nw-builder": "^4.18.0",
+    "playwright-core": "^1.62.1",
+    "pngjs": "^7.0.0",
+    "prettier": "^3.6.2",
+    "sharp": "^0.35.3"
+  }
 }

@@ -13,6 +13,13 @@ export function normalizeLanguage(language) {
 		.startsWith("zh")? "zh-CN": "en-US";
 }
 
+// v22: on Mac keyboards Ctrl is the Command key and Alt is Option. The command registry
+// already fires Ctrl shortcuts on Command (metaAsCtrl), so this only changes how the
+// shortcuts are spelled for the user: in the menus, the toolbar, the shortcuts dialog.
+export function isMacPlatform() {
+	return /Mac|iPhone|iPad/.test(globalThis.navigator?.platform || globalThis.navigator?.userAgent || "");
+}
+
 function interpolate(message, params) {
 	return String(message).replace(/\{([\w.-]+)\}/g, (match, key) =>
 		Object.hasOwn(params, key) ? String(params[key]) : match,
@@ -85,10 +92,11 @@ export class I18n {
 		if (!shortcut) {
 			return "";
 		}
+		const mac = isMacPlatform();
 		const tokenKeys = {
-			Ctrl: "shortcut.ctrl",
+			Ctrl: mac ? "shortcut.command" : "shortcut.ctrl",
 			Shift: "shortcut.shift",
-			Alt: "shortcut.alt",
+			Alt: mac ? "shortcut.option" : "shortcut.alt",
 			Meta: "shortcut.meta",
 			Space: "shortcut.space",
 			Delete: "shortcut.delete",

@@ -7,6 +7,9 @@ const TIP_SPAWN_TYPES = new Set(["inherit", "chain", "drop", "none"]);
 export function inheritedTipPointSource(events, target) {
 	const channelEvents = (events || [])
 		.map((event, sequence) => ({ event, sequence }))
+		// v22: simultaneous events of the same channel follow the stacking order of the
+		// timeline channels — the event stacked at the top (earlier in the chart's event
+		// list) counts as the previous one, and the bottom-most as the next.
 		.filter(({ event }) => TIP_POINTABLE_TYPES.has(event.type) && event.channel === target.channel)
 		.toSorted(
 			(left, right) => Rational.compare(left.event.time, right.event.time) || left.sequence - right.sequence,

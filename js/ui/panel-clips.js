@@ -9,6 +9,7 @@
 import { resolveAttachedPosition } from "../core/geometry.js";
 import { TIMELINE_EVENT_COLORS, drawTimelineEventIcon } from "../render/timeline-helpers.js";
 import { clear } from "./panel-controls.js";
+import { makeItemMenuButton } from "./item-menu.js";
 
 export function drawClipThumbnail(canvas, data, size = 42) {
 	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -103,19 +104,46 @@ export class ClipsPanel {
 		const name = document.createElement("span");
 		name.className = "snappee-name";
 		name.textContent = clip.name;
+		// v22: pasting stays on the item; every other action hides inside the item menu.
+		const menu = makeItemMenuButton({
+			i18n: this.i18n,
+			tooltip: this.tooltip,
+			tooltipKey: "panel.clip.menu",
+			items: [
+				{
+					icon: "up",
+					tooltipKey: "panel.clip.moveUp",
+					disabled: readOnly || index === 0,
+					keepOpen: true,
+					onSelect: () => this.onMove(index, -1),
+				},
+				{
+					icon: "down",
+					tooltipKey: "panel.clip.moveDown",
+					disabled: readOnly || index === model.clips.length - 1,
+					keepOpen: true,
+					onSelect: () => this.onMove(index, 1),
+				},
+				{
+					icon: "edit",
+					tooltipKey: "panel.clip.edit",
+					disabled: readOnly,
+					onSelect: () => this.onEdit(index),
+				},
+				{
+					icon: "delete",
+					tooltipKey: "panel.clip.delete",
+					disabled: readOnly,
+					onSelect: () => this.onDelete(index),
+				},
+			],
+		});
+		this.cleanup.push(() => menu.close());
 		item.append(
 			canvas,
 			name,
 			this.#action("paste", "panel.clip.paste", () => this.onPaste(index), readOnly),
-			this.#action("up", "panel.clip.moveUp", () => this.onMove(index, -1), readOnly || index === 0),
-			this.#action(
-				"down",
-				"panel.clip.moveDown",
-				() => this.onMove(index, 1),
-				readOnly || index === model.clips.length - 1,
-			),
-			this.#action("edit", "panel.clip.edit", () => this.onEdit(index), readOnly),
-			this.#action("delete", "panel.clip.delete", () => this.onDelete(index), readOnly),
+			menu.button,
 		);
 		item.addEventListener("dblclick", () => {
 			if (!readOnly) {

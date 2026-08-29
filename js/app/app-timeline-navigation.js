@@ -125,6 +125,17 @@ export class TimelineNavigationTrait {
 			if (Number.isFinite(current) && current >= beginning && current <= ending) {
 				const ratio = (current - beginning) / oldSpan;
 				this.setVisibleRange(current - ratio * span, current + (1 - ratio) * span);
+				// v22 fix: while playing, the armed follow offset slides the range back to its
+				// old anchor on the next frame, so the zoom must re-arm it to the offset the
+				// zoom just established for the playhead position to stay put.
+				const follow = this.playFollowOffset;
+				if (this.audio?.playing && follow && typeof follow === "object") {
+					if (follow.direction > 0) {
+						follow.value = current - editor.visibleRangeBeginning;
+					} else {
+						follow.value = editor.visibleRangeEnd - current;
+					}
+				}
 				return;
 			}
 			const center = (beginning + ending) / 2;

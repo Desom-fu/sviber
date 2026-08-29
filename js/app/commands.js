@@ -99,8 +99,14 @@ const DEFINITIONS = [
 
 	define("channel.createAbove", "Insert", "create-channel-above"),
 	define("channel.createBelow", "Shift+Insert", "create-channel-below"),
-	define("channel.deactivate", "Ctrl+,", null, { allowWhenReadOnly: true }),
-	define("channel.activateAll", "Ctrl+Alt+,", null, { allowWhenReadOnly: true }),
+	// v22: deactivation moves from Ctrl+, to Ctrl+K so that hide/show (Ctrl+J) sit next to
+	// it on the same keys, and the channel menu gains the within-channel stacking commands.
+	define("channel.deactivate", "Ctrl+K", null, { allowWhenReadOnly: true }),
+	define("channel.activateAll", "Ctrl+Alt+K", null, { allowWhenReadOnly: true }),
+	define("channel.hide", "Ctrl+J", null, { allowWhenReadOnly: true }),
+	define("channel.showAll", "Ctrl+Alt+J", null, { allowWhenReadOnly: true }),
+	define("channel.moveAboveWithinChannel", "Ctrl+Alt+ArrowUp", null, { blockDuringPlayback: true }),
+	define("channel.moveBelowWithinChannel", "Ctrl+Alt+ArrowDown", null, { blockDuringPlayback: true }),
 	define("channel.delete", null, "delete-channel"),
 	define("channel.moveUp", "Ctrl+ArrowUp", "move-channel-up"),
 	define("channel.moveDown", "Ctrl+ArrowDown", "move-channel-down"),
@@ -162,8 +168,8 @@ const DEFINITIONS = [
 	define("music.seekForward", ".", null, { allowWhenBlocked: true }),
 	define("music.seekBackward", ",", null, { allowWhenBlocked: true }),
 	define("music.seekForward3", "Ctrl+.", null, { allowWhenBlocked: true }),
-	// v17 assigns Ctrl+, to "Deactivate channel" while still listing it for this
-	// command; the channel binding wins, so seeking by 3 s moves to Ctrl+Shift+,.
+	// v17 moved seeking by 3 s from Ctrl+, to Ctrl+Shift+, when the channel commands took
+	// Ctrl+,; v22 moved those to Ctrl+K/Ctrl+J but the seek shortcut stays where users know it.
 	define("music.seekBackward3", "Ctrl+Shift+,", null, { allowWhenBlocked: true }),
 	define("music.abLoop", "L", null, { blockDuringPlayback: true }),
 	define("music.subdivision1", "1", "time-lattice-1", {
@@ -346,12 +352,17 @@ export const MENU_DEFINITION = Object.freeze([
 		items: Object.freeze([
 			item("events.moveChannelAbove"),
 			item("events.moveChannelBelow"),
+			item("channel.moveAboveWithinChannel"),
+			item("channel.moveBelowWithinChannel"),
 			separator,
 			item("channel.createAbove"),
 			item("channel.createBelow"),
 			separator,
 			item("channel.deactivate"),
 			item("channel.activateAll"),
+			separator,
+			item("channel.hide"),
+			item("channel.showAll"),
 			separator,
 			item("channel.delete"),
 			separator,

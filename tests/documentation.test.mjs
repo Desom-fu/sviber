@@ -125,9 +125,9 @@ test("help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0", a
 });
 
 test("help and inspector Enter apply the focused field", async () => {
-	const [help, panels, zh] = await Promise.all([
+	const [help, lists, zh] = await Promise.all([
 		readManual(),
-		readFile(new URL("../js/ui/panels.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/ui/panel-lists.js", import.meta.url), "utf8"),
 		readFile(new URL("../json/i18n.zh-CN.json", import.meta.url), "utf8"),
 	]);
 	assert.match(help, /Show HUD/);
@@ -138,7 +138,7 @@ test("help and inspector Enter apply the focused field", async () => {
 	assert.match(help, /打开最近文件/);
 	assert.match(help, /运行宏/);
 	assert.match(zh, /运行宏/);
-	assert.match(panels, /event\.key === "Enter"/);
+	assert.match(lists, /event\.key === "Enter"/);
 });
 
 test("documentation and independent macro code are linked", async () => {

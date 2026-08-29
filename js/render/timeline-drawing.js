@@ -15,6 +15,7 @@ import {
 	timelineTipCheckpointSignature,
 } from "./timeline-helpers.js";
 import { abLoopMarks } from "./timeline-gestures.js";
+import { visibleTimelineChannels } from "./timeline-helpers.js";
 
 // Painting of the timeline: the waveform strip, the beat and bar lines, the channel lanes
 // with their events, the tip point connectors, the BPM markers, the playhead and the two
@@ -125,13 +126,25 @@ export class TimelineDrawingTrait {
 		const channels = this._visibleChannels(project);
 		context.fillStyle = "#090a0c";
 		context.fillRect(0, layout.channels.y, layout.channels.width, layout.channels.height);
+		// v22: a dark gray line at the bottom of the waveform separates it from the channels.
+		context.strokeStyle = "#34383d";
+		context.lineWidth = 1;
+		context.beginPath();
+		context.moveTo(0, Math.round(layout.channels.y) + 0.5);
+		context.lineTo(layout.channels.width, Math.round(layout.channels.y) + 0.5);
+		context.stroke();
 		context.font = "10px 'Cascadia Mono', Consolas, monospace";
 		context.textBaseline = "top";
 		channels.forEach((channel, index) => {
 			const y = layout.channels.y + index * layout.channelHeight;
 			if (index) {
-				context.strokeStyle = "#34383d";
-				context.lineWidth = 1;
+				// v22: when hidden channels collapse between two shown lanes, their separator
+				// becomes a thick bright gray line to signal the missing channels.
+				const order = project.channels.map(item => item.id);
+				const hiddenBetween =
+					order.indexOf(channel.id) - order.indexOf(channels[index - 1].id) > 1;
+				context.strokeStyle = hiddenBetween ? "#d5dade" : "#34383d";
+				context.lineWidth = hiddenBetween ? 2.5 : 1;
 				context.beginPath();
 				context.moveTo(0, Math.round(y) + 0.5);
 				context.lineTo(layout.channels.width, Math.round(y) + 0.5);
@@ -401,7 +414,7 @@ export class TimelineDrawingTrait {
 		const checkpointSignature = timelineTipCheckpointSignature(
 			layout,
 			this.channelOffset,
-			project.channels,
+			visibleTimelineChannels(project),
 			this.renderIndex?.timelineTipRevision,
 		);
 		for (const guide of guides) {
@@ -633,15 +646,16 @@ export class TimelineDrawingTrait {
 	}
 
 	_drawChannelScrollbar(context, layout, project) {
-		if (project.channels.length <= 3) {
+		const channels = visibleTimelineChannels(project);
+		if (channels.length <= 3) {
 			return;
 		}
 		const width = 10;
 		const x = layout.channels.width - width;
 		context.fillStyle = "#20242a";
 		context.fillRect(x, layout.channels.y, width, layout.channels.height);
-		const thumbHeight = Math.max(22, (layout.channels.height * 3) / project.channels.length);
-		const maxOffset = project.channels.length - 3;
+		const thumbHeight = Math.max(22, (layout.channels.height * 3) / channels.length);
+		const maxOffset = channels.length - 3;
 		const thumbY = layout.channels.y + ((layout.channels.height - thumbHeight) * this.channelOffset) / maxOffset;
 		context.fillStyle = "#68717a";
 		context.fillRect(x + 2, thumbY, width - 4, thumbHeight);
