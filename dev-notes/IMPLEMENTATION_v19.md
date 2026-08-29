@@ -196,3 +196,11 @@
 - `npm run build`：本地 NW.js 打包成功。
 - 若滚动视图在实际谱面中仍有可感知的掉帧，需要用户提供具体谱面文件复现（合成数据下绘制与索引路径均在预算内）。
 
+## v0.10.5 检查扫描分步执行
+
+- **现象**：v0.10.4 把检查刷新挪到空闲切片后，放置不再卡，但"放完之后"会卡——一整个空闲任务里跑完签名序列化 + 全部 13 项检查（4000 事件约 42ms），用户停手时正好撞上。
+- **实现**：
+  - `js/core/checks.js`：把 `runChecks` 的规则序列抽成 `createChecksSteps(model, options)`（返回 `{ violations, steps }`）并导出 `sortViolations`；`runChecks` 改为逐步执行同一份 steps，结果不变。
+  - `js/app/app-checks.js`：`_scheduleChecksRefresh` 改为泵式分步执行——每个空闲切片（`requestIdleCallback`，按 `timeRemaining() > 2` 用量预算；无则 `setTimeout` 16ms + 5ms 预算）只跑若干条规则，全部完成后排序、渲染面板并更新标签页计数。编辑突发用 `checksRefreshPending` + token 合并：运行中的扫描在下一个切片发现被更新的编辑取代时，用新步骤重启；签名序列化从异步路径移除（编辑触发的重跑本来就知道模型变了，同步路径的 `refreshChecks` 仍带签名去重）。
+- **验证**：playwright 探针（4000 事件）——放置本身 8-10ms，放置后 600ms 内 **零长任务**（修复前有一个 ~42ms 的整块检查任务，即"放完之后卡一下"）；`tests/checks.test.mjs` 新增分步与一次性运行结果一致性测试，`npm test` 全部通过。
+

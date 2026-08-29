@@ -4,7 +4,14 @@ import test from "node:test";
 import { COMMAND_DEFINITIONS } from "../js/app/commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { DEFAULT_EDITOR, DIFFICULTY_COLORS } from "../js/core/chart-vocabulary.js";
-import { CHECK_DEFINITIONS, CHECK_IDS, defaultChecks, runChecks } from "../js/core/checks.js";
+import {
+	CHECK_DEFINITIONS,
+	CHECK_IDS,
+	createChecksSteps,
+	defaultChecks,
+	runChecks,
+	sortViolations,
+} from "../js/core/checks.js";
 import { withChecks } from "../js/app/app-checks.js";
 import { withFreeTransform } from "../js/app/app-free-transform.js";
 import { withHistoryCommands } from "../js/app/app-history-commands.js";
@@ -524,4 +531,22 @@ test("a lightweight commit refreshes the live checks panel off the interaction p
 	assert.deepEqual(renders.at(-1), []);
 	await new Promise(resolve => setTimeout(resolve, 60));
 	assert.deepEqual(renders.at(-1), ["outOfBoundaryNotes"]);
+});
+
+test("stepwise checks produce exactly the runChecks result", () => {
+	const model = validChart();
+	addNote(model, "hold", 2, 200, 0);
+	addNote(model, "drag", 4, 0, 0);
+	addNote(model, "tap", 4, 0, 0);
+	addNote(model, "bgNote", 1, 500, 0);
+
+	const expected = runChecks(model);
+	const { violations, steps } = createChecksSteps(model);
+	for (const step of steps) {
+		step();
+	}
+	assert.deepEqual(sortViolations(violations), expected);
+	// Every check id the full run reports appears in the stepwise result exactly once
+	// per violation.
+	assert.equal(violations.length, expected.length);
 });

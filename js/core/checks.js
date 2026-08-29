@@ -441,36 +441,41 @@ function buildContext(model, options) {
 	};
 }
 
-export function runChecks(model, options = {}) {
+export function createChecksSteps(model, options = {}) {
 	const context = buildContext(model, options);
 	const settings = context.settings;
 	const violations = [];
+	const steps = [];
 	if (settings.emptyMetadata.enabled) {
-		checkMetadata(model, violations);
+		steps.push(() => checkMetadata(model, violations));
 	}
 	if (settings.irregularDifficulty.enabled) {
-		checkDifficulty(model, violations);
+		steps.push(() => checkDifficulty(model, violations));
 	}
 	if (settings.requiredFingers.enabled) {
-		checkRequiredFingers(context, violations);
+		steps.push(() => checkRequiredFingers(context, violations));
 	}
 	if (settings.outOfBoundaryNotes.enabled || settings.outOfBoundaryBgNotes.enabled) {
-		checkBoundaries(context, violations);
+		steps.push(() => checkBoundaries(context, violations));
 	}
 	if (settings.shortHold.enabled || settings.shortBgPattern.enabled) {
-		checkDurations(context, violations);
+		steps.push(() => checkDurations(context, violations));
 	}
-	checkTipPoints(context, violations);
+	steps.push(() => checkTipPoints(context, violations));
 	if (settings.multiCharacterCjk.enabled) {
-		checkCjkTexts(context, violations);
+		steps.push(() => checkCjkTexts(context, violations));
 	}
 	if (settings.eventsOutsideMusic.enabled) {
-		checkEventsOutsideMusic(context, violations);
+		steps.push(() => checkEventsOutsideMusic(context, violations));
 	}
 	if (settings.dragScreening.enabled) {
-		checkDragScreening(context, violations);
+		steps.push(() => checkDragScreening(context, violations));
 	}
-	// Violations without a time sort to the top; the rest sort by time.
+	return { violations, steps };
+}
+
+// Violations without a time sort to the top; the rest sort by time.
+export function sortViolations(violations) {
 	return violations.sort((left, right) => {
 		if (left.time == null && right.time == null) {
 			return CHECK_IDS.indexOf(left.check) - CHECK_IDS.indexOf(right.check);
@@ -483,6 +488,14 @@ export function runChecks(model, options = {}) {
 		}
 		return left.time - right.time || CHECK_IDS.indexOf(left.check) - CHECK_IDS.indexOf(right.check);
 	});
+}
+
+export function runChecks(model, options = {}) {
+	const { violations, steps } = createChecksSteps(model, options);
+	for (const step of steps) {
+		step();
+	}
+	return sortViolations(violations);
 }
 
 export function checkBeat(timing, seconds) {

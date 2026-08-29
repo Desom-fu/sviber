@@ -3,8 +3,16 @@
 
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
-import { CHECK_DEFINITIONS, normalizeChecks, runChecks } from "../core/checks.js";
+import { CHECK_DEFINITIONS, createChecksSteps, normalizeChecks, runChecks, sortViolations } from "../core/checks.js";
 import { Rational } from "../core/rational.js";
+
+function scheduleSlice(callback) {
+	if (typeof requestIdleCallback === "function") {
+		requestIdleCallback(callback, { timeout: 200 });
+	} else {
+		setTimeout(() => callback(null), 16);
+	}
+}
 
 function checksSignature(model) {
 	return JSON.stringify([
@@ -54,23 +62,61 @@ class ChecksTrait {
 		badge.textContent = count ? String(count) : "";
 	}
 
-	// v19: checks re-scan the whole chart, so running them on the critical path of every
-	// edit stuttered note placement on large charts. Edits schedule the refresh for the
-	// next idle slice instead; bursts coalesce because a pending run re-reads the model.
+	// v19: checks re-scan the whole chart, so running them whole on the critical path of
+	// every edit stuttered note placement, and running them as one idle task stuttered the
+	// frame right after an edit. Edits therefore pump the scan step by step: each idle
+	// slice runs a few millimetres worth of rules, so no single task is user-visible.
+	// Bursts coalesce: a pending flag plus a token let an in-flight run detect that a
+	// newer edit superseded it and restart from fresh steps.
 	_scheduleChecksRefresh() {
-		if (this.checksRefreshScheduled) {
+		this.checksRefreshPending = true;
+		this.checksRefreshToken = (this.checksRefreshToken || 0) + 1;
+		if (!this.checksRunActive) {
+			this._pumpChecksRefresh();
+		}
+	}
+
+	_pumpChecksRefresh() {
+		if (!this.checksPanel) {
+			this.checksRefreshPending = false;
 			return;
 		}
-		this.checksRefreshScheduled = true;
-		const run = () => {
-			this.checksRefreshScheduled = false;
-			this.refreshChecks();
+		this.checksRefreshPending = false;
+		this.checksRunActive = true;
+		const token = this.checksRefreshToken;
+		const model = this.model;
+		const { violations, steps } = createChecksSteps(model, { music: this.musicBoundsForChecks() });
+		let index = 0;
+		const slice = deadline => {
+			if (token !== this.checksRefreshToken) {
+				this.checksRunActive = false;
+				if (this.checksRefreshPending) {
+					this._pumpChecksRefresh();
+				}
+				return;
+			}
+			const started = performance.now();
+			while (
+				index < steps.length &&
+				(deadline ? deadline.timeRemaining() > 2 : performance.now() - started < 5)
+			) {
+				steps[index]();
+				index += 1;
+			}
+			if (index < steps.length) {
+				scheduleSlice(slice);
+				return;
+			}
+			this.checksRunActive = false;
+			const sorted = sortViolations(violations);
+			this.checkViolations = sorted;
+			this.checksPanel.render(sorted);
+			this._updateChecksTabCount(sorted.length);
+			if (this.checksRefreshPending) {
+				this._pumpChecksRefresh();
+			}
 		};
-		if (typeof requestIdleCallback === "function") {
-			requestIdleCallback(run, { timeout: 200 });
-		} else {
-			setTimeout(run, 32);
-		}
+		scheduleSlice(slice);
 	}
 
 	_bindChecksTabs() {
