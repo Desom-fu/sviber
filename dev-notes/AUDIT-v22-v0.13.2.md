@@ -1,6 +1,6 @@
 # PROMPT-v22 Audit Report
 
-本轮审计逐行阅读了 `dev-notes/PROMPT-v22.md` 的全部 4592 行，并按 Overview、Technical notes、UI/UX、菜单与工具栏、事件/游标、检查、宏、文件格式、Lyrica、工程、国际化、自动保存、CI/CD、许可、Lint 与 CLI 章节逐项核对实现。
+本轮审计逐行阅读了 `dev-notes/PROMPT-v22.md` 的全部 4591 行。逐行实现、测试和结果矩阵见 [`dev-notes/PROMPT-v22-AUDIT-MATRIX.md`](PROMPT-v22-AUDIT-MATRIX.md)，该矩阵包含 4591 条连续 Prompt 行记录，以及此前所有 `NO-TEST/MISSING` 的 65 条逐项关闭台账。
 
 ## 本轮修复
 
@@ -40,11 +40,13 @@
 - `tests/snappee-panel-ops.test.mjs`
 - `tests/release-audit-contract.test.mjs`
 - `tests/shortcuts.test.mjs`（新增全量快捷键清单契约）
-- `tests/time-transform-commands.test.mjs`
+- `tests/prompt-v22-audit-contract.test.mjs`（29 项章节级契约测试）
+- `tests/prompt-v22-no-test-closures.test.mjs`（65 项此前 NO-TEST/MISSING 逐项关闭测试）
 
 最终验证：
 
-- `npm test`: 468 项测试，467 通过，1 项环境相关测试跳过，0 失败。
+- `npm test`: 563 项测试，562 通过，1 项环境相关测试跳过，0 失败。
+- `prompt-v22-audit-contract.test.mjs` 与 `prompt-v22-no-test-closures.test.mjs`：95 项测试全部通过；矩阵检查确认 4591 个连续行号和 65 条关闭记录。
 - `npm run build`: 通过，生成 `build/sviber-0.13.2.nw` 和本地 NW.js 构建目录。
 - SSC 专项回归：4 项通过，覆盖事件自动保存/恢复、导入 dirty 状态、媒体异步加载后的撤销、旧快照媒体兼容。
 - 受影响功能专项测试：26 项通过；发布审计契约测试 14 项通过。
