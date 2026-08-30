@@ -95,6 +95,6 @@ v22 相对 v21 的需求来自 `dev-notes/PROMPT-v21.md` 与 `dev-notes/PROMPT-v
 - 版本：本轮发布版本为 `0.13.2`；`index.html` 与 `service-worker.js` 的 app.js 缓存参数同步至 `?v=65`；`CACHE_VERSION` 为 `sviber-v01320`。SSC 独立导入保持未保存状态以确保自动保存恢复；项目媒体字段同步到历史快照，撤销操作不会清空已加载音乐和图片。
 
 ## 验证结果
-- `npm test`（eslint + node --test）：**468 项测试，467 通过，1 项既有环境跳过，0 失败**。
+- `npm test`（eslint + node --test）：**500 项测试，499 通过，1 项既有环境跳过，0 失败**。新增审计测试已按功能拆分命名，未使用通用 Prompt 测试文件。
 - `npm run build`：本地构建通过。
 - 全量快捷键重复扫描：无未预期冲突。
