@@ -256,11 +256,28 @@ class ChannelCommandsTrait {
 				active: source.active !== false,
 				hidden: source.hidden === true,
 			});
-			const sourceEvents = model
-				.allEvents({ includeGroups: false })
-				.filter(event => event.channel === id && !model.ancestorsOf(event.id).length);
+			// Duplicating mirrors the delete-channel membership rules: every event of the
+			// channel comes along, groups keep only the members that belong to this channel,
+			// and addEvent re-allocates all of the copied IDs.
+			const collect = items =>
+				(items || []).flatMap(event => {
+					if (event.type === "group") {
+						const children = collect(event.events);
+						return children.length ? [{ ...event, events: children }] : [];
+					}
+					return event.channel === id ? [{ ...event, channel: duplicate.id }] : [];
+				});
+			const deselectTree = item => {
+				item.selected = false;
+				for (const child of item.events || []) {
+					deselectTree(child);
+				}
+			};
+			const sourceEvents = collect(model.events);
 			for (const event of sourceEvents) {
-				model.addEvent({ ...deepClone(event), id: null, channel: duplicate.id, selected: false });
+				const copy = deepClone(event);
+				deselectTree(copy);
+				model.addEvent(copy);
 			}
 			if (duplicate.active === false) {
 				model.editor.currentChannel = previousCurrent;

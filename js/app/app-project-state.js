@@ -30,6 +30,7 @@ export const withProjectState = Base =>
 		syncProjectHistorySharedFields(options = {}) {
 			const excludeDifficultyId = options.excludeDifficultyId ?? null;
 			const metadata = options.metadata !== false;
+			const media = options.media !== false;
 			for (const entry of this.difficulties) {
 				if (entry.id === excludeDifficultyId) {
 					continue;
@@ -37,6 +38,10 @@ export const withProjectState = Base =>
 				entry.history.transformStates(state => {
 					if (metadata) {
 						state.metadata.artist = this.projectArtist;
+					}
+					if (media) {
+						state.music = this.projectMusic;
+						state.image = this.projectImage;
 					}
 					return state;
 				});
@@ -46,7 +51,15 @@ export const withProjectState = Base =>
 		restoreHistorySnapshot(snapshot) {
 			const artist = String(snapshot.metadata?.artist ?? this.projectArtist);
 			const artistChanged = artist !== this.projectArtist;
+			const music = String(this.projectMusic || this.model.music || "");
+			const image = String(this.projectImage || this.model.image || "");
 			this.model.restore(snapshot);
+			if (!this.model.music && music) {
+				this.model.music = music;
+			}
+			if (!this.model.image && image) {
+				this.model.image = image;
+			}
 			this.projectMusic = String(this.model.music || "");
 			this.projectImage = String(this.model.image || "");
 			this._normalizeGroupSelectionScope();

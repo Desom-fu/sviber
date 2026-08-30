@@ -181,7 +181,9 @@ class ClipLibraryTrait {
 			return;
 		}
 		await this.copyEvents();
-		this.commit(i18n.t("history.saveClip"), model => model.addClip(deepClone(this.internalClipboard)));
+		const name = i18n.t("clip.defaultName", { n: this.model.clips.length + 1 });
+		this.commit(i18n.t("history.saveClip"), model =>
+			model.addClip(deepClone(this.internalClipboard), name));
 	}
 
 	async pasteClip(index) {

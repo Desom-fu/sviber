@@ -166,7 +166,7 @@ test("command definitions cover the new file, edit, timing and channel actions",
 	assertCommand("transform.timeTranslation", {});
 	assertCommand("transform.reverseTime", {});
 	assertCommand("music.speedOther", { shortcut: "Ctrl+0" });
-	assertCommand("music.seekBackward3", { shortcut: "Ctrl+Shift+," });
+	assertCommand("music.seekBackward3", { shortcut: "Ctrl+," });
 	for (const id of ["music.subdivision5", "music.subdivision7", "music.subdivision9"]) {
 		assert.ok(COMMAND_DEFINITIONS[id], id);
 	}

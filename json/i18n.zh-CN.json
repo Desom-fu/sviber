@@ -47,6 +47,7 @@
   "panel.inspector": "属性",
   "panel.channels": "通道",
   "panel.snappees": "吸附器",
+  "clip.defaultName": "片段 {n}",
   "panel.clips": "片段",
   "panel.noClips": "暂无片段",
   "panel.clip.paste": "粘贴此片段",

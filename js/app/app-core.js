@@ -189,6 +189,7 @@ export class SviberAppCore extends CoreShell {
 		this.stage = new StageView(document.getElementById("stage-surface"), this._stageCallbacks());
 		this.scrollView = new ScrollView(document.getElementById("scroll-surface"), {
 			onSelectEvents: (ids, mode) => this.selectEvents(ids, mode),
+			onEnterGroupSelection: id => this.enterGroupSelection(id),
 			onPreviewBoxSelect: (ids, mode) => this.previewSelection(ids, mode),
 			onBoxSelect: (ids, mode) => this.finishSelectionPreview(ids, mode),
 			onEndPreview: () => this.endInteractionPreview(),

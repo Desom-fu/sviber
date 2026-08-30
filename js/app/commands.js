@@ -168,9 +168,9 @@ const DEFINITIONS = [
 	define("music.seekForward", ".", null, { allowWhenBlocked: true }),
 	define("music.seekBackward", ",", null, { allowWhenBlocked: true }),
 	define("music.seekForward3", "Ctrl+.", null, { allowWhenBlocked: true }),
-	// v17 moved seeking by 3 s from Ctrl+, to Ctrl+Shift+, when the channel commands took
-	// Ctrl+,; v22 moved those to Ctrl+K/Ctrl+J but the seek shortcut stays where users know it.
-	define("music.seekBackward3", "Ctrl+Shift+,", null, { allowWhenBlocked: true }),
+	// v17 moved seeking by 3 s to Ctrl+Shift+, because channel deactivation occupied Ctrl+,;
+	// v22 moved those channel commands to Ctrl+K/Ctrl+J, freeing Ctrl+, again.
+	define("music.seekBackward3", "Ctrl+,", null, { allowWhenBlocked: true }),
 	define("music.abLoop", "L", null, { blockDuringPlayback: true }),
 	define("music.subdivision1", "1", "time-lattice-1", {
 		checkable: true,

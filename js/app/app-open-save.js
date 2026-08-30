@@ -209,16 +209,19 @@ class OpenSaveTrait {
 	}
 
 	async installOpenedChartStandalone(model, parsed, options) {
+		const importedLevel = Boolean(parsed.fromLevel);
 		this.installProject(
 			[{ id: "difficulty-0", file: uniqueChartFilename(model.metadata.difficultyName), model }],
-			{ activeChart: "difficulty-0", name: model.metadata.title, saved: true },
+			{ activeChart: "difficulty-0", name: model.metadata.title, saved: !importedLevel },
 		);
 		this.editingProject = false;
 		this.files.clearProjectTarget();
 		this.files.adoptChartSource(parsed);
 		await this.clearRuntimeMedia();
 		await this.loadParsedMedia(parsed, false);
-		this.markProjectSaved();
+		if (!importedLevel) {
+			this.markProjectSaved();
+		}
 		this.rememberLastOpen("chart", this.files.chartPath);
 		if (!options.silent) {
 			this.toast.show("toast.opened");
@@ -482,6 +485,9 @@ class OpenSaveTrait {
 		const project = this.projectSnapshot();
 		const blob = await this.files.createLevelArchive(project, {
 			sscharterVersion: this.liveHosting.reloadPort > 0 ? SSCHARTER_VERSION : null,
+			// The hosted level lives only in memory and is rebuilt on every edit, so it uses
+			// level-zero (store) compression to keep rebuilds cheap.
+			compression: "STORE",
 		});
 		const BufferRef = this.liveHosting.Buffer || globalThis.Buffer;
 		if (!BufferRef) {

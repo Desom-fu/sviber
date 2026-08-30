@@ -378,7 +378,7 @@ test("source wiring for checks tab, icons, eslint, lint and editor defaults", as
 	assert.equal(pkg.scripts.test, "eslint . --max-warnings 0 && node --test tests/*.test.mjs");
 	assert.equal(pkg.scripts.build, "node scripts/build-nw.mjs");
 	assert.equal(pkg.scripts["check:size"], undefined);
-	assert.equal(COMMAND_DEFINITIONS["music.seekBackward3"].shortcut, "Ctrl+Shift+,");
+	assert.equal(COMMAND_DEFINITIONS["music.seekBackward3"].shortcut, "Ctrl+,");
 	assert.equal(DEFAULT_EDITOR.showChartBoundary, true);
 	assert.equal(DEFAULT_EDITOR.playBgNoteSe, false);
 	assert.equal(ChartModel.createDefault().editor.showChartBoundary, true);

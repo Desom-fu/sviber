@@ -47,6 +47,7 @@
   "panel.inspector": "Inspector",
   "panel.channels": "Channels",
   "panel.snappees": "Snappees",
+  "clip.defaultName": "Clip {n}",
   "panel.clips": "Clips",
   "panel.noClips": "No clips",
   "panel.clip.paste": "Paste this clip",

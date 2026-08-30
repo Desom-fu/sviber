@@ -249,7 +249,10 @@ export class TimelineDrawingTrait {
 		if (interactive) {
 			this._registerEventHitRegion(event, position);
 		}
-		if ((event.type === "bigText" || event.type === "comment") && event.text) {
+		if (event.type === "bigText" && event.text) {
+			this._drawEventLabel(context, event, position, endX, color);
+		}
+		if (event.type === "comment" && event.text) {
 			this._drawEventLabel(context, event, position, endX, color);
 		}
 		// v19: the duration tail handle does not appear for locked events.
