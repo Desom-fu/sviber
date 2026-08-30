@@ -25,6 +25,7 @@ function scrollbarApp(editor) {
 	app.stage = { requestRender() {} };
 	app.scrollView = { requestRender() {} };
 	app.refreshInteractionPreview = () => {};
+	app.requestStatusUpdate = () => {};
 	return app;
 }
 
@@ -43,22 +44,20 @@ test("timeline channel offset round-trips and clamps to visible channels", () =>
 	assert.equal(clamped.editor.timelineChannelOffset, 0);
 });
 
-test("timeline scrollbar track jump seeks current time and moves the visible range", () => {
+test("timeline scrollbar blank track pages the visible range", () => {
 	const app = scrollbarApp({ currentTime: [4, 0, 1], visibleRangeBeginning: 1, visibleRangeEnd: 3 });
 	app.currentSeconds = () => 2;
-	app.seekScrollbar(10);
-	assert.equal(app.model.editor.visibleRangeBeginning, 9);
-	assert.equal(app.model.editor.visibleRangeEnd, 11);
-	assert.deepEqual(app.model.editor.currentTime, [20, 0, 1]);
-});
+	app.pageVisibleRange(1);
+	assert.equal(app.model.editor.visibleRangeBeginning, 3);
+	assert.equal(app.model.editor.visibleRangeEnd, 5);
+	assert.deepEqual(app.model.editor.currentTime, [8, 0, 1]);
 
-test("timeline scrollbar track jump moves only the visible range when current time is outside it", () => {
-	const app = scrollbarApp({ currentTime: [4, 0, 1], visibleRangeBeginning: 10, visibleRangeEnd: 12 });
-	app.currentSeconds = () => 2;
-	app.seekScrollbar(20);
-	assert.equal(app.model.editor.visibleRangeBeginning, 19);
-	assert.equal(app.model.editor.visibleRangeEnd, 21);
-	assert.deepEqual(app.model.editor.currentTime, [4, 0, 1]);
+	const outside = scrollbarApp({ currentTime: [4, 0, 1], visibleRangeBeginning: 10, visibleRangeEnd: 12 });
+	outside.currentSeconds = () => 2;
+	outside.pageVisibleRange(1);
+	assert.equal(outside.model.editor.visibleRangeBeginning, 12);
+	assert.equal(outside.model.editor.visibleRangeEnd, 14);
+	assert.deepEqual(outside.model.editor.currentTime, [4, 0, 1]);
 });
 
 test("timeline zoom keeps the visual position of the current time", () => {
@@ -136,13 +135,63 @@ test("timeline zoom during playback re-arms the follow offset to keep the playhe
 	assert.equal(app.playFollowOffset, false);
 });
 
-test("timeline scrollbar track click jumps instead of paging", async () => {
+test("timeline scrollbar blank track pages by one visible span", async () => {
 	const source = await readSources(TIMELINE_MODULES);
-	assert.match(source, /_scrollSeek\(point\.x, hit, true\)/);
-	assert.match(source, /onScrollbarJump\?\.\(seconds\)/);
-	assert.doesNotMatch(source, /onPageVisibleRange\?\.\(direction\)/);
+	assert.match(source, /onPageVisibleRange\?\.\(-1\)/);
+	assert.match(source, /onPageVisibleRange\?\.\(1\)/);
+	assert.doesNotMatch(source, /_scrollSeek\(point\.x, hit, true\)/);
+	const pointer = Object.create(TimelinePointerTrait.prototype);
+	const directions = [];
+	pointer.callbacks = { onPageVisibleRange: direction => directions.push(direction) };
+	const hit = {
+		type: "scroll-track",
+		rectangle: { x: 0, width: 100 },
+		bounds: [0, 100],
+	};
+	const project = { editor: { visibleRangeBeginning: 40, visibleRangeEnd: 60 } };
+	pointer._scrollbarPressDrag({ ctrlKey: false }, { point: { x: 10 }, hit, project });
+	pointer._scrollbarPressDrag({ ctrlKey: false }, { point: { x: 90 }, hit, project });
+	assert.deepEqual(directions, [-1, 1]);
 });
 
+test("Ctrl-dragging the timeline scrollbar still seeks to the pointer", () => {
+	const pointer = Object.create(TimelinePointerTrait.prototype);
+	const beats = [];
+	pointer.timing = {
+		beatToSeconds: beat => Number(beat),
+		secondsToSnappedBeat: seconds => ({ toJSON: () => [Math.round(seconds), 0, 1] }),
+	};
+	pointer.callbacks = {
+		onSeekStart() {},
+		onPreviewSeekBeat: beat => beats.push(beat),
+	};
+	pointer._scrollbarPressDrag(
+		{ ctrlKey: true },
+		{
+			point: { x: 75 },
+			hit: { type: "scroll-track", rectangle: { x: 0, width: 100 }, bounds: [0, 100] },
+			project: {
+				editor: {
+					currentTime: [20, 0, 1],
+					timeSnapped: true,
+					subdivision: 1,
+					visibleRangeBeginning: 10,
+					visibleRangeEnd: 30,
+				},
+			},
+		},
+	);
+	assert.deepEqual(beats, [[75, 0, 1]]);
+});
+
+test("the manuals document scrollbar paging, Ctrl seeking, and Page keys", async () => {
+	const manual = await readManual();
+	assert.match(manual, /overview track outside the green range bar pages the visible range/);
+	assert.match(manual, /Ctrl<\/kbd>-clicking or dragging anywhere on the overview track/);
+	assert.match(manual, /总览进度条上绿条以外的位置，会按点击方向把可见范围移动一个可见跨度/);
+	assert.match(manual, /按住 <kbd>Ctrl<\/kbd> 在总览进度条任意位置点击或拖动/);
+	assert.match(manual, /<kbd>PageUp<\/kbd>[\s\S]*?<kbd>PageDown<\/kbd>/);
+});
 test("timeline tip connector is fixed just beyond the largest event icon radius", () => {
 	const connector = timelineTipConnector([
 		{ time: 0, x: 0, y: 0 },

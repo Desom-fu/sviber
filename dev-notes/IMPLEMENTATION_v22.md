@@ -92,7 +92,7 @@ v22 相对 v21 的需求来自 `dev-notes/PROMPT-v21.md` 与 `dev-notes/PROMPT-v
 - `js/ui/panels.js` 拆分：`SnappeesPanel`/`ChannelsPanel` 与 snappee 预览绘制移至新文件 `js/ui/panel-lists.js`（panels.js re-export 保持导入路径兼容），以满足 lint 的单文件/单函数行数上限。
 - 新增 i18n 键：`command.channel.hide(.hint)`、`command.channel.showAll(.hint)`、`command.channel.moveAboveWithinChannel(.hint)`、`command.channel.moveBelowWithinChannel(.hint)`、`history.moveWithinChannel`、`panel.channel.{menu,show,hide,createAbove,createBelow}`、`panel.snappee.menu`、`panel.clip.menu`、`shortcut.command`、`shortcut.option`（en-US/zh-CN 同步，`i18n.test.mjs` 校验通过）。
 - 图标：新增 `svg/icons/menu.svg`（菜单按钮）；`show-channel.svg`/`hide-channel.svg`/`create-channel-above.svg`/`create-channel-below.svg` 沿用已有文件。
-- 版本：本轮发布版本为 `0.13.2`；`index.html` 与 `service-worker.js` 的 app.js 缓存参数同步至 `?v=65`；`CACHE_VERSION` 为 `sviber-v01320`。SSC 独立导入保持未保存状态以确保自动保存恢复；项目媒体字段同步到历史快照，撤销操作不会清空已加载音乐和图片。
+- 版本：v0.13.2 审计后追加发布 v0.13.3，`index.html` 与 `service-worker.js` 的 app.js 缓存参数同步至 `?v=66`；`CACHE_VERSION` 为 `sviber-v01330`。时间轴滚动条空白轨道按可见跨度翻页，Ctrl 点击/拖动按指针吸附定位；主编辑区 HUD 进度条支持低优先级点击和拖动寻拍。SSC 独立导入保持未保存状态以确保自动保存恢复；项目媒体字段同步到历史快照，撤销操作不会清空已加载音乐和图片。
 
 ## 验证结果
 - `npm test`（eslint + node --test）：**500 项测试，499 通过，1 项既有环境跳过，0 失败**。新增审计测试已按功能拆分命名，未使用通用 Prompt 测试文件。

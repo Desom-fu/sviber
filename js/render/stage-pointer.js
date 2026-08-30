@@ -19,7 +19,6 @@ import {
 	pointInPolygon,
 } from "./stage-helpers.js";
 import { eventChannels } from "../core/grouping.js";
-
 // Pointer handling of the main field: hit testing, hover feedback and the press, drag and
 // release cycle that moves notes, snappees, tip point spawns and the free transform gizmo.
 
@@ -136,7 +135,6 @@ const POINTER_UP_HANDLERS = {
 };
 
 export class StagePointerTrait {
-
 	_hitTest(point) {
 		const priorities = [
 			"free-scale",
@@ -153,6 +151,7 @@ export class StagePointerTrait {
 			"event",
 			"snappee-body",
 			"hud-pause",
+			"progress",
 		];
 		for (const type of priorities) {
 			for (let index = this.hitRegions.length - 1; index >= 0; index -= 1) {
@@ -376,7 +375,9 @@ export class StagePointerTrait {
 	// The bottom strip of the head-up display is its progress bar; pressing it scrubs.
 	_handleProgressPress(context, hit) {
 		const { point, project } = context;
-		if (hit || point.y < this.surface.height - 18 || project.editor?.showHud === false) {
+		const isProgressHit = hit?.type === "progress";
+		if ((!isProgressHit && point.y < this.surface.height - 18) ||
+			(hit?.type && !isProgressHit) || project.editor?.showHud === false) {
 			return false;
 		}
 		const current = currentSeconds(this.state, this.timing);
@@ -996,5 +997,4 @@ export class StagePointerTrait {
 			return;
 		}
 	}
-
 }

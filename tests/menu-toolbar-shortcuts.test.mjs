@@ -80,19 +80,19 @@ test("keyboard shortcut dialog contains every defined keyboard shortcut", async 
 	}
 });
 
-test("application cache version matches the v0.13.2 shell", async () => {
+test("application cache version matches the v0.13.3 shell", async () => {
 	const [serviceWorker, index, packageSource] = await Promise.all([
 		readSource("service-worker.js"),
 		readSource("index.html"),
 		readSource("package.json"),
 	]);
-	assert.equal(JSON.parse(packageSource).version, "0.13.2");
-	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v01320"/);
-	assert.match(serviceWorker, /js\/app\/app\.js\?v=65/);
-	assert.match(index, /js\/app\/app\.js\?v=65/);
+	assert.equal(JSON.parse(packageSource).version, "0.13.3");
+	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v01330"/);
+	assert.match(serviceWorker, /js\/app\/app\.js\?v=66/);
+	assert.match(index, /js\/app\/app\.js\?v=66/);
 });
 
-	test("bilingual manuals mention the current channel and recovery shortcuts", async () => {
+test("bilingual manuals mention the current channel and recovery shortcuts", async () => {
 		const [english, chinese] = await Promise.all([
 			readJson("json/manual.en.json"),
 			readJson("json/manual.zh-CN.json"),

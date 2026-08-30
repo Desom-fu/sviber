@@ -238,10 +238,10 @@ export class TimelinePointerTrait {
 		};
 	}
 
-	// Pressing the empty part of the scrollbar track jumps there instead of paging. A
-	// Ctrl press anywhere on the scrollbar (v19) sets the current time instead: it snaps
-	// to subdivisions, and when the visible range contained the current time the range
-	// slides along so the current time keeps its position inside the range.
+	// Pressing the empty part of the scrollbar track pages by one visible span. A Ctrl
+	// press anywhere on the scrollbar (v19) sets the current time instead: it snaps to
+	// subdivisions, and when the visible range contained the current time the range slides
+	// along so the current time keeps its position inside the range.
 	_scrollbarPressDrag(event, { point, hit, project }) {
 		if (event.ctrlKey) {
 			const beginning = Number(project.editor.visibleRangeBeginning);
@@ -265,7 +265,15 @@ export class TimelinePointerTrait {
 			return drag;
 		}
 		if (hit.type === "scroll-track") {
-			this._scrollSeek(point.x, hit, true);
+			const progress = Math.max(0, Math.min(1, (point.x - hit.rectangle.x) / Math.max(1, hit.rectangle.width)));
+			const seconds = hit.bounds[0] + progress * (hit.bounds[1] - hit.bounds[0]);
+			const beginning = Number(project.editor.visibleRangeBeginning);
+			const ending = Number(project.editor.visibleRangeEnd);
+			if (seconds < beginning) {
+				this.callbacks.onPageVisibleRange?.(-1);
+			} else if (seconds > ending) {
+				this.callbacks.onPageVisibleRange?.(1);
+			}
 			return null;
 		}
 		if (hit.type === "scroll-current") {
@@ -725,13 +733,9 @@ export class TimelinePointerTrait {
 		this.callbacks.onSeekSeconds?.(seconds, final);
 	}
 
-	_scrollSeek(x, hit, jumpRange = false) {
+	_scrollSeek(x, hit) {
 		const progress = Math.max(0, Math.min(1, (x - hit.rectangle.x) / Math.max(1, hit.rectangle.width)));
 		const seconds = hit.bounds[0] + progress * (hit.bounds[1] - hit.bounds[0]);
-		if (jumpRange) {
-			this.callbacks.onScrollbarJump?.(seconds);
-			return;
-		}
 		const project = projectState(this.state);
 		const beat = this.timing.secondsToSnappedBeat(seconds, project.editor.subdivision);
 		(this.callbacks.onPreviewSeekBeat || this.callbacks.onSeekBeat)?.(beat.toJSON(), null, false);

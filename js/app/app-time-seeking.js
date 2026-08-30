@@ -44,19 +44,6 @@ export const withTimeSeeking = Base =>
 			this.refreshInteractionPreview?.({ rebuildIndex: false });
 		}
 
-		seekScrollbar(seconds) {
-			const editor = this.model.editor;
-			const current = this.currentSeconds();
-			const beginning = Number(editor.visibleRangeBeginning);
-			const end = Number(editor.visibleRangeEnd);
-			if (current >= beginning && current <= end) {
-				this.seekProgress({ seconds, followRange: true, beginning, end, startSeconds: current });
-				return;
-			}
-			const span = Math.max(0.001, end - beginning);
-			this.setVisibleRange(seconds - span / 2, seconds + span / 2, true);
-		}
-
 		// v17: the waveform drag leaves the current time unsnapped until the mouse is
 		// released. While `timeDragActive` is true every command that needs a snapped
 		// current time is disabled.

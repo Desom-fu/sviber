@@ -97,6 +97,13 @@ export class StageHudTrait {
 		this._drawHudCombo(context, width, hitCount);
 		const bounds = this.callbacks.getTimeBounds?.() || [0, 10];
 		drawHudProgressBar(context, width, height, bounds, now);
+		this.hitRegions.push({
+			type: "progress",
+			x: 0,
+			y: height - Math.max(18, width / 200),
+			width,
+			height: Math.max(18, width / 200),
+		});
 		context.restore();
 	}
 

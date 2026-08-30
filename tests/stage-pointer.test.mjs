@@ -5,6 +5,7 @@ import { ChartModel } from "../js/core/chart-model.js";
 import { EVENT_EDITING_MODULES, STAGE_INTERACTION_MODULES, readSources } from "./module-source.mjs";
 import { withStageInteractions } from "../js/render/stage-interactions.js";
 import { StageViewCore as StageView } from "../js/render/stage-core.js";
+import { StagePointerTrait } from "../js/render/stage-pointer.js";
 
 test("shift-dragging the stage never retargets another event", async () => {
 	const interactions = await readSources(STAGE_INTERACTION_MODULES);
@@ -185,4 +186,49 @@ test("simultaneous notes stack by channel order with the lower channel on top", 
 	timed[1].start = 1;
 	stage._sortNoteRecordsForStacking(timed, { channels: [] });
 	assert.deepEqual(timed.map(record => record.event.id), [6, 7]);
+});
+
+test("main editor progress bar registers a low-priority seek target", async () => {
+	const source = await readSources(["../js/render/stage-hud.js", "../js/render/stage-pointer.js"]);
+	assert.match(source, /type: "progress"/);
+	assert.match(source, /isProgressHit/);
+	const stage = {
+		hitRegions: [
+			{ type: "progress", x: 0, y: 82, width: 100, height: 18 },
+			{ type: "event", x: 35, y: 35, width: 30, height: 30, centerX: 50, centerY: 50, radius: 15 },
+		],
+	};
+	assert.equal(StagePointerTrait.prototype._hitTest.call(stage, { x: 50, y: 50 }).type, "event");
+	assert.equal(StagePointerTrait.prototype._hitTest.call(stage, { x: 50, y: 90 }).type, "progress");
+
+	const previousDocument = globalThis.document;
+	const hadDocument = Object.hasOwn(globalThis, "document");
+	globalThis.document = { addEventListener() {} };
+	try {
+		const seeks = [];
+		const pointer = Object.create(StagePointerTrait.prototype);
+		pointer.surface = { width: 100, height: 100 };
+		pointer.state = { editor: { currentTime: [0, 0, 1] } };
+		pointer.timing = { beatToSeconds: () => 4 };
+		pointer.callbacks = {
+			getTimeBounds: () => [0, 20],
+			onProgressSeek: payload => seeks.push(payload),
+		};
+		const project = {
+			editor: {
+				currentTime: [0, 0, 1],
+				visibleRangeBeginning: 2,
+				visibleRangeEnd: 8,
+			},
+		};
+		assert.equal(pointer._handleProgressPress({ point: { x: 25, y: 90 }, project }, { type: "progress" }), true);
+		assert.equal(pointer.drag.type, "progress");
+		assert.equal(seeks[0].seconds, 5);
+	} finally {
+		if (hadDocument) {
+			globalThis.document = previousDocument;
+		} else {
+			delete globalThis.document;
+		}
+	}
 });
