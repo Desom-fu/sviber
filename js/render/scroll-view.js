@@ -97,6 +97,9 @@ export class ScrollView {
 		document.addEventListener("keyup", this.spaceKeyUp, true);
 		this.surface.ready.then(() => {
 			this.surface.canvas.addEventListener("pointerdown", event => this.#pointerDown(event));
+			// Double clicking an event inside a group temporarily allows selecting events in
+			// that group, one level at a time, exactly like the main editor field.
+			this.surface.canvas.addEventListener("dblclick", event => this.#doubleClick(event));
 		});
 	}
 
@@ -554,6 +557,20 @@ export class ScrollView {
 			return;
 		}
 		this.#beginBoxSelection(point, event);
+	}
+
+	#doubleClick(event) {
+		if (event.button !== 0 || !this.state) {
+			return;
+		}
+		event.preventDefault();
+		const point = this.surface.toLocal(event);
+		const hit = [...this.hitRegions]
+			.reverse()
+			.find(region => Math.hypot(point.x - region.x, point.y - region.y) <= region.radius);
+		if (hit) {
+			this.callbacks.onEnterGroupSelection?.(hit.event.id);
+		}
 	}
 
 	// Ctrl with Space held scrolls the view by dragging it, following the playhead the same

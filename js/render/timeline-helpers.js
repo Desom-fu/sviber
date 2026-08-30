@@ -196,6 +196,13 @@ export function drawTimelineEventIcon(context, event, x, y, color) {
 		}
 		context.closePath();
 		context.fill();
+		if (event.text) {
+			context.fillStyle = "#111417";
+			context.font = "bold 8px sans-serif";
+			context.textAlign = "center";
+			context.textBaseline = "middle";
+			context.fillText(String(event.text).slice(0, 3), x, y);
+		}
 	} else if (event.type === "drag") {
 		context.beginPath();
 		context.arc(x, y, 6, 0, Math.PI * 2);

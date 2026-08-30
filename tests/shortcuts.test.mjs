@@ -98,6 +98,48 @@ test("keyboard shortcut dialog lists group and ungroup", async () => {
 	}
 });
 
+test("every defined keyboard shortcut appears in the shortcuts dialog", async () => {
+	const previousDocument = globalThis.document;
+	const hadDocument = Object.hasOwn(globalThis, "document");
+	const makeNode = tag => ({
+		tag,
+		children: [],
+		dataset: {},
+		className: "",
+		textContent: "",
+		append(...children) {
+			this.children.push(...children);
+		},
+	});
+	globalThis.document = { createElement: tag => makeNode(tag) };
+	let dialog;
+	try {
+		const help = new HelpController({
+			i18n: { t: key => key, shortcut: shortcut => shortcut },
+			dialogs: {
+				open: async options => {
+					dialog = options;
+				},
+			},
+		});
+		await help.showKeyboardShortcuts(COMMAND_DEFINITIONS);
+		const commandIds = dialog.content.children
+			.flatMap(column => column.children)
+			.flatMap(group => group.children[1].children)
+			.map(item => item.dataset.command);
+		const expected = Object.values(COMMAND_DEFINITIONS)
+			.filter(definition => definition.shortcut)
+			.map(definition => definition.id);
+		assert.deepEqual(commandIds.sort(), expected.sort());
+	} finally {
+		if (hadDocument) {
+			globalThis.document = previousDocument;
+		} else {
+			delete globalThis.document;
+		}
+	}
+});
+
 test("global shortcuts remain active when a status checkbox is focused", () => {
 	let executions = 0;
 	const registry = new CommandRegistry({
@@ -137,6 +179,7 @@ test("global shortcuts remain active when a status checkbox is focused", () => {
 	assert.equal(registry.handleKeyboard(event("1"), {}), true);
 	assert.equal(executions, 2);
 });
+
 
 test("Ctrl+Space does not activate a focused status checkbox", () => {
 	let executions = 0;

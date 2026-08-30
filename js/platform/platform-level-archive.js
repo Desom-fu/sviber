@@ -111,10 +111,13 @@ export async function createLevelArchive(files, project, options = {}) {
 	addChartEntries(zip, project, options, names.reserve);
 	await addAssetEntries(zip, project, files, names);
 	await addReadmeEntries(zip, files, names.usedNames);
+	// The live hosting archive is regenerated on every chart edit and kept in memory, so it
+	// skips DEFLATE entirely; file exports stay compressed.
+	const stored = options.compression === "STORE";
 	return zip.generateAsync({
 		type: "blob",
-		compression: "DEFLATE",
-		compressionOptions: { level: 6 },
+		compression: stored? "STORE": "DEFLATE",
+		compressionOptions: { level: stored? 0: 6 },
 		platform: "UNIX",
 	});
 }

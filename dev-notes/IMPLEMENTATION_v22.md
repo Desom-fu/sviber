@@ -48,7 +48,7 @@ v22 相对 v21 的需求来自 `dev-notes/PROMPT-v21.md` 与 `dev-notes/PROMPT-v
 ### 7. 通道菜单：快捷键变更与新增（Ctrl+K / Ctrl+Alt+K / Ctrl+J / Ctrl+Alt+J）
 - **需求**：Deactivate channel 改为 `Ctrl+K`（原 `Ctrl+,`），Activate all channels 改为 `Ctrl+Alt+K`（原 `Ctrl+Alt+,`）；新增 Hide channel `Ctrl+J` 与 Show all channels `Ctrl+Alt+J`。
 - **文件**：`js/app/commands.js`（定义 + 菜单结构）、`js/app/app-command-bindings.js`、`js/ui/i18n.js` 不涉及、`json/i18n.*.json`（新命令文案）。
-- **键位冲突核查**：全量扫描 `COMMAND_DEFINITIONS`，除刻意设计的 `Ctrl+Shift+V` 互斥对（pasteOptions/pasteDuplicateSnappees，由 handleKeyboard 的“禁用命令不遮蔽”规则消解）外无重复；v17 遗留的 `Ctrl+,`（channel.deactivate 与 music.seekBackward3）冲突随本次改动彻底消除，`music.seekBackward3` 仍为 `Ctrl+Shift+,` 并更新了其上的过期注释。
+- **键位冲突核查**：全量扫描 `COMMAND_DEFINITIONS`，除刻意设计的 `Ctrl+Shift+V` 互斥对（pasteOptions/pasteDuplicateSnappees，由 handleKeyboard 的“禁用命令不遮蔽”规则消解）外无重复；v17 遗留的 `Ctrl+,`（channel.deactivate 与 music.seekBackward3）冲突随本次改动彻底消除；v22 的 `music.seekBackward3` 使用 `Ctrl+,`，通道命令使用 `Ctrl+K`/`Ctrl+Alt+K`/`Ctrl+J`/`Ctrl+Alt+J`。
 - **验证**：`tests/commands.test.mjs`（六个通道命令快捷键断言 + 菜单顺序）、重复键扫描脚本输出无冲突。
 
 ### 8. Tip point：同通道同时押事件按叠层顺序
@@ -92,9 +92,9 @@ v22 相对 v21 的需求来自 `dev-notes/PROMPT-v21.md` 与 `dev-notes/PROMPT-v
 - `js/ui/panels.js` 拆分：`SnappeesPanel`/`ChannelsPanel` 与 snappee 预览绘制移至新文件 `js/ui/panel-lists.js`（panels.js re-export 保持导入路径兼容），以满足 lint 的单文件/单函数行数上限。
 - 新增 i18n 键：`command.channel.hide(.hint)`、`command.channel.showAll(.hint)`、`command.channel.moveAboveWithinChannel(.hint)`、`command.channel.moveBelowWithinChannel(.hint)`、`history.moveWithinChannel`、`panel.channel.{menu,show,hide,createAbove,createBelow}`、`panel.snappee.menu`、`panel.clip.menu`、`shortcut.command`、`shortcut.option`（en-US/zh-CN 同步，`i18n.test.mjs` 校验通过）。
 - 图标：新增 `svg/icons/menu.svg`（菜单按钮）；`show-channel.svg`/`hide-channel.svg`/`create-channel-above.svg`/`create-channel-below.svg` 沿用已有文件。
-- 版本：`package.json`/`package-lock.json` → `0.13.0`（v0.12.0 标签已存在，本次发版顺延为 v0.13.0）；`index.html` 与 `service-worker.js` 的 `app.js` 缓存参数提升至 `?v=64`；`CACHE_VERSION` → `sviber-v01300`。
+- 版本：本轮发布版本为 `0.13.2`；`index.html` 与 `service-worker.js` 的 app.js 缓存参数同步至 `?v=65`；`CACHE_VERSION` 为 `sviber-v01320`。SSC 独立导入保持未保存状态以确保自动保存恢复；项目媒体字段同步到历史快照，撤销操作不会清空已加载音乐和图片。
 
 ## 验证结果
-- `npm test`（eslint + node --test）：**398 项测试，397 通过，1 项既有环境跳过，0 失败**。
+- `npm test`（eslint + node --test）：**468 项测试，467 通过，1 项既有环境跳过，0 失败**。
 - `npm run build`：本地构建通过。
 - 全量快捷键重复扫描：无未预期冲突。
