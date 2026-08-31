@@ -1,6 +1,7 @@
 // v21: the page texts come from the JSON i18n data instead of being hardcoded in the
 // HTML attributes.
 let vocabulary = null;
+const SUPPORTED_LANGUAGES = new Set(["en-US", "zh-CN", "zh-TW", "ja-JP"]);
 
 function translate(key) {
 	return vocabulary?.[key] ?? key;
@@ -16,6 +17,20 @@ async function loadVocabulary(language) {
 		throw new Error(`HTTP ${response.status}`);
 	}
 	vocabulary = await response.json();
+}
+
+function normalizeLanguage(value) {
+	const language = String(value || "").toLowerCase();
+	if (language.startsWith("zh-tw") || language.startsWith("zh-hk") || language.startsWith("zh-mo")) {
+		return "zh-TW";
+	}
+	if (language.startsWith("zh")) {
+		return "zh-CN";
+	}
+	if (language.startsWith("ja")) {
+		return "ja-JP";
+	}
+	return "en-US";
 }
 
 function applyTexts() {
@@ -50,10 +65,8 @@ function applyTexts() {
 	if (stored.theme === "light" || stored.theme === "dark") {
 		document.documentElement.dataset.theme = stored.theme;
 	}
-	const systemLanguage = String(navigator.language || "")
-		.toLowerCase()
-		.startsWith("zh")? "zh-CN": "en-US";
-	const language = stored.language === "zh-CN" || stored.language === "en-US" ? stored.language : systemLanguage;
+	const systemLanguage = normalizeLanguage(navigator.language);
+	const language = SUPPORTED_LANGUAGES.has(stored.language) ? stored.language : systemLanguage;
 	document.documentElement.lang = language;
 
 	loadVocabulary(language)

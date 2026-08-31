@@ -1,5 +1,7 @@
 import { TimingMap } from "../core/timing.js";
 
+const TIMELINE_NOTE_TYPES = new Set(["tap", "drag", "hold", "flick"]);
+
 export const BEAT_LINE_COLORS = Object.freeze({
 	1: "#ff2e59",
 	2: "#3086ff",
@@ -73,6 +75,41 @@ export function projectState(state) {
 // editor field keep showing their events, so only the timeline should filter by this.
 export function visibleTimelineChannels(project) {
 	return (project.channels || []).filter(channel => channel.hidden !== true);
+}
+
+// Return one notes-per-second density value per scrollbar pixel. Records may be render-index
+// entries (`start`) or raw events (`time`), in which case callers should precompute `start`.
+export function scrollbarNoteDensity(records, bounds, width) {
+	const count = Math.max(1, Math.floor(Number(width) || 1));
+	const beginning = Number(bounds?.[0]);
+	const ending = Number(bounds?.[1]);
+	const span = Math.max(1e-9, ending - beginning);
+	const bins = Array(count).fill(0);
+	for (const record of records || []) {
+		if (!TIMELINE_NOTE_TYPES.has(record?.event?.type ?? record?.type)) {
+			continue;
+		}
+		const time = Number(record?.start ?? record?.time);
+		if (!Number.isFinite(time) || time < beginning || time > ending) {
+			continue;
+		}
+		const index = Math.min(count - 1, Math.max(0, Math.floor(((time - beginning) / span) * count)));
+		bins[index] += 1;
+	}
+	const secondsPerBin = span / count;
+	return bins.map(value => value / secondsPerBin);
+}
+
+export function scrollbarHeatmapColors(densities) {
+	const values = Array.from(densities || [], value => Math.max(0, Number(value) || 0));
+	const minimum = values.length ? Math.min(...values) : 0;
+	const maximum = values.length ? Math.max(...values) : 0;
+	const range = maximum - minimum;
+	return values.map(value => {
+		const ratio = range > 0 ? (value - minimum) / range : 0;
+		const red = Math.round(31 + ratio * (127 - 31));
+		return `#${red.toString(16).padStart(2, "0")}1f1f`;
+	});
 }
 
 export function timingFor(state) {

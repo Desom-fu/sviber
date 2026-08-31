@@ -7,7 +7,12 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { ChartModel } from "../core/chart-model.js";
-import { PROJECT_FILENAME, createProjectManifest, sanitizeFileStem } from "../core/project.js";
+import {
+	LEGACY_PROJECT_FILENAME,
+	PROJECT_FILENAME,
+	createProjectManifest,
+	sanitizeFileStem,
+} from "../core/project.js";
 import { localizedErrorMessage } from "./app-helpers.js";
 
 function chartFileStem(filename) {
@@ -73,6 +78,10 @@ class ProjectFilesTrait {
 				macros: await this.projectMacroEntries(),
 			});
 			await this.files.writeProjectText(PROJECT_FILENAME, `${JSON.stringify(manifest, null, 2)}\n`);
+			if (this.files.projectManifestFilename === LEGACY_PROJECT_FILENAME) {
+				await this.files.removeProjectText(LEGACY_PROJECT_FILENAME);
+				this.files.projectManifestFilename = PROJECT_FILENAME;
+			}
 			return true;
 		} catch (error) {
 			this.toast.error("toast.projectManifestFailed", { message: localizedErrorMessage(error) });

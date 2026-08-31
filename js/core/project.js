@@ -1,6 +1,9 @@
-export const PROJECT_FILENAME = "sviber-project.json";
+export const PROJECT_FILENAME = "project.sviber";
+export const LEGACY_PROJECT_FILENAME = "sviber-project.json";
 export const PROJECT_FORMAT = "sviber-project";
 export const PROJECT_VERSION = 1;
+
+export const PROJECT_FILENAMES = Object.freeze([PROJECT_FILENAME, LEGACY_PROJECT_FILENAME]);
 
 function plainObject(value) {
 	return Boolean(value) && typeof value === "object" && !Array.isArray(value);

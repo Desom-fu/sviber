@@ -128,7 +128,15 @@ export function registerMacroCompletions(monaco) {
 
 // Monaco ships its localizations as AMD bundles keyed by language tag.
 export function monacoLocale(language) {
-	return String(language || "")
-		.toLowerCase()
-		.startsWith("zh")? "zh-cn": "en";
+	const value = String(language || "").toLowerCase();
+	if (value.startsWith("zh-tw") || value.startsWith("zh-hk") || value.startsWith("zh-mo")) {
+		return "zh-tw";
+	}
+	if (value.startsWith("zh")) {
+		return "zh-cn";
+	}
+	if (value.startsWith("ja")) {
+		return "ja";
+	}
+	return "en";
 }

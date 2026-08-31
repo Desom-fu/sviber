@@ -1,0 +1,314 @@
+diff --git a/dev-notes/PROMPT-v22.md b/dev-notes/PROMPT-v23.md
+index 72ae31a..7e18e27 100644
+--- a/dev-notes/PROMPT-v22.md
++++ b/dev-notes/PROMPT-v23.md
+@@ -299,16 +299,20 @@ A bright yellow vertical line is shown on only the current channel but not on ot
+ There is a horizontal line between every two adjacent channels to separate them visually.
+ The line should be colored dark grey so as no to be too distracting on the black background.
+ If there is one or more hidden channels between them, the line should be colored in bright gray and thickened.
++If additionally the current channel is hidden between them, the line should be colored in bright yellow.
++If there are hidden channels just above the uppermost shown channel at the current scrolling position of the channels,
++the bright line is drawn between it and the waveform.
++If there are hidden channels just below the lowermost shown channel at the current scrolling position of the channels,
++the horizontal bright line is drawn between it and the scroll bar.
+ 
+ Every event is shown as an icon.
+ For `tap`, `hold`, `drag`, `flick`, and `bgNote`, just show the note body
+ (for `flick`, do not show the arrow part),
+ including the note text if there is any.
+-For `bigText`, use `../maker/svg/icons/create-bg-pattern.svg`.
+ For background patterns, devise your own design of icons, inspired from how they show up according to
+ `../game-unstable/js/ui/event/bg-pattern/*.js`.
+ For `comment`, devise your own design of an icon.
+-The colors of the icons must be very distinguishable from that of selected events (red).
++The colors of the icons must be very distinguishable from that of selected events (red or magenta).
+ For events with a duration, including `hold`, `bigText`, `bgNote`, and background patterns, show a tail to indicate the duration.
+ Check how Sunniesnow renders a tail for hold notes when the user setting `scroll` is `true` to inspire your design of tails.
+ Specially, for `bigText`, show the contents of the texts on the tail.
+@@ -392,6 +396,10 @@ Selected events appear with a bright red tint
+ (magenta tint for selected locked events).
+ Additionally, a selected `group` event appears with a rectangle enclosing the events directly or indirectly contained in it,
+ and the rectangle uses the same color as the user-set color of the `group` event.
++If there are selected events in a hidden channel
++and the horizontal bright line indicating that hidden channel is currently visible,
++make small segments of that line red or magenta
++according to the time of the selected events in that channel.
+ 
+ Selected events can be dragged with mouse to be moved to other channels and time.
+ There is a small threshold over which the mouse must move a distance to trigger the event dragging.
+@@ -483,6 +491,14 @@ A bright yellow vertical line indicates the current time.
+ The user can interact with the line using mouse to move it to other time across the music to change the current time.
+ During the interaction, the current time is always snapped to beat subdivisions.
+ 
++The background of the scroll bar is colored according to the density of notes
++(total number of `tap`, `drag`, `hold`, `flick` events per second)
++to present a heat map.
++Time with larger note density is colored with brighter red color,
++and time with lower note density is colored with dark gray.
++The coloring is relative throughout the chart, with the place with largest density being colored with `#7f1f1f`,
++and the place with lowest density being colored with `#1f1f1f`.
++
+ Two green vertical lines indicate respectively the beginning and the end of the visible range.
+ The visible range is the range where the waveform and the channels are visible.
+ One green horizontal line connects the two vertical lines.
+@@ -1072,12 +1088,13 @@ The delete button is disabled if this is the only channel in the chart.
+ I will provide those icon files,
+ but do ask me for them if I have not provided them and you cannot find them already in `svg/icons`.
+ 
+-All these buttons except activating/deactivating are hidden in a menu.
+-Therefore, for each item, there is the activating/deactivating button,
+-and another button for opening a small menu near the item
+-that contains the other buttons.
+-Hitting <kbd>Esc</kbd> or clicking anywhere outside the menu closes the menu.
+-Clicking a button in the menu except the buttons for moving up/dowwn also closes the menu.
++All these buttons except activating/deactivating are hidden by default.
++For each item, there is the activating/deactivating button,
++and another button for making the item taller and making a second line
++that contains the other buttons appear in the item.
++The buttons in the second line are icons only just like the buttons in the first line,
++and they should be aligned to the right.
++Clicking the expansion button again makes the second line disappear.
+ 
+ Clicking an item in the channels panel changes the current channel to the clicked channel.
+ 
+@@ -1116,12 +1133,13 @@ This does not delete events attached to it but simply detaches them without chan
+ I will provide those icon files,
+ but do ask me for them if I have not provided them and you cannot find them already in `svg/icons`.
+ 
+-All these buttons except activating/deactivating are hidden in a menu.
+-Therefore, for each item, there is the activating/deactivating button,
+-and another button for opening a small menu near the item
+-that contains the other buttons.
+-Hitting <kbd>Esc</kbd> or clicking anywhere outside the menu closes the menu.
+-Clicking a button in the menu except the buttons for moving up/dowwn also closes the menu.
++All these buttons except activating/deactivating are hidden by default.
++For each item, there is the activating/deactivating button,
++and another button for making the item taller and making a second line
++that contains the other buttons appear in the item.
++The buttons in the second line are icons only just like the buttons in the first line,
++and they should be aligned to the right.
++Clicking the expansion button again makes the second line disappear.
+ 
+ An item in the snappies panel displays an icon and a name.
+ The icon is simply a zoomed-out version of the full snappee,
+@@ -1164,12 +1182,13 @@ Double clicking the item in the clips panel triggers the same operation.
+ 
+ Every clip has a delete button (`delete.svg`) for deleting the clip.
+ 
+-All these buttons except pasting are hidden in a menu.
+-Therefore, for each item, there is the pasting button,
+-and another button for opening a small menu near the item
+-that contains the other buttons.
+-Hitting <kbd>Esc</kbd> or clicking anywhere outside the menu closes the menu.
+-Clicking a button in the menu except the buttons for moving up/dowwn also closes the menu.
++All these buttons except pasting are hidden by default.
++For each item, there is the pasting button,
++and another button for making the item taller and making a second line
++that contains the other buttons appear in the item.
++The buttons in the second line are icons only just like the buttons in the first line,
++and they should be aligned to the right.
++Clicking the expansion button again makes the second line disappear.
+ 
+ ### History panel
+ 
+@@ -1602,6 +1621,10 @@ All other fields are by default empty, and empty inputs should be considered acc
+ #### Open project folder...
+ 
+ Open sviber project folder.
++A directory containing `project.sviber` (higher priority) or `sviber-project.json`
++is an acceptable project folder.
++If the project folder contains the latter but does not contain the former,
++rename the latter to the former later when saving chart/project later.
+ Prompt to save if there is currently unsaved changes.
+ 
+ #### Open...
+@@ -1612,7 +1635,7 @@ If sviber is in NW.js app and a project is open,
+ prompt to ask whether the user wants to add the chart (and its referenced music and image) to the project.
+ Adding the chart to the project modifies the chart list and the active chart of the project,
+ and the change is immediately written to the filesystem
+-(including copying files to the project and modifying `sviber-project.json`)
++(including copying files to the project and modifying `project.sviber`)
+ 
+ #### Open recent...
+ 
+@@ -1712,6 +1735,9 @@ Therefore, in this case, show a new popup form to ask the user to enter informat
+ - Largest denominator of beats of events
+ 
+ The offset and the initial BPM is the same thing as in [creating a new chart](#new).
++The default value of the offset is the time of the first note (`tap`, `flick`, `hold`, `drag`).
++The default value of the initial BPM is 60 divided by the time difference of
++the first note after (exclusive) the first note and the first note.
+ The information of all BPM change events
+ is an array of BPM change events, with each event having data for the beat when the BPM change happens (in rational number)
+ and the BPM immediately after the BPM change.
+@@ -1790,7 +1816,7 @@ then simply save the chart to local filesystem without any dialogue.
+ Otherwise, open a file dialogue for the user to select and save to.
+ The saved file format is JSON.
+ If the saved chart is a new chart of the currently open sviber project,
+-also write to `sviber-project.json` accordingly.
++also write to `project.sviber` accordingly.
+ 
+ #### Save as...
+ 
+@@ -1804,7 +1830,7 @@ Save the project.
+ Grayed out if there is not a currently open project.
+ If the project directory path is known, this operation is the same as [save](#save).
+ Otherwise, open a file dialogue for the user to select a directory to save to as the project folder,
+-in which case the directory does not have to be empty but must not have the `sviber-project.json` file.
++in which case the directory does not have to be empty but must not have the `project.sviber` file.
+ Music files, image files, and all chart files will be saved to this directory if the same files are not already there.
+ Put a toast message after it completes.
+ 
+@@ -1883,7 +1909,7 @@ After the user confirms, delete the currently open chart from the currently open
+ If the checkbox is checked, additionally delete the chart file from filesystem.
+ Open another chart in the project without asking the user which chart to open.
+ 
+-The change in the chart list and the active chart is immediately written to `sviber-project.json` in the local filesystem.
++The change in the chart list and the active chart is immediately written to `project.sviber` in the local filesystem.
+ 
+ This item is grayed out if there is not a currently open project
+ or if this is the only chart in the project.
+@@ -3478,6 +3504,25 @@ whose default values are respectively 0.4 and 40.
+ 
+ When a violation is clicked, the violating `drag` event is selected.
+ 
++### Simultaneous overlapping notes
++
++This check checks that no simultaneous notes except `drag` have the same position in space.
++Becasue of floating point error, very close positions are also regarded as the same position.
++
++There is a boolean parameter of check.
++When it is true, only overlapping notes with truly invisible note bodies are regarded as violations.
++This includes:
++
++- Two simultaneous `hold` events with the same position.
++- Two simultaneous `flick` events with the same position and the same
++  (with small tolerance for floating point error) angle.
++- Two simultaneous `tap` events with the same position while
++  there is also another `tap` event that is simultaneous with them but does not necessarily have the same position.
++- A `hold` event and a `tap` event that are simultaneous and have the same position,
++  where the `tap` event is drawn behind the `hold` event.
++- A `flick` event and a `tap` event that are simultaneous and have the same position,
++  where the `tap` event is drawn behind the `flick` event.
++
+ ## Live hosting
+ 
+ Live hosting is the feature that sets up a server for Sunniesnow to connect to
+@@ -3910,6 +3955,9 @@ A JSON object with the following fields:
+ - `showGroupingInTimeline`: boolean.
+ - `showGroupingInMainField`: boolean.
+ - `showTipPoints`: boolean.
++- `showHud`: boolean.
++- `showBgEventsInMainField`: boolean.
++- `showBgEventsInTimeline`: boolean.
+ - `mainFieldPanX`: number.
+ - `mainFieldPanY`: number.
+ - `mainFieldZoom`: number.
+@@ -3940,6 +3988,8 @@ An array of channels. Each channel is a JSON object with the following fields
+ - `id`: an integer ID number. It increments starting from 0, to distinguish different channels.
+ - `name`: string, the user-set name.
+ - `active`: boolean, whether it is active.
++- `hidden`: boolean, whether it is hidden.
++- `expanded`: boolean, whether the second line of buttons in the panel is shown.
+ 
+ When moving channels around (e.g., [move channel up and move channel down](#move-channel-up-move-channel-down)),
+ the ID number of the channels do not change,
+@@ -4025,6 +4075,7 @@ Each snappee is a JSON object with the following fields:
+ - `transformation`: a 6-number array denoting an affine transformation matrix.
+ - `active`: boolean, whether it is active.
+ - `selected`: boolean, whether it is selected.
++- `expanded`: boolean, whether the second line of buttons in the panel is shown.
+ 
+ Other fields depend on the type.
+ 
+@@ -4100,6 +4151,7 @@ Each clip object has the following field:
+ 
+ - `name`
+ - `data`: the same structure as clipboard data when copying events.
++- `expanded`: boolean, whether the second line of buttons in the panel is shown.
+ 
+ ### `checks` field
+ 
+@@ -4119,6 +4171,8 @@ and it possibly contain extra fields for parameters.
+ - `teleportingTipPoint`
+ - `multiCharacterCjk`
+ - `eventsOutsideMusic`
++- `dragScreening`: extra field `seconds` and `distance`.
++- `simultaneousOverlappingNotes`: extra field `invisibleOnly`.
+ 
+ ## Lyrica chart format
+ 
+@@ -4393,7 +4447,7 @@ A sviber project lives in a local filesystem directory called the project folder
+ For this reason, the browser webpage version of sviber does not support editing a project,
+ but only support editing a chart.
+ 
+-In the project directory, a file `sviber-project.json` is present.
++In the project directory, a file `project.sviber` is present.
+ It has the following fields:
+ 
+ - `charts`: array of charts; each chart has fields `file` and `id`.
+@@ -4427,13 +4481,20 @@ are immediately written to the local filesystem.
+ ### Internationalization
+ 
+ Full internationalization support for every DOM text should be supported.
+-The internationalization data need to be put in JSON files in the `json` dir,
++The internationalization data (except the main text of the help manual) need to be put in JSON files in the `json` dir,
+ not hardcoded in JavaScript or HTML so as to make translation easier.
+ This applies to not just the webpage for the editor
+ but also applies to the JavaScript license page, the help documentation, etc.
+-If the browser `nagivator.language` is Chinese, use zh-CN as the display language.
+-Otherwise use en-US.
+-Currently only these two languages are required to be supported.
++For the main text of the help manual, the body texts for different languages are put in different files,
++not including the other parts of the full HTML page (e.g., `<head>`).
++Use JavaScript to dynamically fetch and replace the body texts.
++
++Four languages need to be supported: zh-TW, zh-CN, en-US, and ja-JP.
++Choose the default language according to `nagivator.language`, and use en-US as the fallback language.
++
++The language names in the language settings should be written in their own languages
++but not change with the interface language.
++For example, zh-CN should be called "简体中文" whether the interface language is zh-CN or not.
+ 
+ Some special translations: artist is "曲师" in Chinese;
+ chart is "谱面" in Chinese;
+@@ -4441,6 +4502,7 @@ charter is "谱师" in Chinese;
+ bg notes are "墨点" in Chinese;
+ tip points are "游标" in Chinese;
+ Lyrica is "阳春白雪" in Chinese;
++scroll view is "下落式预览" in Chinese;
+ tap, drag, hold, and flick are their English words as is for other languages.
+ 
+ ### Auto-save
+@@ -4532,6 +4594,12 @@ Also put a `.nw` package without NW.js runtime in the release assets
+ for those who wish not to download NW.js binaries.
+ The filename format is `sviber-${version}.nw`.
+ 
++The NW.js app can be used to open files with `.sviber`, `.json`, and `.txt` extensions.
++The Linux distribution should include the MIME type definition XML file for `.sviber`,
++and the desktop entry file have relevant contents for opening these three file types.
++The macOS distribution should have `Info.plist` include the relevant contents for opening these three file types.
++The Windows distribution should have an Inno setup script for setting up the relevant registry fields.
++
+ When you are prompted to generate a new release after bug fixes, bump the patch version in `package.json` and push a new tag.
+ When you are prompted to generate a new release after being provided a new version of this prompt file,
+ bump the minor version in `package.json` and push a new tag.
+@@ -4557,8 +4625,8 @@ Do not include user guide beyond the installation guide, but direct the user to
+ Use ESLint for code linting.
+ Linting errors out if any of the following rules is broken:
+ 
+-- One JS file cannot exceed 1000 lines.
+-- One JS function cannot exceed 100 lines.
++- One JS file cannot exceed 1000 lines (not including comments).
++- One JS function cannot exceed 100 lines (not including comments).
+ - One line cannot have more than one statement.
+ - One line cannot have more than 120 characters.
+ - There must be an empty line between two function definitions.
+@@ -4573,6 +4641,7 @@ For example, simply separating a `app-2.js` out from `app.js` is not acceptable.
+ 
+ The NW.js app can also use the command line arguments provided by the user.
+ If a path is provided in argv, open or import a chart/level/project folder.
++If the user uses sviber to open a file/directory while a sviber instance is already running, create a new instance.
+ 
+ The NW.js app can also be used as a purely CLI app for basic file manipulations.
+ Example usage:

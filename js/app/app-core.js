@@ -214,6 +214,7 @@ export class SviberAppCore extends CoreShell {
 			onDelete: id => void this.deleteSnappee(id),
 			onEdit: id => void this.editSnappee(id),
 			onMove: (id, direction) => this.moveSnappeeInList(id, direction),
+			onToggleExpanded: (id, expanded) => this.setSnappeeExpanded(id, expanded),
 		});
 		this.channelsPanel = new ChannelsPanel({
 			i18n,
@@ -226,6 +227,7 @@ export class SviberAppCore extends CoreShell {
 			onDelete: id => void this.deleteChannel(id),
 			onEdit: id => void this.editChannel(id),
 			onMove: (id, direction) => this.moveChannel(id, direction),
+			onToggleExpanded: (id, expanded) => this.setChannelExpanded(id, expanded),
 		});
 		this.historyPanel = new HistoryPanel({ i18n, tooltip: this.tooltip, onGoTo: index => this.goToHistory(index) });
 		this.checksPanel = new ChecksPanel({
@@ -246,6 +248,7 @@ export class SviberAppCore extends CoreShell {
 			onMove: (index, direction) => this.moveClip(index, direction),
 			onEdit: index => void this.editClip(index),
 			onDelete: index => void this.deleteClip(index),
+			onToggleExpanded: (index, expanded) => this.setClipExpanded(index, expanded),
 		});
 	}
 

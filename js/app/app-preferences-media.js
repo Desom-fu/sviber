@@ -1,7 +1,7 @@
 // Editor preferences, autosave interval, import-option dialogs and media loading.
 
 import { composeTraits } from "../core/mixin.js";
-import { i18n } from "../ui/i18n.js";
+import { i18n, SUPPORTED_LANGUAGES } from "../ui/i18n.js";
 import { ChartModel } from "../core/chart-model.js";
 import { Rational } from "../core/rational.js";
 import {
@@ -13,6 +13,27 @@ import {
 	difficultyColor,
 	trackDialogFieldEdits,
 } from "./app-helpers.js";
+
+export function importTimingDefaults(document) {
+	const noteTimes = (Array.isArray(document?.events) ? document.events : [])
+		.filter(event => ["tap", "flick", "hold", "drag"].includes(event?.type))
+		.map(event => {
+			try {
+				return Array.isArray(event.time) ? Rational.from(event.time).toNumber() : Number(event.time);
+			} catch {
+				return NaN;
+			}
+		})
+		.filter(Number.isFinite)
+		.sort((left, right) => left - right);
+	const first = noteTimes[0];
+	const next = noteTimes.find(time => time > first + 1e-9);
+	const interval = next == null ? 0 : next - first;
+	return {
+		offset: first == null ? 0 : first,
+		initialBpm: interval > 0 ? 60 / interval : 120,
+	};
+}
 
 class PreferencesMediaTrait {
 	async showPreferences() {
@@ -36,8 +57,7 @@ class PreferencesMediaTrait {
 					labelKey: "field.language",
 					options: [
 						{ value: "system", labelKey: "option.language.system" },
-						{ value: "en-US", labelKey: "option.language.english" },
-						{ value: "zh-CN", labelKey: "option.language.chinese" },
+						...SUPPORTED_LANGUAGES.map(value => ({ value, labelKey: `option.language.${value}` })),
 					],
 				},
 				{
@@ -167,9 +187,10 @@ class PreferencesMediaTrait {
 		if (document?.lyrica || document?.sviber) {
 			return {};
 		}
+		const defaults = importTimingDefaults(document);
 		const values = await this.dialogs.form({
 			titleKey: "dialog.importTiming",
-			values: { offset: 0, initialBpm: 120, largestDenominator: 192, bpmChanges: [] },
+			values: { ...defaults, largestDenominator: 192, bpmChanges: [] },
 			fields: [
 				{ id: "offset", type: "number", labelKey: "field.offset", step: "any" },
 				{

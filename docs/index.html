@@ -26,17 +26,21 @@
 				<output id="manual-search-status" aria-live="polite"></output>
 			</form>
 			<select id="language" aria-label="Language">
-				<option value="en">English</option>
+				<option value="en-US">English</option>
 				<option value="zh-CN">Simplified Chinese</option>
+				<option value="zh-TW">繁體中文</option>
+				<option value="ja-JP">日本語</option>
 			</select>
 		</div>
 	</header>
 	<div class="doc-layout">
 		<nav id="contents" class="contents" aria-label="Contents"></nav>
 		<main class="manual">
-			<article data-language="en"></article>
+			<article data-language="en-US"></article>
 
 			<article data-language="zh-CN" hidden></article>
+			<article data-language="zh-TW" hidden></article>
+			<article data-language="ja-JP" hidden></article>
 		</main>
 	</div>
 	<script type="module" src="docs.js"></script>

@@ -780,9 +780,11 @@ test("AutosaveManager lists every recovery newer than the last manual save", () 
 
 test("service worker returns Response.error on an uncached offline CDN request", async () => {
 	const source = await readFile(new URL("../service-worker.js", import.meta.url), "utf8");
+	const lockfile = JSON.parse(await readFile(new URL("../package-lock.json", import.meta.url), "utf8"));
 	const listeners = new Map();
 	const context = {
 		Response,
+		Request,
 		URL,
 		fetch: async () => {
 			throw new Error("offline");
@@ -811,7 +813,10 @@ test("service worker returns Response.error on an uncached offline CDN request",
 	const response = await context.testStaleWhileRevalidate("https://cdn.jsdelivr.net/npm/missing/+esm");
 	assert.equal(response.type, "error");
 	assert.match(source, /\.\/js\/audio\/decoder\.js/);
-	assert.match(source, /audio-decode@3\.12\.0\/\+esm/);
+	assert.match(source, /cdnAssetsFromLockfile/);
+	assert.match(source, /node_modules\/\$\{name\}/);
+	assert.doesNotMatch(source, /audio-decode@\d/);
+	assert.equal(lockfile.packages["node_modules/audio-decode"].version, "3.12.0");
 });
 
 test("new charts are explicitly left dirty", async () => {

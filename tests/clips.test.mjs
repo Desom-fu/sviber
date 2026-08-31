@@ -4,17 +4,17 @@ import test from "node:test";
 import { TIMELINE_EVENT_COLORS } from "../js/render/timeline-helpers.js";
 import { drawClipThumbnail } from "../js/ui/panels.js";
 
-test("clip thumbnails resolve attached content and keep the paste plus popup-menu layout", async () => {
+test("clip thumbnails resolve attached content and keep the paste plus inline action layout", async () => {
 	// The clips panel and its thumbnail painter now live in js/panel-clips.js, re-exported
 	// from js/panels.js; the assertions below are unchanged apart from the module they read.
-	// v22: only the paste action stays on the item; the rest hides in the popup menu.
+	// v23: only the paste action stays on the item; the rest appears in the expandable row.
 	const [panels, styles] = await Promise.all([
 		readFile(new URL("../js/ui/panel-clips.js", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 	]);
 	assert.match(panels, /drawClipThumbnail[\s\S]*resolveAttachedPosition\(event, data\?\.snappees/);
 	assert.match(panels, /drawTimelineEventIcon\(context, event, 0, 0, TIMELINE_EVENT_COLORS\[event\.type\]/);
-	assert.match(panels, /makeItemMenuButton/);
+	assert.match(panels, /makeInlineActionRow/);
 	assert.match(
 		styles,
 		/\.snappee-item\.clip-item\s*\{[\s\S]*grid-template-columns:\s*42px minmax\(0, 1fr\) repeat\(2, 25px\)/,

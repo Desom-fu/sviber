@@ -1,6 +1,6 @@
 {
   "name": "sviber",
-  "version": "0.13.4",
+  "version": "0.14.0",
   "private": true,
   "type": "module",
   "description": "Desktop-style chart editor for Sunniesnow",
@@ -15,6 +15,7 @@
   "main": "index.html",
   "node-main": "js/cli/cli-main.js",
   "sviber-source": true,
+  "single-instance": false,
   "window": {
     "title": "sviber",
     "width": 1440,

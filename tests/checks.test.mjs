@@ -31,6 +31,7 @@ const CHECK_ID_LIST = [
 	"multiCharacterCjk",
 	"eventsOutsideMusic",
 	"dragScreening",
+	"simultaneousOverlappingNotes",
 ];
 
 function validChart(overrides = {}) {
@@ -69,9 +70,9 @@ function enabledOnly(id, extra = {}) {
 	return settings;
 }
 
-test("all 13 chart checks exist and are enabled by default", () => {
+test("all 14 chart checks exist and are enabled by default", () => {
 	assert.deepEqual([...CHECK_IDS], CHECK_ID_LIST);
-	assert.equal(CHECK_DEFINITIONS.length, 13);
+	assert.equal(CHECK_DEFINITIONS.length, 14);
 	const defaults = defaultChecks();
 	for (const id of CHECK_ID_LIST) {
 		assert.equal(defaults[id].enabled, true, id);
@@ -82,6 +83,7 @@ test("all 13 chart checks exist and are enabled by default", () => {
 	assert.equal(defaults.shortTipPoint.seconds, 0.3);
 	assert.equal(defaults.dragScreening.seconds, 0.4);
 	assert.equal(defaults.dragScreening.distance, 40);
+	assert.equal(defaults.simultaneousOverlappingNotes.invisibleOnly, false);
 	for (const id of ["emptyMetadata", "irregularDifficulty"]) {
 		const definition = CHECK_DEFINITIONS.find(item => item.id === id);
 		assert.equal(definition.target, "chartProperties");
@@ -413,7 +415,15 @@ test("each check carries exactly the extra parameters v19 documents", () => {
 	assert.deepEqual(parameters.get("shortBgPattern"), ["seconds"]);
 	assert.deepEqual(parameters.get("shortTipPoint"), ["seconds"]);
 	assert.deepEqual(parameters.get("dragScreening"), ["seconds", "distance"]);
-	const parameterized = ["requiredFingers", "shortHold", "shortBgPattern", "shortTipPoint", "dragScreening"];
+	assert.deepEqual(parameters.get("simultaneousOverlappingNotes"), ["invisibleOnly"]);
+	const parameterized = [
+		"requiredFingers",
+		"shortHold",
+		"shortBgPattern",
+		"shortTipPoint",
+		"dragScreening",
+		"simultaneousOverlappingNotes",
+	];
 	for (const id of CHECK_ID_LIST.filter(id => !parameterized.includes(id))) {
 		assert.deepEqual(parameters.get(id), [], `${id} should have no parameters`);
 	}

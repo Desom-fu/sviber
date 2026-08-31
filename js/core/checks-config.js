@@ -41,6 +41,11 @@ export const CHECK_DEFINITIONS = Object.freeze([
 			Object.freeze({ id: "distance", type: "number", default: 40, min: 0 }),
 		]),
 	}),
+	Object.freeze({
+		id: "simultaneousOverlappingNotes",
+		target: "event",
+		parameters: Object.freeze([Object.freeze({ id: "invisibleOnly", type: "checkbox", default: false })]),
+	}),
 ]);
 
 export const CHECK_IDS = Object.freeze(CHECK_DEFINITIONS.map(definition => definition.id));
@@ -68,6 +73,10 @@ export function normalizeChecks(source) {
 		}
 		defaults[definition.id].enabled = provided.enabled !== false;
 		for (const parameter of definition.parameters) {
+			if (parameter.type === "checkbox") {
+				defaults[definition.id][parameter.id] = Boolean(provided[parameter.id]);
+				continue;
+			}
 			const value = Number(provided[parameter.id]);
 			if (!Number.isFinite(value)) {
 				continue;

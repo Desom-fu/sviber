@@ -122,6 +122,7 @@ export function normalizeChannels(channels) {
 		name: String(channel?.name ?? `Channel ${index + 1}`),
 		active: channel?.active !== false,
 		hidden: channel?.hidden === true,
+		expanded: channel?.expanded === true,
 	}));
 }
 

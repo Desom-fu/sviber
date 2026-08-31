@@ -80,16 +80,19 @@ test("keyboard shortcut dialog contains every defined keyboard shortcut", async 
 	}
 });
 
-test("application cache version matches the v0.13.4 shell", async () => {
+test("application shell uses the service worker without an entrypoint cache buster", async () => {
 	const [serviceWorker, index, packageSource] = await Promise.all([
 		readSource("service-worker.js"),
 		readSource("index.html"),
 		readSource("package.json"),
 	]);
-	assert.equal(JSON.parse(packageSource).version, "0.13.4");
-	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v01340"/);
-	assert.match(serviceWorker, /js\/app\/app\.js\?v=67/);
-	assert.match(index, /js\/app\/app\.js\?v=67/);
+	assert.equal(JSON.parse(packageSource).version, "0.14.0");
+	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v[^"]+"/);
+	assert.match(serviceWorker, /package-lock\.json/);
+	assert.match(serviceWorker, /js\/app\/app\.js"/);
+	assert.doesNotMatch(serviceWorker, /js\/app\/app\.js\?v=/);
+	assert.match(index, /js\/app\/app\.js"/);
+	assert.doesNotMatch(index, /js\/app\/app\.js\?v=/);
 });
 
 test("bilingual manuals mention the current channel and recovery shortcuts", async () => {

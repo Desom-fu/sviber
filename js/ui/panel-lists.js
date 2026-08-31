@@ -8,7 +8,6 @@
 
 import { sampleSnappee } from "../core/geometry.js";
 import { clear } from "./panel-controls.js";
-import { makeItemMenuButton } from "./item-menu.js";
 
 // The snappee's sampled points, scaled into the preview box. Chart y grows upwards while
 // canvas y grows downwards, so the projection flips it.
@@ -238,6 +237,51 @@ function channelMenuItems(panel, channel, index, model, readOnly) {
 	];
 }
 
+function makeInlineActionRow(documentRef, i18n, tooltip, items) {
+	const row = documentRef.createElement("div");
+	row.className = "item-expanded-actions";
+	for (const item of items) {
+		const button = documentRef.createElement("button");
+		button.type = "button";
+		button.className = "snappee-action";
+		button.disabled = Boolean(item.disabled);
+		button.setAttribute("aria-label", i18n.t(item.tooltipKey));
+		const image = documentRef.createElement("img");
+		image.src = `svg/icons/${item.icon}.svg`;
+		image.alt = "";
+		image.draggable = false;
+		button.append(image);
+		button.addEventListener("click", event => {
+			event.stopPropagation();
+			if (!button.disabled) {
+				item.onSelect?.();
+			}
+		});
+		tooltip?.register(button, item.tooltipKey);
+		row.append(button);
+	}
+	return row;
+}
+
+function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
+	const button = documentRef.createElement("button");
+	button.type = "button";
+	button.className = "snappee-action item-expand-button";
+	button.setAttribute("aria-expanded", String(expanded));
+	button.setAttribute("aria-label", i18n.t(expanded ? "panel.item.collapse" : "panel.item.expand"));
+	const image = documentRef.createElement("img");
+	image.src = "svg/icons/menu.svg";
+	image.alt = "";
+	image.draggable = false;
+	button.append(image);
+	button.addEventListener("click", event => {
+		event.stopPropagation();
+		onToggle(!expanded);
+	});
+	tooltip?.register(button, expanded ? "panel.item.collapse" : "panel.item.expand");
+	return button;
+}
+
 export class SnappeesPanel {
 	constructor(options = {}) {
 		this.element = options.element || document.getElementById("snappees-panel");
@@ -249,6 +293,7 @@ export class SnappeesPanel {
 		this.onDelete = options.onDelete || (() => {});
 		this.onEdit = options.onEdit || (() => {});
 		this.onMove = options.onMove || (() => {});
+		this.onToggleExpanded = options.onToggleExpanded || (() => {});
 		this.cleanup = [];
 	}
 
@@ -329,13 +374,20 @@ export class SnappeesPanel {
 		const name = document.createElement("span");
 		name.className = "snappee-name";
 		name.textContent = snappee.name;
-		const menu = makeItemMenuButton({
-			i18n: this.i18n,
-			tooltip: this.tooltip,
-			tooltipKey: "panel.snappee.menu",
-			items: snappeeMenuItems(this, snappee, index, model, readOnly),
-		});
-		this.cleanup.push(() => menu.close());
+		const actions = makeInlineActionRow(
+			document,
+			this.i18n,
+			this.tooltip,
+			snappeeMenuItems(this, snappee, index, model, readOnly),
+		);
+		actions.hidden = snappee.expanded !== true;
+		const expansion = makeExpansionButton(
+			document,
+			this.i18n,
+			this.tooltip,
+			snappee.expanded === true,
+			expanded => this.onToggleExpanded(snappee.id, expanded),
+		);
 		item.append(
 			preview,
 			name,
@@ -346,7 +398,8 @@ export class SnappeesPanel {
 				false,
 				"toggle",
 			),
-			menu.button,
+			expansion,
+			actions,
 		);
 		item.addEventListener("click", () => {
 			if (!readOnly && snappee.active !== false) {
@@ -404,6 +457,7 @@ export class ChannelsPanel {
 		this.onDelete = options.onDelete || (() => {});
 		this.onEdit = options.onEdit || (() => {});
 		this.onMove = options.onMove || (() => {});
+		this.onToggleExpanded = options.onToggleExpanded || (() => {});
 		this.cleanup = [];
 	}
 
@@ -444,13 +498,20 @@ export class ChannelsPanel {
 		const name = document.createElement("span");
 		name.className = "snappee-name";
 		name.textContent = String(channel.name || `Channel ${index + 1}`);
-		const menu = makeItemMenuButton({
-			i18n: this.i18n,
-			tooltip: this.tooltip,
-			tooltipKey: "panel.channel.menu",
-			items: channelMenuItems(this, channel, index, model, readOnly),
-		});
-		this.cleanup.push(() => menu.close());
+		const actions = makeInlineActionRow(
+			document,
+			this.i18n,
+			this.tooltip,
+			channelMenuItems(this, channel, index, model, readOnly),
+		);
+		actions.hidden = channel.expanded !== true;
+		const expansion = makeExpansionButton(
+			document,
+			this.i18n,
+			this.tooltip,
+			channel.expanded === true,
+			expanded => this.onToggleExpanded(channel.id, expanded),
+		);
 		item.append(
 			ordinal,
 			name,
@@ -460,7 +521,8 @@ export class ChannelsPanel {
 				() => this.onToggle(channel.id),
 				false,
 			),
-			menu.button,
+			expansion,
+			actions,
 		);
 		item.addEventListener("click", () => {
 			if (channel.active !== false) {

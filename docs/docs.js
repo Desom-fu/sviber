@@ -4,7 +4,7 @@
 // of the resulting DOM.
 const languageSelect = document.getElementById("language");
 const contents = document.getElementById("contents");
-const supported = new Set(["en", "zh-CN"]);
+const supported = new Set(["en-US", "zh-CN", "zh-TW", "ja-JP"]);
 const searchInput = document.getElementById("manual-search-input");
 const searchClear = document.getElementById("manual-search-clear");
 const searchStatus = document.getElementById("manual-search-status");
@@ -17,11 +17,17 @@ let searchMatchIndex = -1;
 
 function normalizeLanguage(value) {
 	const language = String(value || "").toLowerCase();
+	if (language.startsWith("zh-tw") || language.startsWith("zh-hk") || language.startsWith("zh-mo")) {
+		return "zh-TW";
+	}
 	if (language.startsWith("zh")) {
 		return "zh-CN";
 	}
+	if (language.startsWith("ja")) {
+		return "ja-JP";
+	}
 	if (language.startsWith("en")) {
-		return "en";
+		return "en-US";
 	}
 	return null;
 }
@@ -36,7 +42,7 @@ function requestedLanguage() {
 	if (supported.has(stored)) {
 		return stored;
 	}
-	return normalizeLanguage(navigator.language) || "en";
+	return normalizeLanguage(navigator.language) || "en-US";
 }
 
 function formatMessage(template, values) {
@@ -203,7 +209,7 @@ function setArticle(language, manual) {
 }
 
 async function setLanguage(language) {
-	const selected = supported.has(language) ? language : "en";
+	const selected = supported.has(language) ? language : "en-US";
 	localStorage.setItem("sviber.documentationLanguage", selected);
 	try {
 		const manual = await loadManual(selected);

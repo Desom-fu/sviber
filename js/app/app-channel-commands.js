@@ -161,6 +161,31 @@ class ChannelCommandsTrait {
 		return true;
 	}
 
+	setChannelExpanded(id, expanded = true) {
+		const channel = this.model.channels.find(candidate => candidate.id === id);
+		if (!channel || channel.expanded === Boolean(expanded)) {
+			return false;
+		}
+		this.commit(
+			i18n.t("history.editChannel"),
+			model => {
+				const target = model.channels.find(candidate => candidate.id === id);
+				if (target) {
+					target.expanded = Boolean(expanded);
+				}
+			},
+			{
+				lightweight: true,
+				viewOnly: true,
+				channelOnly: true,
+				rebuildIndex: false,
+				scheduleDirty: false,
+				skipCommands: true,
+			},
+		);
+		return true;
+	}
+
 	hideCurrentChannel() {
 		return this.setChannelHidden(this.model.editor.currentChannel, true);
 	}

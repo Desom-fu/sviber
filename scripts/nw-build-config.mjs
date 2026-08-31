@@ -1,4 +1,5 @@
 export const PACKAGED_WINDOW_ICON = "sviber/icon.png";
+export const SUPPORTED_FILE_EXTENSIONS = Object.freeze(["sviber", "json", "txt"]);
 
 const BUILDER_ICONS = {
 	win: "sviber/icon.ico",
@@ -13,6 +14,7 @@ export function builderApplicationOptions(platform, packageJson) {
 	const application = {
 		name,
 		icon: BUILDER_ICONS[normalizedPlatform] || BUILDER_ICONS.linux,
+		fileAssociations: [...SUPPORTED_FILE_EXTENSIONS],
 	};
 	if (normalizedPlatform !== "osx") {
 		return application;
@@ -27,5 +29,10 @@ export function builderApplicationOptions(platform, packageJson) {
 		CFBundleVersion: version,
 		CFBundleShortVersionString: version,
 		NSHumanReadableCopyright: "Copyright (c) sviber contributors",
+		CFBundleDocumentTypes: SUPPORTED_FILE_EXTENSIONS.map(extension => ({
+			CFBundleTypeName: `sviber ${extension} file`,
+			CFBundleTypeRole: "Editor",
+			CFBundleTypeExtensions: [extension],
+		})),
 	};
 }

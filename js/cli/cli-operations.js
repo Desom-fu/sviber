@@ -3,7 +3,12 @@
 
 import { ChartModel } from "../core/chart-model.js";
 import { exportLyricaChart, importLyricaChart, isLyricaChartText } from "../core/lyrica.js";
-import { PROJECT_FILENAME, normalizeProjectManifest, uniqueChartFilename } from "../core/project.js";
+import {
+	PROJECT_FILENAME,
+	LEGACY_PROJECT_FILENAME,
+	normalizeProjectManifest,
+	uniqueChartFilename,
+} from "../core/project.js";
 import { helpText, isHeadlessInvocation, lyricaOptionsFrom, parseCliArguments, timingOptionsFrom } from "./cli.js";
 
 const CHART_ORDER_EPSILON = 1e-9;
@@ -18,7 +23,12 @@ async function readJson(io, pathname) {
 }
 
 async function loadProject(io, directory) {
-	const manifest = normalizeProjectManifest(await readJson(io, io.join(directory, PROJECT_FILENAME)));
+	const hasFile = pathname => (io.fileExists ? io.fileExists(pathname) : true);
+	const filename = (await hasFile(io.join(directory, PROJECT_FILENAME))) ? PROJECT_FILENAME : LEGACY_PROJECT_FILENAME;
+	if (!(await hasFile(io.join(directory, filename)))) {
+		throw new Error("The directory does not contain a Sviber project manifest.");
+	}
+	const manifest = normalizeProjectManifest(await readJson(io, io.join(directory, filename)));
 	const charts = [];
 	for (const entry of manifest.charts) {
 		const document = await readJson(io, io.join(directory, entry.file));
@@ -27,7 +37,7 @@ async function loadProject(io, directory) {
 	return { manifest, charts, directory };
 }
 
-// A path is treated as a project when it holds a sviber-project.json.
+// A path is treated as a project when it holds a project.sviber or legacy manifest.
 async function loadInput(io, pathname, args) {
 	if (await io.isDirectory(pathname)) {
 		return { kind: "project", project: await loadProject(io, pathname) };

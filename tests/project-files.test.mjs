@@ -11,6 +11,7 @@ import JSZip from "jszip";
 
 import { ChartModel } from "../js/core/chart-model.js";
 import {
+	LEGACY_PROJECT_FILENAME,
 	PROJECT_FILENAME,
 	createProjectManifest,
 	exportSunniesnowChartDocument,
@@ -18,6 +19,7 @@ import {
 	projectManagedFiles,
 } from "../js/core/project.js";
 import { FileManager } from "../js/platform/platform.js";
+import { directoryFileExists } from "../js/platform/platform-project-directory.js";
 
 function restoreGlobal(name, value) {
 	if (value === undefined) {
@@ -303,6 +305,48 @@ test("copyAssetIntoProject reuses a file already in the project folder", async (
 			assert.equal(second, "song.ogg");
 			const copied = await manager.fileForAsset("song.ogg", "music");
 			assert.deepEqual([...new Uint8Array(await copied.arrayBuffer())], [1, 2, 3]);
+		});
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
+test("legacy project manifests open first and migrate on save", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "sviber-legacy-project-"));
+	try {
+		await withNwRequire(async () => {
+			const chart = ChartModel.createDefault({ metadata: { difficultyName: "Legacy" } });
+			await writeFile(path.join(directory, "legacy.json"), chart.serialize(2));
+			await writeFile(
+				path.join(directory, LEGACY_PROJECT_FILENAME),
+				JSON.stringify({ charts: [{ id: "legacy", file: "legacy.json" }], activeChart: "legacy" }),
+			);
+			const manager = new FileManager();
+			assert.equal(await manager.isProjectDirectory(directory), true);
+			const opened = await manager.openProject({ directoryPath: directory });
+			assert.equal(opened.charts[0].file, "legacy.json");
+			assert.equal(await manager.containingProjectPath(path.join(directory, "legacy.json")), directory);
+
+			await manager.saveProject({
+				name: "Legacy",
+				activeChart: "legacy",
+				charts: [{ id: "legacy", file: "legacy.json", model: ChartModel.import(opened.charts[0].document) }],
+			});
+			assert.equal(await directoryFileExists({ type: "nw", path: directory }, PROJECT_FILENAME), true);
+			assert.equal(await directoryFileExists({ type: "nw", path: directory }, LEGACY_PROJECT_FILENAME), false);
+
+			const preferred = ChartModel.createDefault({ metadata: { difficultyName: "Preferred" } });
+			await writeFile(path.join(directory, "preferred.json"), preferred.serialize(2));
+			await writeFile(
+				path.join(directory, LEGACY_PROJECT_FILENAME),
+				JSON.stringify({ charts: [{ id: "legacy", file: "legacy.json" }], activeChart: "legacy" }),
+			);
+			await writeFile(
+				path.join(directory, PROJECT_FILENAME),
+				JSON.stringify({ charts: [{ id: "preferred", file: "preferred.json" }], activeChart: "preferred" }),
+			);
+			const preferredOpen = await new FileManager().openProject({ directoryPath: directory });
+			assert.equal(preferredOpen.charts[0].file, "preferred.json");
 		});
 	} finally {
 		await rm(directory, { recursive: true, force: true });

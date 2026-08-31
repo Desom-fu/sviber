@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=sviber
+Comment=Sunniesnow chart editor
+Exec=sviber %F
+Icon=sviber
+Terminal=false
+Categories=AudioVideo;Audio;Development;
+MimeType=application/x-sviber;application/json;text/plain;

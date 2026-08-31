@@ -850,6 +850,23 @@ textarea:focus-visible,
 	position: relative;
 }
 
+.item-expanded-actions {
+	grid-column: 1 / -1;
+	display: flex;
+	justify-content: flex-end;
+	gap: 3px;
+	padding: 2px 3px 3px;
+	border-top: 1px solid color-mix(in srgb, var(--border) 55%, transparent);
+}
+
+.item-expanded-actions[hidden] {
+	display: none;
+}
+
+.item-expand-button[aria-expanded="true"] {
+	background: var(--hover);
+}
+
 .item-menu-button img {
 	border-radius: 2px;
 }

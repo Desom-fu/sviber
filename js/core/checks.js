@@ -384,6 +384,85 @@ function checkDragScreening(context, violations) {
 	}
 }
 
+function angularDistance(left, right) {
+	let distance = Math.abs(left - right) % (Math.PI * 2);
+	return distance > Math.PI ? Math.PI * 2 - distance : distance;
+}
+
+function notesDrawOrder(context, records) {
+	const channelOrder = new Map(context.channels.map((channel, index) => [channel.id, index]));
+	return records.slice().sort(
+		(left, right) =>
+			(channelOrder.get(left.event.channel) ?? Infinity) - (channelOrder.get(right.event.channel) ?? Infinity) ||
+			(left.sequence ?? 0) - (right.sequence ?? 0),
+	);
+}
+
+// Simultaneous note bodies can completely cover one another. The broad mode reports every
+// coincident non-drag pair; invisibleOnly narrows it to the overlap cases documented by v23.
+function checkSimultaneousOverlappingNotes(context, violations) {
+	const settings = context.settings.simultaneousOverlappingNotes;
+	const records = context.leafEvents
+		.filter(event => NOTE_TYPES.has(event.type) && event.type !== "drag")
+		.map(event => ({
+			event,
+			start: context.startOf(event),
+			beat: Rational.from(event.time),
+			position: context.positionOf(event),
+			sequence: context.sequenceOf(event),
+		}))
+		.sort((left, right) => left.start - right.start || left.sequence - right.sequence);
+	const samePosition = (left, right) =>
+		Math.abs(left.position.x - right.position.x) <= CHECK_EPSILON &&
+		Math.abs(left.position.y - right.position.y) <= CHECK_EPSILON;
+	for (let index = 0; index < records.length; ) {
+		const simultaneous = [records[index]];
+		while (index + simultaneous.length < records.length) {
+			const candidate = records[index + simultaneous.length];
+			if (Rational.compare(candidate.beat, records[index].beat) !== 0) {
+				break;
+			}
+			simultaneous.push(candidate);
+		}
+		if (simultaneous.length < 2) {
+			index += 1;
+			continue;
+		}
+		const ordered = notesDrawOrder(context, simultaneous);
+		for (let leftIndex = 0; leftIndex < ordered.length; leftIndex += 1) {
+			for (let rightIndex = leftIndex + 1; rightIndex < ordered.length; rightIndex += 1) {
+				const left = ordered[leftIndex];
+				const right = ordered[rightIndex];
+				if (!samePosition(left, right)) {
+					continue;
+				}
+				let invisible = true;
+				if (settings.invisibleOnly) {
+					const pair = new Set([left.event.type, right.event.type]);
+					invisible =
+						(left.event.type === "hold" && right.event.type === "hold") ||
+						(left.event.type === "flick" && right.event.type === "flick" &&
+							angularDistance(Number(left.event.angle), Number(right.event.angle)) <= CHECK_EPSILON) ||
+						(pair.has("hold") && pair.has("tap") && left.event.type === "tap") ||
+						(pair.has("flick") && pair.has("tap") && left.event.type === "tap") ||
+						(left.event.type === "tap" && right.event.type === "tap" &&
+							simultaneous.filter(record => record.event.type === "tap").length >= 3);
+				}
+				if (!invisible) {
+					continue;
+				}
+				violations.push(
+					violation("simultaneousOverlappingNotes", {
+						time: left.start,
+						eventIds: [left.event.id, right.event.id],
+					}),
+				);
+			}
+		}
+		index += simultaneous.length;
+	}
+}
+
 function checkEventsOutsideMusic(context, violations) {
 	const music = context.music;
 	if (!music || !Number.isFinite(music.duration)) {
@@ -408,6 +487,9 @@ function buildContext(model, options) {
 	const startCache = new Map();
 	const endCache = new Map();
 	const positionCache = new Map();
+	const sequenceCache = new Map(
+		model.allEvents({ includeGroups: false }).map((event, index) => [event.id, index]),
+	);
 	const startOf = event => {
 		if (!startCache.has(event.id)) {
 			startCache.set(event.id, timing.beatToSeconds(event.time));
@@ -427,6 +509,7 @@ function buildContext(model, options) {
 		}
 		return positionCache.get(event.id);
 	};
+	const sequenceOf = event => sequenceCache.get(event.id) ?? 0;
 	return {
 		model,
 		timing,
@@ -436,6 +519,7 @@ function buildContext(model, options) {
 		startOf,
 		endOf,
 		positionOf,
+		sequenceOf,
 		channels: model.channels || [],
 		music: options.music || null,
 	};
@@ -470,6 +554,9 @@ export function createChecksSteps(model, options = {}) {
 	}
 	if (settings.dragScreening.enabled) {
 		steps.push(() => checkDragScreening(context, violations));
+	}
+	if (settings.simultaneousOverlappingNotes.enabled) {
+		steps.push(() => checkSimultaneousOverlappingNotes(context, violations));
 	}
 	return { violations, steps };
 }

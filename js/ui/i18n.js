@@ -1,16 +1,28 @@
 import EN_MESSAGES from "../../json/i18n.en-US.json" with { type: "json" };
 import ZH_MESSAGES from "../../json/i18n.zh-CN.json" with { type: "json" };
+import ZH_TW_MESSAGES from "../../json/i18n.zh-TW.json" with { type: "json" };
+import JA_MESSAGES from "../../json/i18n.ja-JP.json" with { type: "json" };
 
-export const SUPPORTED_LANGUAGES = Object.freeze(["en-US", "zh-CN"]);
+export const SUPPORTED_LANGUAGES = Object.freeze(["en-US", "zh-CN", "zh-TW", "ja-JP"]);
 export const MESSAGES = Object.freeze({
 	"en-US": Object.freeze(EN_MESSAGES),
 	"zh-CN": Object.freeze(ZH_MESSAGES),
+	"zh-TW": Object.freeze(ZH_TW_MESSAGES),
+	"ja-JP": Object.freeze(JA_MESSAGES),
 });
 
 export function normalizeLanguage(language) {
-	return String(language || "")
-		.toLowerCase()
-		.startsWith("zh")? "zh-CN": "en-US";
+	const value = String(language || "").toLowerCase();
+	if (value.startsWith("zh-tw") || value.startsWith("zh-hk") || value.startsWith("zh-mo")) {
+		return "zh-TW";
+	}
+	if (value.startsWith("zh")) {
+		return "zh-CN";
+	}
+	if (value.startsWith("ja")) {
+		return "ja-JP";
+	}
+	return "en-US";
 }
 
 // v22: on Mac keyboards Ctrl is the Command key and Alt is Option. The command registry

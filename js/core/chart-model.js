@@ -92,6 +92,7 @@ export class ChartModel {
 		this.clips = (Array.isArray(state.clips) ? state.clips : []).map((clip, index) => ({
 			name: String(clip?.name ?? `Clip ${index + 1}`),
 			data: clone(clip?.data ?? { events: [], snappees: [] }),
+			expanded: clip?.expanded === true,
 		}));
 		this.checks = normalizeChecks(state.checks);
 		const nextIds = state.nextIds ?? {};
@@ -319,7 +320,7 @@ export class ChartModel {
 	}
 
 	addClip(data, name = `Clip ${this.clips.length + 1}`) {
-		const clip = { name: String(name), data: clone(data ?? { events: [], snappees: [] }) };
+		const clip = { name: String(name), data: clone(data ?? { events: [], snappees: [] }), expanded: false };
 		this.clips.push(clip);
 		return clip;
 	}
@@ -336,6 +337,7 @@ export class ChartModel {
 			name: String(data.name ?? `Channel ${ordinal}`),
 			active: data.active !== false,
 			hidden: data.hidden === true,
+			expanded: data.expanded === true,
 		};
 		const insertion = Math.max(0, Math.min(this.channels.length, Number(index) || 0));
 		this.channels.splice(insertion, 0, channel);

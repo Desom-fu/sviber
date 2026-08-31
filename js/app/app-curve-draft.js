@@ -92,6 +92,31 @@ class CurveDraftTrait {
 		);
 	}
 
+	setSnappeeExpanded(id, expanded = true) {
+		const snappee = this.model.snappees.find(candidate => candidate.id === id);
+		if (!snappee || snappee.expanded === Boolean(expanded)) {
+			return false;
+		}
+		this.commit(
+			i18n.t("history.editSnappee"),
+			model => {
+				const target = model.snappees.find(candidate => candidate.id === id);
+				if (target) {
+					target.expanded = Boolean(expanded);
+				}
+			},
+			{
+				lightweight: true,
+				viewOnly: true,
+				snappeeOnly: true,
+				rebuildIndex: false,
+				scheduleDirty: false,
+				skipCommands: true,
+			},
+		);
+		return true;
+	}
+
 	async deleteSnappee(id) {
 		if (
 			!(await this.dialogs.confirm({

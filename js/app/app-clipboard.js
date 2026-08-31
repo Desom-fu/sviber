@@ -210,6 +210,28 @@ class ClipLibraryTrait {
 		});
 	}
 
+	setClipExpanded(index, expanded = true) {
+		const clip = this.model.clips?.[index];
+		if (!clip || clip.expanded === Boolean(expanded)) {
+			return false;
+		}
+		this.commit(
+			i18n.t("history.editClip"),
+			model => {
+				if (model.clips[index]) {
+					model.clips[index].expanded = Boolean(expanded);
+				}
+			},
+			{
+				lightweight: true,
+				viewOnly: true,
+				scheduleDirty: false,
+				skipCommands: true,
+			},
+		);
+		return true;
+	}
+
 	async editClip(index) {
 		const clip = this.model.clips?.[index];
 		if (!clip) {

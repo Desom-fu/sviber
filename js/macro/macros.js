@@ -1,4 +1,4 @@
-import { MESSAGES } from "../ui/i18n.js";
+import { MESSAGES, SUPPORTED_LANGUAGES, normalizeLanguage } from "../ui/i18n.js";
 import { registerMacroCompletions } from "./macro-completions.js";
 import { loadMonaco } from "./macro-monaco-loader.js";
 import { saveMacroFile } from "./macro-file-export.js";
@@ -9,19 +9,18 @@ let disposeCompletions = null;
 
 function preferredLanguage() {
 	const query = new URLSearchParams(location.search).get("lang");
-	if (query === "en-US" || query === "zh-CN") {
+	if (SUPPORTED_LANGUAGES.includes(query)) {
 		return query;
 	}
 	try {
 		const stored = JSON.parse(localStorage.getItem("sviber.preferences") || "{}").language;
-		if (stored === "en-US" || stored === "zh-CN") {
+		if (SUPPORTED_LANGUAGES.includes(stored)) {
 			return stored;
 		}
 	} catch {
 		/* Ignore unavailable or malformed preference storage. */
 	}
-	const browserLanguage = String(navigator.language || "").toLowerCase();
-	return browserLanguage.startsWith("zh") ? "zh-CN" : "en-US";
+	return normalizeLanguage(navigator.language);
 }
 const LANGUAGE = preferredLanguage();
 const t = key => MESSAGES[LANGUAGE][`macro.${key}`] ?? MESSAGES["en-US"][`macro.${key}`] ?? key;
@@ -364,7 +363,7 @@ function renderTabs() {
 		close.type = "button";
 		close.className = "tab-close";
 		close.textContent = "x";
-		close.title = LANGUAGE === "zh-CN" ? "关闭标签" : "Close tab";
+		close.title = t("closeTab");
 		close.addEventListener("click", event => {
 			event.stopPropagation();
 			closeTab(key);

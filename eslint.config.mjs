@@ -1,12 +1,13 @@
 // Lint configuration required by PROMPT-v17: linting errors out when a file exceeds
-// 1000 lines, a function exceeds 100 lines, a line holds more than one statement, a
+// 1000 code lines excluding comments, a function exceeds 100 code lines excluding comments,
+// a line holds more than one statement, a
 // line is longer than 120 characters, two function definitions are not separated by an
 // empty line, an `if` or `for` clause omits its curly braces, or a ternary operator
 // spans multiple lines.
 
 const sharedRules = {
-	"max-lines": ["error", { max: 1000, skipBlankLines: false, skipComments: false }],
-	"max-lines-per-function": ["error", { max: 100, skipBlankLines: false, skipComments: false, IIFEs: true }],
+	"max-lines": ["error", { max: 1000, skipBlankLines: false, skipComments: true }],
+	"max-lines-per-function": ["error", { max: 100, skipBlankLines: false, skipComments: true, IIFEs: true }],
 	"max-statements-per-line": ["error", { max: 1 }],
 	"max-len": ["error", { code: 120, tabWidth: 4, ignoreUrls: true, ignoreRegExpLiterals: true }],
 	"lines-between-class-members": ["error", "always", { exceptAfterSingleLine: false }],

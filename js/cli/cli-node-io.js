@@ -52,7 +52,7 @@ async function readProjectAssets({ fs, path }, directory, charts) {
 	}
 	const assets = [];
 	for (const name of await fs.promises.readdir(directory)) {
-		if (name === PROJECT_FILENAME || CHART_EXTENSION.test(name)) {
+		if (name === PROJECT_FILENAME || name === "sviber-project.json" || CHART_EXTENSION.test(name)) {
 			continue;
 		}
 		if (!wanted.has(name) && !DISPLAY_TEXT_PATTERN.test(name)) {
@@ -99,6 +99,15 @@ export function createNodeCliIo(host) {
 
 		async readText(pathname) {
 			return fs.promises.readFile(pathname, "utf8");
+		},
+
+		async fileExists(pathname) {
+			try {
+				await fs.promises.access(pathname);
+				return true;
+			} catch {
+				return false;
+			}
 		},
 
 		async writeText(pathname, text) {

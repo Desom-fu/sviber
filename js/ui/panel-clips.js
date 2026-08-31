@@ -9,7 +9,51 @@
 import { resolveAttachedPosition } from "../core/geometry.js";
 import { TIMELINE_EVENT_COLORS, drawTimelineEventIcon } from "../render/timeline-helpers.js";
 import { clear } from "./panel-controls.js";
-import { makeItemMenuButton } from "./item-menu.js";
+
+function makeInlineActionRow(documentRef, i18n, tooltip, items) {
+	const row = documentRef.createElement("div");
+	row.className = "item-expanded-actions";
+	for (const item of items) {
+		const button = documentRef.createElement("button");
+		button.type = "button";
+		button.className = "snappee-action";
+		button.disabled = Boolean(item.disabled);
+		button.setAttribute("aria-label", i18n.t(item.tooltipKey));
+		const image = documentRef.createElement("img");
+		image.src = `svg/icons/${item.icon}.svg`;
+		image.alt = "";
+		image.draggable = false;
+		button.append(image);
+		button.addEventListener("click", event => {
+			event.stopPropagation();
+			if (!button.disabled) {
+				item.onSelect?.();
+			}
+		});
+		tooltip?.register(button, item.tooltipKey);
+		row.append(button);
+	}
+	return row;
+}
+
+function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
+	const button = documentRef.createElement("button");
+	button.type = "button";
+	button.className = "snappee-action item-expand-button";
+	button.setAttribute("aria-expanded", String(expanded));
+	button.setAttribute("aria-label", i18n.t(expanded ? "panel.item.collapse" : "panel.item.expand"));
+	const image = documentRef.createElement("img");
+	image.src = "svg/icons/menu.svg";
+	image.alt = "";
+	image.draggable = false;
+	button.append(image);
+	button.addEventListener("click", event => {
+		event.stopPropagation();
+		onToggle(!expanded);
+	});
+	tooltip?.register(button, expanded ? "panel.item.collapse" : "panel.item.expand");
+	return button;
+}
 
 export function drawClipThumbnail(canvas, data, size = 42) {
 	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -70,6 +114,7 @@ export class ClipsPanel {
 		this.onMove = options.onMove || (() => {});
 		this.onEdit = options.onEdit || (() => {});
 		this.onDelete = options.onDelete || (() => {});
+		this.onToggleExpanded = options.onToggleExpanded || (() => {});
 		this.cleanup = [];
 	}
 
@@ -104,12 +149,7 @@ export class ClipsPanel {
 		const name = document.createElement("span");
 		name.className = "snappee-name";
 		name.textContent = clip.name;
-		// v22: pasting stays on the item; every other action hides inside the item menu.
-		const menu = makeItemMenuButton({
-			i18n: this.i18n,
-			tooltip: this.tooltip,
-			tooltipKey: "panel.clip.menu",
-			items: [
+		const actions = makeInlineActionRow(document, this.i18n, this.tooltip, [
 				{
 					icon: "up",
 					tooltipKey: "panel.clip.moveUp",
@@ -136,14 +176,21 @@ export class ClipsPanel {
 					disabled: readOnly,
 					onSelect: () => this.onDelete(index),
 				},
-			],
-		});
-		this.cleanup.push(() => menu.close());
+		]);
+		actions.hidden = clip.expanded !== true;
+		const expansion = makeExpansionButton(
+			document,
+			this.i18n,
+			this.tooltip,
+			clip.expanded === true,
+			expanded => this.onToggleExpanded(index, expanded),
+		);
 		item.append(
 			canvas,
 			name,
 			this.#action("paste", "panel.clip.paste", () => this.onPaste(index), readOnly),
-			menu.button,
+			expansion,
+			actions,
 		);
 		item.addEventListener("dblclick", () => {
 			if (!readOnly) {

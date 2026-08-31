@@ -447,6 +447,8 @@ async function copyApplication() {
 		license: sourcePackage.license,
 		repository: sourcePackage.repository,
 		bugs: sourcePackage.bugs,
+		"single-instance": false,
+		"node-main": "sviber/js/cli/cli-main.js",
 		main: "sviber/index.html",
 		window: {
 			...sourcePackage.window,

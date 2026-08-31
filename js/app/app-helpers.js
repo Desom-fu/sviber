@@ -1,4 +1,4 @@
-import { i18n } from "../ui/i18n.js";
+import { i18n, SUPPORTED_LANGUAGES } from "../ui/i18n.js";
 import { walkEvents } from "../core/grouping.js";
 import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "../ui/ui.js";
@@ -87,7 +87,7 @@ function normalizePreferences(source = {}) {
 	}
 	return {
 		theme: preferenceChoice(source.theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme),
-		language: preferenceChoice(source.language, ["system", "en-US", "zh-CN"], DEFAULT_PREFERENCES.language),
+		language: preferenceChoice(source.language, ["system", ...SUPPORTED_LANGUAGES], DEFAULT_PREFERENCES.language),
 		noteSpeed: noteSpeed > 0 ? noteSpeed : DEFAULT_PREFERENCES.noteSpeed,
 		seVolume: clampVolume(source.seVolume, DEFAULT_PREFERENCES.seVolume, 2),
 		musicVolume: clampVolume(source.musicVolume, DEFAULT_PREFERENCES.musicVolume, 2),
@@ -119,12 +119,20 @@ export function storePreferences(preferences, storage = globalThis.localStorage)
 }
 
 export function resolvePreferenceLanguage(language, systemLanguage = globalThis.navigator?.language) {
-	if (language === "en-US" || language === "zh-CN") {
+	if (SUPPORTED_LANGUAGES.includes(language)) {
 		return language;
 	}
-	return String(systemLanguage || "")
-		.toLowerCase()
-		.startsWith("zh")? "zh-CN": "en-US";
+	const value = String(systemLanguage || "").toLowerCase();
+	if (value.startsWith("zh-tw") || value.startsWith("zh-hk") || value.startsWith("zh-mo")) {
+		return "zh-TW";
+	}
+	if (value.startsWith("zh")) {
+		return "zh-CN";
+	}
+	if (value.startsWith("ja")) {
+		return "ja-JP";
+	}
+	return "en-US";
 }
 
 export function isScrollableDomTarget(target) {
@@ -423,10 +431,10 @@ export function localizedErrorMessage(error) {
 	if (/Project folders (?:are unavailable|are available only)/i.test(message)) {
 		return i18n.t("error.projectFoldersUnavailable");
 	}
-	if (/already contains sviber-project\.json/i.test(message)) {
+	if (/already contains (?:project\.sviber|sviber-project\.json)/i.test(message)) {
 		return i18n.t("error.projectManifestExists");
 	}
-	if (/sviber-project\.json|ENOENT|NotFoundError/i.test(message)) {
+	if (/project\.sviber|sviber-project\.json|project manifest|ENOENT|NotFoundError/i.test(message)) {
 		return i18n.t("error.projectManifestMissing");
 	}
 	if (/must contain a music file/i.test(message)) {

@@ -155,7 +155,7 @@ test("standalone saves use absolute media paths and project saves use relative p
 					},
 					{ directoryPath: projectDirectory },
 				),
-			/already contains sviber-project\.json/,
+			/already contains project\.sviber/,
 		);
 	} finally {
 		if (previousNw === undefined) {

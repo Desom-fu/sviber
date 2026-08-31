@@ -13,6 +13,8 @@ import {
 	timelineTipSegments,
 	tipSpawnDirectionSegment,
 	timelineTipCheckpointSignature,
+	scrollbarNoteDensity,
+	scrollbarHeatmapColors,
 } from "./timeline-helpers.js";
 import { abLoopMarks } from "./timeline-gestures.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
@@ -135,20 +137,66 @@ export class TimelineDrawingTrait {
 		context.stroke();
 		context.font = "10px 'Cascadia Mono', Consolas, monospace";
 		context.textBaseline = "top";
+		const ordered = project.channels || [];
+		const selectedHiddenRecords = this.renderIndex?.selectedRecords || [];
+		const drawSeparator = (y, hiddenChannels) => {
+			if (!hiddenChannels.length) {
+				return;
+			}
+			const hiddenIds = new Set(hiddenChannels.map(channel => channel.id));
+			const currentHidden = hiddenIds.has(project.editor.currentChannel);
+			context.strokeStyle = currentHidden ? "#ffe331" : "#d5dade";
+			context.lineWidth = currentHidden ? 3 : 2.5;
+			context.beginPath();
+			context.moveTo(0, Math.round(y) + 0.5);
+			context.lineTo(layout.channels.width, Math.round(y) + 0.5);
+			context.stroke();
+			for (const record of selectedHiddenRecords) {
+				if (!hiddenIds.has(record.event?.channel)) {
+					continue;
+				}
+				const time = Number(record.start);
+				if (!Number.isFinite(time)) {
+					continue;
+				}
+				const x = this._timeToX(time, layout.channels.width);
+				context.strokeStyle = record.event?.locked ? "#e83dff" : "#ff3158";
+				context.lineWidth = 3;
+				context.beginPath();
+				context.moveTo(x - 2, y);
+				context.lineTo(x + 2, y);
+				context.stroke();
+			}
+		};
+		const originalIndex = channel => ordered.findIndex(candidate => candidate.id === channel.id);
+		const hiddenBetween = (left, right) => {
+			const start = originalIndex(left);
+			const end = originalIndex(right);
+			return ordered
+				.slice(Math.min(start, end) + 1, Math.max(start, end))
+				.filter(channel => channel.hidden === true);
+		};
+		const firstShownIndex = originalIndex(channels[0]);
+		const previousShown = visibleTimelineChannels(project)[this.channelOffset - 1];
+		if (channels.length && (previousShown || firstShownIndex > 0)) {
+			const start = previousShown ? originalIndex(previousShown) : -1;
+			const hidden = ordered.slice(start + 1, firstShownIndex).filter(channel => channel.hidden === true);
+			drawSeparator(layout.channels.y, hidden);
+		}
 		channels.forEach((channel, index) => {
 			const y = layout.channels.y + index * layout.channelHeight;
 			if (index) {
-				// v22: when hidden channels collapse between two shown lanes, their separator
-				// becomes a thick bright gray line to signal the missing channels.
-				const order = project.channels.map(item => item.id);
-				const hiddenBetween =
-					order.indexOf(channel.id) - order.indexOf(channels[index - 1].id) > 1;
-				context.strokeStyle = hiddenBetween ? "#d5dade" : "#34383d";
-				context.lineWidth = hiddenBetween ? 2.5 : 1;
-				context.beginPath();
-				context.moveTo(0, Math.round(y) + 0.5);
-				context.lineTo(layout.channels.width, Math.round(y) + 0.5);
-				context.stroke();
+				const hidden = hiddenBetween(channels[index - 1], channel);
+				if (hidden.length) {
+					drawSeparator(y, hidden);
+				} else {
+					context.strokeStyle = "#34383d";
+					context.lineWidth = 1;
+					context.beginPath();
+					context.moveTo(0, Math.round(y) + 0.5);
+					context.lineTo(layout.channels.width, Math.round(y) + 0.5);
+					context.stroke();
+				}
 			}
 			context.fillStyle = channel.id === project.editor.currentChannel ? "#ffe331" : "#c4c9ce";
 			context.globalAlpha = channel.active === false ? 0.34 : 0.9;
@@ -156,6 +204,17 @@ export class TimelineDrawingTrait {
 			context.fillText(name, 4, y + 4, Math.max(20, layout.channels.width - 18));
 			context.globalAlpha = 1;
 		});
+		const visible = visibleTimelineChannels(project);
+		const lastShown = channels.at(-1);
+		if (lastShown) {
+			const lastShownIndex = originalIndex(lastShown);
+			const nextShown = visible[this.channelOffset + channels.length];
+			const end = nextShown ? originalIndex(nextShown) : ordered.length;
+			const hidden = ordered.slice(lastShownIndex + 1, end).filter(channel => channel.hidden === true);
+			if (hidden.length) {
+				drawSeparator(layout.channels.y + layout.channels.height, hidden);
+			}
+		}
 	}
 
 	// Events of every channel lane, painted in the layer order of the timeline so that the
@@ -564,8 +623,18 @@ export class TimelineDrawingTrait {
 		const beginningX = this._scrollX(project.editor.visibleRangeBeginning, rectangle, bounds);
 		const endingX = this._scrollX(project.editor.visibleRangeEnd, rectangle, bounds);
 		const currentX = this._scrollX(current, rectangle, bounds);
-		context.fillStyle = "#15181b";
-		context.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+		const records =
+			this.renderIndex?.eventRecords ||
+			flattenEvents(project.events || [], false).map(event => ({
+				event,
+				start: this.timing.beatToSeconds(event.time),
+			}));
+		const colors = scrollbarHeatmapColors(scrollbarNoteDensity(records, bounds, rectangle.width));
+		const binWidth = rectangle.width / Math.max(1, colors.length);
+		colors.forEach((color, index) => {
+			context.fillStyle = color;
+			context.fillRect(rectangle.x + index * binWidth, rectangle.y, binWidth + 1, rectangle.height);
+		});
 		const loopMarks = this._loopSeconds(project.editor);
 		if (loopMarks.length === 2) {
 			const loopBeginningX = this._scrollX(loopMarks[0], rectangle, bounds);

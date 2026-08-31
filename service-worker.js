@@ -1,11 +1,12 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v01340";
+const CACHE_VERSION = "sviber-v01400";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
 	"./",
 	"./index.html",
+	"./package-lock.json",
 	"./macros.html",
 	"./javascript.html",
 	"./source-viewer.html",
@@ -73,7 +74,7 @@ const APP_SHELL = [
 	"./js/app/app-view-callbacks.js",
 	"./js/app/app-view-controls.js",
 	"./js/app/app-view-refresh.js",
-	"./js/app/app.js?v=67",
+	"./js/app/app.js",
 	"./js/audio/decoder.js",
 	"./js/audio/player.js",
 	"./js/audio/scheduler.js",
@@ -191,10 +192,15 @@ const APP_SHELL = [
 	"./js/boot/vendor-loader.js",
 	"./json/i18n.en-US.json",
 	"./json/i18n.zh-CN.json",
+	"./json/i18n.zh-TW.json",
+	"./json/i18n.ja-JP.json",
 	"./macro-sandbox.html",
 	"./docs/index.html",
 	"./json/manual.en.json",
+	"./json/manual.en-US.json",
 	"./json/manual.zh-CN.json",
+	"./json/manual.zh-TW.json",
+	"./json/manual.ja-JP.json",
 	"./docs/docs.css",
 	"./docs/docs.js",
 	"./manifest.webmanifest",
@@ -221,33 +227,35 @@ const APP_SHELL = [
 		"time-lattice-8.svg", "up.svg", "zoom-in.svg", "zoom-out.svg",
 	].map(name => `svg/icons/${name}`),
 ];
-const CDN_ASSETS = [
-	"https://cdn.jsdelivr.net/npm/pixi.js@8.19.0/dist/pixi.min.js",
-	"https://cdn.jsdelivr.net/npm/mathjs@15.2.0/lib/browser/math.js",
-	"https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js",
-	"https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/min/vs/loader.js",
-	"https://cdn.jsdelivr.net/npm/@ruby/wasm-wasi@2.10.1/dist/browser.umd.js",
-	"https://cdn.jsdelivr.net/npm/@ruby/4.0-wasm-wasi@2.10.1/dist/ruby+stdlib.wasm",
-	"https://cdn.jsdelivr.net/npm/audio-decode@3.12.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode@3.12.0/+esm",
-	"https://cdn.jsdelivr.net/npm/audio-type@2.4.2/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-mp3@1.3.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-flac@1.3.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-opus@1.3.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-vorbis@1.3.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-aac@1.4.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-wav@1.5.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-qoa@1.2.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-aiff@1.3.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-caf@1.4.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-webm@1.4.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-amr@1.3.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-wma@1.3.0/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-aac@1.4.0/src/aac.wasm.cjs/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-amr@1.3.0/src/amr.wasm.cjs/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-opus@1.3.0/src/opus.wasm.js/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-webm@1.4.0/src/opus.wasm.js/+esm",
-	"https://cdn.jsdelivr.net/npm/@audio/decode-wma@1.3.0/src/wma.wasm.cjs/+esm",
+const CDN_PACKAGE_ASSETS = [
+	["pixi.js", "dist/pixi.min.js"],
+	["mathjs", "lib/browser/math.js"],
+	["jszip", "dist/jszip.min.js"],
+	["monaco-editor", "min/vs/loader.js"],
+	["@ruby/wasm-wasi", "dist/browser.umd.js"],
+	["@ruby/4.0-wasm-wasi", "dist/ruby+stdlib.wasm"],
+	["audio-decode", "+esm"],
+	["@audio/decode", "+esm"],
+	["audio-type", "+esm"],
+	["@audio/decode-mp3", "+esm"],
+	["@audio/decode-flac", "+esm"],
+	["@audio/decode-opus", "+esm"],
+	["@audio/decode-vorbis", "+esm"],
+	["@audio/decode-aac", "+esm"],
+	["@audio/decode-wav", "+esm"],
+	["@audio/decode-qoa", "+esm"],
+	["@audio/decode-aiff", "+esm"],
+	["@audio/decode-caf", "+esm"],
+	["@audio/decode-webm", "+esm"],
+	["@audio/decode-amr", "+esm"],
+	["@audio/decode-wma", "+esm"],
+	["@audio/decode-aac", "src/aac.wasm.cjs/+esm"],
+	["@audio/decode-amr", "src/amr.wasm.cjs/+esm"],
+	["@audio/decode-opus", "src/opus.wasm.js/+esm"],
+	["@audio/decode-webm", "src/opus.wasm.js/+esm"],
+	["@audio/decode-wma", "src/wma.wasm.cjs/+esm"],
+];
+const CDN_FONT_ASSETS = [
 	"https://cdn.jsdelivr.net/gh/lxgw/LxgwWenKai@1.245.1/fonts/TTF/LXGWWenKai-Regular.ttf",
 	"https://cdn.jsdelivr.net/gh/notofonts/math@53eb8eb200ed8fc73fa13d97d26a2c9c56428c17/fonts/NotoSansMath/full/ttf/NotoSansMath-Regular.ttf",
 	"https://cdn.jsdelivr.net/gh/notofonts/noto-cjk@f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/TraditionalChinese/NotoSansCJKtc-Regular.otf",
@@ -255,11 +263,35 @@ const CDN_ASSETS = [
 	"https://cdn.jsdelivr.net/gh/Kinutafontfactory/Yuji@efec977b14b57c19eb85d468edcfbbad13139e67/fonts/ttf/YujiBoku-Regular.ttf",
 ];
 
+async function cdnAssetsFromLockfile() {
+	const response = await fetch(new URL("./package-lock.json", self.location.href), { cache: "no-cache" });
+	if (!response.ok) {
+		throw new Error(`Unable to read package-lock.json: HTTP ${response.status}`);
+	}
+	const lockfile = await response.json();
+	return [
+		...CDN_PACKAGE_ASSETS.map(([name, file]) => {
+			const metadata = lockfile.packages?.[`node_modules/${name}`];
+			if (!metadata?.version) {
+				throw new Error(`Missing locked version for ${name}`);
+			}
+			return `https://cdn.jsdelivr.net/npm/${name}@${metadata.version}/${file}`;
+		}),
+		...CDN_FONT_ASSETS,
+	];
+}
+
 self.addEventListener("install", event => {
 	event.waitUntil((async () => {
 		const cache = await caches.open(SHELL_CACHE);
 		await cache.addAll(APP_SHELL);
-		await Promise.allSettled(CDN_ASSETS.map(async url => {
+		let cdnAssets = [];
+		try {
+			cdnAssets = await cdnAssetsFromLockfile();
+		} catch (error) {
+			console.warn(`Unable to resolve CDN assets from package-lock.json: ${error.message}`);
+		}
+		await Promise.allSettled(cdnAssets.map(async url => {
 			const response = await fetch(url, { mode: "cors", cache: "reload", signal: AbortSignal.timeout(8000) });
 			if (!response.ok) {
 				throw new Error(`Unable to cache ${url}: HTTP ${response.status}`);

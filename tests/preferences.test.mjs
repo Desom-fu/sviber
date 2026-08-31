@@ -75,7 +75,7 @@ test("stored appearance and language preferences round-trip", () => {
 	assert.deepEqual(JSON.parse(storage.value(PREFERENCES_KEY)), stored);
 	assert.equal(Object.hasOwn(stored, "allowOutOfBounds"), false);
 	assert.deepEqual(loadPreferences(storage), stored);
-	assert.equal(resolvePreferenceLanguage("system", "zh-HK"), "zh-CN");
+	assert.equal(resolvePreferenceLanguage("system", "zh-HK"), "zh-TW");
 	assert.equal(resolvePreferenceLanguage("system", "en-GB"), "en-US");
 	assert.equal(resolvePreferenceLanguage("en-US", "zh-CN"), "en-US");
 });

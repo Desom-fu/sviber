@@ -16,6 +16,8 @@
 import { ChartModel } from "../core/chart-model.js";
 import {
 	PROJECT_FILENAME,
+	LEGACY_PROJECT_FILENAME,
+	PROJECT_FILENAMES,
 	createProjectManifest,
 	normalizeProjectManifest,
 	sanitizeFileStem,
@@ -64,6 +66,7 @@ export class FileManager {
 		this.projectDirectoryHandle = null;
 		this.projectPath = "";
 		this.projectName = "";
+		this.projectManifestFilename = PROJECT_FILENAME;
 		this.musicFile = null;
 		this.imageFile = null;
 		this.musicReference = "";
@@ -85,6 +88,7 @@ export class FileManager {
 		this.projectDirectoryHandle = null;
 		this.projectPath = "";
 		this.projectName = "";
+		this.projectManifestFilename = PROJECT_FILENAME;
 		this.clearChartTarget();
 	}
 
@@ -142,7 +146,9 @@ export class FileManager {
 		const resolved = modules.path.resolve(String(pathname));
 		const insideRoot = modules.path.dirname(resolved).toLowerCase() === root.toLowerCase();
 		const isChart = resolved.toLowerCase().endsWith(".json");
-		const isManifest = resolved.toLowerCase() === modules.path.resolve(root, PROJECT_FILENAME).toLowerCase();
+		const isManifest = PROJECT_FILENAMES.some(
+			filename => resolved.toLowerCase() === modules.path.resolve(root, filename).toLowerCase(),
+		);
 		return insideRoot && isChart && !isManifest ? modules.path.basename(resolved) : "";
 	}
 
@@ -157,7 +163,8 @@ export class FileManager {
 			if (!(await modules.fs.promises.stat(resolved)).isDirectory()) {
 				return false;
 			}
-			const text = await modules.fs.promises.readFile(modules.path.join(resolved, PROJECT_FILENAME), "utf8");
+			const filename = await this.#findProjectManifestFilename(resolved);
+			const text = await modules.fs.promises.readFile(modules.path.join(resolved, filename), "utf8");
 			normalizeProjectManifest(JSON.parse(text));
 			return true;
 		} catch {
@@ -172,14 +179,28 @@ export class FileManager {
 		}
 		const resolved = modules.path.resolve(String(pathname));
 		const directory = modules.path.dirname(resolved);
-		const filename = modules.path.basename(resolved).toLowerCase();
+		const chartFilename = modules.path.basename(resolved).toLowerCase();
 		try {
-			const text = await modules.fs.promises.readFile(modules.path.join(directory, PROJECT_FILENAME), "utf8");
+			const manifestFilename = await this.#findProjectManifestFilename(directory);
+			const text = await modules.fs.promises.readFile(modules.path.join(directory, manifestFilename), "utf8");
 			const manifest = normalizeProjectManifest(JSON.parse(text));
-			return manifest.charts.some(entry => entry.file.toLowerCase() === filename) ? directory : "";
+			return manifest.charts.some(entry => entry.file.toLowerCase() === chartFilename) ? directory : "";
 		} catch {
 			return "";
 		}
+	}
+
+	async #findProjectManifestFilename(directory) {
+		const modules = nwModules();
+		for (const filename of PROJECT_FILENAMES) {
+			try {
+				await modules.fs.promises.access(modules.path.join(directory, filename));
+				return filename;
+			} catch {
+				// Try the next supported manifest name.
+			}
+		}
+		throw new Error("The directory does not contain a Sviber project manifest.");
 	}
 
 	assetReference(file) {
@@ -339,7 +360,8 @@ export class FileManager {
 		if (!directory) {
 			return null;
 		}
-		const manifestFile = await readDirectoryFile(directory, PROJECT_FILENAME, "application/json");
+		const manifestFilename = await this.#findProjectManifestFilename(directory.path);
+		const manifestFile = await readDirectoryFile(directory, manifestFilename, "application/json");
 		const manifest = normalizeProjectManifest(JSON.parse(await manifestFile.text()));
 		const charts = [];
 		for (const entry of manifest.charts) {
@@ -349,6 +371,7 @@ export class FileManager {
 		this.assetFiles.clear();
 		this.clearCurrentAssets();
 		this.#adoptProjectDirectory(directory, options.projectName);
+		this.projectManifestFilename = manifestFilename;
 		return { manifest, charts, projectName: this.projectName };
 	}
 
@@ -388,7 +411,7 @@ export class FileManager {
 	// the names the manifest gave them.
 	async #reserveProjectChartNames(project, directory, existingDirectory) {
 		const existingNames = new Set((await directoryFilenames(directory)).map(name => name.toLowerCase()));
-		const usedNames = new Set([...existingNames, PROJECT_FILENAME.toLowerCase()]);
+		const usedNames = new Set([...existingNames, ...PROJECT_FILENAMES.map(filename => filename.toLowerCase())]);
 		for (const entry of project.charts) {
 			if (existingDirectory) {
 				usedNames.add(String(entry.file).toLowerCase());
@@ -397,7 +420,7 @@ export class FileManager {
 			}
 		}
 		const chartNames = new Set([
-			PROJECT_FILENAME.toLowerCase(),
+			...PROJECT_FILENAMES.map(filename => filename.toLowerCase()),
 			...project.charts.map(entry => String(entry.file).toLowerCase()),
 		]);
 		return { existingNames, usedNames, chartNames };
@@ -459,6 +482,7 @@ export class FileManager {
 	// references rather than the paths the assets were originally imported from.
 	#adoptSavedProject(project, directory, savedAssets) {
 		this.#adoptProjectDirectory(directory, project.name);
+		this.projectManifestFilename = PROJECT_FILENAME;
 		this.assetFiles.clear();
 		for (const asset of savedAssets.values()) {
 			this.assetFiles.set(asset.filename, asset.file);
@@ -504,6 +528,9 @@ export class FileManager {
 			PROJECT_FILENAME,
 			new Blob([`${JSON.stringify(manifest, null, 2)}\n`], { type: "application/json" }),
 		);
+		if (this.projectManifestFilename === LEGACY_PROJECT_FILENAME && LEGACY_PROJECT_FILENAME !== PROJECT_FILENAME) {
+			await removeDirectoryFile(directory, LEGACY_PROJECT_FILENAME);
+		}
 		this.#adoptSavedProject(project, directory, savedAssets);
 		return {
 			location: directory.type === "nw" ? directory.path : directory.handle.name,

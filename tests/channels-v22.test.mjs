@@ -196,31 +196,29 @@ test("tip point chains of simultaneous events follow the timeline stacking order
 	assert.equal(inheritedTipPointSource(events, top), null);
 });
 
-test("the timeline paints the waveform separator and marks collapsed hidden channels", async () => {
+test("the timeline paints hidden-channel separators and marks selected hidden events", async () => {
 	const drawing = await readFile(new URL("../js/render/timeline-drawing.js", import.meta.url), "utf8");
 	// A dark gray line at the bottom of the waveform (the top edge of the channels area).
 	assert.match(drawing, /_drawChannels\(context, layout, project\)/);
 	assert.match(drawing, /Math\.round\(layout\.channels\.y\) \+ 0\.5/);
 	// Separators over collapsed hidden channels become bright gray and thick.
-	assert.match(drawing, /hiddenBetween \? "#d5dade" : "#34383d"/);
-	assert.match(drawing, /hiddenBetween \? 2\.5 : 1/);
+	assert.match(drawing, /context\.strokeStyle = currentHidden \? "#ffe331" : "#d5dade"/);
+	assert.match(drawing, /context\.lineWidth = currentHidden \? 3 : 2\.5/);
+	assert.match(drawing, /selectedHiddenRecords/);
 });
 
-test("the panel items keep one primary action and hide the rest in a popup menu", async () => {
+test("the panel items keep one primary action and reveal an inline second row", async () => {
 	const [lists, clips] = await Promise.all([
 		readFile(new URL("../js/ui/panel-lists.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui/panel-clips.js", import.meta.url), "utf8"),
 	]);
-	// Channels: activate/deactivate stays, the menu carries hide/show, create, and the rest.
-	assert.match(lists, /makeItemMenuButton/);
+	// Channels: activate/deactivate stays, the expanded row carries hide/show, create, and the rest.
+	assert.match(lists, /makeInlineActionRow/);
 	assert.match(lists, /icon: channel\.hidden === true \? "show-channel" : "hide-channel"/);
 	assert.match(lists, /icon: "create-channel-above"/);
 	assert.match(lists, /icon: "create-channel-below"/);
-	assert.match(lists, /tooltipKey: "panel\.channel\.menu"/);
-	// Only moving up/down keeps the menu open; everything else closes it.
-	const keepOpenCount = lists.split("keepOpen: true").length - 1;
-	assert.equal(keepOpenCount, 4);
-	// Clips: pasting stays on the item, the rest hides in the menu.
+	assert.match(lists, /item-expanded-actions/);
+	// Clips: pasting stays on the item, the rest appears in the expanded row.
 	assert.match(clips, /this\.#action\("paste", "panel\.clip\.paste"/);
-	assert.match(clips, /tooltipKey: "panel\.clip\.menu"/);
+	assert.match(clips, /item-expanded-actions/);
 });
