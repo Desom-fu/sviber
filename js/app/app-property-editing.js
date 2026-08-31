@@ -1,5 +1,5 @@
 import { i18n } from "../ui/i18n.js";
-import { connectSelectedTipPointChain, createEvent } from "../core/chart-model.js";
+import { createEvent } from "../core/chart-model.js";
 import { fillInheritedTipPointParams } from "../core/tip-point.js";
 import { Rational } from "../core/rational.js";
 import { clampPointToChartBounds, resolveAttachedPosition } from "../core/geometry.js";
@@ -144,22 +144,6 @@ export class PropertyEditingTrait {
 			selected(this.model).length > 0 &&
 			selected(this.model).every(event => event.type === "comment") &&
 			commentProperties.has(property);
-		if (
-			property === "tipPointSpawnType" &&
-			value === "chain" &&
-			this.model.allEvents().filter(event => event.selected).length > 1
-		) {
-			const selectedEvent = this.model.allEvents().find(event => event.selected);
-			const scopeGroup =
-				(this.groupSelectionScope && this.model.findEvent(this.groupSelectionScope)) ||
-				(selectedEvent && this.model.ancestorsOf(selectedEvent.id).at(-1));
-			const scope = scopeGroup?.events || this.model.events;
-			const result = this.commit(historyLabel, model => connectSelectedTipPointChain(scope));
-			if (!result?.ok) {
-				this.toast.error("toast.tipPointChainSelection");
-			}
-			return result;
-		}
 		const result = this.commit(
 			historyLabel,
 			model =>
