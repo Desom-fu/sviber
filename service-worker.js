@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v01440";
+const CACHE_VERSION = "sviber-v01450";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -196,11 +196,10 @@ const APP_SHELL = [
 	"./json/i18n.ja-JP.json",
 	"./macro-sandbox.html",
 	"./docs/index.html",
-	"./json/manual.en.json",
-	"./json/manual.en-US.json",
-	"./json/manual.zh-CN.json",
-	"./json/manual.zh-TW.json",
-	"./json/manual.ja-JP.json",
+	"./docs/manual.en-US.html",
+	"./docs/manual.zh-CN.html",
+	"./docs/manual.zh-TW.html",
+	"./docs/manual.ja-JP.html",
 	"./docs/docs.css",
 	"./docs/docs.js",
 	"./manifest.webmanifest",

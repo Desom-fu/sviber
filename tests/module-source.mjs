@@ -48,19 +48,29 @@ export async function readSources(modules) {
 	return sources.join("\n");
 }
 
-// The manual body lives in per-language JSON data (v21); article lines are stored as an
-// array for readable diffs and joined here so content assertions see complete HTML.
+// The manual body lives in one HTML fragment per supported language so content assertions
+// can read the same resources that the documentation page injects.
 export function manualArticle(manual) {
-	return Array.isArray(manual.article) ? manual.article.join("") : manual.article;
+	let article;
+	if (typeof manual === "string") {
+		article = manual;
+	} else if (Array.isArray(manual.article)) {
+		article = manual.article.join("");
+	} else {
+		article = manual.article;
+	}
+	return article
+		.replace(/<!---->\r?\n/g, "")
+		.replace(/\r?\n$/, "");
 }
 
 // Content assertions read all supported languages at once.
 export async function readManual() {
 	const [en, zh, zhTw, ja] = await Promise.all([
-		readFile(new URL("../json/manual.en-US.json", import.meta.url), "utf8"),
-		readFile(new URL("../json/manual.zh-CN.json", import.meta.url), "utf8"),
-		readFile(new URL("../json/manual.zh-TW.json", import.meta.url), "utf8"),
-		readFile(new URL("../json/manual.ja-JP.json", import.meta.url), "utf8"),
+		readFile(new URL("../docs/manual.en-US.html", import.meta.url), "utf8"),
+		readFile(new URL("../docs/manual.zh-CN.html", import.meta.url), "utf8"),
+		readFile(new URL("../docs/manual.zh-TW.html", import.meta.url), "utf8"),
+		readFile(new URL("../docs/manual.ja-JP.html", import.meta.url), "utf8"),
 	]);
-	return [en, zh, zhTw, ja].map(text => manualArticle(JSON.parse(text))).join("\n");
+	return [en, zh, zhTw, ja].map(manualArticle).join("\n");
 }

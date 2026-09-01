@@ -48,9 +48,10 @@ test("interface and manual language names follow the active language", async () 
 			assert.equal(messages[`option.language.${language}`], name);
 		}
 	}
-	for (const language of SUPPORTED_LANGUAGES) {
-		const manual = JSON.parse(await readFile(new URL(`../json/manual.${language}.json`, import.meta.url), "utf8"));
-		assert.deepEqual(manual.ui.languages, names[language]);
+	for (const [language, messages] of Object.entries(MESSAGES)) {
+		for (const [selected, name] of Object.entries(names[language])) {
+			assert.equal(messages[`manual.language.${selected}`], name);
+		}
 	}
 	const licensePage = await readFile(new URL("../js/boot/license-page.js", import.meta.url), "utf8");
 	assert.match(licensePage, /SUPPORTED_LANGUAGES/);

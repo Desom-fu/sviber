@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { assertSourceContracts, readJson, readSource } from "./audit-contract-helpers.mjs";
+import { assertSourceContracts, readSource } from "./audit-contract-helpers.mjs";
 import { manualArticle } from "./module-source.mjs";
 
 test("macro interface sandbox Monaco API and documentation are present", async () => {
@@ -11,8 +11,8 @@ test("macro interface sandbox Monaco API and documentation are present", async (
 		readSource("js/macro/macro-api.js"),
 		readSource("js/macro/macro-api.rb"),
 		readSource("js/macro/macro-completions.js"),
-		readJson("json/manual.en.json"),
-		readJson("json/manual.zh-CN.json"),
+		readSource("docs/manual.en-US.html"),
+		readSource("docs/manual.zh-CN.html"),
 	]);
 	assert.match(page, /sidebar|console|editor|macro/);
 	assert.match(macros, /localStorage|Monaco|F8|runMacro|renderTabs|closeTab/);

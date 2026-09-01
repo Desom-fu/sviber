@@ -1,7 +1,5 @@
-// The manual body and its interface labels live in `json/manual.<lang>.json` (v21: no
-// translatable text is hardcoded in the page or in this script); this loader injects the
-// article for the selected language and then wires the contents list and search on top
-// of the resulting DOM.
+// Each manual body is a language-specific HTML fragment. The manual chrome remains in the
+// shared i18n dictionaries so the page shell never contains translated prose.
 const languageSelect = document.getElementById("language");
 const contents = document.getElementById("contents");
 const supported = new Set(["en-US", "zh-CN", "zh-TW", "ja-JP"]);
@@ -53,14 +51,34 @@ async function loadManual(language) {
 	if (loadedManuals.has(language)) {
 		return loadedManuals.get(language);
 	}
-	const response = await fetch(`../json/manual.${language}.json`, { cache: "no-cache" });
-	if (!response.ok) {
-		throw new Error(`HTTP ${response.status}`);
+	const [articleResponse, messagesResponse] = await Promise.all([
+		fetch(`manual.${language}.html`, { cache: "no-cache" }),
+		fetch(`../json/i18n.${language}.json`, { cache: "no-cache" }),
+	]);
+	if (!articleResponse.ok) {
+		throw new Error(`HTTP ${articleResponse.status} while loading the manual`);
 	}
-	const manual = await response.json();
-	if (Array.isArray(manual.article)) {
-		manual.article = manual.article.join("");
+	if (!messagesResponse.ok) {
+		throw new Error(`HTTP ${messagesResponse.status} while loading translations`);
 	}
+	const messages = await messagesResponse.json();
+	const ui = {
+		languageLabel: messages["manual.languageLabel"],
+		contentsLabel: messages["manual.contentsLabel"],
+		languages: Object.fromEntries(
+			[...supported].map(value => [value, messages[`manual.language.${value}`]]),
+		),
+		search: {
+			label: messages["manual.search.label"],
+			placeholder: messages["manual.search.placeholder"],
+			clear: messages["manual.search.clear"],
+			matches: messages["manual.search.matches"],
+			none: messages["manual.search.none"],
+		},
+	};
+	const articleSource = await articleResponse.text();
+	const article = articleSource.replace(/<!---->\r?\n/g, "").replace(/\r?\n$/, "");
+	const manual = { article, ui };
 	loadedManuals.set(language, manual);
 	return manual;
 }
@@ -156,6 +174,7 @@ function applySearch(value = "") {
 
 function applyChrome() {
 	languageSelect.setAttribute("aria-label", activeUi.languageLabel);
+	contents.setAttribute("aria-label", activeUi.contentsLabel);
 	for (const option of languageSelect.options) {
 		option.textContent = activeUi.languages[option.value];
 	}

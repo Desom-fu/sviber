@@ -105,8 +105,8 @@ Release metadata is `0.14.3` with Service Worker cache `sviber-v01430`. Validati
 
 14. **Four-language internationalization and manual loading**
    - Change: Support `en-US`, `zh-CN`, `zh-TW`, and `ja-JP`; use browser language with English fallback; translate language names using the active interface language; load manual article bodies dynamically.
-    - Files: `js/ui/i18n.js`, `js/app/app-helpers.js`, `js/app/app-preferences-media.js`, `docs/index.html`, `docs/docs.js`, `json/i18n.*.json`, `json/manual.*.json`, `service-worker.js`, README files, i18n/manual tests.
-    - Implementation: Language normalization handles Traditional Chinese and Japanese locale aliases, preference choices use all four dictionaries, and the manual loader fetches `manual.<language>.json`.
+    - Files: `js/ui/i18n.js`, `js/app/app-helpers.js`, `js/app/app-preferences-media.js`, `docs/index.html`, `docs/docs.js`, `docs/manual.*.html`, `json/i18n.*.json`, `service-worker.js`, README files, i18n/manual tests.
+    - Implementation: Language normalization handles Traditional Chinese and Japanese locale aliases, preference choices use all four dictionaries, and the manual loader fetches `manual.<language>.html` plus the matching i18n dictionary.
    - Verification: Four-language fallback, dictionary loading, active-language language names, localized project-manifest errors, manual, service-worker, and macro-window language tests pass. The macro window now accepts all four language values and selects the matching Monaco locale for Traditional Chinese and Japanese.
 
 15. **NW.js file associations**
@@ -152,3 +152,11 @@ NW.js instances. Coverage remains in `tests/nw-file-associations.test.mjs`.
 
 This patch release completes the v23 desktop file-association integration. Release metadata
 is `0.14.4` with Service Worker cache `sviber-v01440`.
+
+## v0.14.5 Patch
+
+This patch release aligns the help manual storage with the v23 internationalization contract.
+The four article bodies are language-specific HTML fragments under `docs/`, while the manual
+chrome labels remain in the regular language dictionaries under `json/`. The documentation
+loader and Service Worker now use those HTML resources. Release metadata is `0.14.5` with
+Service Worker cache `sviber-v01450`.

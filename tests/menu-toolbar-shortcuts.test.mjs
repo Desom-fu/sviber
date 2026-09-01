@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/app/commands.js";
 import { HelpController } from "../js/ui/help.js";
-import { assertSourceContracts, readJson, readSource } from "./audit-contract-helpers.mjs";
+import { assertSourceContracts, readSource } from "./audit-contract-helpers.mjs";
 import { manualArticle } from "./module-source.mjs";
 
 function node(tag) {
@@ -99,8 +100,8 @@ test("application shell uses the service worker without an entrypoint cache bust
 
 test("bilingual manuals mention the current channel and recovery shortcuts", async () => {
 		const [english, chinese] = await Promise.all([
-			readJson("json/manual.en.json"),
-			readJson("json/manual.zh-CN.json"),
+			readFile(new URL("../docs/manual.en-US.html", import.meta.url), "utf8"),
+			readFile(new URL("../docs/manual.zh-CN.html", import.meta.url), "utf8"),
 		]);
 		for (const [manual, directions] of [
 			[manualArticle(english), ["Ctrl+Alt+Up", "Ctrl+Alt+Down"]],

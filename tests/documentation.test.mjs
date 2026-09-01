@@ -60,8 +60,8 @@ test("Scroll View, manual, and release notes describe the implemented behavior",
 
 test("manual documents only the prompt macro surface in both languages", async () => {
 	const manual = await readManual();
-	// The manual JSON stores the article HTML as one escaped string, so the section
-	// slices anchor on the plain id fragments instead of quoted attribute values.
+	// The manual fragments contain the article HTML, so the section slices anchor on the
+	// plain id fragments instead of quoted attribute values.
 	const english = manual.slice(manual.indexOf("en-macro-api"), manual.indexOf("en-data"));
 	const chinese = manual.slice(manual.indexOf("zh-macro-api"), manual.indexOf("zh-data"));
 	const chineseArticle = manual;

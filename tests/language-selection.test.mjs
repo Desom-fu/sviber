@@ -30,7 +30,7 @@ const EXPECTED = {
 	},
 };
 
-test("v0.14.1 localizes every editor language selector option", async () => {
+test("localizes every editor language selector option", async () => {
 	const [source, dictionaries] = await Promise.all([
 		readFile(new URL("../js/app/app-preferences-media.js", import.meta.url), "utf8"),
 		Promise.all(LANGUAGES.map(async language => [
@@ -51,11 +51,20 @@ test("v0.14.1 localizes every editor language selector option", async () => {
 	}
 });
 
-test("v0.14.1 localizes every manual language selector option", async () => {
-	const source = await readFile(new URL("../docs/docs.js", import.meta.url), "utf8");
+
+test("localizes every manual language selector option", async () => {
+	const [source, dictionaries] = await Promise.all([
+		readFile(new URL("../docs/docs.js", import.meta.url), "utf8"),
+		Promise.all(LANGUAGES.map(async language => [
+			language,
+			JSON.parse(await readFile(new URL(`../json/i18n.${language}.json`, import.meta.url), "utf8")),
+		])),
+	]);
 	assert.match(source, /option\.textContent = activeUi\.languages\[option\.value\]/);
-	for (const language of LANGUAGES) {
-		const manual = JSON.parse(await readFile(new URL(`../json/manual.${language}.json`, import.meta.url), "utf8"));
-		assert.deepEqual(manual.ui.languages, EXPECTED[language]);
+	assert.match(source, /fetch\(`\.\.\/json\/i18n\.\$\{language\}\.json`/);
+	for (const [language, messages] of dictionaries) {
+		for (const [selected, name] of Object.entries(EXPECTED[language])) {
+			assert.equal(messages[`manual.language.${selected}`], name, `${language} manual label for ${selected}`);
+		}
 	}
 });
