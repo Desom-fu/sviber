@@ -41,4 +41,5 @@ test("NW.js distributions declare sviber, JSON, and text file associations", asy
 	assert.match(inno, /OutputBaseFilename=sviber-\{#AppVersion\}-\{#Architecture\}-setup/);
 	assert.match(inno, /OutputDir=\.\.\\\.\.\\build\\installer/);
 	assert.match(inno, /Source: "\.\.\\\.\.\\build\\nw\\\*"/);
+	assert.equal((inno.match(/ValueData: """\{app\}\\sviber\.exe"" ""%1"""/g) || []).length, 3);
 });
