@@ -132,12 +132,15 @@ export class StageViewCore {
 		document.addEventListener("keyup", this.ctrlAltListener, true);
 		this.boundMove = event => this._queuePointerMove(event);
 		this.boundUp = event => {
-			this._flushPointerMove();
-			this._pointerUp(event);
 			try {
-				this.surface.canvas.releasePointerCapture?.(event.pointerId);
-			} catch {
-				/* Pointer capture may already be gone. */
+				this._flushPointerMove();
+				this._pointerUp(event);
+			} finally {
+				try {
+					this.surface.canvas.releasePointerCapture?.(event.pointerId);
+				} catch {
+					/* Pointer capture may already be gone. */
+				}
 			}
 		};
 		this.surface.ready.then(() => {

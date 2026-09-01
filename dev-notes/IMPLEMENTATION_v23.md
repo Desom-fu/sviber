@@ -167,3 +167,18 @@ This patch fixes opening a project through a desktop file association. When Wind
 `project.sviber` or `sviber-project.json` as the startup path, sviber now resolves the manifest
 to its containing directory before invoking the project loader instead of treating it as a
 chart import. Release metadata is `0.14.6` with Service Worker cache `sviber-v01460`.
+
+## v0.14.7 Patch
+
+This patch fixes three editor interaction bugs.
+
+- Multi-select stage drags no longer attach only the grabbed note to the playfield grid.
+  Mixed attached/unattached selections were then immovable until undo. Pointer-up now also
+  always clears the drag, even if the commit throws.
+- Toolbar enablement is re-evaluated for every button when any command notifies, so a stuck
+  unsnapped time drag cannot grey out tap while leaving flick clickable.
+- Timeline channel drags count visible lanes, skipping collapsed hidden channels. Incremental
+  previews remember the delta that actually landed, so dragging across a paused channel still
+  previews the next active lane instead of jumping only on release.
+
+Release metadata is `0.14.7` with Service Worker cache `sviber-v01470`.

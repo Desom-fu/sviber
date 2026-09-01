@@ -52,6 +52,7 @@ export const withTimeSeeking = Base =>
 			if (!Number.isFinite(target)) {
 				return;
 			}
+			const wasDragging = Boolean(this.timeDragging);
 			this.timeDragging = !final;
 			if (final && !this.audio.playing) {
 				this._seekSnapped(target);
@@ -59,7 +60,7 @@ export const withTimeSeeking = Base =>
 				this._seekUnsnapped(target);
 			}
 			this.refreshInteractionPreview?.({ rebuildIndex: false });
-			if (final) {
+			if (wasDragging !== this.timeDragging) {
 				this.registry.notifyAll();
 			}
 		}
@@ -79,9 +80,10 @@ export const withTimeSeeking = Base =>
 			} else {
 				this._seekUnsnapped(target);
 			}
+			const wasDragging = Boolean(this.scrollViewDragging);
 			this.scrollViewDragging = !final;
 			this.refreshInteractionPreview?.({ rebuildIndex: false });
-			if (final) {
+			if (wasDragging !== this.scrollViewDragging) {
 				this.registry.notifyAll();
 			}
 		}

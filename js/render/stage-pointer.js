@@ -293,6 +293,9 @@ export class StagePointerTrait {
 		if (event.button !== 0) {
 			return;
 		}
+		if (this.drag) {
+			this._endPointerGesture();
+		}
 		event.preventDefault();
 		this._capturePointer(event);
 		this.pointerMoved = false;
@@ -837,17 +840,7 @@ export class StagePointerTrait {
 		};
 	}
 
-	_pointerUp(event) {
-		if (!this.drag) {
-			return;
-		}
-		const context = this._pointerContextFor(event);
-		const handler = POINTER_UP_HANDLERS[context.drag.type];
-		if (handler) {
-			this[handler](context);
-		} else {
-			this._moveFreeTransform(context);
-		}
+	_endPointerGesture() {
 		this.callbacks.onEndPreview?.();
 		this.selectionBox = null;
 		this.drag = null;
@@ -855,6 +848,23 @@ export class StagePointerTrait {
 		document.removeEventListener("pointerup", this.boundUp);
 		document.removeEventListener("pointercancel", this.boundUp);
 		this.requestRender();
+	}
+
+	_pointerUp(event) {
+		if (!this.drag) {
+			return;
+		}
+		try {
+			const context = this._pointerContextFor(event);
+			const handler = POINTER_UP_HANDLERS[context.drag.type];
+			if (handler) {
+				this[handler](context);
+			} else {
+				this._moveFreeTransform(context);
+			}
+		} finally {
+			this._endPointerGesture();
+		}
 	}
 
 	_commitProgress({ point, drag }) {

@@ -131,7 +131,7 @@ export class MenuBar {
 		this.document.addEventListener("keydown", this.onDocumentKeyDown, true);
 		this.document.addEventListener("pointerdown", this.onDocumentPointerDown, true);
 		this.document.addEventListener("click", this.onDocumentClick, true);
-		this.unsubscribeRegistry = this.registry.subscribe(change => this.updateState(change.id));
+		this.unsubscribeRegistry = this.registry.subscribe(() => this.updateState(null));
 		this.unsubscribeLanguage = this.i18n.subscribe(() => this.updateLabels());
 	}
 
@@ -474,7 +474,7 @@ export class Toolbar {
 			throw new Error("Toolbar requires an element and a CommandRegistry");
 		}
 		this.render();
-		this.unsubscribeRegistry = this.registry.subscribe(change => this.updateState(change.id));
+		this.unsubscribeRegistry = this.registry.subscribe(() => this.updateState(null));
 		this.unsubscribeLanguage = this.i18n.subscribe(() => this.updateLabels());
 	}
 

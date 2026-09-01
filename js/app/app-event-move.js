@@ -2,6 +2,36 @@ import { i18n } from "../ui/i18n.js";
 import { Rational } from "../core/rational.js";
 import { deepClone, leafEventsOf, selected } from "./app-helpers.js";
 
+// Timeline drags count channel lanes the way they are drawn: hidden channels are collapsed,
+// so a one-lane mouse move must skip them. Inactive (paused) channels stay visible but are
+// not a legal landing place.
+
+export function visibleMoveChannels(model) {
+	return (model.channels || []).filter(channel => channel.hidden !== true);
+}
+
+export function boundedVisibleChannelDelta(model, events, requestedDelta) {
+	const visible = visibleMoveChannels(model);
+	const indices = (events || [])
+		.map(event => visible.findIndex(channel => channel.id === event.channel))
+		.filter(index => index >= 0);
+	if (!indices.length) {
+		return 0;
+	}
+	const requested = Math.round(Number(requestedDelta) || 0);
+	const bounded = Math.max(
+		-Math.min(...indices),
+		Math.min(visible.length - 1 - Math.max(...indices), requested),
+	);
+	if (!bounded) {
+		return 0;
+	}
+	if (indices.some(index => visible[index + bounded]?.active === false)) {
+		return 0;
+	}
+	return bounded;
+}
+
 // Moving the selection in time and between channels: the incremental preview while a
 // timeline drag is in flight, the committed move, and the keyboard nudge by one subdivision.
 // Split out of app-event-editing.js.
@@ -15,18 +45,27 @@ export class EventMoveTrait {
 			this.previewMoveState = { beat: new Rational(0), channel: 0, copied: false };
 		}
 		const state = this.previewMoveState;
-		const totalBeat = Rational.from(deltaBeat),
-			totalChannel = Math.round(Number(channelDelta) || 0),
-			beatDelta = totalBeat.sub(state.beat);
-		const channelDeltaStep = totalChannel - state.channel,
-			copyStep = Boolean(copy) && !state.copied;
-		this.preview(label, model => this._applyEventMove(model, beatDelta.toJSON(), channelDeltaStep, copyStep), {
-			scheduleDirty: true,
-			lightweight: true,
-			incremental: true,
-		});
+		const totalBeat = Rational.from(deltaBeat);
+		const totalChannel = Math.round(Number(channelDelta) || 0);
+		const beatDelta = totalBeat.sub(state.beat);
+		const channelDeltaStep = totalChannel - state.channel;
+		const copyStep = Boolean(copy) && !state.copied;
+		let appliedChannel = 0;
+		this.preview(
+			label,
+			model => {
+				appliedChannel = this._applyEventMove(model, beatDelta.toJSON(), channelDeltaStep, copyStep);
+			},
+			{
+				scheduleDirty: true,
+				lightweight: true,
+				incremental: true,
+			},
+		);
 		state.beat = totalBeat;
-		state.channel = totalChannel;
+		// Track the delta that actually landed, not the requested lane count. A paused
+		// channel zeros the step; remembering the request would swallow the later hop.
+		state.channel += Number(appliedChannel) || 0;
 		state.copied ||= copyStep;
 	}
 
@@ -46,7 +85,7 @@ export class EventMoveTrait {
 					!model.ancestorsOf(event.id).some(ancestor => ancestor.selected),
 			);
 		if (!events.length) {
-			return;
+			return 0;
 		}
 		const movedEvents = [
 			...new Set(
@@ -55,23 +94,8 @@ export class EventMoveTrait {
 				),
 			),
 		];
-		const channelIndices = movedEvents
-			.map(event => model.channels.findIndex(channel => channel.id === event.channel))
-			.filter(index => index >= 0);
-		if (!channelIndices.length) {
-			return;
-		}
-		const requestedChannelDelta = Math.round(Number(channelDelta) || 0);
-		let boundedChannelDelta = Math.max(
-			-Math.min(...channelIndices),
-			Math.min(model.channels.length - 1 - Math.max(...channelIndices), requestedChannelDelta),
-		);
-		if (
-			boundedChannelDelta &&
-			channelIndices.some(index => model.channels[index + boundedChannelDelta]?.active === false)
-		) {
-			boundedChannelDelta = 0;
-		}
+		const visible = visibleMoveChannels(model);
+		const boundedChannelDelta = boundedVisibleChannelDelta(model, movedEvents, channelDelta);
 		if (copy) {
 			for (const event of events) {
 				event.selected = false;
@@ -88,11 +112,12 @@ export class EventMoveTrait {
 		];
 		for (const event of moved) {
 			event.time = Rational.from(event.time).add(delta).toJSON();
-			const index = model.channels.findIndex(channel => channel.id === event.channel);
-			if (index >= 0) {
-				event.channel = model.channels[index + boundedChannelDelta].id;
+			const index = visible.findIndex(channel => channel.id === event.channel);
+			if (index >= 0 && boundedChannelDelta) {
+				event.channel = visible[index + boundedChannelDelta].id;
 			}
 		}
+		return boundedChannelDelta;
 	}
 
 	moveSelectedInTime(direction) {

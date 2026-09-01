@@ -117,9 +117,13 @@ function applyDetachedPositionMove(model, movable, primary, point) {
 	// Re-attach the primary only when the snap sits on the clamped destination.
 	// Otherwise a boundary grid snap would pull just the group anchor onto the
 	// snappee while descendants stay on the rigid clamped translation.
+	// A multi-note selection must stay fully detached: attaching only the grabbed
+	// note freezes later stage moves of the mixed attached/unattached set.
 	const clampedX = Number(original.x) + deltaX;
 	const clampedY = Number(original.y) + deltaY;
+	const reattachPrimary = primary.type === "group" || movable.length === 1;
 	if (
+		reattachPrimary &&
 		point.snappeeId != null &&
 		pointAllowed(model, point) &&
 		Math.abs(Number(point.x) - clampedX) <= 1e-9 &&

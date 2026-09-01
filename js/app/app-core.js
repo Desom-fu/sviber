@@ -468,7 +468,17 @@ export class SviberAppCore extends CoreShell {
 		}
 	}
 
+	_clearTimeDrag() {
+		if (!this.timeDragging && !this.scrollViewDragging) {
+			return;
+		}
+		this.timeDragging = false;
+		this.scrollViewDragging = false;
+		this.registry?.notifyAll?.();
+	}
+
 	cancelPreview() {
+		this._clearTimeDrag();
 		if (!this.previewBase) {
 			return;
 		}

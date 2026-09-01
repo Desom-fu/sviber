@@ -87,6 +87,9 @@ export class TimelinePointerTrait {
 		if (event.button !== 0) {
 			return;
 		}
+		if (this.drag) {
+			this._endPointerGesture();
+		}
 		event.preventDefault();
 		const point = this.surface.toLocal(event);
 		const hit = this._hitTest(point);
@@ -625,6 +628,16 @@ export class TimelinePointerTrait {
 		this.requestRender();
 	}
 
+	_endPointerGesture() {
+		this.callbacks.onEndPreview?.();
+		this.selectionBox = null;
+		this.drag = null;
+		document.removeEventListener("pointermove", this.boundMove);
+		document.removeEventListener("pointerup", this.boundUp);
+		document.removeEventListener("pointercancel", this.boundUp);
+		this.requestRender();
+	}
+
 	_pointerUp(event) {
 		if (!this.drag) {
 			return;
@@ -633,6 +646,7 @@ export class TimelinePointerTrait {
 		const point = this.surface.toLocal(event);
 		const project = projectState(this.state);
 		const layout = this._layout(this.surface.width, this.surface.height);
+		try {
 		if (drag.type === "event" && this.pointerMoved) {
 			const beginning = this.timing.secondsToSnappedBeat(
 				this._xToSeconds(drag.start.x, layout.channels.width),
@@ -702,16 +716,12 @@ export class TimelinePointerTrait {
 		} else if (drag.type === "scroll-ctrl") {
 			this._scrollCtrlSeek(point.x, drag, project);
 		}
-		this.callbacks.onEndPreview?.();
-		if (drag.type === "seek" || drag.type === "scroll-current" || drag.type === "scroll-ctrl") {
-			this.callbacks.onSeekEnd?.();
+		} finally {
+			if (drag.type === "seek" || drag.type === "scroll-current" || drag.type === "scroll-ctrl") {
+				this.callbacks.onSeekEnd?.();
+			}
+			this._endPointerGesture();
 		}
-		this.selectionBox = null;
-		this.drag = null;
-		document.removeEventListener("pointermove", this.boundMove);
-		document.removeEventListener("pointerup", this.boundUp);
-		document.removeEventListener("pointercancel", this.boundUp);
-		this.requestRender();
 	}
 
 	_doubleClick(event) {
