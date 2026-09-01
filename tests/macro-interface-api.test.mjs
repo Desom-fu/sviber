@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { assertSourceContracts, readJson, readSource } from "./audit-contract-helpers.mjs";
+import { manualArticle } from "./module-source.mjs";
 
 test("macro interface sandbox Monaco API and documentation are present", async () => {
 	const [page, macros, sandbox, jsApi, rubyApi, completions, manualEn, manualZh] = await Promise.all([
@@ -33,7 +34,7 @@ test("macro interface sandbox Monaco API and documentation are present", async (
 		assert.match(jsApi + rubyApi, new RegExp(name));
 	}
 	assert.match(completions, /completion|Chart|Event|Snappee/);
-	assert.match(manualEn.article + manualZh.article, /Macros API|宏 API|TipPoint|Clip/);
+	assert.match(manualArticle(manualEn) + manualArticle(manualZh), /Macros API|宏 API|TipPoint|Clip/);
 });
 
 test("macro API classes and global helpers expose the documented surface", async () => {

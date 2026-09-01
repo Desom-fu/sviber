@@ -11,6 +11,12 @@ The editor Preferences language selector and the manual language selector now tr
 
 Focused coverage is in `tests/language-selection-v0141.test.mjs`; the existing v23 and i18n tests were updated for the new contract. Release metadata is `0.14.1` with Service Worker cache `sviber-v01410`. Validation: `npm test` passed 519 tests with 0 failures (518 passed and 1 NW.js headless environment skip), and `npm run build` completed successfully.
 
+## v0.14.2 Patch
+
+The five shipped manual metadata files now store each article as a readable JSON array of original lines instead of one escaped string. `docs/docs.js` joins array articles with newlines during loading, preserving the rendered HTML, contents navigation, search, and shortcut localization. Test helpers normalize either representation so existing documentation assertions remain focused on manual content. The format contract is covered by `tests/manual-format-v0142.test.mjs`.
+
+Release metadata is `0.14.2` with Service Worker cache `sviber-v01420`. Validation: `npm test` passed 521 tests with 0 failures (520 passed and 1 NW.js headless environment skip), `npm run lint` and `git diff --check` passed, and `npm run build` completed successfully.
+
 ## Difference Checklist
 
 1. **Hidden-channel separator states**

@@ -58,6 +58,9 @@ async function loadManual(language) {
 		throw new Error(`HTTP ${response.status}`);
 	}
 	const manual = await response.json();
+	if (Array.isArray(manual.article)) {
+		manual.article = manual.article.join("\n");
+	}
 	loadedManuals.set(language, manual);
 	return manual;
 }

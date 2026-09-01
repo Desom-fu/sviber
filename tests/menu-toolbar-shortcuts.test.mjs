@@ -3,6 +3,7 @@ import test from "node:test";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/app/commands.js";
 import { HelpController } from "../js/ui/help.js";
 import { assertSourceContracts, readJson, readSource } from "./audit-contract-helpers.mjs";
+import { manualArticle } from "./module-source.mjs";
 
 function node(tag) {
 	return {
@@ -86,7 +87,7 @@ test("application shell uses the service worker without an entrypoint cache bust
 		readSource("index.html"),
 		readSource("package.json"),
 	]);
-	assert.equal(JSON.parse(packageSource).version, "0.14.1");
+	assert.equal(JSON.parse(packageSource).version, "0.14.2");
 	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v[^"]+"/);
 	assert.match(serviceWorker, /package-lock\.json/);
 	assert.match(serviceWorker, /js\/app\/app\.js"/);
@@ -101,8 +102,8 @@ test("bilingual manuals mention the current channel and recovery shortcuts", asy
 			readJson("json/manual.zh-CN.json"),
 		]);
 		for (const [manual, directions] of [
-			[english.article, ["Ctrl+Alt+Up", "Ctrl+Alt+Down"]],
-			[chinese.article, ["Ctrl+Alt+上", "Ctrl+Alt+下"]],
+			[manualArticle(english), ["Ctrl+Alt+Up", "Ctrl+Alt+Down"]],
+			[manualArticle(chinese), ["Ctrl+Alt+上", "Ctrl+Alt+下"]],
 		]) {
 			for (const shortcut of [
 				"Ctrl+,",

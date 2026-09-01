@@ -48,8 +48,13 @@ export async function readSources(modules) {
 	return sources.join("\n");
 }
 
-// The manual body lives in per-language JSON data (v21); content assertions read both
-// languages at once so each assertion keeps matching against the combined text.
+// The manual body lives in per-language JSON data (v21); article lines are stored as an
+// array for readable diffs and joined here so content assertions see complete HTML.
+export function manualArticle(manual) {
+	return Array.isArray(manual.article) ? manual.article.join("\n") : manual.article;
+}
+
+// Content assertions read all supported languages at once.
 export async function readManual() {
 	const [en, zh, zhTw, ja] = await Promise.all([
 		readFile(new URL("../json/manual.en-US.json", import.meta.url), "utf8"),
@@ -57,10 +62,5 @@ export async function readManual() {
 		readFile(new URL("../json/manual.zh-TW.json", import.meta.url), "utf8"),
 		readFile(new URL("../json/manual.ja-JP.json", import.meta.url), "utf8"),
 	]);
-	// Return the parsed article HTML so content assertions see the same text the old
-	// inline articles carried (no JSON quote escaping).
-	return `${JSON.parse(en).article}
-${JSON.parse(zh).article}
-${JSON.parse(zhTw).article}
-${JSON.parse(ja).article}`;
+	return [en, zh, zhTw, ja].map(text => manualArticle(JSON.parse(text))).join("\n");
 }
