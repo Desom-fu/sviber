@@ -1,6 +1,6 @@
 {
   "name": "sviber",
-  "version": "0.14.3",
+  "version": "0.14.4",
   "private": true,
   "type": "module",
   "description": "Desktop-style chart editor for Sunniesnow",
@@ -49,6 +49,7 @@
     "http-server": "^14.1.1",
     "nw": "^0.114.2",
     "nw-builder": "^4.18.0",
+    "plist": "^5.0.0",
     "playwright-core": "^1.62.1",
     "pngjs": "^7.0.0",
     "prettier": "^3.6.2",

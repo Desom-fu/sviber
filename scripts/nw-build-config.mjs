@@ -1,5 +1,6 @@
 export const PACKAGED_WINDOW_ICON = "sviber/icon.png";
 export const SUPPORTED_FILE_EXTENSIONS = Object.freeze(["sviber", "json", "txt"]);
+export const SUPPORTED_MIME_TYPES = Object.freeze(["application/x-sviber", "application/json", "text/plain"]);
 
 const BUILDER_ICONS = {
 	win: "sviber/icon.ico",
@@ -16,6 +17,14 @@ export function builderApplicationOptions(platform, packageJson) {
 		icon: BUILDER_ICONS[normalizedPlatform] || BUILDER_ICONS.linux,
 		fileAssociations: [...SUPPORTED_FILE_EXTENSIONS],
 	};
+	if (normalizedPlatform === "linux") {
+		return {
+			...application,
+			exec: `${name} %F`,
+			mimeType: [...SUPPORTED_MIME_TYPES],
+			categories: ["AudioVideo", "Audio", "Development"],
+		};
+	}
 	if (normalizedPlatform !== "osx") {
 		return application;
 	}

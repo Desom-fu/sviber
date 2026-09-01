@@ -82,12 +82,13 @@ test("keyboard shortcut dialog contains every defined keyboard shortcut", async 
 });
 
 test("application shell uses the service worker without an entrypoint cache buster", async () => {
-	const [serviceWorker, index, packageSource] = await Promise.all([
+	const [serviceWorker, index, packageSource, lockSource] = await Promise.all([
 		readSource("service-worker.js"),
 		readSource("index.html"),
 		readSource("package.json"),
+		readSource("package-lock.json"),
 	]);
-	assert.equal(JSON.parse(packageSource).version, "0.14.3");
+	assert.equal(JSON.parse(packageSource).version, JSON.parse(lockSource).version);
 	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v[^"]+"/);
 	assert.match(serviceWorker, /package-lock\.json/);
 	assert.match(serviceWorker, /js\/app\/app\.js"/);

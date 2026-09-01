@@ -1,9 +1,14 @@
+#ifndef Architecture
+#define Architecture "universal"
+#endif
+
 [Setup]
 AppName=sviber
 AppVersion={#AppVersion}
 DefaultDirName={autopf}\sviber
 DefaultGroupName=sviber
-OutputBaseFilename=sviber-{#AppVersion}-setup
+OutputBaseFilename=sviber-{#AppVersion}-{#Architecture}-setup
+OutputDir=..\..\build\installer
 ArchitecturesInstallIn64BitMode=x64compatible
 
 [Registry]
@@ -21,4 +26,4 @@ Root: HKCU; Subkey: "Software\Classes\sviber.lyrica\DefaultIcon"; ValueType: str
 Root: HKCU; Subkey: "Software\Classes\sviber.lyrica\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\sviber.exe"" "%1""
 
 [Files]
-Source: "build\nw\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion
+Source: "..\..\build\nw\*"; DestDir: "{app}"; Flags: recursesubdirs ignoreversion

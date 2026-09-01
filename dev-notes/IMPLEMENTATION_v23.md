@@ -135,3 +135,20 @@ Release metadata is `0.14.3` with Service Worker cache `sviber-v01430`. Validati
 - [x] `npm test`: 521 total, 520 passed, 0 failed, 1 environment skip.
 - [x] `npm run lint`: passed.
 - [x] `git diff --check`: passed before release commit.
+
+## File Association Audit Correction
+
+The original v23 association files were present in source but were not fully connected to
+the release pipeline. The NW.js builder now receives its supported Linux MIME types through
+its actual `mimeType` option, the Linux MIME XML and desktop entry are copied into the Linux
+distribution, and the custom macOS document declarations are merged into the generated app
+bundle `Contents/Info.plist`. The Windows workflow installs Inno Setup, compiles
+`packaging/windows/sviber.iss` against the built app, and uploads an architecture-specific
+installer alongside each ZIP. The installer writes per-user ProgIDs and open commands for
+`.sviber`, `.json`, and `.txt`; `single-instance: false` keeps supplied paths in separate
+NW.js instances. Coverage remains in `tests/nw-file-associations.test.mjs`.
+
+## v0.14.4 Patch
+
+This patch release completes the v23 desktop file-association integration. Release metadata
+is `0.14.4` with Service Worker cache `sviber-v01440`.

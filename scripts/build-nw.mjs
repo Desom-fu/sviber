@@ -7,6 +7,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 import nwbuild from "nw-builder";
+import { build as buildPlist, parse as parsePlist } from "plist";
 import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
 import { bundleMacroSandbox } from "./macro-sandbox-bundle.cjs";
@@ -479,9 +480,35 @@ async function runBuilder() {
 			logLevel: "info",
 			app: builderApplicationOptions(TARGET_PLATFORM, sourcePackage),
 		});
+		await copyDistributionAssociationMetadata();
 	} finally {
 		process.chdir(previousDirectory);
 	}
+}
+
+async function copyDistributionAssociationMetadata() {
+	if (TARGET_PLATFORM === "linux") {
+		await Promise.all([
+			cp(
+				path.join(sviberDirectory, "packaging", "linux", "sviber.desktop"),
+				path.join(outputDirectory, "sviber.desktop"),
+			),
+			cp(
+				path.join(sviberDirectory, "packaging", "linux", "sviber.xml"),
+				path.join(outputDirectory, "sviber.xml"),
+			),
+		]);
+		return;
+	}
+	if (TARGET_PLATFORM !== "osx") {
+		return;
+	}
+	const generatedInfoPath = path.join(outputDirectory, "sviber.app", "Contents", "Info.plist");
+	const associationInfoPath = path.join(sviberDirectory, "packaging", "macos", "Info.plist");
+	const generatedInfo = parsePlist(await readFile(generatedInfoPath, "utf8"));
+	const associationInfo = parsePlist(await readFile(associationInfoPath, "utf8"));
+	generatedInfo.CFBundleDocumentTypes = associationInfo.CFBundleDocumentTypes;
+	await writeFile(generatedInfoPath, buildPlist(generatedInfo));
 }
 
 async function addDirectoryToZip(zip, directory, prefix = "") {

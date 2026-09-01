@@ -104,7 +104,7 @@ test("release workflows archive each target with the required format", async () 
 	assert.match(workflow, /if: startsWith\(matrix\.osName, 'linux'\)[\s\S]*?tar -czf/);
 	assert.match(
 		workflow,
-		/path: sviber-\$\{\{ env\.version \}\}-\$\{\{ matrix\.osName \}\}-\$\{\{ matrix\.archName \}\}\.\$\{\{ matrix\.archive \}\}/,
+		/path:\s+\|[\s\S]*?sviber-\$\{\{ env\.version \}\}-\$\{\{ matrix\.osName \}\}-\$\{\{ matrix\.archName \}\}\.\$\{\{ matrix\.archive \}\}/,
 	);
 	assert.match(workflow, /node -p "require\('\.\/package\.json'\)\.version"/);
 	const release = await readFile(new URL("../.github/workflows/release.yml", import.meta.url), "utf8");

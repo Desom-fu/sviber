@@ -75,6 +75,19 @@ jobs:
         if: startsWith(matrix.osName, 'windows')
         shell: pwsh
         run: Compress-Archive -Path build/nw/* -DestinationPath sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.zip
+      - name: Compile Windows installer
+        if: startsWith(matrix.osName, 'windows')
+        shell: pwsh
+        run: |
+          choco install innosetup --no-progress --yes
+          $compiler = @(
+            (Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe")
+            (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
+          ) | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $compiler) {
+            throw "Inno Setup compiler was not found."
+          }
+          & $compiler /DAppVersion=${{ env.version }} /DArchitecture=${{ matrix.archName }} packaging/windows/sviber.iss
       - name: Archive Linux app as tar.gz
         if: startsWith(matrix.osName, 'linux')
         run: tar -czf sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.tar.gz -C build/nw .
@@ -84,7 +97,14 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}
-          path: sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.${{ matrix.archive }}
+          path: |
+            sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}.${{ matrix.archive }}
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v7
+        if: startsWith(matrix.osName, 'windows')
+        with:
+          name: sviber-${{ env.version }}-${{ matrix.osName }}-${{ matrix.archName }}-installer
+          path: build/installer/sviber-${{ env.version }}-${{ matrix.archName }}-setup.exe
           if-no-files-found: error
 
   runtime-free:

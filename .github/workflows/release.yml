@@ -34,3 +34,4 @@ jobs:
             release/*.dmg
             release/*.tar.gz
             release/*.nw
+            release/*-setup.exe
