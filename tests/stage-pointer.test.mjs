@@ -129,7 +129,7 @@ test("Alt+Shift drag moves the selection exactly like Shift", () => {
 	const drag = stage._selectionDrag({ shiftKey: true, altKey: true }, context, null);
 	assert.equal(drag.type, "event");
 	assert.equal(drag.hit.event.id, 1);
-	// v22: a Shift drag moves the selection to the mouse without a minimum distance.
+	// A Shift drag moves the selection to the mouse without a minimum distance.
 	assert.equal(drag.noThreshold, true);
 });
 

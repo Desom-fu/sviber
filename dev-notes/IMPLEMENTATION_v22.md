@@ -8,7 +8,7 @@ v22 相对 v21 的需求来自 `dev-notes/PROMPT-v21.md` 与 `dev-notes/PROMPT-v
 - **需求**：波形底部画一条水平深灰线，把波形与通道区在视觉上分开。
 - **文件**：`js/render/timeline-drawing.js`（`_drawChannels` 开头）。
 - **实现**：在通道区背景填充之后、以 `#34383d`（与通道分隔线同色系）在 `layout.channels.y` 处横贯整个宽度描一条 1px 线。
-- **验证**：`tests/channels-v22.test.mjs` 源断言 + 浏览器目测。
+- **验证**：`tests/timeline-channel-behavior.test.mjs` 源断言 + 浏览器目测。
 
 ### 2. 通道间分隔线在折叠隐藏通道处加粗变亮
 - **需求**：两条相邻显示通道之间若隔着一个或多个隐藏通道，分隔线用亮灰并加粗。
@@ -27,23 +27,23 @@ v22 相对 v21 的需求来自 `dev-notes/PROMPT-v21.md` 与 `dev-notes/PROMPT-v
   - `js/render/timeline-drawing.js`（通道滚动条、游标检查点签名用折叠列表）；
   - `js/app/app-channel-commands.js`（`setChannelHidden`/`hideCurrentChannel`/`showAllChannels`；隐藏当前通道时按“上方优先”规则移到最近可见通道）；
   - `js/app/app-core.js`、`js/app/app-free-transform.js`（时间轴高度按非隐藏通道数计算）。
-- **验证**：`tests/channels-v22.test.mjs`（flag 持久化、折叠与 offset 钳制、隐藏/显示命令、当前通道回退）。
+- **验证**：`tests/timeline-channel-behavior.test.mjs`（flag 持久化、折叠与 offset 钳制、隐藏/显示命令、当前通道回退）。
 
 ### 4. 通道面板：create-channel-above/below 按钮
 - **需求**：每个通道条目有“在其上方创建通道”（`create-channel-above.svg`）和“在其下方创建通道”（`create-channel-below.svg`）按钮。
 - **文件**：`js/ui/panel-lists.js`（`channelMenuItems`）、`js/app/app-channel-commands.js`（`createChannel(relative, id)` 泛化为锚定任意通道并选中新建通道）、`js/app/app-core.js`（`onCreate` 接线）。
 - **实现**：按钮位于条目弹出菜单内（见第 5 条），点击即以该通道为锚创建并选中新通道。
-- **验证**：`tests/channels-v22.test.mjs`（“creating a channel from a panel item anchors it to that channel”）。
+- **验证**：`tests/timeline-channel-behavior.test.mjs`（“creating a channel from a panel item anchors it to that channel”）。
 
 ### 5. 三个面板条目的按钮收纳进弹出菜单
 - **需求**：通道/吸附器面板条目只保留启用/停用按钮，其余按钮（含隐藏/显示、新建通道等）收进条目旁的小菜单；片段面板条目只保留粘贴按钮。`Esc` 或点击菜单外关闭菜单；点击菜单项（上移/下移除外）也关闭。
 - **文件**：`js/ui/item-menu.js`（新增，`makeItemMenuButton`：aria-haspopup 菜单按钮 + 定位在条目旁的弹出菜单，底部空间不足时向上翻转，Esc/外点关闭，`keepOpen` 项例外）、`js/ui/panel-lists.js`（SnappeesPanel/ChannelsPanel 从 panels.js 拆出并改造）、`js/ui/panel-clips.js`、`js/ui/panels.js`（拆分后保留 Inspector 并 re-export）、`svg/icons/menu.svg`（新增竖排三点图标）、`css/app.css`（条目网格 6 列动作位改为 2 列，新增 `.item-menu-popup` 等样式与 `.is-hidden` 弱化样式）、`service-worker.js`（预缓存 `item-menu.js`、`menu.svg`、`show-channel.svg`、`hide-channel.svg`）。
-- **验证**：`tests/channels-v22.test.mjs`（菜单结构断言：keepOpen 恰为 4 处即上下移；clips 保留 paste + menu）、`tests/clips.test.mjs`（更新为 2 动作列 + `makeItemMenuButton`）。
+- **验证**：`tests/timeline-channel-behavior.test.mjs`（菜单结构断言：keepOpen 恰为 4 处即上下移；clips 保留 paste + menu）、`tests/clips.test.mjs`（更新为 2 动作列 + `makeItemMenuButton`）。
 
 ### 6. 通道菜单：Move above/below within channel（Ctrl+Alt+Up/Down）
 - **需求**：重排同通道同时押事件的叠层顺序：从上到下扫描，每个选中事件与紧邻上方未选中事件交换（下移对称）；选择 A（最顶）时置灰；预期结果 BCDA/BADC/ACDB 等与 PROMPT 示例一致。
 - **文件**：`js/app/app-channel-commands.js`（`_withinChannelReorder`/`canMoveSelectedWithinChannel`/`moveSelectedWithinChannel`，轻量提交 + 索引重建）、`js/app/commands.js`（`channel.moveAboveWithinChannel`/`channel.moveBelowWithinChannel`）、`js/app/app-command-bindings.js`（动作与置灰条件）。
-- **验证**：`tests/channels-v22.test.mjs`（四个 PROMPT 示例 + 下移对称 + 不可移动置灰 + 可撤销）。
+- **验证**：`tests/timeline-channel-behavior.test.mjs`（四个 PROMPT 示例 + 下移对称 + 不可移动置灰 + 可撤销）。
 
 ### 7. 通道菜单：快捷键变更与新增（Ctrl+K / Ctrl+Alt+K / Ctrl+J / Ctrl+Alt+J）
 - **需求**：Deactivate channel 改为 `Ctrl+K`（原 `Ctrl+,`），Activate all channels 改为 `Ctrl+Alt+K`（原 `Ctrl+Alt+,`）；新增 Hide channel `Ctrl+J` 与 Show all channels `Ctrl+Alt+J`。
@@ -54,7 +54,7 @@ v22 相对 v21 的需求来自 `dev-notes/PROMPT-v21.md` 与 `dev-notes/PROMPT-v
 ### 8. Tip point：同通道同时押事件按叠层顺序
 - **需求**：同通道同时押多个可挂游标事件时，顺序即时间轴通道叠层顺序：叠在上者（事件数组中靠前）为 previous，叠在下者为 next（取代 v21 的“未定义行为”）。
 - **文件**：`js/core/tip-point.js`（`inheritedTipPointSource` 注释明确定义）、`js/render/stage-helpers.js`（`buildTipPointGuides` 注释明确定义）；两者早已按 `time → sequence` 排序，`sequence` 即数组位置即叠层自上而下，行为与规范一致，本次将其固化为明确定义并加回归测试。
-- **验证**：`tests/channels-v22.test.mjs`（“tip point chains of simultaneous events follow the timeline stacking order”）。
+- **验证**：`tests/timeline-channel-behavior.test.mjs`（“tip point chains of simultaneous events follow the timeline stacking order”）。
 
 ### 9. Mac 键位显示（Ctrl→Command、Alt→Option）
 - **需求**：在 MacBook 上快捷键列表、子菜单、tooltip、帮助文档应以 Command/Option 显示。

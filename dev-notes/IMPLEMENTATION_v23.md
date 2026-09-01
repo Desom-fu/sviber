@@ -9,19 +9,25 @@ Validation: `npm test` passed 516 tests with 0 failures (517 total, including 1 
 
 The editor Preferences language selector and the manual language selector now translate all four language names using the currently active interface language. English shows English labels, Simplified Chinese shows simplified Chinese labels, Traditional Chinese shows traditional Chinese labels, and Japanese shows Japanese labels. The four i18n dictionaries and four manual UI dictionaries share the same mapping, while the legacy English manual metadata remains synchronized. The compatibility `option.language.english` and `option.language.chinese` keys are aligned with the corresponding formal language values. The preference selector continues to derive labels from `SUPPORTED_LANGUAGES`, and the manual applies `activeUi.languages` whenever the selected article changes.
 
-Focused coverage is in `tests/language-selection-v0141.test.mjs`; the existing v23 and i18n tests were updated for the new contract. Release metadata is `0.14.1` with Service Worker cache `sviber-v01410`. Validation: `npm test` passed 519 tests with 0 failures (518 passed and 1 NW.js headless environment skip), and `npm run build` completed successfully.
+Focused coverage is in `tests/language-selection.test.mjs`; the existing internationalization tests were updated for the new contract. Release metadata is `0.14.1` with Service Worker cache `sviber-v01410`. Validation: `npm test` passed 519 tests with 0 failures (518 passed and 1 NW.js headless environment skip), and `npm run build` completed successfully.
 
 ## v0.14.2 Patch
 
-The five shipped manual metadata files now store each article as a readable JSON array of original lines instead of one escaped string. `docs/docs.js` joins array articles with newlines during loading, preserving the rendered HTML, contents navigation, search, and shortcut localization. Test helpers normalize either representation so existing documentation assertions remain focused on manual content. The format contract is covered by `tests/manual-format-v0142.test.mjs`.
+The five shipped manual metadata files now store each article as a readable JSON array of original lines instead of one escaped string. `docs/docs.js` joins array articles with newlines during loading, preserving the rendered HTML, contents navigation, search, and shortcut localization. Test helpers normalize either representation so existing documentation assertions remain focused on manual content. The format contract is covered by `tests/manual-line-length.test.mjs`.
 
 Release metadata is `0.14.2` with Service Worker cache `sviber-v01420`. Validation: `npm test` passed 521 tests with 0 failures (520 passed and 1 NW.js headless environment skip), `npm run lint` and `git diff --check` passed, and `npm run build` completed successfully.
+
+## v0.14.3 Patch
+
+The manual article arrays are now split at human-readable HTML boundaries: headings, paragraphs, list items, table cells/rows, and code blocks remain recognizable in source. Long prose is wrapped at sentence punctuation or whitespace without cutting HTML tags, while the rare unbroken text falls back to a safe character boundary. v23 behavior is documented in its existing timeline, panel, checks, project, saved-data, and file-association sections; no artificial "Version 0.14 additions" appendix is appended. `docs/docs.js` concatenates the segments with no separator, so every manual still produces the same article HTML as the preformatted source; only source readability and documentation placement change. `tests/manual-line-length.test.mjs` enforces semantic segmentation, intact tag boundaries, removal of the release-summary appendix, and a maximum 120-character physical line for every shipped manual JSON file.
+
+Release metadata is `0.14.3` with Service Worker cache `sviber-v01430`. Validation: `npm test` passed 521 tests with 0 failures (520 passed and 1 NW.js headless environment skip), `npm run lint` and `git diff --check` passed, and `npm run build` completed successfully.
 
 ## Difference Checklist
 
 1. **Hidden-channel separator states**
    - Change: Separators for collapsed hidden channels are bright gray and thick, bright yellow when the current channel is hidden, and are also drawn at the top and bottom edges when hidden channels are just outside the visible channel window.
-   - Files: `js/render/timeline-drawing.js`, `js/render/timeline.js`, `js/render/timeline-helpers.js`, `tests/channels-v22.test.mjs`, `tests/timeline-status-scroll.test.mjs`.
+   - Files: `js/render/timeline-drawing.js`, `js/render/timeline.js`, `js/render/timeline-helpers.js`, `tests/timeline-channel-behavior.test.mjs`, `tests/timeline-status-scroll.test.mjs`.
    - Implementation: Timeline drawing resolves original channel order, computes hidden channels between shown lanes and at viewport edges, and renders state-specific separator colors and widths.
    - Verification: Hidden-channel rendering and channel-offset tests pass.
 
@@ -33,7 +39,7 @@ Release metadata is `0.14.2` with Service Worker cache `sviber-v01420`. Validati
 
 3. **Selected hidden-event separator marks**
    - Change: Selected events in visible hidden-channel separators are marked with short red or magenta time segments.
-   - Files: `js/render/timeline-drawing.js`, `tests/channels-v22.test.mjs`.
+   - Files: `js/render/timeline-drawing.js`, `tests/timeline-channel-behavior.test.mjs`.
    - Implementation: Separator drawing filters indexed selected records by hidden channel and maps event start time to the separator x coordinate.
    - Verification: Source wiring and timeline regression tests pass.
 
@@ -63,13 +69,13 @@ Release metadata is `0.14.2` with Service Worker cache `sviber-v01420`. Validati
 
 8. **Project manifest rename and migration**
    - Change: Use `project.sviber` as the primary manifest, accept legacy `sviber-project.json`, prefer the new file when both exist, and migrate/delete the legacy file on save.
-   - Files: `js/core/project.js`, `js/platform/platform.js`, `js/app/app-project-files.js`, `js/cli/cli-node-io.js`, `js/cli/cli-operations.js`, manuals, `tests/project-files.test.mjs`, `tests/project-manifest-v23.test.mjs`.
+   - Files: `js/core/project.js`, `js/platform/platform.js`, `js/app/app-project-files.js`, `js/cli/cli-node-io.js`, `js/cli/cli-operations.js`, manuals, `tests/project-files.test.mjs`, `tests/project-manifest.test.mjs`.
    - Implementation: Ordered manifest filename constants drive desktop and CLI reads; successful saves write the new name and remove the legacy name.
    - Verification: Legacy open, priority, save migration, project round-trip, and CLI tests pass.
 
 9. **Imported timing defaults**
    - Change: For ordinary Sunniesnow imports, default offset is the first tap/flick/hold/drag time and initial BPM is `60 / (nextTime - firstTime)`.
-   - Files: `js/app/app-preferences-media.js`, `tests/import-timing-defaults-v23.test.mjs`.
+   - Files: `js/app/app-preferences-media.js`, `tests/import-timing-defaults.test.mjs`.
    - Implementation: Numeric and rational file-format times are normalized, sorted, and used to calculate dialog defaults; fallback remains offset 0 and BPM 120 when insufficient data exists.
    - Verification: Numeric and rational timing-default tests pass.
 
@@ -105,19 +111,19 @@ Release metadata is `0.14.2` with Service Worker cache `sviber-v01420`. Validati
 
 15. **NW.js file associations**
     - Change: Register `.sviber`, `.json`, and `.txt` for desktop opening; add Linux MIME/desktop metadata, macOS document metadata, and Windows Inno Setup registry entries.
-    - Files: `scripts/nw-build-config.mjs`, `packaging/linux/sviber.xml`, `packaging/linux/sviber.desktop`, `packaging/macos/Info.plist`, `packaging/windows/sviber.iss`, `tests/nw-file-associations-v23.test.mjs`.
+    - Files: `scripts/nw-build-config.mjs`, `packaging/linux/sviber.xml`, `packaging/linux/sviber.desktop`, `packaging/macos/Info.plist`, `packaging/windows/sviber.iss`, `tests/nw-file-associations.test.mjs`.
     - Implementation: Builder metadata exposes all extensions, platform packaging files define open commands and MIME/document types, and Windows uses separate ProgIDs with shell commands.
     - Verification: Association metadata test passes.
 
 16. **ESLint line-limit clarification**
     - Change: File and function line limits exclude comments.
-    - Files: `eslint.config.mjs`, `tests/eslint-comment-limits-v23.test.mjs`.
+    - Files: `eslint.config.mjs`, `tests/eslint-comment-limits.test.mjs`.
     - Implementation: `max-lines` and `max-lines-per-function` use `skipComments: true`; comments document the rule.
     - Verification: Named rule test and `npm run lint` pass.
 
 17. **Multiple NW.js instances**
     - Change: Opening a supplied path while sviber is already running starts a new instance.
-    - Files: `package.json`, `scripts/build-nw.mjs`, `tests/nw-file-associations-v23.test.mjs`, CLI/path workflow tests.
+   - Files: `package.json`, `scripts/build-nw.mjs`, `tests/nw-file-associations.test.mjs`, CLI/path workflow tests.
     - Implementation: Source and generated packages set `single-instance` to false while retaining `node-main` for path-aware startup.
     - Verification: Package metadata, node-main wiring, CLI, and NW.js source tests pass; live NW.js headless launch remains environment-skipped as noted above.
 
@@ -125,7 +131,7 @@ Release metadata is `0.14.2` with Service Worker cache `sviber-v01420`. Validati
 
 - [x] Original diff preserved at `dev-notes/PROMPT-v22-v23.diff`.
 - [x] All 17 diff blocks implemented and covered by focused tests.
-- [x] Internal README and four manual variants updated for v23 behavior.
-- [x] `npm test`: 517 total, 516 passed, 0 failed, 1 environment skip.
+- [x] Internal README and five manual variants updated for v23 behavior.
+- [x] `npm test`: 521 total, 520 passed, 0 failed, 1 environment skip.
 - [x] `npm run lint`: passed.
 - [x] `git diff --check`: passed before release commit.

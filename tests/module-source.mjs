@@ -51,7 +51,7 @@ export async function readSources(modules) {
 // The manual body lives in per-language JSON data (v21); article lines are stored as an
 // array for readable diffs and joined here so content assertions see complete HTML.
 export function manualArticle(manual) {
-	return Array.isArray(manual.article) ? manual.article.join("\n") : manual.article;
+	return Array.isArray(manual.article) ? manual.article.join("") : manual.article;
 }
 
 // Content assertions read all supported languages at once.

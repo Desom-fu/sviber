@@ -4,7 +4,7 @@ import test from "node:test";
 import { MESSAGES, SUPPORTED_LANGUAGES } from "../js/ui/i18n.js";
 import { monacoLocale } from "../js/macro/macro-completions.js";
 
-test("v23 macro window resolves every supported language", async () => {
+test("macro window resolves every supported language", async () => {
 	const source = await readFile(new URL("../js/macro/macros.js", import.meta.url), "utf8");
 	assert.match(source, /SUPPORTED_LANGUAGES\.includes\(query\)/);
 	assert.match(source, /SUPPORTED_LANGUAGES\.includes\(stored\)/);

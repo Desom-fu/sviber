@@ -96,7 +96,7 @@ test("timeline zoom keeps the visual position of the current time", () => {
 	assert.ok(Math.abs((app.model.editor.visibleRangeBeginning + app.model.editor.visibleRangeEnd) / 2 - 50) < 1e-9);
 });
 
-// v22 fix: while playing, the armed follow offset used to slide the range back to its
+// While playing, the armed follow offset must not slide the range back to its
 // pre-zoom anchor on the next timeupdate, so the playhead's position inside the range
 // jumped back after every zoom tick. The zoom must re-arm the offset instead.
 test("timeline zoom during playback re-arms the follow offset to keep the playhead position", () => {
@@ -359,7 +359,7 @@ test("Alt+Shift drag in the channels moves the selection from the closest select
 	// though the pointer technically landed on the earlier event.
 	assert.equal(drag.event.id, 2);
 	assert.equal(drag.collapseSelectionOnClick, false);
-	// v22: like the main field's Shift drag, the gesture is fully absolute in time and
+	// Like the main field's Shift drag, the gesture is fully absolute in time and
 	// channel and has no minimum drag distance.
 	assert.equal(drag.absoluteBeatSnap, true);
 	assert.equal(drag.absoluteChannel, true);

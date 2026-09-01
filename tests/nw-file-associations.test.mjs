@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { builderApplicationOptions, SUPPORTED_FILE_EXTENSIONS } from "../scripts/nw-build-config.mjs";
 
-test("NW.js v23 distributions declare sviber, JSON, and text file associations", async () => {
+test("NW.js distributions declare sviber, JSON, and text file associations", async () => {
 	assert.deepEqual([...SUPPORTED_FILE_EXTENSIONS], ["sviber", "json", "txt"]);
 	const [linuxMime, desktop, macInfo, inno, packageJson] = await Promise.all([
 		readFile(new URL("../packaging/linux/sviber.xml", import.meta.url), "utf8"),

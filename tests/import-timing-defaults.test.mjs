@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { importTimingDefaults } from "../js/app/app-preferences-media.js";
 
-test("v23 import timing defaults derive offset and BPM from the first two notes", () => {
+test("import timing defaults derive offset and BPM from the first two notes", () => {
 	const defaults = importTimingDefaults({
 		events: [
 			{ type: "bgNote", time: 0.1 },
@@ -16,7 +16,7 @@ test("v23 import timing defaults derive offset and BPM from the first two notes"
 	assert.equal(defaults.initialBpm, 150);
 });
 
-test("v23 import timing defaults accept file-format rational note times", () => {
+test("import timing defaults accept file-format rational note times", () => {
 	const defaults = importTimingDefaults({
 		events: [
 			{ type: "tap", time: [1, 1, 2] },

@@ -7,7 +7,7 @@ import { drawClipThumbnail } from "../js/ui/panels.js";
 test("clip thumbnails resolve attached content and keep the paste plus inline action layout", async () => {
 	// The clips panel and its thumbnail painter now live in js/panel-clips.js, re-exported
 	// from js/panels.js; the assertions below are unchanged apart from the module they read.
-	// v23: only the paste action stays on the item; the rest appears in the expandable row.
+	// Only paste stays on the item; the other actions appear in the expandable row.
 	const [panels, styles] = await Promise.all([
 		readFile(new URL("../js/ui/panel-clips.js", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),

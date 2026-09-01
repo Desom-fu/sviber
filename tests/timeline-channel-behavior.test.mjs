@@ -1,5 +1,4 @@
-// v22 regression tests: hidden channels, the timeline collapse, the panel popup menus,
-// and reordering simultaneous events within a channel.
+// Timeline channel behavior: hidden channels, collapse, panel actions, and stacking order.
 
 import assert from "node:assert/strict";
 import test from "node:test";

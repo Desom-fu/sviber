@@ -4,7 +4,7 @@ import test from "node:test";
 import { MESSAGES, SUPPORTED_LANGUAGES, i18n, normalizeLanguage } from "../js/ui/i18n.js";
 import { localizedErrorMessage } from "../js/app/app-helpers.js";
 
-test("v23 supports four interface languages with an English fallback", () => {
+test("interface language support uses four languages with an English fallback", () => {
 	assert.deepEqual([...SUPPORTED_LANGUAGES], ["en-US", "zh-CN", "zh-TW", "ja-JP"]);
 	assert.equal(normalizeLanguage("zh-HK"), "zh-TW");
 	assert.equal(normalizeLanguage("ja-JP"), "ja-JP");
@@ -15,7 +15,7 @@ test("v23 supports four interface languages with an English fallback", () => {
 	}
 });
 
-test("v23 keeps interface and manual language names localized by active language", async () => {
+test("interface and manual language names follow the active language", async () => {
 	const names = {
 		"en-US": {
 			"en-US": "English",
@@ -58,7 +58,7 @@ test("v23 keeps interface and manual language names localized by active language
 	assert.match(licensePage, /ja/);
 });
 
-test("v23 localizes both project manifest filenames in errors", () => {
+test("project manifest filenames are localized in errors", () => {
 	const previous = i18n.language;
 	try {
 		i18n.setLanguage("zh-TW", null);
