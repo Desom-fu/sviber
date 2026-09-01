@@ -160,3 +160,10 @@ The four article bodies are language-specific HTML fragments under `docs/`, whil
 chrome labels remain in the regular language dictionaries under `json/`. The documentation
 loader and Service Worker now use those HTML resources. Release metadata is `0.14.5` with
 Service Worker cache `sviber-v01450`.
+
+## v0.14.6 Patch
+
+This patch fixes opening a project through a desktop file association. When Windows passes
+`project.sviber` or `sviber-project.json` as the startup path, sviber now resolves the manifest
+to its containing directory before invoking the project loader instead of treating it as a
+chart import. Release metadata is `0.14.6` with Service Worker cache `sviber-v01460`.
