@@ -15,21 +15,42 @@ test("v23 supports four interface languages with an English fallback", () => {
 	}
 });
 
-test("v23 keeps interface and manual language names native and stable", async () => {
+test("v23 keeps interface and manual language names localized by active language", async () => {
 	const names = {
-		"en-US": "English",
-		"zh-CN": "简体中文",
-		"zh-TW": "繁體中文",
-		"ja-JP": "日本語",
+		"en-US": {
+			"en-US": "English",
+			"zh-CN": "Simplified Chinese",
+			"zh-TW": "Traditional Chinese",
+			"ja-JP": "Japanese",
+		},
+		"zh-CN": {
+			"en-US": "英文",
+			"zh-CN": "简体中文",
+			"zh-TW": "繁体中文",
+			"ja-JP": "日文",
+		},
+		"zh-TW": {
+			"en-US": "英文",
+			"zh-CN": "簡體中文",
+			"zh-TW": "繁體中文",
+			"ja-JP": "日文",
+		},
+		"ja-JP": {
+			"en-US": "英語",
+			"zh-CN": "簡体字中国語",
+			"zh-TW": "繁体字中国語",
+			"ja-JP": "日本語",
+		},
 	};
 	for (const messages of Object.values(MESSAGES)) {
-		for (const [language, name] of Object.entries(names)) {
+		const activeLanguage = Object.entries(MESSAGES).find(([, candidate]) => candidate === messages)?.[0];
+		for (const [language, name] of Object.entries(names[activeLanguage])) {
 			assert.equal(messages[`option.language.${language}`], name);
 		}
 	}
 	for (const language of SUPPORTED_LANGUAGES) {
 		const manual = JSON.parse(await readFile(new URL(`../json/manual.${language}.json`, import.meta.url), "utf8"));
-		assert.deepEqual(manual.ui.languages, names);
+		assert.deepEqual(manual.ui.languages, names[language]);
 	}
 	const licensePage = await readFile(new URL("../js/boot/license-page.js", import.meta.url), "utf8");
 	assert.match(licensePage, /SUPPORTED_LANGUAGES/);

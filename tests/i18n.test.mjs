@@ -16,6 +16,8 @@ test("localization is loaded from matching JSON dictionaries", async () => {
 	assert.equal(english["option.language.chinese"], "Simplified Chinese");
 	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "Simplified Chinese");
 	assert.equal(chinese["option.language.english"], "英文");
+	assert.equal(english["option.language.zh-TW"], "Traditional Chinese");
+	assert.equal(chinese["option.language.zh-TW"], "繁体中文");
 	assert.equal(english["footer.javascriptLicense"], "JavaScript license information");
 	assert.equal(chinese["footer.javascriptLicense"], "JavaScript 许可信息");
 	assert.match(index, /data-i18n="footer\.javascriptLicense"/);
@@ -37,7 +39,15 @@ test("Chinese calls Lyrica 阳春白雪", async () => {
 });
 
 test("language options are localized in each interface", () => {
-	assert.equal(MESSAGES["en-US"]["option.language.chinese"], "Simplified Chinese");
-	assert.equal(MESSAGES["zh-CN"]["option.language.chinese"], "简体中文");
-	assert.equal(MESSAGES["zh-CN"]["option.language.english"], "英文");
+	const expected = {
+		"en-US": ["English", "Simplified Chinese", "Traditional Chinese", "Japanese"],
+		"zh-CN": ["英文", "简体中文", "繁体中文", "日文"],
+		"zh-TW": ["英文", "簡體中文", "繁體中文", "日文"],
+		"ja-JP": ["英語", "簡体字中国語", "繁体字中国語", "日本語"],
+	};
+	for (const [language, names] of Object.entries(expected)) {
+		for (const [index, name] of names.entries()) {
+			assert.equal(MESSAGES[language][`option.language.${["en-US", "zh-CN", "zh-TW", "ja-JP"][index]}`], name);
+		}
+	}
 });

@@ -5,6 +5,12 @@ The complete original patch is preserved at `dev-notes/PROMPT-v22-v23.diff`.
 
 Validation: `npm test` passed 516 tests with 0 failures (517 total, including 1 NW.js headless skip because the local NW.js launch environment is unavailable). `npm run lint` and `git diff --check` are also release gates.
 
+## v0.14.1 Patch
+
+The editor Preferences language selector and the manual language selector now translate all four language names using the currently active interface language. English shows English labels, Simplified Chinese shows simplified Chinese labels, Traditional Chinese shows traditional Chinese labels, and Japanese shows Japanese labels. The four i18n dictionaries and four manual UI dictionaries share the same mapping, while the legacy English manual metadata remains synchronized. The compatibility `option.language.english` and `option.language.chinese` keys are aligned with the corresponding formal language values. The preference selector continues to derive labels from `SUPPORTED_LANGUAGES`, and the manual applies `activeUi.languages` whenever the selected article changes.
+
+Focused coverage is in `tests/language-selection-v0141.test.mjs`; the existing v23 and i18n tests were updated for the new contract. Release metadata is `0.14.1` with Service Worker cache `sviber-v01410`. Validation: `npm test` passed 519 tests with 0 failures (518 passed and 1 NW.js headless environment skip), and `npm run build` completed successfully.
+
 ## Difference Checklist
 
 1. **Hidden-channel separator states**
@@ -86,10 +92,10 @@ Validation: `npm test` passed 516 tests with 0 failures (517 total, including 1 
     - Verification: Parameter shape and checks dialog tests pass.
 
 14. **Four-language internationalization and manual loading**
-    - Change: Support `en-US`, `zh-CN`, `zh-TW`, and `ja-JP`; use browser language with English fallback; keep language names native; load manual article bodies dynamically.
+   - Change: Support `en-US`, `zh-CN`, `zh-TW`, and `ja-JP`; use browser language with English fallback; translate language names using the active interface language; load manual article bodies dynamically.
     - Files: `js/ui/i18n.js`, `js/app/app-helpers.js`, `js/app/app-preferences-media.js`, `docs/index.html`, `docs/docs.js`, `json/i18n.*.json`, `json/manual.*.json`, `service-worker.js`, README files, i18n/manual tests.
     - Implementation: Language normalization handles Traditional Chinese and Japanese locale aliases, preference choices use all four dictionaries, and the manual loader fetches `manual.<language>.json`.
-   - Verification: Four-language fallback, dictionary loading, fixed native language names, localized project-manifest errors, manual, service-worker, and macro-window language tests pass. The macro window now accepts all four language values and selects the matching Monaco locale for Traditional Chinese and Japanese.
+   - Verification: Four-language fallback, dictionary loading, active-language language names, localized project-manifest errors, manual, service-worker, and macro-window language tests pass. The macro window now accepts all four language values and selects the matching Monaco locale for Traditional Chinese and Japanese.
 
 15. **NW.js file associations**
     - Change: Register `.sviber`, `.json`, and `.txt` for desktop opening; add Linux MIME/desktop metadata, macOS document metadata, and Windows Inno Setup registry entries.

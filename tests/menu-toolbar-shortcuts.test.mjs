@@ -86,7 +86,7 @@ test("application shell uses the service worker without an entrypoint cache bust
 		readSource("index.html"),
 		readSource("package.json"),
 	]);
-	assert.equal(JSON.parse(packageSource).version, "0.14.0");
+	assert.equal(JSON.parse(packageSource).version, "0.14.1");
 	assert.match(serviceWorker, /CACHE_VERSION = "sviber-v[^"]+"/);
 	assert.match(serviceWorker, /package-lock\.json/);
 	assert.match(serviceWorker, /js\/app\/app\.js"/);
