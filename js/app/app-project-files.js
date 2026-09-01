@@ -35,8 +35,14 @@ class ProjectFilesTrait {
 		}
 		globalThis.sviberOpenPath = "";
 		try {
-			if (await this.files.isProjectDirectory?.(pathname)) {
-				return Boolean(await this.openProject({ directoryPath: pathname, skipUnsaved: true }));
+			const manifestDirectory = this.files.projectManifestDirectory?.(pathname);
+			if (manifestDirectory || (await this.files.isProjectDirectory?.(pathname))) {
+				return Boolean(
+					await this.openProject({
+						directoryPath: manifestDirectory || pathname,
+						skipUnsaved: true,
+					}),
+				);
 			}
 			const file = await this.files.fileFromLocalPath(pathname, "application/octet-stream");
 			if (!file) {

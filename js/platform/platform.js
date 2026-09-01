@@ -135,6 +135,22 @@ export class FileManager {
 		return modules && pathname ? modules.path.resolve(String(pathname)) : "";
 	}
 
+	// A file association passes the manifest file itself, while the project loader needs its
+	// containing directory. The manifest contents are validated by openProject after this path
+	// normalization.
+	projectManifestDirectory(pathname) {
+		const modules = nwModules();
+		if (!modules || !pathname) {
+			return "";
+		}
+		const resolved = modules.path.resolve(String(pathname));
+		const basename = modules.path.basename(resolved).toLowerCase();
+		if (!PROJECT_FILENAMES.some(filename => filename.toLowerCase() === basename)) {
+			return "";
+		}
+		return modules.path.dirname(resolved);
+	}
+
 	// The manifest entry name for a chart file, or "" when the path is not a chart sitting
 	// directly in the current project folder.
 	projectChartFilename(pathname) {
