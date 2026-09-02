@@ -8,6 +8,7 @@ assets/
 /nw-user-data/
 /icon.ico
 /icon.png
+/result
 
 # Reference literature (not redistributable)
 *.pdf
