@@ -182,3 +182,13 @@ This patch fixes three editor interaction bugs.
   previews the next active lane instead of jumping only on release.
 
 Release metadata is `0.14.7` with Service Worker cache `sviber-v01470`.
+
+## v0.14.8 Patch
+
+The `v0.14.8` Git tag was created on source that still reported `0.14.7`, so CI archives
+were named `sviber-0.14.7-*`.
+
+## v0.14.9 Patch
+
+This patch lands the Nix packaging fix from PR #6 with `package.json` aligned to the Git
+tag. Release metadata is `0.14.9` with Service Worker cache `sviber-v01490`.
