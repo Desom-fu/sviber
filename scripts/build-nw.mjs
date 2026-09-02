@@ -141,9 +141,21 @@ function gitOutput(args) {
 
 async function writeBuildInformation(applicationDirectory) {
 	const information = {};
+	const envCommit = process.env.SVIBER_BUILD_COMMIT;
+	const envCommitDate = process.env.SVIBER_BUILD_COMMIT_DATE;
+	if (envCommit) {
+		information.commit = envCommit;
+	}
+	if (envCommitDate) {
+		information.commitDate = envCommitDate;
+	}
 	try {
-		information.commit = await gitOutput(["rev-parse", "HEAD"]);
-		information.commitDate = await gitOutput(["show", "-s", "--format=%cI", "HEAD"]);
+		if (!envCommit) {
+			information.commit = await gitOutput(["rev-parse", "HEAD"]);
+		}
+		if (!envCommitDate) {
+			information.commitDate = await gitOutput(["show", "-s", "--format=%cI", "HEAD"]);
+		}
 	} catch (error) {
 		console.warn(`Build metadata unavailable: ${error.message}`);
 	}

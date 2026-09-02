@@ -37,7 +37,7 @@ The first build needs network access to obtain NW.js and the pinned font assets.
 
 ## Install with Nix
 
-On x86_64 or aarch64 Linux with flakes enabled:
+On x86_64 Linux with flakes enabled:
 
 ```sh
 nix build

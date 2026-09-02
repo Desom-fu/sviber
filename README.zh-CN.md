@@ -37,7 +37,7 @@ npm run build
 
 ## 使用 Nix 安装
 
-在启用 flakes 的 x86_64 或 aarch64 Linux 上运行：
+在启用 flakes 的 x86_64 Linux 上运行：
 
 ```sh
 nix build
