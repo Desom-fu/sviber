@@ -192,3 +192,9 @@ were named `sviber-0.14.7-*`.
 
 This patch lands the Nix packaging fix from PR #6 with `package.json` aligned to the Git
 tag. Release metadata is `0.14.9` with Service Worker cache `sviber-v01490`.
+
+## v0.14.10 Patch
+
+Unify Simplified/Traditional Chinese channel command labels that still said 轨道/軌道
+to 通道 (deactivate / activateAll / hide / showAll and their hints). Release metadata is
+`0.14.10` with Service Worker cache `sviber-v01410`.
