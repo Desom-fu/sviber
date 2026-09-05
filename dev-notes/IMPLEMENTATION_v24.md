@@ -12,6 +12,8 @@ v24 相对 v23 的需求来自 `dev-notes/PROMPT-v23.md` 与 `dev-notes/PROMPT-v
 
 复查补丁作为 **v0.15.3** 发版（`sviber-v01530`）：输入偏移最近拍改为 `beatZero + round((now - beatZero) / beatSeconds) * beatSeconds`，不再在已排程 ticks 列表里搜最近拍；含 v0.15.2 全部修复，直接推 main 不经 PR。
 
+复查补丁作为 **v0.15.5** 发版（`sviber-v01550`）：右侧栏连续拖拽导致主编辑区画布冻结——去掉 `desynchronized` 2D 上下文、ResizeObserver 合并到 rAF、画布改 absolute 100% 填充且不再在 JS 里写 style 宽高（保留 dpr 真分辨率）。
+
 复查补丁作为 **v0.15.4** 发版（`sviber-v01540`）：① `setSubdivision` 补上 `_syncCheckedCommands` 使工具栏/菜单勾选即时更新；② 输入偏移 `closestMetronomeDelta` 改为 `nearest - audioTime`（PROMPT-v24 减数顺序写反，晚按应为负偏移）；③ 创建+播放时 key-repeat 仍拦截快捷键、仅非 repeat 落键，指针离开舞台保留 `creationPreview`；④ Pixi/Canvas 按 dpr 重建缓冲并显式设置 CSS 尺寸，去掉 `canvas { width/height:100% !important }` 拉伸。
 
 ## Diff 清单与实现

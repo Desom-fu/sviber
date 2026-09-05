@@ -26,6 +26,42 @@ export function canvasBufferSize(cssWidth, cssHeight, dpr) {
 	};
 }
 
+/** 2D context attrs: never desynchronized — that path can stop presenting after resize storms. */
+export function canvas2dContextAttributes() {
+	return { alpha: false, desynchronized: false };
+}
+
+/**
+ * Schedule `run` at most once per animation frame. Rapid ResizeObserver / sidebar-drag
+ * thrash collapses to a single flush that reads the latest host geometry.
+ */
+export function createResizeCoalescer(run, schedule = globalThis.requestAnimationFrame?.bind(globalThis)) {
+	const state = { id: 0 };
+	const scheduleCoalesced = (...args) => {
+		if (state.id) {
+			return state.id;
+		}
+		if (!schedule) {
+			run(...args);
+			return 0;
+		}
+		state.id = schedule(() => {
+			state.id = 0;
+			run(...args);
+		});
+		return state.id;
+	};
+	scheduleCoalesced.cancel = (cancel = globalThis.cancelAnimationFrame?.bind(globalThis)) => {
+		if (!state.id) {
+			return;
+		}
+		cancel?.(state.id);
+		state.id = 0;
+	};
+	scheduleCoalesced.pending = () => state.id;
+	return scheduleCoalesced;
+}
+
 export class PixiCanvasSurface {
 	constructor(host, options = {}) {
 		this.host = host;
@@ -37,10 +73,11 @@ export class PixiCanvasSurface {
 		this.app = null;
 		this.canvas = null;
 		this.buffer = document.createElement("canvas");
-		this.context = this.buffer.getContext("2d", { alpha: false, desynchronized: true });
+		this.context = this.buffer.getContext("2d", canvas2dContextAttributes());
 		this.texture = null;
 		this.sprite = null;
 		this.resizeObserver = null;
+		this._coalescedResize = null;
 		this.width = 1;
 		this.height = 1;
 		this.resolution = 1;
@@ -72,10 +109,14 @@ export class PixiCanvasSurface {
 			this.host.append(this.canvas);
 		}
 		this.resolution = initialDpr;
-		this.resizeObserver = new ResizeObserver(() => {
+		// Collapse thrash-resize (sidebar drag) to one geometry apply + notify per frame.
+		this._coalescedResize = createResizeCoalescer(() => {
 			if (this.resize()) {
 				this.onResize?.(this.width, this.height);
 			}
+		});
+		this.resizeObserver = new ResizeObserver(() => {
+			this._coalescedResize();
 		});
 		this.resizeObserver.observe(this.host);
 		this.resize();
@@ -95,19 +136,28 @@ export class PixiCanvasSurface {
 		this.height = size.height;
 		this.resolution = dpr;
 		const buffer = canvasBufferSize(size.width, size.height, dpr);
-		this.buffer.width = buffer.width;
-		this.buffer.height = buffer.height;
-		// Explicit CSS pixel size so layout is not merely stretching a stale bitmap.
-		this.canvas.style.width = `${size.width}px`;
-		this.canvas.style.height = `${size.height}px`;
+		try {
+			this.buffer.width = buffer.width;
+			this.buffer.height = buffer.height;
+		} catch {
+			// Oversized canvases can throw; keep last good buffer and skip this frame.
+			return false;
+		}
+		// Display size comes from CSS (absolute 100% fill). Do not write style width/height
+		// here — that used to churn layout during sidebar thrash and amplify RO storms.
+		if (!this.context || this.context.canvas !== this.buffer) {
+			this.context = this.buffer.getContext("2d", canvas2dContextAttributes());
+		}
 		if (this.app) {
-			if (this.app.renderer.resolution !== dpr) {
-				this.app.renderer.resolution = dpr;
+			try {
+				if (this.app.renderer.resolution !== dpr) {
+					this.app.renderer.resolution = dpr;
+				}
+				this.app.renderer.resize(size.width, size.height);
+				this.#replaceTexture();
+			} catch {
+				return false;
 			}
-			this.app.renderer.resize(size.width, size.height);
-			this.canvas.style.width = `${size.width}px`;
-			this.canvas.style.height = `${size.height}px`;
-			this.#replaceTexture();
 		}
 		return true;
 	}
@@ -151,6 +201,7 @@ export class PixiCanvasSurface {
 	}
 
 	destroy() {
+		this._coalescedResize?.cancel?.();
 		this.resizeObserver?.disconnect();
 		this.sprite?.destroy({ children: true, texture: true });
 		this.app?.destroy(true, { children: true });

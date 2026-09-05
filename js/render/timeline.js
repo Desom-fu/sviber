@@ -51,7 +51,7 @@ export class TimelineView {
 		this.surface = new PixiCanvasSurface(host, {
 			background: "#090a0c",
 			onResize: () => {
-				this.render();
+				this.requestRender();
 				this.callbacks.onTimelineResize?.();
 			},
 		});

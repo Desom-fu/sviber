@@ -75,7 +75,8 @@ export class StageViewCore {
 		this.callbacks = callbacks;
 		this.surface = new PixiCanvasSurface(host, {
 			background: "#55585b",
-			onResize: () => this.render(),
+			// Coalesced RO already lands on rAF; requestRender avoids stacking sync redraws.
+			onResize: () => this.requestRender(),
 		});
 		this.state = null;
 		this.timing = null;
