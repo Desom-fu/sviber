@@ -44,6 +44,7 @@ test("UI uses icon controls, sliders, fullscreen, read-only macros, and PWA cach
 		"metronome",
 		"read-only",
 		"fullscreen",
+		"lock-layout",
 	]) {
 		assert.match(index, new RegExp(`id="${id}"[\\s\\S]*?<img`));
 	}

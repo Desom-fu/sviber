@@ -112,15 +112,15 @@
 	}
 
 	.workspace {
-		grid-template-rows: minmax(120px, min(var(--timeline-height), 38%)) minmax(0, 1fr);
+		grid-template-rows: var(--timeline-height) 6px minmax(0, 1fr);
 	}
 
 	.timeline-row {
-		grid-template-columns: minmax(0, 1fr) 130px;
+		grid-template-columns: minmax(0, 1fr) 6px 130px;
 	}
 
 	.editor-row {
-		grid-template-columns: minmax(0, 1fr) minmax(190px, 34vw);
+		grid-template-columns: var(--left-panel-width, 0) 0 minmax(0, 1fr) 6px minmax(190px, 34vw);
 	}
 
 	.menu-root-button {

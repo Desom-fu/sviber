@@ -32,7 +32,9 @@ import { AutosaveManager, FileManager } from "../platform/platform.js";
 import { ChannelsPanel, ClipsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "../ui/panels.js";
 import { ChecksPanel } from "../ui/checks-panel.js";
 import { loadPreferences, resolvePreferenceLanguage, applyThemePreference, selected } from "./app-helpers.js";
+import { rememberNwWindow } from "../platform/window-bounds.js";
 import { handleMacroMessage } from "./app-macro-bridge.js";
+import { handleReadmeMessage } from "./app-readme-editor.js";
 import { LiveHosting } from "../platform/live-hosting.js";
 import { withDifficultyState } from "./app-difficulty-state.js";
 import { withProjectState } from "./app-project-state.js";
@@ -43,6 +45,7 @@ import { withFullscreen } from "./app-fullscreen.js";
 import { withStatusBindings } from "./app-status-bindings.js";
 import { withShellBindings } from "./app-shell-bindings.js";
 import { withGlobalShortcuts } from "./app-global-shortcuts.js";
+import { withLayout } from "./app-layout.js";
 
 // Commands that are allowed to run without cancelling an active creation tool: transport,
 // channel switching, undo/redo and the creation tools themselves.
@@ -62,7 +65,9 @@ function keepsCreationMode(id) {
 
 const CoreState = withDirtyTracking(withProjectState(withDifficultyState(class {})));
 const CoreShell = withGlobalShortcuts(
-	withShellBindings(withStatusBindings(withFullscreen(withStatusView(withPlaybackTransport(CoreState))))),
+	withLayout(
+		withShellBindings(withStatusBindings(withFullscreen(withStatusView(withPlaybackTransport(CoreState))))),
+	),
 );
 
 export class SviberAppCore extends CoreShell {
@@ -98,7 +103,7 @@ export class SviberAppCore extends CoreShell {
 		this.selectionPreview = null;
 		this.groupSelectionScope = null;
 		this.lastHoldDuration = [1, 0, 1];
-		this.lastBgNoteDuration = [1, 0, 1];
+		this.lastBgNoteDuration = [0, 0, 1];
 		this.lastFlickAngle = Math.PI / 2;
 		this.internalClipboard = null;
 		this.backgroundUrl = null;
@@ -128,6 +133,7 @@ export class SviberAppCore extends CoreShell {
 		this.autosave = new AutosaveManager();
 		this.macroWindow = null;
 		this.macroMessageHandler = event => void handleMacroMessage(this, event);
+		this.readmeMessageHandler = event => void handleReadmeMessage(this, event);
 		this.fullscreen = false;
 		this.liveHosting = new LiveHosting({
 			address: this.preferences.liveHostingAddress,
@@ -302,7 +308,11 @@ export class SviberAppCore extends CoreShell {
 		this._bindAudio();
 		this._bindGlobalInteraction();
 		this._bindLayoutToggles();
+		this._bindLayoutResize?.();
+		this._bindFileDrop?.();
+		this.applyLayoutPreferences?.();
 		window.addEventListener("message", this.macroMessageHandler);
+		window.addEventListener("message", this.readmeMessageHandler);
 		await Promise.all([this.timeline.surface.ready, this.stage.surface.ready, this.scrollView.surface.ready]);
 		this.refreshNow();
 		document.getElementById("app").setAttribute("aria-busy", "false");
@@ -527,9 +537,7 @@ export class SviberAppCore extends CoreShell {
 		this._rebuildRenderIndex();
 		this._syncAudioLoop();
 		const view = this.viewState();
-		const shownChannels = this.model.channels.filter(c => c.hidden !== true).length;
-		const timelineHeight = 88 + Math.min(3, Math.max(1, shownChannels)) * 48;
-		document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${timelineHeight}px`);
+		this.applyLayoutPreferences?.();
 		this.timeline.setState(view);
 		this.stage.setState(view);
 		this.scrollView.setState(view);
@@ -559,8 +567,7 @@ export class SviberAppCore extends CoreShell {
 			this.macroWindow.focus();
 			return;
 		}
-		this.macroWindow = window.open(url, "sviber-macros", "popup,width=1180,height=820");
-		if (!this.macroWindow && globalThis.nw?.Window?.open) {
+		if (globalThis.nw?.Window?.open) {
 			globalThis.nw.Window.open(
 				url,
 				{
@@ -571,10 +578,13 @@ export class SviberAppCore extends CoreShell {
 					min_height: 520,
 				},
 				popup => {
-					this.macroWindow = popup?.window || null;
+					this.macroWindow = popup?.window || popup || null;
+					rememberNwWindow("macros", popup, { width: 1180, height: 820 });
 				},
 			);
+			return;
 		}
+		this.macroWindow = window.open(url, "sviber-macros", "popup,width=1180,height=820");
 	}
 
 	async _offerAutosave() {
@@ -636,6 +646,7 @@ export class SviberAppCore extends CoreShell {
 		document.removeEventListener("keyup", this.boundSpaceKeyUp, true);
 		document.removeEventListener("fullscreenchange", this.boundFullscreenChange);
 		window.removeEventListener("message", this.macroMessageHandler);
+		window.removeEventListener("message", this.readmeMessageHandler);
 		cancelAnimationFrame(this.statusUpdateFrame);
 	}
 }

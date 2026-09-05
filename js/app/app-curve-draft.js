@@ -74,7 +74,7 @@ class CurveDraftTrait {
 			i18n.t("history.editSnappee"),
 			model => {
 				const index = model.snappees.findIndex(snappee => snappee.id === id);
-				const target = index + Math.sign(Number(direction));
+				const target = index + Number(direction);
 				if (index < 0 || !Number.isInteger(target) || target < 0 || target >= model.snappees.length) {
 					return;
 				}

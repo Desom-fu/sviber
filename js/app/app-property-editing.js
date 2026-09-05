@@ -80,7 +80,7 @@ function applyOneEventProperty(model, event, property, value) {
 		(value === "chain" || value === "drop") &&
 		(event.tipPointSpawnType || "inherit") === "inherit"
 	) {
-		fillInheritedTipPointParams(event, model.allEvents());
+		fillInheritedTipPointParams(event, model.allEvents(), model);
 		event.tipPointSpawnType = value;
 		return;
 	}

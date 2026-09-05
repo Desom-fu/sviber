@@ -33,6 +33,7 @@ const TIMELINE_MOVE_HANDLERS = {
 	box: "_moveSelectionBox",
 	"scroll-current": "_moveScrollCurrent",
 	"scroll-ctrl": "_moveScrollCtrl",
+	"scroll-alt": "_moveScrollAlt",
 	"scroll-begin": "_moveVisibleRangeDrag",
 	"scroll-end": "_moveVisibleRangeDrag",
 	"scroll-range": "_moveVisibleRangeDrag",
@@ -51,6 +52,7 @@ export class TimelinePointerTrait {
 			"channel-scroll",
 			"duration",
 			"event",
+			"tip-switch",
 			"bpm",
 		];
 		for (const type of priorities) {
@@ -246,6 +248,9 @@ export class TimelinePointerTrait {
 	// subdivisions, and when the visible range contained the current time the range slides
 	// along so the current time keeps its position inside the range.
 	_scrollbarPressDrag(event, { point, hit, project }) {
+		if (event.altKey && !event.ctrlKey) {
+			return this._scrollbarAltPan(point, hit, project);
+		}
 		if (event.ctrlKey) {
 			const beginning = Number(project.editor.visibleRangeBeginning);
 			const ending = Number(project.editor.visibleRangeEnd);
@@ -289,6 +294,42 @@ export class TimelinePointerTrait {
 			beginning: project.editor.visibleRangeBeginning,
 			ending: project.editor.visibleRangeEnd,
 		};
+	}
+
+	_scrollbarAltPan(point, hit, project) {
+		const bounds = hit.bounds || this._timeBounds(project);
+		const rectangle = hit.rectangle || {
+			x: 0,
+			width: this.surface.width,
+			y: 0,
+			height: 25,
+		};
+		const drag = { type: "scroll-alt", hit: { ...hit, rectangle, bounds }, bounds };
+		this._moveScrollAlt(point, drag, project);
+		return drag;
+	}
+
+	_moveScrollAlt(point, drag, project) {
+		const rectangle = drag.hit.rectangle;
+		const bounds = drag.bounds;
+		const span = Math.max(
+			0.001,
+			Number(project.editor.visibleRangeEnd) - Number(project.editor.visibleRangeBeginning),
+		);
+		const progress = Math.max(0, Math.min(1, (point.x - rectangle.x) / Math.max(1, rectangle.width)));
+		let center = bounds[0] + progress * (bounds[1] - bounds[0]);
+		let beginning = center - span / 2;
+		let ending = center + span / 2;
+		if (beginning < bounds[0]) {
+			ending += bounds[0] - beginning;
+			beginning = bounds[0];
+		}
+		if (ending > bounds[1]) {
+			beginning -= ending - bounds[1];
+			ending = bounds[1];
+			beginning = Math.max(bounds[0], beginning);
+		}
+		this.callbacks.onVisibleRange?.(beginning, ending);
 	}
 
 	// Pressing a lane either range selects with Shift or rubber-bands a selection box.
@@ -731,6 +772,8 @@ export class TimelinePointerTrait {
 		const hit = this._hitTest(this.surface.toLocal(event));
 		if (hit?.type === "bpm") {
 			this.callbacks.onEditBpm?.(hit.index);
+		} else if (hit?.type === "tip-switch") {
+			this.callbacks.onEditTipPointSwitch?.(hit.time);
 		} else if (hit?.type === "event" && hit.event.type !== "group") {
 			this.callbacks.onEnterGroupSelection?.(hit.event.id);
 		}

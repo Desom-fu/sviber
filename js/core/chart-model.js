@@ -338,6 +338,7 @@ export class ChartModel {
 			active: data.active !== false,
 			hidden: data.hidden === true,
 			expanded: data.expanded === true,
+			tipPointSwitches: Array.isArray(data.tipPointSwitches) ? clone(data.tipPointSwitches) : [],
 		};
 		const insertion = Math.max(0, Math.min(this.channels.length, Number(index) || 0));
 		this.channels.splice(insertion, 0, channel);

@@ -36,10 +36,6 @@ function requestedLanguage() {
 	if (queryLanguage) {
 		return queryLanguage;
 	}
-	const stored = localStorage.getItem("sviber.documentationLanguage");
-	if (supported.has(stored)) {
-		return stored;
-	}
 	return normalizeLanguage(navigator.language) || "en-US";
 }
 
@@ -232,7 +228,6 @@ function setArticle(language, manual) {
 
 async function setLanguage(language) {
 	const selected = supported.has(language) ? language : "en-US";
-	localStorage.setItem("sviber.documentationLanguage", selected);
 	try {
 		const manual = await loadManual(selected);
 		setArticle(selected, manual);

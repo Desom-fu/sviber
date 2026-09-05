@@ -95,9 +95,52 @@ class EventToolsTrait {
 		this._refreshLightweight?.({ rebuildIndex: false, skipInspector: true, skipHistory: true });
 	}
 
+	placementBeat() {
+		if (this.audio?.playing && this.creationMode) {
+			const offset = Number(this.preferences?.inputOffset) || 0;
+			return this.timing().secondsToSnappedBeat(
+				this.audio.currentTime + offset,
+				this.model.editor.subdivision,
+			);
+		}
+		return this.currentBeat();
+	}
+
+	isCreationPlaybackKey(event) {
+		if (!this.creationMode || !this.audio?.playing) {
+			return false;
+		}
+		if (event.ctrlKey || event.altKey || event.metaKey) {
+			return false;
+		}
+		if (event.key.length !== 1) {
+			return false;
+		}
+		return /[\p{L}\p{N}\p{S}\p{P}]/u.test(event.key);
+	}
+
+	interceptCreationPlaybackKey(event) {
+		if (!this.isCreationPlaybackKey(event)) {
+			return false;
+		}
+		if (event.target && (event.target.closest?.("input, textarea, select, [contenteditable='true']"))) {
+			return false;
+		}
+		this.placeCreationEventFromPointer();
+		return true;
+	}
+
+	placeCreationEventFromPointer() {
+		const preview = this.stage?.creationPreview;
+		if (!this.creationMode || !preview) {
+			return;
+		}
+		this.createPositionedEvent(this.creationMode, preview);
+	}
+
 	createPositionedEvent(type, preview) {
 		const overrides = {
-			time: this.currentBeat().toJSON(),
+			time: this.placementBeat().toJSON(),
 			channel: this.model.editor.currentChannel,
 			selected: true,
 			angle: this.lastFlickAngle,

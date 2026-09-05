@@ -332,16 +332,36 @@ function buildTextareaControl({ documentRef, field, value }) {
 	return { element: textarea, read: () => textarea.value, focus: () => textarea.focus() };
 }
 
-function buildNumberControl({ documentRef, field, value, type }) {
+function buildNumberControl({ documentRef, i18n, field, value, type }) {
 	const input = makeInput(documentRef, "number", value, field);
 	if (type === "integer" && field.step === undefined) {
 		input.step = "1";
 	}
-	return {
-		element: input,
-		read: () => (input.value === "" ? null : Number(input.value)),
-		focus: () => input.focus(),
-	};
+	const read = () => (input.value === "" ? null : Number(input.value));
+	if (!field.unit && !field.action) {
+		return { element: input, read, focus: () => input.focus() };
+	}
+	const wrap = documentRef.createElement("div");
+	wrap.className = "field-control-row";
+	wrap.append(input);
+	if (field.unit) {
+		const unit = documentRef.createElement("span");
+		unit.className = "field-unit";
+		unit.textContent = field.unit;
+		wrap.append(unit);
+	}
+	if (field.action) {
+		const button = documentRef.createElement("button");
+		button.type = "button";
+		button.className = "panel-button";
+		button.textContent = field.action.labelKey ? i18n.t(field.action.labelKey) : String(field.action.label || "");
+		button.addEventListener("click", event => {
+			event.preventDefault();
+			field.action.onClick?.(input, button);
+		});
+		wrap.append(button);
+	}
+	return { element: wrap, read, focus: () => input.focus() };
 }
 
 function buildTextControl({ documentRef, i18n, field, value }) {

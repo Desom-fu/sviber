@@ -48,6 +48,8 @@ button { color: inherit; cursor: pointer; }
 .menu-popup button:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .menu-popup hr { border: 0; border-top: 1px solid var(--border); margin: 4px 0; }
 .macro-workspace { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 0; }
+.macro-editor-area.is-console-hidden { grid-template-rows: 32px minmax(0, 1fr) 0; }
+.macro-editor-area.is-console-hidden .macro-console { visibility: hidden; pointer-events: none; }
 .macro-sidebar { display: grid; grid-template-rows: 34px minmax(0, 1fr); min-height: 0; border-right: 1px solid var(--border); background: var(--panel); }
 .macro-tabs { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid var(--border); }
 .macro-tabs button { border: 0; border-right: 1px solid var(--border); background: transparent; color: var(--muted); }

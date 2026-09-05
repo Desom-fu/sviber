@@ -19,7 +19,8 @@ project-level changes (chart list, active chart, macros) write immediately. <!--
 The browser opens one JSON chart at a time, <!---->
 disables project commands (including <b>Open recent...</b>), and saves by download. <!---->
 Desktop sviber can also run as a CLI without the GUI using <code>--export</code>, <!---->
-<code>--import</code>, and <code>--help</code>. The desktop app registers <code>.sviber</code>, <!---->
+<code>--import</code>, <code>--help</code>, and <code>--version</code>. <!---->
+The desktop app registers <code>.sviber</code>, <!---->
 <code>.json</code>, and <code>.txt</code> file associations; <!---->
 opening a supplied path starts a new instance.</p>				<!---->
 <p>New charts default to difficulty name Master with its preset color (Special with its own <!---->
@@ -96,8 +97,8 @@ hiding either group gives the main field more width. The History panel has no ti
 <h3 id="en-timeline">Timeline anatomy</h3>				<!---->
 <p>The timeline contains a waveform, beat lines, channel lanes, <!---->
 and a horizontal overview scrollbar. <!---->
-Its background is a relative note-density heat map for tap, drag, hold, <!---->
-and flick events per second: the highest density is #7f1f1f and the lowest is #1f1f1f. <!---->
+Its background is a relative note-density heat map for non-drag notes <!---->
+(tap, hold, and flick per second): the highest density is #7f1f1f and the lowest is #1f1f1f. <!---->
 The yellow line is current time. Green end handles change the visible range; <!---->
 the green middle bar moves both ends. The current time may be outside the visible range. <!---->
 On the scrollbar, the yellow current-time line has priority over the green handles and bar; <!---->
@@ -106,7 +107,9 @@ while dragging to pan the visible range without changing current time, even when
 Holding <kbd>Ctrl</kbd> <!---->
 while clicking or dragging anywhere on the scrollbar instead sets the current time to the <!---->
 pointer position snapped to subdivisions; if the visible range contained the current time, <!---->
-it moves along so the current time keeps its visual position inside the range.</p>				<!---->
+it moves along so the current time keeps its visual position inside the range. <!---->
+Holding <kbd>Alt</kbd> moves the visible-range center to the pointer without changing <!---->
+the current time.</p>				<!---->
 <p>Clicking a lane seeks to its time and makes that lane current. <!---->
 Clicking and dragging on an empty lane makes a live rectangular selection; <!---->
 a three-pixel movement threshold keeps a click from becoming a drag. Holding <kbd>Alt</kbd><!---->
@@ -174,7 +177,7 @@ requests an exact time.</p>				<!---->
 <p>The status panel has no title. It shows the time to three decimal places, <!---->
 the current beat using the current subdivision denominator, <!---->
 and the playback speed together on one line without labels, <!---->
-wrapping to more lines when one line cannot fit them, <!---->
+with time left, beat centered, and speed right, wrapping when they cannot share a line, <!---->
 followed by comments active at the current time and the current operation. <!---->
 If events are selected, it also shows how many. A selected comment is red here; <!---->
 other comments use the normal text color. Its icon controls have no visible text labels. <!---->
@@ -212,6 +215,8 @@ global macros stay editable, project macros become read-only, and no macro can r
 toggles it even while a popup form is active, <!---->
 and the checkbox follows fullscreen changes made by the runtime. In NW.js, <kbd>Esc</kbd> <!---->
 does not leave fullscreen.</li><!---->
+<li><b>Lock layout</b>: disables panel resize dragging and hides the edge show/hide <!---->
+buttons. View menu toggles still work. Off by default.</li><!---->
 </ul>				<!---->
 <h3 id="en-main-field">Main editor field</h3>				<!---->
 <p>The main field previews the chart at the current time. <!---->
@@ -322,8 +327,10 @@ editable color, but no event type or channel field. <kbd>Esc</kbd> <!---->
 in a focused inspector field unfocuses it and restores the value. Channels can be activated, <!---->
 duplicated, reordered, renamed from the right-side Channels panel, edited, or deleted; <!---->
 deactivating a channel deselects its events and prevents their preview and sound. <!---->
+Items can also be reordered by dragging them in the list. <!---->
 Channel and snappee items keep activation and expansion controls on their primary row; <!---->
-expanding reveals an inline second row for duplicate, move up/down, rename, delete, <!---->
+the expansion button uses <code>more.svg</code>. Expanding reveals an inline second row for <!---->
+duplicate, move up/down, rename, delete, <!---->
 timeline visibility, and channel creation actions. <!---->
 Clip items keep paste on the primary row and reveal their other actions the same way. <!---->
 Expanded state is saved with channels, snappees, and clips. <!---->
@@ -363,9 +370,8 @@ and flick need a finger down at their time; simultaneous ones need that many fin
 A drag needs a finger at its position but can share one with a same-position tap. <!---->
 A hold keeps its finger until it ends, so a tap during a hold needs another finger, <!---->
 while a drag during a hold does not. Click selects the event that needs the extra finger.</li>					<!---->
-<li><b>Out-of-boundary notes</b>: tap, hold, drag, <!---->
-and flick must stay inside the chart boundary. Click selects the event.</li>					<!---->
-<li><b>Out-of-boundary bg notes</b>: bg notes must stay inside the chart boundary. <!---->
+<li><b>Out-of-boundary notes</b>: tap, hold, drag, flick, and bg notes must stay inside <!---->
+the chart boundary. A boolean parameter (true by default) includes bg notes. <!---->
 Click selects the event.</li>					<!---->
 <li><b>Too short hold</b> (default 0.1 s): holds must last at least that long. <!---->
 Click selects the event.</li>					<!---->
@@ -382,6 +388,14 @@ simultaneous events on the same tip point must share a position. Click selects t
 <li><b>Multi-character CJK texts</b>: if tap, hold, flick, <!---->
 or bg-note text contains a CJK character, the whole text must be that single character. <!---->
 “啊a” and “啊啊” fail; “啊” and “aa” pass. Click selects the event.</li>					<!---->
+<li><b>Bad characters</b>: event texts except comments must not contain layout-control <!---->
+or other special characters; movable events also reject whitespace. Click selects the event.<!---->
+</li>					<!---->
+<li><b>Drifting tip points</b> (default 2 s): consecutive events on one tip point, and the <!---->
+spawn time before the first event, must be at most that many seconds apart. <!---->
+Click selects the event the tip point is drifting toward.</li>					<!---->
+<li><b>Blocked texts</b>: text on a movable textable event must stay visible throughout <!---->
+its duration. Click selects the blocked event.</li>					<!---->
 <li><b>Events outside music</b>: no event may start before the music or end after it. <!---->
 Click selects the event.</li>					<!---->
 <li><b>Drag screening</b> (defaults 0.4 s and 40 units): with Lyrica 5 mechanics, <!---->
@@ -399,8 +413,8 @@ and same-position hold+tap or flick+tap where the tap is drawn behind the other 
 </ul>				<!---->
 <h2 id="en-menus">Menu Reference</h2>				<!---->
 <p>Menu mnemonics use Alt plus the underlined letter: <u>F</u>ile, <u>E</u>dit, E<u>v</u><!---->
-ents, <u>T</u>iming, <u>C</u>hannel, <u>S</u>nappee, T<u>r</u>ansform, <u>M</u>usic, M<u>a</u><!---->
-cros, and <u>H</u>elp. <!---->
+ents, <u>T</u>iming, <u>C</u>hannel, <u>S</u>nappee, T<u>r</u>ansform, <u>M</u>usic, <!---->
+V<u>i</u>ew, M<u>a</u>cros, and <u>H</u>elp. <!---->
 A command is disabled while playback or a modal form blocks that operation.</p>				<!---->
 <h3 id="en-file-menu">File</h3>				<!---->
 <table><thead><tr><th>Command</th><!---->
@@ -444,12 +458,17 @@ and warn that unsaved changes will be discarded.</td><!---->
 <tr><td>Import chart/level file...</td><!---->
 <td>—</td><!---->
 <td>Import JSON, an <code>.ssc</code>, or Lyrica <code>.txt</code>; in a desktop project, <!---->
-choose whether to add it. Lyrica asks for Charter, difficulty fields, seed, <!---->
-and quantization.</td><!---->
+choose whether to add it. Dragging a supported file from the file manager does the same. <!---->
+Lyrica asks for Charter, difficulty fields, seed, and quantization.</td><!---->
 </tr><!---->
 <tr><td>Set music... / Set background...</td><!---->
 <td>—</td><!---->
-<td>Choose media for the current chart; project media is copied into the project folder.</td><!---->
+<td>Choose media for the current chart; project media is copied into the project folder. <!---->
+Dragging audio or image files from the file manager does the same.</td><!---->
+</tr><!---->
+<tr><td>Edit level readme...</td><!---->
+<td>—</td><!---->
+<td>Open the project readme editor. Grayed out without an open desktop project.</td><!---->
 </tr><!---->
 <tr><td>Save</td><!---->
 <td>Ctrl+S</td><!---->
@@ -543,8 +562,12 @@ including nested group references.</td><!---->
 <td>Select events in the current channel.</td><!---->
 </tr><!---->
 <tr><td>Select none</td><!---->
-<td>Ctrl+D</td><!---->
+<td>X</td><!---->
 <td>Clear event and snappee selection.</td><!---->
+</tr><!---->
+<tr><td>Select events at current time</td><!---->
+<td>Z</td><!---->
+<td>Select every event whose time equals the current time.</td><!---->
 </tr><!---->
 <tr><td>Select attached events</td><!---->
 <td>—</td><!---->
@@ -645,6 +668,10 @@ Click the active tool again to exit it.</td><!---->
 <tr><td>Fill curve with drag notes</td><!---->
 <td>—</td><!---->
 <td>Place drag notes along the selected curve.</td><!---->
+</tr><!---->
+<tr><td>Bulk edit texts...</td><!---->
+<td>—</td><!---->
+<td>Edit texts of textable events (except comments) by channel in one form.</td><!---->
 </tr>				<!---->
 </tbody><!---->
 </table>				<!---->
@@ -690,9 +717,17 @@ Hidden channels keep appearing in the scroll view and the main editor field.</td
 <tr><td>Move channel up / down</td><!---->
 <td>Ctrl+Up / Ctrl+Down</td><!---->
 <td>Reorder the current channel without moving events between channels.</td><!---->
+</tr><!---->
+<tr><td>Tip-point switch...</td><!---->
+<td>I</td><!---->
+<td>Edit, create, or delete the tip point switch at the current time.</td><!---->
 </tr>				<!---->
 </tbody><!---->
 </table>				<!---->
+<h3 id="en-view-menu">View</h3>				<!---->
+<p>Toggle the top, left, and right panel groups, or reset stored layout dimensions. <!---->
+These match the edge buttons on the main editor field. Drag between panels to resize; <!---->
+widths, the inspection/history split, and channel height are stored in editor preferences.</p>				<!---->
 <h3 id="en-snappee-menu">Snappee</h3>				<!---->
 <table><thead><tr><th>Command</th><!---->
 <th>Shortcut</th><!---->
@@ -899,6 +934,8 @@ and 1/9 even though they are not in the menu.</td><!---->
 <p><b>Macros...</b> <!---->
 (Ctrl+Alt+M) opens the separate macro window and also appears as an icon in the main <!---->
 toolbar. It is a communicating popup in a browser and a desktop window in NW.js. <!---->
+The macros window has a View menu to toggle the console and reset its layout. <!---->
+Dragging a <code>.js</code> or <code>.rb</code> file into that window imports it. <!---->
 <b>Run macro...</b> asks whether to use a global or project macro, <!---->
 then runs the chosen script on a chart copy. <!---->
 The global/project radio is remembered until sviber exits.</p>				<!---->
@@ -934,9 +971,12 @@ both here and in the menus and tooltips.</td><!---->
 <h3 id="en-creation">Creation, snapping, and selection</h3>				<!---->
 <p>Creation tools remain active after each placement; clicking the active Tap, Hold, Drag, <!---->
 Flick, or background-note tool again exits that mode. <!---->
-Timeline interaction does not exit creation mode, <!---->
-although events cannot be created while playback is running. <!---->
-Hold and background-note duration defaults remember the last value used for that type. <!---->
+Timeline interaction does not exit creation mode. <!---->
+If music is playing in creation mode, a letter, number, or symbol key (no modifiers, <!---->
+and with no input focused) or a mouse press in the main field places the event at the <!---->
+subdivision nearest to audio-context time plus the input-offset preference. <!---->
+Hold defaults to one beat on first use; background notes default to zero beats. <!---->
+Hold and background-note duration defaults then remember the last value used for that type. <!---->
 Snap-to-point uses a chart-coordinate distance threshold of 6.25. <!---->
 During creation and attachment, points outside the chart boundary are rejected; <!---->
 only a tiny numeric tolerance is used for points that should mathematically lie exactly on <!---->
@@ -985,7 +1025,9 @@ and a six-number transformation matrix laid out as the CSS/Canvas 2&times;<!----
 flick directions, and tip-point spawn positions consistently. <!---->
 A selected snappee can be translated or transformed even when no events are selected.</p>				<!---->
 <h3 id="en-tip-points">Tip-point inspector</h3>				<!---->
-<p><code>inherit</code> continues the previous guide, <code>chain</code> starts a guide, <!---->
+<p>Inherit follows the previous tip-pointable event on the same tip-point track, <!---->
+not merely the same channel. <code>inherit</code> continues the previous guide; <!---->
+<code>chain</code> starts a guide, <!---->
 <code>drop</code> starts a one-event guide, and <code>none</code> stops a guide. <!---->
 Spawn position can be absolute or relative; spawn time can be seconds or beats. <!---->
 Inherit and none hide every tip-point field except spawn type. <!---->
@@ -1000,9 +1042,10 @@ Multi-select editing applies the same mode to all selected tip-pointable events.
 <h3 id="en-import-algorithm">Sunniesnow tip-point import</h3>				<!---->
 <p>Import filters incompatible records from each <code>tipPoint</code> <!---->
 chain without deleting those events from the chart, adds and trims placeholders, <!---->
-chooses the first channel free for the chain interval (creating one when needed), <!---->
+chooses the first tip-point track free for the chain interval (creating one when needed), <!---->
 and assigns <code>drop</code> or <code>chain</code>/<code>inherit</code> modes. <!---->
-It derives the first event's relative spawn distance, direction, <!---->
+It then packs tracks into channels with tip-point switches so simultaneous events keep <!---->
+their constructed order. It derives the first event's relative spawn distance, direction, <!---->
 and time from the placeholder. <!---->
 Events with no tip point go to the first channel with mode <code>none</code>.</p>				<!---->
 <h2 id="en-playback">Playback</h2>				<!---->
@@ -1345,16 +1388,18 @@ Validation waits until focus leaves the complete group. A positive denominator i
 numerator and denominator that are not coprime are accepted and automatically reduced.</p>				<!---->
 <h3 id="en-preferences">Preferences, language, and appearance</h3>				<!---->
 <p>Preferences are global and do not create chart history. They include Light, Dark, <!---->
-or System theme; interface language; note speed; SE volume; music volume; <!---->
+or System theme; interface language; note speed; input offset; visible channel count <!---->
+(default 3); event icon size (default 8 px radius); SE volume; music volume; <!---->
 live-hosting address and reload port in NW.js; and autosave interval in seconds. <!---->
 SE volume and music volume both default to 1 and use a range slider from 0 to 2 in steps of <!---->
-0.05. The default autosave interval is 120 seconds, and zero disables it. <!---->
+0.05. Time fields show a unit suffix such as <code>s</code> after the input. <!---->
+The default autosave interval is 120 seconds, and zero disables it. <!---->
 Language choices are translated into the active interface language: <b>English</b>, <!---->
 <b>Simplified Chinese</b>, <b>Traditional Chinese</b>, and <b>Japanese</b>.</p>				<!---->
 <p>The main editor, macro page (including the console), and manual share the saved theme. <!---->
 Explicit Dark or Light always wins; System follows the operating-system color preference. <!---->
 Extra undocumented functions or classes in the macro sandbox are not user-facing. <!---->
-The language choice is remembered separately for the manual. <!---->
+Opening the manual uses the editor language; the page widget does not persist. <!---->
 Changing the editor language also updates existing history labels and the JavaScript <!---->
 license link in the footer immediately. The web editor can be installed as a PWA; <!---->
 its Service Worker caches all four JSON translation files, all four manual files, <!---->
@@ -1365,8 +1410,9 @@ snappees, events, <code>clips</code>, <code>checks</code>, editor state, <!---->
 and its <code>music</code>/<code>image</code> references. Channel, snappee, <!---->
 and clip records also store whether their inline action row is expanded. <!---->
 Each entry of <code>checks</code> is an object with at least <code>enabled</code>, <!---->
-plus <code>fingers</code> for <code>requiredFingers</code>, <code>seconds</code> <!---->
-for <code>shortHold</code>, <code>shortBgPattern</code> and <code>shortTipPoint</code>, <!---->
+plus <code>fingers</code> for <code>requiredFingers</code>, <code>bgNotes</code> <!---->
+for <code>outOfBoundaryNotes</code>, <code>seconds</code> for <code>shortHold</code>, <!---->
+<code>shortBgPattern</code>, <code>shortTipPoint</code> and <code>driftingTipPoint</code>, <!---->
 and <code>seconds</code>/<code>distance</code> for <code>dragScreening</code>. <!---->
 Every event record carries <code>selected</code> and <code>locked</code> booleans. <!---->
 Standalone desktop charts store absolute media paths; <!---->
@@ -1376,6 +1422,12 @@ A normal save also writes generated top-level Sunniesnow events; autosaves omit 
 The project manifest contains <code>charts: [{file,id}]</code>, <code>activeChart</code>, <!---->
 and <code>macros: [{file,name}]</code>, <!---->
 so charts in one project may reference different media.</p>				<!---->
+<h3 id="en-readme-editor">Readme editor</h3>				<!---->
+<p>File &gt; Edit level readme... opens a separate page with File, Edit, and View menus. <!---->
+The sidebar lists project text files whose names match Sunniesnow display-text rules; <!---->
+an asterisk marks unsaved files. Monaco edits Markdown; a live preview uses marked and <!---->
+DOMPurify. Layout fractions and preview visibility are stored in editor preferences. <!---->
+In the browser this page is a popup; in NW.js it is a remembered popup window.</p>				<!---->
 <h3 id="en-troubleshooting">Troubleshooting</h3>				<!---->
 <p>If audio fails, reload once and check the warning area; <!---->
 a desktop build includes its audio decoder and can run offline after installation. <!---->

@@ -1,19 +1,31 @@
 import { Rational } from "./rational.js";
 import { normalizeTipPointFields } from "./chart-model.js";
+import { tipPointTrackEvents } from "./tip-point-track.js";
 
 const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 const TIP_SPAWN_TYPES = new Set(["inherit", "chain", "drop", "none"]);
 
-export function inheritedTipPointSource(events, target) {
-	const channelEvents = (events || [])
+function trackEventsFor(events, target, project) {
+	if (project?.channels) {
+		const start = (project.channels || []).find(channel =>
+			tipPointTrackEvents(project, channel.id, events).some(
+				event => event === target || (event.id != null && event.id === target.id),
+			),
+		);
+		if (start) {
+			return tipPointTrackEvents(project, start.id, events).map((event, sequence) => ({ event, sequence }));
+		}
+	}
+	return (events || [])
 		.map((event, sequence) => ({ event, sequence }))
-		// v22: simultaneous events of the same channel follow the stacking order of the
-		// timeline channels — the event stacked at the top (earlier in the chart's event
-		// list) counts as the previous one, and the bottom-most as the next.
 		.filter(({ event }) => TIP_POINTABLE_TYPES.has(event.type) && event.channel === target.channel)
 		.toSorted(
 			(left, right) => Rational.compare(left.event.time, right.event.time) || left.sequence - right.sequence,
 		);
+}
+
+export function inheritedTipPointSource(events, target, project) {
+	const channelEvents = trackEventsFor(events, target, project);
 	let previousMode = "none";
 	let previousSettings = null;
 	for (const { event } of channelEvents) {
@@ -33,8 +45,8 @@ export function inheritedTipPointSource(events, target) {
 	return null;
 }
 
-export function fillInheritedTipPointParams(event, events) {
-	const source = inheritedTipPointSource(events, event);
+export function fillInheritedTipPointParams(event, events, project) {
+	const source = inheritedTipPointSource(events, event, project);
 	if (!source) {
 		normalizeTipPointFields(event, { tipPointSpawnType: event.tipPointSpawnType });
 		return event;

@@ -53,6 +53,10 @@ function renderStatusToggles(app) {
 			control.checked = Boolean(app.model.editor[property]);
 		}
 	}
+	const lockLayout = document.getElementById("lock-layout");
+	if (lockLayout) {
+		lockLayout.checked = Boolean(app.preferences?.lockLayout);
+	}
 }
 
 // The reset button only appears once the main field has actually been panned or zoomed.

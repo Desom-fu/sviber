@@ -22,7 +22,6 @@ const CHECK_ID_LIST = [
 	"irregularDifficulty",
 	"requiredFingers",
 	"outOfBoundaryNotes",
-	"outOfBoundaryBgNotes",
 	"shortHold",
 	"shortBgPattern",
 	"shortTipPoint",
@@ -32,6 +31,9 @@ const CHECK_ID_LIST = [
 	"eventsOutsideMusic",
 	"dragScreening",
 	"simultaneousOverlappingNotes",
+	"badCharacters",
+	"driftingTipPoint",
+	"blockedTexts",
 ];
 
 function validChart(overrides = {}) {
@@ -70,9 +72,9 @@ function enabledOnly(id, extra = {}) {
 	return settings;
 }
 
-test("all 14 chart checks exist and are enabled by default", () => {
+test("all chart checks exist and are enabled by default", () => {
 	assert.deepEqual([...CHECK_IDS], CHECK_ID_LIST);
-	assert.equal(CHECK_DEFINITIONS.length, 14);
+	assert.equal(CHECK_DEFINITIONS.length, CHECK_ID_LIST.length);
 	const defaults = defaultChecks();
 	for (const id of CHECK_ID_LIST) {
 		assert.equal(defaults[id].enabled, true, id);
@@ -213,26 +215,24 @@ test("requiredFingers treats a same-position tap+drag as one finger", () => {
 	assert.equal(violationsFor(split, "requiredFingers").length, 0);
 });
 
-test("outOfBoundaryNotes and outOfBoundaryBgNotes are independent", () => {
+test("outOfBoundaryNotes includes bg notes when the bgNotes parameter is on", () => {
 	const notes = validChart();
 	const note = addNote(notes, "tap", 1, 150, 0);
 	const noteHits = violationsFor(notes, "outOfBoundaryNotes");
 	assert.equal(noteHits.length, 1);
 	assert.deepEqual(noteHits[0].eventIds, [note.id]);
-	assert.equal(violationsFor(notes, "outOfBoundaryBgNotes").length, 0);
 
 	const backgrounds = validChart();
 	const bgNote = addNote(backgrounds, "bgNote", 1, 150, 0);
-	const bgHits = violationsFor(backgrounds, "outOfBoundaryBgNotes");
+	const bgHits = violationsFor(backgrounds, "outOfBoundaryNotes");
 	assert.equal(bgHits.length, 1);
 	assert.deepEqual(bgHits[0].eventIds, [bgNote.id]);
-	assert.equal(violationsFor(backgrounds, "outOfBoundaryNotes").length, 0);
+	assert.equal(violationsFor(backgrounds, "outOfBoundaryNotes", { bgNotes: false }).length, 0);
 
 	const inside = validChart();
 	addNote(inside, "tap", 1, 100, 50);
 	addNote(inside, "bgNote", 1, -100, -50);
 	assert.equal(violationsFor(inside, "outOfBoundaryNotes").length, 0);
-	assert.equal(violationsFor(inside, "outOfBoundaryBgNotes").length, 0);
 });
 
 test("shortHold and shortBgPattern use the 0.1s default", () => {
@@ -405,24 +405,27 @@ test("left-column checks list cannot cover the scroll view canvas", async () => 
 });
 
 
-// v19 documents which checks carry extra parameters, so the definitions have to keep matching
-// that list; the ids themselves are compared against CHECK_ID_LIST above.
-test("each check carries exactly the extra parameters v19 documents", () => {
+// Check ids carry the extra parameters documented with each check.
+test("each check carries exactly the extra parameters it documents", () => {
 	const parameters = new Map(CHECK_DEFINITIONS.map(definition =>
 		[definition.id, definition.parameters.map(parameter => parameter.id)]));
 	assert.deepEqual(parameters.get("requiredFingers"), ["fingers"]);
+	assert.deepEqual(parameters.get("outOfBoundaryNotes"), ["bgNotes"]);
 	assert.deepEqual(parameters.get("shortHold"), ["seconds"]);
 	assert.deepEqual(parameters.get("shortBgPattern"), ["seconds"]);
 	assert.deepEqual(parameters.get("shortTipPoint"), ["seconds"]);
 	assert.deepEqual(parameters.get("dragScreening"), ["seconds", "distance"]);
 	assert.deepEqual(parameters.get("simultaneousOverlappingNotes"), ["invisibleOnly"]);
+	assert.deepEqual(parameters.get("driftingTipPoint"), ["seconds"]);
 	const parameterized = [
 		"requiredFingers",
+		"outOfBoundaryNotes",
 		"shortHold",
 		"shortBgPattern",
 		"shortTipPoint",
 		"dragScreening",
 		"simultaneousOverlappingNotes",
+		"driftingTipPoint",
 	];
 	for (const id of CHECK_ID_LIST.filter(id => !parameterized.includes(id))) {
 		assert.deepEqual(parameters.get(id), [], `${id} should have no parameters`);

@@ -6,6 +6,7 @@
 
 import { Rational } from "./rational.js";
 import { DEFAULT_EDITOR, DEFAULT_METADATA, POSITIVE_DURATION_TYPES } from "./chart-vocabulary.js";
+import { normalizeTipPointSwitches } from "./tip-point-track.js";
 
 export function clone(value) {
 	if (typeof globalThis.structuredClone === "function") {
@@ -123,6 +124,7 @@ export function normalizeChannels(channels) {
 		active: channel?.active !== false,
 		hidden: channel?.hidden === true,
 		expanded: channel?.expanded === true,
+		tipPointSwitches: normalizeTipPointSwitches(channel?.tipPointSwitches, id),
 	}));
 }
 

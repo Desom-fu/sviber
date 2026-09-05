@@ -1,0 +1,17 @@
+@import url("macros.css");
+
+.readme-shell { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100vh; }
+.readme-workspace {
+	display: grid;
+	grid-template-columns: var(--readme-sidebar, 22%) 6px minmax(0, 1fr) 6px var(--readme-preview, 36%);
+	min-height: 0;
+}
+.readme-workspace.is-preview-hidden { grid-template-columns: var(--readme-sidebar, 22%) 6px minmax(0, 1fr) 0 0; }
+.readme-workspace.is-preview-hidden .readme-preview,
+.readme-workspace.is-preview-hidden #readme-resize-preview { visibility: hidden; pointer-events: none; }
+.readme-sidebar, .readme-preview { overflow: auto; background: var(--panel); }
+.readme-editor { min-height: 0; height: 100%; }
+.readme-file { display: block; width: 100%; padding: 6px 8px; border: 0; background: transparent; color: inherit; text-align: left; }
+.readme-file.is-active { background: var(--hover); font-weight: 700; }
+.readme-preview { padding: 12px 14px; }
+.layout-resize { background: var(--border); cursor: col-resize; }

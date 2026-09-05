@@ -28,6 +28,7 @@ import {
 	MIME_TYPES,
 	extension,
 	looksLikeLyrica,
+	needsDisplayTextFile,
 	sanitizeFilename,
 } from "./platform-file-kinds.js";
 import {
@@ -618,6 +619,18 @@ export class FileManager {
 		}
 		await removeDirectoryFile(directory, String(filename));
 		return true;
+	}
+
+	async listReadmeFiles() {
+		if (!this.projectPath || !globalThis.nw) {
+			return [];
+		}
+		const modules = nwModules();
+		const names = await modules.fs.promises.readdir(this.projectPath, { withFileTypes: true });
+		return names
+			.filter(entry => entry.isFile() && needsDisplayTextFile(entry.name))
+			.map(entry => entry.name)
+			.sort((left, right) => left.localeCompare(right));
 	}
 
 	async listProjectFiles(fileExtension = ".js") {

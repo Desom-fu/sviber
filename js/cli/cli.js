@@ -10,6 +10,8 @@ export const CLI_FLAGS = Object.freeze([
 	"--import",
 	"--help",
 	"-h",
+	"--version",
+	"-v",
 	"--offset",
 	"--initial-bpm",
 	"--largest-denominator",
@@ -40,6 +42,10 @@ const VALUE_FLAGS = new Map([
 	["--chart", "chart"],
 ]);
 
+export function versionText(version) {
+	return `sviber ${version || "0.15.0"}`;
+}
+
 export function helpText() {
 	return [
 		"sviber - Sunniesnow chart editor",
@@ -52,6 +58,7 @@ export function helpText() {
 		"  sviber INPUT --import OUTPUT.json [options]     import as a sviber chart",
 		"  sviber INPUT --import OUTPUT-DIR [options]      import as a sviber project",
 		"  sviber --help                                   show this message",
+		"  sviber --version                                show version information",
 		"",
 		"Import options for Sunniesnow charts and levels:",
 		"  --offset SECONDS                time of beat 0 (default 0)",
@@ -74,11 +81,15 @@ export function helpText() {
 }
 
 export function parseCliArguments(argv = []) {
-	const result = { paths: [], bpmChanges: [], help: false, unknown: [] };
+	const result = { paths: [], bpmChanges: [], help: false, version: false, unknown: [] };
 	for (let index = 0; index < argv.length; index += 1) {
 		const token = String(argv[index]);
 		if (token === "--help" || token === "-h") {
 			result.help = true;
+			continue;
+		}
+		if (token === "--version" || token === "-v") {
+			result.version = true;
 			continue;
 		}
 		if (token === "--bpm-change") {
@@ -101,7 +112,7 @@ export function parseCliArguments(argv = []) {
 
 // True when the arguments ask for a headless operation, so the GUI must not launch.
 export function isHeadlessInvocation(args) {
-	return Boolean(args.help || args.exportPath || args.importPath || args.unknown.length);
+	return Boolean(args.help || args.version || args.exportPath || args.importPath || args.unknown.length);
 }
 
 function parseBeat(value) {

@@ -10,13 +10,20 @@ import { withAttachment } from "./app-attachment.js";
 import { withAutoTiming } from "./app-auto-timing.js";
 import { withChecks } from "./app-checks.js";
 import { withProjectFiles } from "./app-project-files.js";
+import { withTipPointSwitch } from "./app-tip-point-switch.js";
+import { withBulkEditTexts } from "./app-bulk-edit.js";
+import { withFileDrop } from "./app-file-drop.js";
+import { withReadmeEditor } from "./app-readme-editor.js";
 
 export { loadPreferences, storePreferences } from "./app-helpers.js";
 
 const CoreWithEditing = withHistoryCommands(withEventEditing(SviberAppCore));
 const CoreWithFiles = withClipboard(withFileWorkflows(CoreWithEditing));
 const CoreWithTools = withChecks(withAutoTiming(withAttachment(withChartTools(CoreWithFiles))));
-const ComposedSviberApp = withProjectFiles(CoreWithTools);
+const CoreWithV24 = withReadmeEditor(
+	withFileDrop(withBulkEditTexts(withTipPointSwitch(withProjectFiles(CoreWithTools)))),
+);
+const ComposedSviberApp = CoreWithV24;
 export class SviberApp extends ComposedSviberApp {}
 
 const app = new SviberApp();

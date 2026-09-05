@@ -1,6 +1,6 @@
 import { TimingMap } from "../core/timing.js";
 
-const TIMELINE_NOTE_TYPES = new Set(["tap", "drag", "hold", "flick"]);
+const TIMELINE_NOTE_TYPES = new Set(["tap", "hold", "flick"]);
 
 export const BEAT_LINE_COLORS = Object.freeze({
 	1: "#ff2e59",
@@ -196,35 +196,41 @@ export function drawPatternIcon(context, type, x, y, radius, color) {
 	context.restore();
 }
 
-export function drawTimelineEventIcon(context, event, x, y, color) {
+export function eventIconRadius(preferences) {
+	const size = Number(preferences?.eventIconSize);
+	return size > 0 ? size : 8;
+}
+
+export function drawTimelineEventIcon(context, event, x, y, color, radius = 8) {
+	const scale = radius / 8;
 	context.save();
 	context.fillStyle = color;
 	context.strokeStyle = color;
-	context.lineWidth = 2;
+	context.lineWidth = 2 * scale;
 	if (["grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"].includes(event.type)) {
-		drawPatternIcon(context, event.type, x, y, 8, color);
+		drawPatternIcon(context, event.type, x, y, radius, color);
 	} else if (event.type === "bigText") {
-		context.font = "bold 13px sans-serif";
+		context.font = `bold ${Math.max(9, 13 * scale)}px sans-serif`;
 		context.textAlign = "center";
 		context.textBaseline = "middle";
 		context.fillText("T", x, y);
 	} else if (event.type === "comment") {
 		context.beginPath();
-		context.moveTo(x - 8, y - 6);
-		context.lineTo(x + 8, y - 6);
-		context.lineTo(x + 8, y + 4);
-		context.lineTo(x + 2, y + 4);
-		context.lineTo(x - 2, y + 8);
-		context.lineTo(x - 2, y + 4);
-		context.lineTo(x - 8, y + 4);
+		context.moveTo(x - radius, y - 6 * scale);
+		context.lineTo(x + radius, y - 6 * scale);
+		context.lineTo(x + radius, y + 4 * scale);
+		context.lineTo(x + 2 * scale, y + 4 * scale);
+		context.lineTo(x - 2 * scale, y + 8 * scale);
+		context.lineTo(x - 2 * scale, y + 4 * scale);
+		context.lineTo(x - radius, y + 4 * scale);
 		context.closePath();
 		context.stroke();
 	} else if (event.type === "bgNote") {
 		context.beginPath();
 		for (let index = 0; index < 6; index += 1) {
 			const angle = (index * Math.PI) / 3;
-			const px = x + Math.cos(angle) * 9;
-			const py = y + Math.sin(angle) * 9;
+			const px = x + Math.cos(angle) * radius * 1.125;
+			const py = y + Math.sin(angle) * radius * 1.125;
 			if (!index) {
 				context.moveTo(px, py);
 			} else {
@@ -235,25 +241,25 @@ export function drawTimelineEventIcon(context, event, x, y, color) {
 		context.fill();
 		if (event.text) {
 			context.fillStyle = "#111417";
-			context.font = "bold 8px sans-serif";
+			context.font = `bold ${Math.max(6, 8 * scale)}px sans-serif`;
 			context.textAlign = "center";
 			context.textBaseline = "middle";
 			context.fillText(String(event.text).slice(0, 3), x, y);
 		}
 	} else if (event.type === "drag") {
 		context.beginPath();
-		context.arc(x, y, 6, 0, Math.PI * 2);
+		context.arc(x, y, radius * 0.75, 0, Math.PI * 2);
 		context.stroke();
 		context.beginPath();
-		context.arc(x, y, 2.5, 0, Math.PI * 2);
+		context.arc(x, y, radius * 0.3125, 0, Math.PI * 2);
 		context.fill();
 	} else {
 		context.beginPath();
-		context.arc(x, y, 8, 0, Math.PI * 2);
+		context.arc(x, y, radius, 0, Math.PI * 2);
 		context.fill();
 		if (event.text) {
 			context.fillStyle = "#111417";
-			context.font = "bold 8px sans-serif";
+			context.font = `bold ${Math.max(6, 8 * scale)}px sans-serif`;
 			context.textAlign = "center";
 			context.textBaseline = "middle";
 			context.fillText(String(event.text).slice(0, 3), x, y);

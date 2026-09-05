@@ -25,16 +25,17 @@ test("preferences migrate old values and normalize theme and language choices", 
 	const oldStorage = memoryStorage({
 		[PREFERENCES_KEY]: JSON.stringify({ noteSpeed: 3.5, allowOutOfBounds: true }),
 	});
-	assert.deepEqual(loadPreferences(oldStorage), {
-		theme: "system",
-		language: "system",
-		noteSpeed: 3.5,
-		seVolume: 1,
-		musicVolume: 1,
-		autoSaveInterval: 120,
-		liveHostingAddress: "0.0.0.0:8011",
-		liveReloadPort: 31108,
-	});
+	const loaded = loadPreferences(oldStorage);
+	assert.equal(loaded.theme, "system");
+	assert.equal(loaded.language, "system");
+	assert.equal(loaded.noteSpeed, 3.5);
+	assert.equal(loaded.seVolume, 1);
+	assert.equal(loaded.musicVolume, 1);
+	assert.equal(loaded.autoSaveInterval, 120);
+	assert.equal(loaded.liveHostingAddress, "0.0.0.0:8011");
+	assert.equal(loaded.liveReloadPort, 31108);
+	assert.equal(loaded.visibleChannels, 3);
+	assert.equal(loaded.inputOffset, 0);
 
 	const invalidStorage = memoryStorage({
 		[PREFERENCES_KEY]: JSON.stringify({ theme: "purple", language: "fr", noteSpeed: -2 }),

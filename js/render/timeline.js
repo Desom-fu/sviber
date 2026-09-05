@@ -31,6 +31,7 @@ export { timelineTipConnector } from "./timeline-helpers.js";
 import { installTraitMembers } from "../core/mixin.js";
 import { TimelineDrawingTrait } from "./timeline-drawing.js";
 import { TimelinePointerTrait } from "./timeline-pointer.js";
+import { TimelineMarkersTrait } from "./timeline-markers.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
 import {
 	abLoopMarks,
@@ -225,16 +226,20 @@ export class TimelineView {
 	}
 
 	_layout(width, height) {
-		const waveformHeight = Math.max(46, Math.min(64, height * 0.28));
 		const scrollHeight = 25;
-		const channelsHeight = Math.max(45, height - waveformHeight - scrollHeight);
 		const project = projectState(this.state);
-		const visibleCount = Math.max(1, Math.min(3, visibleTimelineChannels(project).length));
+		const shown = Math.max(1, visibleTimelineChannels(project).length);
+		const visibleLimit = Math.max(1, Number(project.preferences?.visibleChannels) || 3);
+		const visibleCount = Math.max(1, Math.min(visibleLimit, shown));
+		const remaining = Math.max(visibleCount + 1, height - scrollHeight);
+		const channelHeight = remaining / (visibleCount + 1);
+		const waveformHeight = channelHeight;
+		const channelsHeight = channelHeight * visibleCount;
 		return {
 			waveform: { x: 0, y: 0, width, height: waveformHeight },
 			channels: { x: 0, y: waveformHeight, width, height: channelsHeight },
 			scroll: { x: 0, y: waveformHeight + channelsHeight, width, height: scrollHeight },
-			channelHeight: channelsHeight / visibleCount,
+			channelHeight,
 			visibleCount,
 		};
 	}
@@ -268,8 +273,10 @@ export class TimelineView {
 		this._drawChannels(context, layout, project);
 		this._drawBeatLines(context, layout, editor);
 		this._drawLoopBeatLines(context, layout, editor);
+		this._drawTipPointSwitches(context, layout, project);
 		this._drawTipPointLines(context, layout, project, current);
 		this._drawEvents(context, layout, project);
+		this._drawSelectedEventMarkers(context, layout, project);
 		this._drawBpmChanges(context, layout.waveform, project);
 		this._drawCurrentLines(context, layout, project, current);
 		this._drawScrollbar(context, layout.scroll, project, current);
@@ -283,9 +290,10 @@ export class TimelineView {
 	// non-hidden channels; the channel offset scrolls over that collapsed list.
 	_visibleChannels(project) {
 		const channels = visibleTimelineChannels(project);
-		const maxOffset = Math.max(0, channels.length - 3);
+		const visibleLimit = Math.max(1, Number(project.preferences?.visibleChannels) || 3);
+		const maxOffset = Math.max(0, channels.length - visibleLimit);
 		this.channelOffset = Math.max(0, Math.min(this.channelOffset, maxOffset));
-		return channels.slice(this.channelOffset, this.channelOffset + 3);
+		return channels.slice(this.channelOffset, this.channelOffset + visibleLimit);
 	}
 
 	_eventLaneOffsets(events) {
@@ -379,5 +387,6 @@ export class TimelineView {
 // methods are installed onto the prototype so that callers keep seeing one class.
 installTraitMembers(TimelineView.prototype, TimelineDrawingTrait.prototype);
 installTraitMembers(TimelineView.prototype, TimelinePointerTrait.prototype);
+installTraitMembers(TimelineView.prototype, TimelineMarkersTrait.prototype);
 
 export { BEAT_LINE_COLORS };

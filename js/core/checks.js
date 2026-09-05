@@ -180,20 +180,17 @@ function checkRequiredFingers(context, violations) {
 }
 
 function checkBoundaries(context, violations) {
+	const includeBgNotes = context.settings.outOfBoundaryNotes.bgNotes !== false;
 	for (const event of context.leafEvents) {
 		const isNote = NOTE_TYPES.has(event.type);
 		const isBgNote = event.type === "bgNote";
-		if (!isNote && !isBgNote) {
+		if (!isNote && !(includeBgNotes && isBgNote)) {
 			continue;
 		}
 		if (withinBounds(context.positionOf(event))) {
 			continue;
 		}
-		const check = isNote ? "outOfBoundaryNotes" : "outOfBoundaryBgNotes";
-		if (!context.settings[check].enabled) {
-			continue;
-		}
-		violations.push(violation(check, { time: context.startOf(event), eventIds: [event.id] }));
+		violations.push(violation("outOfBoundaryNotes", { time: context.startOf(event), eventIds: [event.id] }));
 	}
 }
 
@@ -341,6 +338,126 @@ function checkCjkTexts(context, violations) {
 			continue;
 		}
 		violations.push(violation("multiCharacterCjk", { time: context.startOf(event), eventIds: [event.id] }));
+	}
+}
+
+const BAD_CONTROL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+const BAD_LAYOUT =
+	/[\u061C\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF\uFFF9-\uFFFB]/;
+const WHITESPACE = /\s/;
+
+function checkBadCharacters(context, violations) {
+	for (const event of context.leafEvents) {
+		if (!TEXT_TYPES.has(event.type) && event.type !== "bigText") {
+			continue;
+		}
+		if (event.type === "comment") {
+			continue;
+		}
+		const text = String(event.text ?? "");
+		const movable = NOTE_TYPES.has(event.type) || event.type === "bgNote";
+		const bad = BAD_CONTROL.test(text) || BAD_LAYOUT.test(text) || /[\t\n\r]/.test(text);
+		const whitespace = movable && WHITESPACE.test(text);
+		if (!bad && !whitespace) {
+			continue;
+		}
+		violations.push(violation("badCharacters", { time: context.startOf(event), eventIds: [event.id] }));
+	}
+}
+
+function checkDriftingTipPoints(context, violations) {
+	const limit = Math.max(0, Number(context.settings.driftingTipPoint.seconds));
+	const guides = buildTipPointGuides(context.model, context.timing);
+	for (const guide of guides) {
+		const times = [guide.spawnTime, ...guide.eventTimes];
+		for (let index = 1; index < times.length; index += 1) {
+			if (times[index] - times[index - 1] <= limit + CHECK_EPSILON) {
+				continue;
+			}
+			const event = guide.events[index - 1];
+			violations.push(
+				violation("driftingTipPoint", {
+					time: context.startOf(event),
+					eventIds: [event.id],
+					params: { seconds: limit },
+				}),
+			);
+		}
+	}
+}
+
+function drawRank(context, event) {
+	const typeLayer = event.type === "bgNote" ? 0 : 1;
+	const channelIndex = context.channels.findIndex(channel => channel.id === event.channel);
+	return [typeLayer, context.startOf(event), channelIndex, context.sequenceOf(event)];
+}
+
+function isDrawnAbove(context, above, below) {
+	const left = drawRank(context, above);
+	const right = drawRank(context, below);
+	for (let index = 0; index < left.length; index += 1) {
+		if (left[index] !== right[index]) {
+			return left[index] > right[index];
+		}
+	}
+	return false;
+}
+
+function distanceBetween(left, right) {
+	return Math.hypot(left.x - right.x, left.y - right.y);
+}
+
+function samePosition(left, right) {
+	return distanceBetween(left, right) <= CHECK_EPSILON;
+}
+
+function coversRange(start, end, ranges) {
+	if (end - start <= CHECK_EPSILON) {
+		return ranges.some(([from, to]) => from - CHECK_EPSILON <= start && start <= to + CHECK_EPSILON);
+	}
+	const clipped = ranges
+		.map(([from, to]) => [Math.max(from, start), Math.min(to, end)])
+		.filter(([from, to]) => to >= from - CHECK_EPSILON)
+		.sort((left, right) => left[0] - right[0]);
+	let cursor = start;
+	for (const [from, to] of clipped) {
+		if (from > cursor + CHECK_EPSILON) {
+			return false;
+		}
+		cursor = Math.max(cursor, to);
+	}
+	return cursor >= end - CHECK_EPSILON;
+}
+
+function checkBlockedTexts(context, violations) {
+	const candidates = context.leafEvents.filter(
+		event => event.type === "tap" || event.type === "hold" || event.type === "flick" || event.type === "bgNote",
+	);
+	for (const event of candidates) {
+		if (!String(event.text ?? "")) {
+			continue;
+		}
+		const start = context.startOf(event);
+		const end = context.endOf(event);
+		const position = context.positionOf(event);
+		const ranges = [];
+		for (const other of candidates) {
+			if (other === event || !isDrawnAbove(context, other, event)) {
+				continue;
+			}
+			const otherPosition = context.positionOf(other);
+			const close =
+				samePosition(position, otherPosition) ||
+				(other.type === "hold" && distanceBetween(position, otherPosition) <= 6.25 + CHECK_EPSILON);
+			if (!close) {
+				continue;
+			}
+			ranges.push([context.startOf(other), context.endOf(other)]);
+		}
+		if (!coversRange(start, end, ranges)) {
+			continue;
+		}
+		violations.push(violation("blockedTexts", { time: start, eventIds: [event.id] }));
 	}
 }
 
@@ -539,7 +656,7 @@ export function createChecksSteps(model, options = {}) {
 	if (settings.requiredFingers.enabled) {
 		steps.push(() => checkRequiredFingers(context, violations));
 	}
-	if (settings.outOfBoundaryNotes.enabled || settings.outOfBoundaryBgNotes.enabled) {
+	if (settings.outOfBoundaryNotes.enabled) {
 		steps.push(() => checkBoundaries(context, violations));
 	}
 	if (settings.shortHold.enabled || settings.shortBgPattern.enabled) {
@@ -557,6 +674,15 @@ export function createChecksSteps(model, options = {}) {
 	}
 	if (settings.simultaneousOverlappingNotes.enabled) {
 		steps.push(() => checkSimultaneousOverlappingNotes(context, violations));
+	}
+	if (settings.badCharacters.enabled) {
+		steps.push(() => checkBadCharacters(context, violations));
+	}
+	if (settings.driftingTipPoint.enabled) {
+		steps.push(() => checkDriftingTipPoints(context, violations));
+	}
+	if (settings.blockedTexts.enabled) {
+		steps.push(() => checkBlockedTexts(context, violations));
 	}
 	return { violations, steps };
 }

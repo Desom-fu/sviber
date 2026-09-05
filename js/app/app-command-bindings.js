@@ -4,6 +4,7 @@
 import { composeTraits } from "../core/mixin.js";
 import { MOVABLE_TYPES, selected } from "./app-helpers.js";
 import { eventUsesChannel } from "../core/grouping.js";
+import { Rational } from "../core/rational.js";
 
 function register(app, id, action, enabled = true) {
 	app.registry.register(id, { action, enabled });
@@ -32,6 +33,12 @@ function registerFileCommands(app) {
 		app.exitModes();
 		document.getElementById("background-file-input").click();
 	});
+	register(
+		app,
+		"file.editLevelReadme",
+		() => app.openReadmeEditor(),
+		() => Boolean(globalThis.nw && app.files.projectPath),
+	);
 	register(app, "file.save", () => void app.saveChart());
 	register(app, "file.saveAs", () => void app.saveChartAs());
 	register(app, "file.saveProject", () => void app.saveProject(), () => Boolean(globalThis.nw && app.editingProject));
@@ -92,9 +99,32 @@ function registerEditCommands(app) {
 		() => selectAttachedEvents(app),
 		() => app.model.snappees.some(snappee => snappee.selected),
 	);
+	register(
+		app,
+		"edit.selectAtCurrentTime",
+		() => selectEventsAtCurrentTime(app),
+		() => app.model.allEvents().length > 0,
+	);
 	register(app, "edit.selectFilter", () => void app.showSelectionFilter(), () => app.model.allEvents().length > 0);
 	register(app, "edit.delete", () => app.deleteSelected(), () => selected(app.model).some(event => !event.locked));
 	register(app, "edit.checks", () => void app.showChecksDialog());
+}
+
+function selectEventsAtCurrentTime(app) {
+	const current = app.currentBeat();
+	app.selectEvents(
+		app.model
+			.allEvents()
+			.filter(event => {
+				try {
+					return Rational.compare(event.time, current) === 0;
+				} catch {
+					return false;
+				}
+			})
+			.map(event => event.id),
+		"replace",
+	);
 }
 
 function selectAttachedEvents(app) {
@@ -152,6 +182,7 @@ function registerEventCommands(app) {
 		() => app.fillSelectedCurve(),
 		() => app.model.snappees.some(snappee => snappee.selected && !snappee.type.endsWith("Mesh")),
 	);
+	register(app, "events.bulkEditTexts", () => void app.showBulkEditTextsDialog());
 }
 
 function registerTimingCommands(app) {
@@ -221,6 +252,7 @@ function registerChannelCommands(app) {
 		);
 	}
 	register(app, "channel.selectLast", () => app.selectChannelByOrdinal(-1), () => app.canSelectChannelByOrdinal(-1));
+	register(app, "channel.tipPointSwitch", () => void app.showTipPointSwitchDialog());
 }
 
 function registerSnappeeCommands(app) {
@@ -370,6 +402,13 @@ function registerMusicCommands(app) {
 	register(app, "timeline.pageBackward", () => app.pageVisibleRange(1));
 }
 
+function registerViewCommands(app) {
+	register(app, "view.toggleTimeline", () => app.toggleTopPanels());
+	register(app, "view.toggleLeft", () => app.toggleLeftPanels());
+	register(app, "view.toggleRight", () => app.toggleRightPanels());
+	register(app, "view.resetLayout", () => app.resetLayoutDimensions());
+}
+
 function registerHelpCommands(app) {
 	register(app, "macros.open", () => app.openMacros());
 	register(app, "macros.run", () => void app.runMacroDialog(), () => !app.model.editor.readOnly);
@@ -388,6 +427,7 @@ export function registerAllCommands(app) {
 	registerSnappeeCommands(app);
 	registerTransformCommands(app);
 	registerMusicCommands(app);
+	registerViewCommands(app);
 	registerHelpCommands(app);
 }
 

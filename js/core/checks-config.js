@@ -12,22 +12,31 @@ export const CHECK_DEFINITIONS = Object.freeze([
 		target: "event",
 		parameters: Object.freeze([Object.freeze({ id: "fingers", type: "integer", default: 2, min: 1 })]),
 	}),
-	Object.freeze({ id: "outOfBoundaryNotes", target: "event", parameters: Object.freeze([]) }),
-	Object.freeze({ id: "outOfBoundaryBgNotes", target: "event", parameters: Object.freeze([]) }),
+	Object.freeze({
+		id: "outOfBoundaryNotes",
+		target: "event",
+		parameters: Object.freeze([Object.freeze({ id: "bgNotes", type: "checkbox", default: true })]),
+	}),
 	Object.freeze({
 		id: "shortHold",
 		target: "event",
-		parameters: Object.freeze([Object.freeze({ id: "seconds", type: "number", default: 0.1, min: 0 })]),
+		parameters: Object.freeze([
+			Object.freeze({ id: "seconds", type: "number", default: 0.1, min: 0, unit: "s" }),
+		]),
 	}),
 	Object.freeze({
 		id: "shortBgPattern",
 		target: "event",
-		parameters: Object.freeze([Object.freeze({ id: "seconds", type: "number", default: 0.1, min: 0 })]),
+		parameters: Object.freeze([
+			Object.freeze({ id: "seconds", type: "number", default: 0.1, min: 0, unit: "s" }),
+		]),
 	}),
 	Object.freeze({
 		id: "shortTipPoint",
 		target: "event",
-		parameters: Object.freeze([Object.freeze({ id: "seconds", type: "number", default: 0.3, min: 0 })]),
+		parameters: Object.freeze([
+			Object.freeze({ id: "seconds", type: "number", default: 0.3, min: 0, unit: "s" }),
+		]),
 	}),
 	Object.freeze({ id: "sharpTipPointTurn", target: "event", parameters: Object.freeze([]) }),
 	Object.freeze({ id: "teleportingTipPoint", target: "event", parameters: Object.freeze([]) }),
@@ -37,7 +46,7 @@ export const CHECK_DEFINITIONS = Object.freeze([
 		id: "dragScreening",
 		target: "event",
 		parameters: Object.freeze([
-			Object.freeze({ id: "seconds", type: "number", default: 0.4, min: 0 }),
+			Object.freeze({ id: "seconds", type: "number", default: 0.4, min: 0, unit: "s" }),
 			Object.freeze({ id: "distance", type: "number", default: 40, min: 0 }),
 		]),
 	}),
@@ -46,6 +55,13 @@ export const CHECK_DEFINITIONS = Object.freeze([
 		target: "event",
 		parameters: Object.freeze([Object.freeze({ id: "invisibleOnly", type: "checkbox", default: false })]),
 	}),
+	Object.freeze({ id: "badCharacters", target: "event", parameters: Object.freeze([]) }),
+	Object.freeze({
+		id: "driftingTipPoint",
+		target: "event",
+		parameters: Object.freeze([Object.freeze({ id: "seconds", type: "number", default: 2, min: 0, unit: "s" })]),
+	}),
+	Object.freeze({ id: "blockedTexts", target: "event", parameters: Object.freeze([]) }),
 ]);
 
 export const CHECK_IDS = Object.freeze(CHECK_DEFINITIONS.map(definition => definition.id));
@@ -72,9 +88,16 @@ export function normalizeChecks(source) {
 			continue;
 		}
 		defaults[definition.id].enabled = provided.enabled !== false;
+		if (definition.id === "outOfBoundaryNotes" && source.outOfBoundaryBgNotes) {
+			if (provided.bgNotes === undefined && source.outOfBoundaryBgNotes.enabled === false) {
+				defaults.outOfBoundaryNotes.bgNotes = false;
+			}
+		}
 		for (const parameter of definition.parameters) {
 			if (parameter.type === "checkbox") {
-				defaults[definition.id][parameter.id] = Boolean(provided[parameter.id]);
+				if (Object.hasOwn(provided, parameter.id)) {
+					defaults[definition.id][parameter.id] = Boolean(provided[parameter.id]);
+				}
 				continue;
 			}
 			const value = Number(provided[parameter.id]);

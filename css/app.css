@@ -307,7 +307,11 @@ textarea:focus-visible,
 .workspace {
 	display: grid;
 	--timeline-height: 136px;
-	grid-template-rows: minmax(120px, min(var(--timeline-height), 38%)) minmax(0, 1fr);
+	--left-panel-width: clamp(150px, 14vw, 220px);
+	--right-panel-width: clamp(260px, 24vw, 320px);
+	--status-panel-width: clamp(260px, 24vw, 320px);
+	--inspector-fraction: 0.58;
+	grid-template-rows: var(--timeline-height) 6px minmax(0, 1fr);
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
@@ -322,14 +326,12 @@ textarea:focus-visible,
 }
 
 .timeline-row {
-	/* v19: the status panel column mirrors the editor row's side panel width so the two
-	   right-hand boxes stack with equal width. */
-	grid-template-columns: minmax(0, 1fr) clamp(260px, 24vw, 320px);
+	grid-template-columns: minmax(0, 1fr) 6px var(--status-panel-width);
 	border-bottom: 1px solid var(--border-strong);
 }
 
 .editor-row {
-	grid-template-columns: clamp(150px, 14vw, 220px) minmax(0, 1fr) clamp(260px, 24vw, 320px);
+	grid-template-columns: var(--left-panel-width) 6px minmax(0, 1fr) 6px var(--right-panel-width);
 }
 
 .render-surface {
@@ -368,12 +370,15 @@ textarea:focus-visible,
 
 .reset-main-field-view { position: absolute; left: 50%; bottom: 10px; width: 32px; height: 28px; transform: translateX(-50%); border: 2px solid var(--text); border-radius: 2px; background: var(--chrome-strong); color: var(--text); font-size: 18px; font-weight: 700; line-height: 1; z-index: 4; } .reset-main-field-view:hover { background: var(--chrome); } .reset-main-field-view:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; } .reset-main-field-view[hidden] { display: none; }
 
-.workspace.is-timeline-hidden { grid-template-rows: 0 minmax(0, 1fr); }
-.workspace.is-timeline-hidden .timeline-row { visibility: hidden; pointer-events: none; }
+.workspace.is-timeline-hidden { grid-template-rows: 0 0 minmax(0, 1fr); }
+.workspace.is-timeline-hidden .timeline-row,
+.workspace.is-timeline-hidden #layout-resize-top { visibility: hidden; pointer-events: none; }
 
-.editor-row.is-scroll-hidden { grid-template-columns: 0 minmax(0, 1fr) clamp(260px, 24vw, 320px); }
-.editor-row.is-side-hidden { grid-template-columns: clamp(150px, 14vw, 220px) minmax(0, 1fr) 0; }
-.editor-row.is-scroll-hidden.is-side-hidden { grid-template-columns: 0 minmax(0, 1fr) 0; }
+.editor-row.is-scroll-hidden { grid-template-columns: 0 0 minmax(0, 1fr) 6px var(--right-panel-width); }
+.editor-row.is-side-hidden { grid-template-columns: var(--left-panel-width) 6px minmax(0, 1fr) 0 0; }
+.editor-row.is-scroll-hidden.is-side-hidden { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
+.workspace.is-layout-locked .layout-resize,
+.workspace.is-layout-locked .edge-toggle { pointer-events: none; visibility: hidden; }
 .editor-row.is-scroll-hidden #scroll-view-panel,
 .editor-row.is-side-hidden .side-panel {
 	visibility: hidden;
@@ -548,9 +553,14 @@ textarea:focus-visible,
 .status-readouts {
 	display: flex;
 	flex-wrap: wrap;
+	justify-content: space-between;
 	gap: 0 12px;
 	margin: 0;
 }
+
+.status-readouts .status-item:first-child { margin-right: auto; }
+.status-readouts .status-item:nth-child(2) { margin-left: auto; margin-right: auto; }
+.status-readouts .status-item:last-child { margin-left: auto; }
 
 .status-item {
 	min-height: 18px;
@@ -592,9 +602,58 @@ textarea:focus-visible,
 
 .side-panel {
 	display: grid;
-	grid-template-rows: 31px minmax(120px, 58%) minmax(90px, 1fr);
+	grid-template-rows: 31px minmax(80px, var(--inspector-fraction, 0.58fr)) 6px minmax(80px, 1fr);
 	border-left: 1px solid var(--border-strong);
 	overflow: hidden;
+}
+
+.layout-resize {
+	background: var(--border);
+	z-index: 6;
+}
+
+.layout-resize-x {
+	cursor: col-resize;
+	min-width: 6px;
+}
+
+.layout-resize-y {
+	cursor: row-resize;
+	min-height: 6px;
+}
+
+.field-control-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 0;
+}
+
+.field-unit {
+	color: var(--text-muted);
+	font-weight: 600;
+}
+
+.tip-switch-editor {
+	display: grid;
+	grid-template-columns: 1fr 1fr;
+	gap: 12px;
+}
+
+.tip-switch-column {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+	border: 1px solid var(--border);
+}
+
+.tip-switch-column li {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 6px;
+	padding: 4px 6px;
+	border-bottom: 1px solid var(--border);
 }
 
 .side-tabs {

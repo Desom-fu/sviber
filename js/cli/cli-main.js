@@ -11,7 +11,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const CLI_OPERATION_FLAGS = new Set(["--export", "--import", "--help", "-h"]);
+const CLI_OPERATION_FLAGS = new Set(["--export", "--import", "--help", "-h", "--version", "-v"]);
 const VALUE_FLAGS = new Set([
 	"--export",
 	"--import",
@@ -71,7 +71,7 @@ function isCliOperation(argv) {
 function firstInputPath(argv) {
 	for (let index = 0; index < argv.length; index += 1) {
 		const token = String(argv[index]);
-		if (token === "--help" || token === "-h") {
+		if (token === "--help" || token === "-h" || token === "--version" || token === "-v") {
 			continue;
 		}
 		if (token === "--bpm-change" || VALUE_FLAGS.has(token)) {

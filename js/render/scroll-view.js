@@ -6,6 +6,7 @@ import {
 	TIMELINE_DURATION_TYPES,
 	TIMELINE_EVENT_COLORS,
 	drawTimelineEventIcon,
+	eventIconRadius,
 	eventDrawLayer,
 	isBackgroundEvent,
 	projectState,
@@ -430,7 +431,14 @@ export class ScrollView {
 				context.stroke();
 				context.restore();
 			}
-			drawTimelineEventIcon(context, event, screen.x, screen.y, color);
+			drawTimelineEventIcon(
+				context,
+				event,
+				screen.x,
+				screen.y,
+				color,
+				eventIconRadius(projectState(this.state)?.preferences),
+			);
 			this.hitRegions.push({ event, x: screen.x, y: screen.y, radius: 12 });
 		}
 	}

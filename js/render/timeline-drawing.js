@@ -304,7 +304,14 @@ export class TimelineDrawingTrait {
 		if (DURATION_TYPES.has(event.type)) {
 			this._drawEventDurationBar(context, { event, position, endX, color, selected, interactive });
 		}
-		drawTimelineEventIcon(context, event, position.x, position.y, color);
+		drawTimelineEventIcon(
+			context,
+			event,
+			position.x,
+			position.y,
+			color,
+			this._eventIconRadius?.(project) || 8,
+		);
 		if (interactive) {
 			this._registerEventHitRegion(event, position);
 		}
@@ -548,8 +555,8 @@ export class TimelineDrawingTrait {
 			return null;
 		}
 		const channels = this._visibleChannels(project);
-		const channelIndex = channels.findIndex(channel => channel.id === guide.events[0].channel);
-		if (channelIndex < 0) {
+		const laneY = channelId => this._channelDrawY(project, layout, channelId, channels);
+		if (guide.events.every(event => laneY(event.channel) == null)) {
 			this.tipPointCheckpointCache.guides.set(guide, null);
 			return null;
 		}
@@ -561,12 +568,17 @@ export class TimelineDrawingTrait {
 			});
 			return point;
 		};
-		const baseY = layout.channels.y + (channelIndex + 0.5) * layout.channelHeight;
+		const baseY = laneY(guide.events[0].channel) ?? layout.channels.y;
 		const firstY = baseY + (offsets.get(guide.events[0].id) || 0);
 		const checkpoints = [makePoint(guide.spawnTime, firstY)];
 		for (let index = 0; index < guide.events.length; index += 1) {
 			const event = guide.events[index];
-			checkpoints.push(makePoint(guide.eventTimes[index], baseY + (offsets.get(event.id) || 0)));
+			checkpoints.push(
+				makePoint(
+					guide.eventTimes[index],
+					(laneY(event.channel) ?? baseY) + (offsets.get(event.id) || 0),
+				),
+			);
 		}
 		Object.defineProperty(checkpoints, "eventCheckpoints", { value: checkpoints.slice(1) });
 		this.tipPointCheckpointCache.guides.set(guide, checkpoints);
@@ -635,6 +647,7 @@ export class TimelineDrawingTrait {
 			context.fillStyle = color;
 			context.fillRect(rectangle.x + index * binWidth, rectangle.y, binWidth + 1, rectangle.height);
 		});
+		this._drawSnappeeScrollbarMarks?.(context, rectangle, project, bounds);
 		const loopMarks = this._loopSeconds(project.editor);
 		if (loopMarks.length === 2) {
 			const loopBeginningX = this._scrollX(loopMarks[0], rectangle, bounds);

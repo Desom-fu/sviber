@@ -43,7 +43,10 @@ function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
 	button.setAttribute("aria-expanded", String(expanded));
 	button.setAttribute("aria-label", i18n.t(expanded ? "panel.item.collapse" : "panel.item.expand"));
 	const image = documentRef.createElement("img");
-	image.src = "svg/icons/menu.svg";
+	image.src = "svg/icons/more.svg";
+	image.alt = "";
+	image.draggable = false;
+	button.append(image);
 	image.alt = "";
 	image.draggable = false;
 	button.append(image);
@@ -192,6 +195,21 @@ export class ClipsPanel {
 			expansion,
 			actions,
 		);
+		if (!readOnly) {
+			item.draggable = true;
+			item.addEventListener("dragstart", event => {
+				event.dataTransfer.setData("text/plain", String(index));
+				event.dataTransfer.effectAllowed = "move";
+			});
+			item.addEventListener("dragover", event => event.preventDefault());
+			item.addEventListener("drop", event => {
+				event.preventDefault();
+				const source = Number(event.dataTransfer.getData("text/plain"));
+				if (Number.isInteger(source) && source !== index) {
+					this.onMove(source, index - source);
+				}
+			});
+		}
 		item.addEventListener("dblclick", () => {
 			if (!readOnly) {
 				this.onEdit(index);

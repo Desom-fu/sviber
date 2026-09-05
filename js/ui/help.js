@@ -1,8 +1,9 @@
 import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../app/commands.js";
+import { rememberNwWindow } from "../platform/window-bounds.js";
 
 const SHORTCUT_COLUMN_GROUPS = Object.freeze([
 	Object.freeze(["file", "edit", "timing", "events", "channel"]),
-	Object.freeze(["snappee", "transform", "music", "macros", "help", "timeline"]),
+	Object.freeze(["snappee", "transform", "music", "view", "macros", "help", "timeline"]),
 ]);
 
 function browserVersions() {
@@ -97,13 +98,17 @@ export class HelpController {
 	openDocumentation() {
 		const url = new URL(`docs/index.html?lang=${encodeURIComponent(this.i18n.language)}`, location.href).href;
 		if (globalThis.nw?.Window?.open) {
-			globalThis.nw.Window.open(url, {
-				title: "sviber Documentation",
-				width: 1080,
-				height: 760,
-				min_width: 720,
-				min_height: 500,
-			});
+			globalThis.nw.Window.open(
+				url,
+				{
+					title: "sviber Documentation",
+					width: 1080,
+					height: 760,
+					min_width: 720,
+					min_height: 500,
+				},
+				popup => rememberNwWindow("docs", popup, { width: 1080, height: 760 }),
+			);
 		} else {
 			window.open(url, "_blank", "noopener");
 		}

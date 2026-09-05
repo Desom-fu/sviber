@@ -102,30 +102,24 @@ export const withShellBindings = Base =>
 			}
 		}
 
+		_describeLayoutToggles(scrollHidden, sideHidden, timelineHidden) {
+			describeToggle(document.getElementById("scroll-view-toggle"), scrollHidden, SCROLL_TOGGLE);
+			describeToggle(document.getElementById("side-panel-toggle"), sideHidden, SIDE_TOGGLE);
+			describeToggle(document.getElementById("timeline-toggle"), timelineHidden, TIMELINE_TOGGLE);
+		}
+
 		_bindLayoutToggles() {
-			const row = document.querySelector(".editor-row");
-			const workspace = document.querySelector(".workspace");
 			const scrollButton = document.getElementById("scroll-view-toggle");
 			const sideButton = document.getElementById("side-panel-toggle");
 			const timelineButton = document.getElementById("timeline-toggle");
 			bindEdgeToggleReveal(document.getElementById("stage-surface"));
-			const update = () => {
-				describeToggle(scrollButton, row?.classList.contains("is-scroll-hidden"), SCROLL_TOGGLE);
-				describeToggle(sideButton, row?.classList.contains("is-side-hidden"), SIDE_TOGGLE);
-				describeToggle(timelineButton, workspace?.classList.contains("is-timeline-hidden"), TIMELINE_TOGGLE);
-			};
-			scrollButton?.addEventListener("click", () => {
-				row?.classList.toggle("is-scroll-hidden");
-				update();
-			});
-			sideButton?.addEventListener("click", () => {
-				row?.classList.toggle("is-side-hidden");
-				update();
-			});
-			timelineButton?.addEventListener("click", () => {
-				workspace?.classList.toggle("is-timeline-hidden");
-				update();
-			});
-			update();
+			scrollButton?.addEventListener("click", () => this.toggleLeftPanels?.());
+			sideButton?.addEventListener("click", () => this.toggleRightPanels?.());
+			timelineButton?.addEventListener("click", () => this.toggleTopPanels?.());
+			this._describeLayoutToggles(
+				this.preferences?.leftPanelsHidden,
+				this.preferences?.rightPanelsHidden,
+				this.preferences?.topPanelsHidden,
+			);
 		}
 	};

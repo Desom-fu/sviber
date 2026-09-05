@@ -6,6 +6,7 @@ import {
 	tipPointSpawnTime,
 } from "./stage-helpers.js";
 import { IntervalIndex, compareNoteRecords, insertSorted, mergeSorted } from "./interval-index.js";
+import { hasTipPointSwitches } from "../core/tip-point-track.js";
 
 // Incremental maintenance of the tip point guides held by the chart render index.
 //
@@ -29,6 +30,10 @@ export class ChartIndexTipGuidesTrait {
 	}
 
 	_refreshTipGuides(channelId, rebuildIndexes = true) {
+		if (hasTipPointSwitches(this.project)) {
+			this._buildTipGuideIndexes(this.project, this.timing);
+			return;
+		}
 		const channel = this.project.channels.find(candidate => candidate.id === channelId);
 		if (!channel) {
 			return;

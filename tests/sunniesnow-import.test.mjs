@@ -17,13 +17,12 @@ test("Sunniesnow import filters incompatible chain members and allocates a free 
 		{ offset: 0, initialBpm: 60 },
 	);
 	const notes = model.events.filter(
-		event => ["tap", "hold"].includes(event.type) && event.channel !== model.channels[0].id,
+		event => event.tipPointSpawnType === "chain" || event.tipPointSpawnType === "inherit",
 	);
 	assert.equal(notes.length, 2);
 	assert.equal(notes[0].tipPointSpawnType, "chain");
 	assert.equal(notes[1].tipPointSpawnType, "inherit");
 	assert.equal(notes[0].channel, notes[1].channel);
-	assert.notEqual(notes[0].channel, model.channels[0].id);
 	assert.equal(notes[0].tipPointSpawnAbsolutePosition, false);
 	assert.equal(notes[0].tipPointSpawnDistance, Math.hypot(-40, 20));
 	assert.equal(notes[0].tipPointSpawnTime, 1);

@@ -37,6 +37,7 @@
 		<main class="workspace">
 			<section class="timeline-row" aria-label="Timeline" data-i18n-aria-label="aria.timeline">
 				<div id="timeline-surface" class="render-surface timeline-surface" tabindex="0"></div>
+				<div id="layout-resize-status" class="layout-resize layout-resize-x" role="separator" aria-orientation="vertical"></div>
 				<aside id="status-panel" class="status-panel" aria-label="Playback status" data-i18n-aria-label="aria.playbackStatus">
 					<dl class="status-readouts">
 						<div class="status-item" data-tooltip-key="tooltip.time"><dd id="status-time">0:00.000</dd></div>
@@ -60,6 +61,7 @@
 						<label class="status-option" data-tooltip-key="status.allowOutOfBound"><input id="allow-out-of-bound" type="checkbox" aria-label="Allow out of bound" data-i18n-aria-label="status.allowOutOfBound"><img src="svg/icons/allow-out-of-bound.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.readOnly"><input id="read-only" type="checkbox" aria-label="Read-only" data-i18n-aria-label="status.readOnly"><img src="svg/icons/read-only.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.fullscreen"><input id="fullscreen" type="checkbox" aria-label="Fullscreen" data-i18n-aria-label="status.fullscreen"><img src="svg/icons/fullscreen.svg" alt="" aria-hidden="true"></label>
+						<label class="status-option" data-tooltip-key="status.lockLayout"><input id="lock-layout" type="checkbox" aria-label="Lock layout" data-i18n-aria-label="status.lockLayout"><img src="svg/icons/lock-layout.svg" alt="" aria-hidden="true"></label>
 						<label class="status-option" data-tooltip-key="status.liveHosting"><input id="live-hosting" type="checkbox" aria-label="Live hosting" data-i18n-aria-label="status.liveHosting"><img src="svg/icons/live-hosting.svg" alt="" aria-hidden="true"></label>
 					</div>
 					<div id="status-selection" class="status-selection" aria-live="polite" hidden></div>
@@ -68,6 +70,7 @@
 				</aside>
 			</section>
 
+			<div id="layout-resize-top" class="layout-resize layout-resize-y" role="separator" aria-orientation="horizontal"></div>
 			<section class="editor-row" aria-label="Chart editor" data-i18n-aria-label="aria.chartEditor">
 				<aside id="scroll-view-panel" class="scroll-view-panel" aria-label="Scroll view" data-i18n-aria-label="aria.scrollView">
 					<div class="side-tabs left-tabs" role="tablist">
@@ -77,12 +80,14 @@
 					<div id="scroll-surface" class="render-surface scroll-surface" role="tabpanel" aria-labelledby="scroll-view-tab" tabindex="0"></div>
 					<section id="checks-panel" class="property-panel checks-panel" role="tabpanel" aria-labelledby="checks-tab" hidden></section>
 				</aside>
+				<div id="layout-resize-left" class="layout-resize layout-resize-x" role="separator" aria-orientation="vertical"></div>
 				<div id="stage-surface" class="render-surface stage-surface" tabindex="0">
 					<button id="scroll-view-toggle" class="edge-toggle edge-toggle-left" type="button" aria-label="Hide scroll view" data-tooltip-key="layout.hideScrollView">&#8249;</button>
 					<button id="timeline-toggle" class="edge-toggle edge-toggle-top" type="button" aria-label="Hide timeline" data-tooltip-key="layout.hideTimeline">&#9650;</button>
 					<button id="side-panel-toggle" class="edge-toggle edge-toggle-right" type="button" aria-label="Hide side panels" data-tooltip-key="layout.hideSidePanel">&#8250;</button>
 					<button id="reset-main-field-view" class="reset-main-field-view" type="button" aria-label="Reset main field view" data-tooltip-key="status.resetMainFieldView" hidden>&#8634;</button>
 				</div>
+				<div id="layout-resize-right" class="layout-resize layout-resize-x" role="separator" aria-orientation="vertical"></div>
 				<aside class="side-panel">
 					<div class="side-tabs" role="tablist">
 						<button id="inspector-tab" class="side-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="inspector-panel" data-i18n="panel.inspector">Inspector</button>
@@ -94,6 +99,7 @@
 					<section id="channels-panel" class="property-panel" role="tabpanel" aria-labelledby="channels-tab" hidden></section>
 					<section id="snappees-panel" class="property-panel" role="tabpanel" aria-labelledby="snappees-tab" hidden></section>
 					<section id="clips-panel" class="property-panel" role="tabpanel" aria-labelledby="clips-tab" hidden></section>
+					<div id="layout-resize-inspector" class="layout-resize layout-resize-y" role="separator" aria-orientation="horizontal"></div>
 					<section class="history-panel" aria-label="History" data-i18n-aria-label="aria.history">
 						<div id="history-list" class="history-list"></div>
 					</section>

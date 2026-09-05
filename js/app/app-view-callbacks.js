@@ -64,6 +64,7 @@ export class ViewCallbacksTrait {
 			onVisibleRange: (beginning, end) => this.setVisibleRange(beginning, end),
 			onPageVisibleRange: direction => this.pageVisibleRange(direction),
 			onEditBpm: index => void this.showBpmDialog(index),
+			onEditTipPointSwitch: () => void this.showTipPointSwitchDialog(),
 			onMainFieldZoom: factor => this.setMainFieldZoom(factor),
 			onWheel: event => this.navigateWheel(event.deltaY, event.ctrlKey, event.ctrlKey),
 		};

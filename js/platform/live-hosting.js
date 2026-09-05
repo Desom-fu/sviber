@@ -142,7 +142,7 @@ function handleWebSocketBytes(client, chunk, BufferRef) {
 export function hostedLevelUrl(address, path = "/sviber.ssc") {
 	const host = String(address?.address || "").replace(/^::ffff:/, "");
 	const port = Number(address?.port) || 0;
-	const displayHost = !host || host === "0.0.0.0" || host === "::" ? "localhost" : host;
+	const displayHost = host || "0.0.0.0";
 	const bracketed = displayHost.includes(":") ? `[${displayHost}]` : displayHost;
 	return `http://${bracketed}${port ? `:${port}` : ""}${path}`;
 }

@@ -1,6 +1,7 @@
 import { clampAffineToChartBounds, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import { snapshotsEqual, captureHistoryView } from "../core/history.js";
 import { composeTraits } from "../core/mixin.js";
+import { timelineRowHeight } from "./app-helpers.js";
 
 function withoutFlags(value) {
 	if (!value || typeof value !== "object") {
@@ -83,7 +84,7 @@ class FreeTransformTrait {
 		}
 		if (options.channelLayout) {
 			const shownChannels = this.model.channels.filter(c => c.hidden !== true).length;
-			const height = 88 + Math.min(3, Math.max(1, shownChannels)) * 48;
+			const height = timelineRowHeight(this.preferences, shownChannels);
 			document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${height}px`);
 		}
 		if (options.channelState) {

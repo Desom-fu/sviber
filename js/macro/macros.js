@@ -2,6 +2,7 @@ import { MESSAGES, SUPPORTED_LANGUAGES, normalizeLanguage } from "../ui/i18n.js"
 import { registerMacroCompletions } from "./macro-completions.js";
 import { loadMonaco } from "./macro-monaco-loader.js";
 import { saveMacroFile } from "./macro-file-export.js";
+import { installMacroLayout } from "./macro-layout.js";
 
 const GLOBAL_KEY = "sviber.macros";
 const LAST_LANGUAGE_KEY = "sviber.macroLanguage";
@@ -937,6 +938,7 @@ window.addEventListener("message", event => {
 });
 
 applyLocale();
+installMacroLayout();
 readGlobal();
 installMenus();
 void installEditor();

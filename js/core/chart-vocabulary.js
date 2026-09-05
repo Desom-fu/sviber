@@ -51,6 +51,21 @@ export const DURATION_TYPES = new Set([
 	"comment",
 ]);
 export const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText", "comment"]);
+export const PERDURANT_TYPES = DURATION_TYPES;
+export const TEXTABLE_TYPES = TEXT_TYPES;
+export const NOTE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
+export const BACKGROUND_EVENT_TYPES = new Set([
+	"bgNote",
+	"bigText",
+	"grid",
+	"hexagon",
+	"checkerboard",
+	"diamondGrid",
+	"pentagon",
+	"turntable",
+	"hexagram",
+]);
+export const MOVABLE_TEXTABLE_TYPES = new Set(["tap", "hold", "flick", "bgNote"]);
 export const POSITIVE_DURATION_TYPES = new Set([
 	"hold",
 	"bigText",

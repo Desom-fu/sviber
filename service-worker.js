@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v01412";
+const CACHE_VERSION = "sviber-v01500";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -42,6 +42,23 @@ const APP_SHELL = [
 	"./js/app/app-global-shortcuts.js",
 	"./js/app/app-group-anchor-move.js",
 	"./js/app/app-helpers.js",
+	"./css/readme.css",
+	"./js/app/app-bulk-edit.js",
+	"./js/app/app-file-drop.js",
+	"./js/app/app-layout.js",
+	"./js/app/app-readme-editor.js",
+	"./js/app/app-tip-point-switch.js",
+	"./js/core/bulk-edit-texts.js",
+	"./js/core/selected-event-markers.js",
+	"./js/core/tip-point-track.js",
+	"./js/macro/macro-layout.js",
+	"./js/platform/window-bounds.js",
+	"./js/readme/readme.js",
+	"./js/render/timeline-markers.js",
+	"./readme.html",
+	"./svg/icons/lock-layout.svg",
+	"./svg/icons/more.svg",
+	"./svg/icons/tip-point-switch.svg",
 	"./js/app/app-history-commands.js",
 	"./js/app/app-macro-bridge.js",
 	"./js/app/app-main-field-view.js",

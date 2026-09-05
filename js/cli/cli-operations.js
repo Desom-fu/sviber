@@ -9,7 +9,15 @@ import {
 	normalizeProjectManifest,
 	uniqueChartFilename,
 } from "../core/project.js";
-import { helpText, isHeadlessInvocation, lyricaOptionsFrom, parseCliArguments, timingOptionsFrom } from "./cli.js";
+import {
+	helpText,
+	isHeadlessInvocation,
+	lyricaOptionsFrom,
+	parseCliArguments,
+	timingOptionsFrom,
+	versionText,
+} from "./cli.js";
+import packageJson from "../../package.json" with { type: "json" };
 
 const CHART_ORDER_EPSILON = 1e-9;
 
@@ -152,6 +160,10 @@ export async function runCli(argv, io) {
 	const args = parseCliArguments(argv);
 	if (args.help) {
 		io.print(helpText());
+		return 0;
+	}
+	if (args.version) {
+		io.print(versionText(packageJson.version));
 		return 0;
 	}
 	if (args.unknown.length) {

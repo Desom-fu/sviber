@@ -12,6 +12,7 @@ import {
 } from "../core/geometry.js";
 import { PixiCanvasSurface } from "./pixi-surface.js";
 import { flattenEvents } from "../core/grouping.js";
+import { allTipPointTracks } from "../core/tip-point-track.js";
 
 export const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote", "group"]);
 export const NOTE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
@@ -354,24 +355,8 @@ export function buildTipPointGuidesForOrderedEvents(events, timing) {
 }
 
 export function buildTipPointGuides(project, timing) {
-	const eventsByChannel = new Map((project.channels || []).map(channel => [channel.id, []]));
-	for (let sequence = 0; sequence < (project.events || []).length; sequence += 1) {
-		const event = project.events[sequence];
-		if (NOTE_TYPES.has(event.type) && eventsByChannel.has(event.channel)) {
-			eventsByChannel.get(event.channel).push({ event, sequence, time: Rational.from(event.time) });
-		}
-	}
-	// v22: simultaneous events of the same channel chain in the stacking order of the
-	// timeline channels — the event stacked at the top (earlier in the event list) is the
-	// previous one, the bottom-most is the next.
-	return (project.channels || []).flatMap(channel =>
-		buildTipPointGuidesForOrderedEvents(
-			eventsByChannel
-				.get(channel.id)
-				.sort((left, right) => left.time.compare(right.time) || left.sequence - right.sequence)
-				.map(record => record.event),
-			timing,
-		),
+	return allTipPointTracks(project).flatMap(track =>
+		buildTipPointGuidesForOrderedEvents(track.events, timing),
 	);
 }
 

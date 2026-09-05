@@ -65,21 +65,54 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 	theme: "system",
 	language: "system",
 	noteSpeed: 2,
+	inputOffset: 0,
+	visibleChannels: 3,
+	eventIconSize: 8,
 	seVolume: 1,
 	musicVolume: 1,
 	autoSaveInterval: 120,
 	liveHostingAddress: "0.0.0.0:8011",
 	liveReloadPort: 31108,
+	lockLayout: false,
+	leftPanelWidthFraction: 0.14,
+	rightPanelWidthFraction: 0.22,
+	statusPanelWidthFraction: 0.22,
+	inspectorHeightFraction: 0.58,
+	timelineChannelHeight: 48,
+	topPanelsHidden: false,
+	leftPanelsHidden: false,
+	rightPanelsHidden: false,
+	readmeSidebarWidthFraction: 0.22,
+	readmePreviewWidthFraction: 0.36,
+	readmePreviewHidden: false,
+	macrosSidebarWidthFraction: 0.2,
+	macrosConsoleHeightFraction: 0.28,
+	macrosConsoleHidden: false,
 });
 
 function preferenceChoice(value, choices, fallback) {
 	return choices.includes(value) ? value : fallback;
 }
 
+function clampVolume(value, fallback, maximum) {
+	return Number.isFinite(Number(value)) ? Math.max(0, Math.min(maximum, Number(value))) : fallback;
+}
+
+function clampFraction(value, fallback, minimum = 0.06, maximum = 0.55) {
+	const number = Number(value);
+	return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
+}
+
+function clampNumber(value, fallback, minimum, maximum) {
+	const number = Number(value);
+	if (!Number.isFinite(number)) {
+		return fallback;
+	}
+	return Math.min(maximum, Math.max(minimum, number));
+}
+
 function normalizePreferences(source = {}) {
 	const noteSpeed = Number(source.noteSpeed);
-	const clampVolume = (value, fallback, maximum) =>
-		Number.isFinite(Number(value)) ? Math.max(0, Math.min(maximum, Number(value))) : fallback;
 	const autoSaveInterval = Number(source.autoSaveInterval);
 	let savedInterval = DEFAULT_PREFERENCES.autoSaveInterval;
 	if (Number.isFinite(autoSaveInterval) && autoSaveInterval >= 0) {
@@ -89,6 +122,9 @@ function normalizePreferences(source = {}) {
 		theme: preferenceChoice(source.theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme),
 		language: preferenceChoice(source.language, ["system", ...SUPPORTED_LANGUAGES], DEFAULT_PREFERENCES.language),
 		noteSpeed: noteSpeed > 0 ? noteSpeed : DEFAULT_PREFERENCES.noteSpeed,
+		inputOffset: clampNumber(source.inputOffset, DEFAULT_PREFERENCES.inputOffset, -2, 2),
+		visibleChannels: Math.round(clampNumber(source.visibleChannels, DEFAULT_PREFERENCES.visibleChannels, 1, 16)),
+		eventIconSize: clampNumber(source.eventIconSize, DEFAULT_PREFERENCES.eventIconSize, 4, 24),
 		seVolume: clampVolume(source.seVolume, DEFAULT_PREFERENCES.seVolume, 2),
 		musicVolume: clampVolume(source.musicVolume, DEFAULT_PREFERENCES.musicVolume, 2),
 		autoSaveInterval: savedInterval,
@@ -97,6 +133,54 @@ function normalizePreferences(source = {}) {
 			0,
 			Math.floor(Number(source.liveReloadPort ?? DEFAULT_PREFERENCES.liveReloadPort) || 0),
 		),
+		lockLayout: source.lockLayout === true,
+		leftPanelWidthFraction: clampFraction(
+			source.leftPanelWidthFraction,
+			DEFAULT_PREFERENCES.leftPanelWidthFraction,
+		),
+		rightPanelWidthFraction: clampFraction(
+			source.rightPanelWidthFraction,
+			DEFAULT_PREFERENCES.rightPanelWidthFraction,
+		),
+		statusPanelWidthFraction: clampFraction(
+			source.statusPanelWidthFraction,
+			DEFAULT_PREFERENCES.statusPanelWidthFraction,
+		),
+		inspectorHeightFraction: clampFraction(
+			source.inspectorHeightFraction,
+			DEFAULT_PREFERENCES.inspectorHeightFraction,
+			0.2,
+			0.85,
+		),
+		timelineChannelHeight: clampNumber(
+			source.timelineChannelHeight,
+			DEFAULT_PREFERENCES.timelineChannelHeight,
+			24,
+			160,
+		),
+		topPanelsHidden: source.topPanelsHidden === true,
+		leftPanelsHidden: source.leftPanelsHidden === true,
+		rightPanelsHidden: source.rightPanelsHidden === true,
+		readmeSidebarWidthFraction: clampFraction(
+			source.readmeSidebarWidthFraction,
+			DEFAULT_PREFERENCES.readmeSidebarWidthFraction,
+		),
+		readmePreviewWidthFraction: clampFraction(
+			source.readmePreviewWidthFraction,
+			DEFAULT_PREFERENCES.readmePreviewWidthFraction,
+		),
+		readmePreviewHidden: source.readmePreviewHidden === true,
+		macrosSidebarWidthFraction: clampFraction(
+			source.macrosSidebarWidthFraction,
+			DEFAULT_PREFERENCES.macrosSidebarWidthFraction,
+		),
+		macrosConsoleHeightFraction: clampFraction(
+			source.macrosConsoleHeightFraction,
+			DEFAULT_PREFERENCES.macrosConsoleHeightFraction,
+			0.12,
+			0.7,
+		),
+		macrosConsoleHidden: source.macrosConsoleHidden === true,
 	};
 }
 
@@ -106,6 +190,13 @@ export function loadPreferences(storage = globalThis.localStorage) {
 	} catch {
 		return { ...DEFAULT_PREFERENCES };
 	}
+}
+
+export function timelineRowHeight(preferences, shownChannels) {
+	const visibleLimit = Math.max(1, Number(preferences?.visibleChannels) || 3);
+	const visible = Math.max(1, Math.min(visibleLimit, Math.max(1, Number(shownChannels) || 1)));
+	const channelHeight = Number(preferences?.timelineChannelHeight) || 48;
+	return 25 + channelHeight * (visible + 1);
 }
 
 export function storePreferences(preferences, storage = globalThis.localStorage) {

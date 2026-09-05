@@ -263,6 +263,30 @@ function makeInlineActionRow(documentRef, i18n, tooltip, items) {
 	return row;
 }
 
+function bindItemReorder(item, index, onReorder, readOnly) {
+	if (readOnly) {
+		return;
+	}
+	item.draggable = true;
+	item.addEventListener("dragstart", event => {
+		event.dataTransfer.setData("text/plain", String(index));
+		event.dataTransfer.effectAllowed = "move";
+	});
+	item.addEventListener("dragover", event => {
+		event.preventDefault();
+		event.dataTransfer.dropEffect = "move";
+	});
+	item.addEventListener("drop", event => {
+		event.preventDefault();
+		event.stopPropagation();
+		const source = Number(event.dataTransfer.getData("text/plain"));
+		if (!Number.isInteger(source) || source === index) {
+			return;
+		}
+		onReorder(source, index);
+	});
+}
+
 function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
 	const button = documentRef.createElement("button");
 	button.type = "button";
@@ -270,7 +294,7 @@ function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
 	button.setAttribute("aria-expanded", String(expanded));
 	button.setAttribute("aria-label", i18n.t(expanded ? "panel.item.collapse" : "panel.item.expand"));
 	const image = documentRef.createElement("img");
-	image.src = "svg/icons/menu.svg";
+	image.src = "svg/icons/more.svg";
 	image.alt = "";
 	image.draggable = false;
 	button.append(image);
@@ -279,6 +303,7 @@ function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
 		onToggle(!expanded);
 	});
 	tooltip?.register(button, expanded ? "panel.item.collapse" : "panel.item.expand");
+	button.classList.add("item-expand-button");
 	return button;
 }
 
@@ -401,6 +426,12 @@ export class SnappeesPanel {
 			expansion,
 			actions,
 		);
+		bindItemReorder(item, index, (from, to) => {
+			const moved = model.snappees[from];
+			if (moved) {
+				this.onMove(moved.id, to - from);
+			}
+		}, readOnly);
 		item.addEventListener("click", () => {
 			if (!readOnly && snappee.active !== false) {
 				this.onSelect(snappee.id);
@@ -524,6 +555,12 @@ export class ChannelsPanel {
 			expansion,
 			actions,
 		);
+		bindItemReorder(item, index, (from, to) => {
+			const moved = model.channels[from];
+			if (moved) {
+				this.onMove(moved.id, to - from);
+			}
+		}, readOnly);
 		item.addEventListener("click", () => {
 			if (channel.active !== false) {
 				this.onSelect(channel.id);

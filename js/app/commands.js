@@ -24,6 +24,7 @@ const DEFINITIONS = [
 	define("file.importFile", null, null, { blockDuringPlayback: true }),
 	define("file.setMusic", null, null, { blockDuringPlayback: true }),
 	define("file.setBackground", null, null, { blockDuringPlayback: true }),
+	define("file.editLevelReadme", null, null, { desktopOnly: true }),
 	define("file.save", "Ctrl+S", null, { allowInInput: true }),
 	define("file.saveAs", null, null, { allowInInput: true, blockDuringPlayback: true }),
 	define("file.saveProject", null, null, { allowInInput: true, desktopOnly: true }),
@@ -51,8 +52,9 @@ const DEFINITIONS = [
 	}),
 	define("edit.selectAll", "Ctrl+A"),
 	define("edit.selectChannel", "Ctrl+Shift+A"),
-	define("edit.selectNone", "Ctrl+D", null, { allowWhenBlocked: true }),
+	define("edit.selectNone", "X", null, { allowWhenBlocked: true }),
 	define("edit.selectAttached"),
+	define("edit.selectAtCurrentTime", "Z"),
 	define("edit.selectFilter", "Ctrl+F", null, { blockDuringPlayback: true }),
 	define("edit.delete", "Delete"),
 	define("edit.checks", null, null, { blockDuringPlayback: true, allowWhenReadOnly: true }),
@@ -89,6 +91,7 @@ const DEFINITIONS = [
 	define("events.moveChannelAbove", "Ctrl+Shift+ArrowUp", "move-to-channel-above"),
 	define("events.moveChannelBelow", "Ctrl+Shift+ArrowDown", "move-to-channel-below"),
 	define("events.fillCurveDrag", null, null, { blockDuringPlayback: true }),
+	define("events.bulkEditTexts", null, null, { blockDuringPlayback: true }),
 
 	define("timing.offsetAndBpm"),
 	define("timing.adjustOffset", null, "adjust-offset", { checkable: true, blockDuringPlayback: true }),
@@ -110,6 +113,7 @@ const DEFINITIONS = [
 	define("channel.delete", null, "delete-channel"),
 	define("channel.moveUp", "Ctrl+ArrowUp", "move-channel-up"),
 	define("channel.moveDown", "Ctrl+ArrowDown", "move-channel-down"),
+	define("channel.tipPointSwitch", "I", "tip-point-switch", { blockDuringPlayback: true, requiresSnappedTime: true }),
 	define("channel.selectAbove", "Alt+ArrowUp"),
 	define("channel.selectBelow", "Alt+ArrowDown"),
 	define("channel.select1", "Alt+1"),
@@ -224,6 +228,11 @@ const DEFINITIONS = [
 	define("timeline.pageForward", "PageUp", null, { allowWhenBlocked: true }),
 	define("timeline.pageBackward", "PageDown", null, { allowWhenBlocked: true }),
 
+	define("view.toggleTimeline", null, null, { allowWhenBlocked: true, allowWhenReadOnly: true }),
+	define("view.toggleLeft", null, null, { allowWhenBlocked: true, allowWhenReadOnly: true }),
+	define("view.toggleRight", null, null, { allowWhenBlocked: true, allowWhenReadOnly: true }),
+	define("view.resetLayout", null, null, { allowWhenBlocked: true, allowWhenReadOnly: true }),
+
 	define("macros.open", "Ctrl+Alt+M", "macros", { allowWhenBlocked: true }),
 	define("macros.run", null, null, { allowWhenBlocked: true, blockDuringPlayback: true }),
 
@@ -268,6 +277,7 @@ export const MENU_DEFINITION = Object.freeze([
 			separator,
 			item("file.setMusic"),
 			item("file.setBackground"),
+			item("file.editLevelReadme"),
 			separator,
 			item("file.openProjectFolder"),
 			separator,
@@ -298,6 +308,7 @@ export const MENU_DEFINITION = Object.freeze([
 			item("edit.selectChannel"),
 			item("edit.selectNone"),
 			item("edit.selectAttached"),
+			item("edit.selectAtCurrentTime"),
 			item("edit.selectFilter"),
 			separator,
 			item("edit.delete"),
@@ -343,6 +354,8 @@ export const MENU_DEFINITION = Object.freeze([
 			item("events.unlock"),
 			separator,
 			item("events.fillCurveDrag"),
+			separator,
+			item("events.bulkEditTexts"),
 		]),
 	}),
 	Object.freeze({
@@ -368,6 +381,8 @@ export const MENU_DEFINITION = Object.freeze([
 			separator,
 			item("channel.moveUp"),
 			item("channel.moveDown"),
+			separator,
+			item("channel.tipPointSwitch"),
 		]),
 	}),
 	Object.freeze({
@@ -462,6 +477,18 @@ export const MENU_DEFINITION = Object.freeze([
 			separator,
 			item("music.zoomIn"),
 			item("music.zoomOut"),
+		]),
+	}),
+	Object.freeze({
+		id: "view",
+		labelKey: "menu.view",
+		mnemonic: "i",
+		items: Object.freeze([
+			item("view.toggleTimeline"),
+			item("view.toggleLeft"),
+			item("view.toggleRight"),
+			separator,
+			item("view.resetLayout"),
 		]),
 	}),
 	Object.freeze({
@@ -778,6 +805,11 @@ export class CommandRegistry {
 	handleKeyboard(event, context) {
 		if (event.defaultPrevented || event.isComposing) {
 			return false;
+		}
+		if (context?.interceptCreationPlaybackKey?.(event)) {
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			return true;
 		}
 		const focusedTarget = event.target || globalThis.document?.activeElement;
 		for (const definition of Object.values(this.definitions)) {

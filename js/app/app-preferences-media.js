@@ -35,77 +35,183 @@ export function importTimingDefaults(document) {
 	};
 }
 
+function preferenceFields(app) {
+	return [
+		{
+			id: "theme",
+			type: "select",
+			labelKey: "field.theme",
+			options: [
+				{ value: "system", labelKey: "option.theme.system" },
+				{ value: "light", labelKey: "option.theme.light" },
+				{ value: "dark", labelKey: "option.theme.dark" },
+			],
+		},
+		{
+			id: "language",
+			type: "select",
+			labelKey: "field.language",
+			options: [
+				{ value: "system", labelKey: "option.language.system" },
+				...SUPPORTED_LANGUAGES.map(value => ({ value, labelKey: `option.language.${value}` })),
+			],
+		},
+		{ id: "noteSpeed", type: "number", labelKey: "field.noteSpeed", positive: true, min: 0.01, step: "any" },
+		{
+			id: "inputOffset",
+			type: "number",
+			labelKey: "field.inputOffset",
+			step: 0.001,
+			unit: "s",
+			action: {
+				labelKey: "field.inputOffsetAdjust",
+				onClick: input => app.adjustInputOffset(input),
+			},
+		},
+		{
+			id: "visibleChannels",
+			type: "integer",
+			labelKey: "field.visibleChannels",
+			min: 1,
+			max: 16,
+		},
+		{
+			id: "eventIconSize",
+			type: "number",
+			labelKey: "field.eventIconSize",
+			min: 4,
+			max: 24,
+			step: 0.5,
+		},
+		{
+			id: "seVolume",
+			type: "slider",
+			labelKey: "field.seVolume",
+			min: 0,
+			max: 2,
+			step: 0.05,
+			formatValue: value => value.toFixed(2),
+		},
+		{
+			id: "musicVolume",
+			type: "slider",
+			labelKey: "field.musicVolume",
+			min: 0,
+			max: 2,
+			step: 0.05,
+			formatValue: value => value.toFixed(2),
+		},
+		{
+			id: "liveHostingAddress",
+			type: "text",
+			labelKey: "field.liveHostingAddress",
+			disabled: () => !globalThis.nw,
+		},
+		{
+			id: "liveReloadPort",
+			type: "integer",
+			labelKey: "field.liveReloadPort",
+			min: 0,
+			disabled: () => !globalThis.nw,
+		},
+		{ id: "autoSaveInterval", type: "number", labelKey: "field.autoSaveInterval", min: 0, step: 1, unit: "s" },
+	];
+}
+
+async function runInputOffsetAdjust(app, input) {
+	const origin = Number(input.value) || 0;
+	const samples = [];
+	const context = await app.audio.ensureContext();
+	if (!context) {
+		return;
+	}
+	const dialog = input.closest(".dialog");
+	const controls = [...(dialog?.querySelectorAll("input, select, textarea, button") || [])];
+	for (const control of controls) {
+		control.disabled = true;
+	}
+	input.disabled = false;
+	const button = input.parentElement?.querySelector("button");
+	if (button) {
+		button.disabled = false;
+	}
+	const beat = 0.5;
+	let next = context.currentTime + 0.05;
+	const ticks = [];
+	const schedule = () => {
+		if (stopped) {
+			return;
+		}
+		void app.audio.playMetronome(Math.max(0, next - context.currentTime));
+		ticks.push(next);
+		next += beat;
+		timer = setTimeout(schedule, beat * 1000);
+	};
+	let stopped = false;
+	let timer = 0;
+	const finish = restore => {
+		if (stopped) {
+			return;
+		}
+		stopped = true;
+		clearTimeout(timer);
+		document.removeEventListener("keydown", onKey, true);
+		for (const control of controls) {
+			control.disabled = false;
+		}
+		if (restore) {
+			input.value = String(origin);
+		}
+	};
+	const onKey = event => {
+		if (event.key === "Escape") {
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			finish(true);
+			return;
+		}
+		if (event.key === " " || event.key === "Enter") {
+			event.preventDefault();
+			event.stopImmediatePropagation();
+			finish(false);
+			return;
+		}
+		if (event.ctrlKey || event.altKey || event.metaKey || event.key.length !== 1) {
+			return;
+		}
+		if (!/[\p{L}\p{N}\p{S}\p{P}]/u.test(event.key)) {
+			return;
+		}
+		event.preventDefault();
+		event.stopImmediatePropagation();
+		const now = context.currentTime;
+		const closest = ticks.reduce((best, time) =>
+			Math.abs(time - now) < Math.abs(best - now) ? time : best,
+		ticks[ticks.length - 1] || now);
+		samples.push(now - closest);
+		const average = samples.reduce((sum, value) => sum + value, 0) / samples.length;
+		input.value = average.toFixed(3);
+	};
+	document.addEventListener("keydown", onKey, true);
+	button?.addEventListener("click", () => finish(false), { once: true });
+	schedule();
+}
+
 class PreferencesMediaTrait {
+	adjustInputOffset(input) {
+		return runInputOffsetAdjust(this, input);
+	}
+
 	async showPreferences() {
 		const values = await this.dialogs.form({
 			titleKey: "dialog.preferences",
 			values: this.preferences,
-			fields: [
-				{
-					id: "theme",
-					type: "select",
-					labelKey: "field.theme",
-					options: [
-						{ value: "system", labelKey: "option.theme.system" },
-						{ value: "light", labelKey: "option.theme.light" },
-						{ value: "dark", labelKey: "option.theme.dark" },
-					],
-				},
-				{
-					id: "language",
-					type: "select",
-					labelKey: "field.language",
-					options: [
-						{ value: "system", labelKey: "option.language.system" },
-						...SUPPORTED_LANGUAGES.map(value => ({ value, labelKey: `option.language.${value}` })),
-					],
-				},
-				{
-					id: "noteSpeed",
-					type: "number",
-					labelKey: "field.noteSpeed",
-					positive: true,
-					min: 0.01,
-					step: "any",
-				},
-				{
-					id: "seVolume",
-					type: "slider",
-					labelKey: "field.seVolume",
-					min: 0,
-					max: 2,
-					step: 0.05,
-					formatValue: value => value.toFixed(2),
-				},
-				{
-					id: "musicVolume",
-					type: "slider",
-					labelKey: "field.musicVolume",
-					min: 0,
-					max: 2,
-					step: 0.05,
-					formatValue: value => value.toFixed(2),
-				},
-				{
-					id: "liveHostingAddress",
-					type: "text",
-					labelKey: "field.liveHostingAddress",
-					disabled: () => !globalThis.nw,
-				},
-				{
-					id: "liveReloadPort",
-					type: "integer",
-					labelKey: "field.liveReloadPort",
-					min: 0,
-					disabled: () => !globalThis.nw,
-				},
-				{ id: "autoSaveInterval", type: "number", labelKey: "field.autoSaveInterval", min: 0, step: 1 },
-			],
+			fields: preferenceFields(this),
 		});
 		if (!values) {
 			return null;
 		}
-		this.preferences = storePreferences(values);
+		this.preferences = storePreferences({ ...this.preferences, ...values });
 		this.liveHosting.address = this.preferences.liveHostingAddress;
 		this.liveHosting.reloadPort = this.preferences.liveReloadPort;
 		if (this.liveHosting.server) {
@@ -192,7 +298,7 @@ class PreferencesMediaTrait {
 			titleKey: "dialog.importTiming",
 			values: { ...defaults, largestDenominator: 192, bpmChanges: [] },
 			fields: [
-				{ id: "offset", type: "number", labelKey: "field.offset", step: "any" },
+				{ id: "offset", type: "number", labelKey: "field.offset", step: "any", unit: "s" },
 				{
 					id: "initialBpm",
 					type: "number",

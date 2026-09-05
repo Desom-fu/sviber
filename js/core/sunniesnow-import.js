@@ -12,6 +12,7 @@
 import { Rational } from "./rational.js";
 import { DURATION_TYPES, EVENT_TYPE_SET, MOVABLE_TYPES, TEXT_TYPES, TIP_POINTABLE_TYPES } from "./chart-vocabulary.js";
 import { finiteNumber, normalizeEventType } from "./chart-normalize.js";
+import { allocateTrackIndex, packTracksIntoChannels } from "./tip-point-track.js";
 
 function sunniesnowEventOverrides(model, type, properties, context) {
 	const { timing, maxDenominator, effectiveSeconds, index, warnings } = context;
@@ -114,7 +115,7 @@ function chainPlaceholderAndNotes(records) {
 			},
 		});
 	}
-	while (chain[0]?.placeholder && chain[1]?.placeholder) {
+	while (chain[1]?.placeholder) {
 		chain.shift();
 	}
 	if (!chain[1]) {
@@ -128,23 +129,12 @@ function chainPlaceholderAndNotes(records) {
 	return { placeholder: chain[0], notes };
 }
 
-// A sviber tip-point trail owns its channel for the span it covers, so reuse the first
-// channel that holds nothing inside that span and add a new channel when all are busy.
-function allocateChainChannel(model, notes) {
+// A constructed trail owns its tip-point track for the span it covers. Tracks are packed
+// into channels with switches after every chain has been assigned.
+function allocateChainTrack(tracks, notes) {
 	const beginning = Rational.from(notes[0].event.time);
 	const ending = Rational.from(notes.at(-1).event.time);
-	const chainEventIds = new Set(notes.map(record => record.event.id));
-	const free = model.channels.find(
-		candidate =>
-			!model.events.some(event => {
-				if (chainEventIds.has(event.id) || event.channel !== candidate.id) {
-					return false;
-				}
-				const time = Rational.from(event.time);
-				return time.compare(beginning) >= 0 && time.compare(ending) <= 0;
-			}),
-	);
-	return free ?? model.addChannel(model.channels.length);
+	return allocateTrackIndex(tracks, beginning, ending);
 }
 
 // Moves the trail onto its first note as a polar offset plus a lead time, which is how
@@ -171,17 +161,20 @@ function applyChainSpawn(placeholder, notes) {
 
 // Second pass: turn every collected bucket back into a sviber tip-point trail.
 function rebuildTipPointChains(model, tipChains) {
+	const tracks = [];
 	for (const records of tipChains.values()) {
 		const chain = chainPlaceholderAndNotes(records);
 		if (!chain) {
 			continue;
 		}
-		const channel = allocateChainChannel(model, chain.notes);
+		const trackIndex = allocateChainTrack(tracks, chain.notes);
 		for (const record of chain.notes) {
-			record.event.channel = channel.id;
+			record.event._importSequence = record.index;
+			tracks[trackIndex].events.push(record.event);
 		}
 		applyChainSpawn(chain.placeholder, chain.notes);
 	}
+	packTracksIntoChannels(model, tracks);
 }
 
 // Fills `model` from a parsed Sunniesnow chart document and returns the warning list.

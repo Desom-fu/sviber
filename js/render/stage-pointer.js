@@ -332,9 +332,6 @@ export class StagePointerTrait {
 		if (!creationMode || !MOVABLE_TYPES.has(creationMode)) {
 			return false;
 		}
-		if (context.playing) {
-			return true;
-		}
 		this._previewAt(context.point);
 		if (this.creationPreview) {
 			this.callbacks.onCreateEvent?.(creationMode, this.creationPreview);

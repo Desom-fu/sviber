@@ -80,6 +80,9 @@ export const withStatusBindings = Base =>
 				.getElementById("live-hosting")
 				?.addEventListener("change", event => void this.setLiveHosting(event.target.checked));
 			document
+				.getElementById("lock-layout")
+				?.addEventListener("change", event => this.setLockLayout?.(event.target.checked));
+			document
 				.getElementById("reset-main-field-view")
 				?.addEventListener("click", () => this.resetMainFieldView?.());
 		}

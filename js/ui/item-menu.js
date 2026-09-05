@@ -46,7 +46,7 @@ export function makeItemMenuButton({
 	button.setAttribute("aria-expanded", "false");
 	button.setAttribute("aria-label", i18n.t(tooltipKey));
 	const image = document.createElement("img");
-	image.src = "svg/icons/menu.svg";
+	image.src = "svg/icons/more.svg";
 	image.alt = "";
 	image.draggable = false;
 	button.append(image);
