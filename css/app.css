@@ -388,8 +388,7 @@ textarea:focus-visible,
 
 .render-surface canvas {
 	display: block;
-	width: 100% !important;
-	height: 100% !important;
+	/* width/height set by PixiCanvasSurface.resize() to host CSS pixels */
 	touch-action: none;
 }
 

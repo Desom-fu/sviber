@@ -123,6 +123,9 @@ export const INPUT_OFFSET_BEAT_SECONDS = 60 / INPUT_OFFSET_METRONOME_BPM;
 
 export function closestMetronomeDelta(audioTime, beatZero, beatSeconds = INPUT_OFFSET_BEAT_SECONDS) {
 	// Nearest beat = beatZero + round((now - beatZero) / beatSeconds) * beatSeconds.
+	// Return nearest - audioTime so a late press yields a negative offset (placement =
+	// audio.currentTime + inputOffset moves back toward the beat). PROMPT-v24 had the
+	// subtract operands reversed ("audioTime - nearest").
 	if (
 		!Number.isFinite(audioTime)
 		|| !Number.isFinite(beatZero)
@@ -132,7 +135,7 @@ export function closestMetronomeDelta(audioTime, beatZero, beatSeconds = INPUT_O
 		return 0;
 	}
 	const nearest = beatZero + Math.round((audioTime - beatZero) / beatSeconds) * beatSeconds;
-	return audioTime - nearest;
+	return nearest - audioTime;
 }
 
 export function averageInputOffsetSamples(samples) {

@@ -421,6 +421,7 @@ class HistoryCommandsTrait {
 		if (!this.audio.playing) {
 			this.model.editor.currentTime = this.currentBeat().snap(subdivision).toJSON();
 		}
+		this._syncCheckedCommands?.();
 		this.refreshInteractionPreview?.({ rebuildIndex: false });
 	}
 

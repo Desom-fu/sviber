@@ -23,6 +23,20 @@ export function toggledCreationMode(current, type) {
 	return current === type ? null : type;
 }
 
+/** Creation+playback unmodified letter/number/symbol key shape (ignores event.repeat). */
+export function matchesCreationPlaybackKeyShape(event, creationMode, playing) {
+	if (!creationMode || !playing) {
+		return false;
+	}
+	if (event?.ctrlKey || event?.altKey || event?.metaKey) {
+		return false;
+	}
+	if (!event?.key || event.key.length !== 1) {
+		return false;
+	}
+	return /[\p{L}\p{N}\p{S}\p{P}]/u.test(event.key);
+}
+
 class EventToolsTrait {
 	rememberCreationDefaults(events) {
 		for (const event of events || []) {
@@ -106,31 +120,29 @@ class EventToolsTrait {
 		return this.currentBeat();
 	}
 
+	isCreationPlaybackKeyEvent(event) {
+		return matchesCreationPlaybackKeyShape(event, this.creationMode, this.audio?.playing);
+	}
+
 	isCreationPlaybackKey(event) {
-		if (!this.creationMode || !this.audio?.playing) {
-			return false;
-		}
 		// Long-press keydown repeats must not place extra notes.
 		if (event.repeat) {
 			return false;
 		}
-		if (event.ctrlKey || event.altKey || event.metaKey) {
-			return false;
-		}
-		if (event.key.length !== 1) {
-			return false;
-		}
-		return /[\p{L}\p{N}\p{S}\p{P}]/u.test(event.key);
+		return this.isCreationPlaybackKeyEvent(event);
 	}
 
 	interceptCreationPlaybackKey(event) {
-		if (!this.isCreationPlaybackKey(event)) {
+		// Suppress shortcuts on shape match even for key-repeat; place only on non-repeat.
+		if (!this.isCreationPlaybackKeyEvent(event)) {
 			return false;
 		}
 		if (event.target && (event.target.closest?.("input, textarea, select, [contenteditable='true']"))) {
 			return false;
 		}
-		this.placeCreationEventFromPointer();
+		if (!event.repeat) {
+			this.placeCreationEventFromPointer();
+		}
 		return true;
 	}
 

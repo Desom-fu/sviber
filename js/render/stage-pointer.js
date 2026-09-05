@@ -243,14 +243,14 @@ export class StagePointerTrait {
 		if (this.drag) {
 			return;
 		}
-		this.creationPreview = null;
+		// Keep the last creation preview so keyboard placement during playback still
+		// works after the pointer leaves the stage (same idea as curve draft ghosts).
 		// Keep the last curve ghost while drafting. Spurious leave events (HUD/chrome
 		// crossings) used to blank the arc preview; a click in that blank frame then
 		// grabbed the centre handle and jumped it.
 		if (!this.callbacks.getCurveDraft?.()) {
 			this.curvePreview = null;
 		}
-		this.callbacks.onCreationPreview?.(null);
 		this.requestRender();
 	}
 

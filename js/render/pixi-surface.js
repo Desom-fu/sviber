@@ -9,6 +9,23 @@ export function canvasHostSize(host) {
 	return { width, height };
 }
 
+export function clampDevicePixelRatio(dpr, max = 3) {
+	const value = Number(dpr);
+	if (!Number.isFinite(value) || value <= 0) {
+		return 1;
+	}
+	return Math.min(max, value);
+}
+
+export function canvasBufferSize(cssWidth, cssHeight, dpr) {
+	const ratio = clampDevicePixelRatio(dpr);
+	return {
+		width: Math.max(1, Math.round(cssWidth * ratio)),
+		height: Math.max(1, Math.round(cssHeight * ratio)),
+		ratio,
+	};
+}
+
 export class PixiCanvasSurface {
 	constructor(host, options = {}) {
 		this.host = host;
@@ -26,6 +43,7 @@ export class PixiCanvasSurface {
 		this.resizeObserver = null;
 		this.width = 1;
 		this.height = 1;
+		this.resolution = 1;
 		this.ready = this.#initialize();
 	}
 
@@ -33,6 +51,7 @@ export class PixiCanvasSurface {
 		if (!this.directCanvas) {
 			await globalThis.sviberDependenciesReady;
 		}
+		const initialDpr = clampDevicePixelRatio(globalThis.devicePixelRatio || 1);
 		if (!this.directCanvas && globalThis.PIXI) {
 			this.app = new PIXI.Application();
 			await this.app.init({
@@ -40,7 +59,7 @@ export class PixiCanvasSurface {
 				height: 1,
 				background: this.background,
 				antialias: true,
-				resolution: 1,
+				resolution: initialDpr,
 				autoDensity: false,
 				preference: "webgl",
 			});
@@ -52,6 +71,7 @@ export class PixiCanvasSurface {
 			this.canvas.className = "pixi-canvas";
 			this.host.append(this.canvas);
 		}
+		this.resolution = initialDpr;
 		this.resizeObserver = new ResizeObserver(() => {
 			if (this.resize()) {
 				this.onResize?.(this.width, this.height);
@@ -64,15 +84,29 @@ export class PixiCanvasSurface {
 
 	resize() {
 		const size = canvasHostSize(this.host);
-		if (!size || (size.width === this.width && size.height === this.height)) {
+		if (!size) {
+			return false;
+		}
+		const dpr = clampDevicePixelRatio(globalThis.devicePixelRatio || 1);
+		if (size.width === this.width && size.height === this.height && dpr === this.resolution) {
 			return false;
 		}
 		this.width = size.width;
 		this.height = size.height;
-		this.buffer.width = size.width;
-		this.buffer.height = size.height;
+		this.resolution = dpr;
+		const buffer = canvasBufferSize(size.width, size.height, dpr);
+		this.buffer.width = buffer.width;
+		this.buffer.height = buffer.height;
+		// Explicit CSS pixel size so layout is not merely stretching a stale bitmap.
+		this.canvas.style.width = `${size.width}px`;
+		this.canvas.style.height = `${size.height}px`;
 		if (this.app) {
+			if (this.app.renderer.resolution !== dpr) {
+				this.app.renderer.resolution = dpr;
+			}
 			this.app.renderer.resize(size.width, size.height);
+			this.canvas.style.width = `${size.width}px`;
+			this.canvas.style.height = `${size.height}px`;
 			this.#replaceTexture();
 		}
 		return true;
@@ -92,12 +126,17 @@ export class PixiCanvasSurface {
 			return;
 		}
 		const context = this.context;
+		const dpr = this.resolution || 1;
 		context.save();
 		context.setTransform(1, 0, 0, 1, 0, 0);
 		context.fillStyle = this.background;
-		context.fillRect(0, 0, this.width, this.height);
+		context.fillRect(0, 0, this.buffer.width, this.buffer.height);
 		context.restore();
+		context.save();
+		// Draw callbacks keep using CSS-pixel coordinates while the buffer is dpr-scaled.
+		context.setTransform(dpr, 0, 0, dpr, 0, 0);
 		draw(context, this.width, this.height);
+		context.restore();
 		if (this.texture) {
 			this.texture.source.update();
 		}
