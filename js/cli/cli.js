@@ -43,7 +43,7 @@ const VALUE_FLAGS = new Map([
 ]);
 
 export function versionText(version) {
-	return `sviber ${version || "0.15.0"}`;
+	return `sviber ${version || "0.15.1"}`;
 }
 
 export function helpText() {
