@@ -2,6 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { DEFAULT_PREFERENCES, storePreferences } from "../js/app/app-helpers.js";
+import {
+	INPUT_OFFSET_BEAT_SECONDS,
+	INPUT_OFFSET_METRONOME_BPM,
+	averageInputOffsetSamples,
+	closestMetronomeDelta,
+	isInputOffsetSampleKey,
+} from "../js/app/app-preferences-media.js";
 
 test("input offset is stored in editor preferences", () => {
 	assert.equal(DEFAULT_PREFERENCES.inputOffset, 0);
@@ -24,4 +31,23 @@ test("event creation during playback uses audio currentTime plus input offset", 
 	assert.match(tools, /secondsToSnappedBeat/);
 	assert.match(tools, /interceptCreationPlaybackKey/);
 	assert.doesNotMatch(tools, /timeStamp/);
+});
+
+test("input offset adjust uses AudioContext beats at 120 BPM and averages samples", async () => {
+	assert.equal(INPUT_OFFSET_METRONOME_BPM, 120);
+	assert.equal(INPUT_OFFSET_BEAT_SECONDS, 0.5);
+	assert.ok(Math.abs(closestMetronomeDelta(1.02, [0.5, 1.0, 1.5]) - 0.02) < 1e-12);
+	assert.ok(Math.abs(closestMetronomeDelta(0.9, [0.5, 1.0, 1.5]) + 0.1) < 1e-12);
+	assert.ok(Math.abs(averageInputOffsetSamples([0.01, 0.03, -0.01]) - 0.01) < 1e-12);
+	assert.equal(isInputOffsetSampleKey({ key: "a", repeat: false }), true);
+	assert.equal(isInputOffsetSampleKey({ key: "a", repeat: true }), false);
+	assert.equal(isInputOffsetSampleKey({ key: " ", repeat: false }), false);
+
+	const prefs = await readFile(new URL("../js/app/app-preferences-media.js", import.meta.url), "utf8");
+	assert.match(prefs, /inputOffsetAdjusting/);
+	assert.match(prefs, /playMetronome\(0, when\)/);
+	assert.match(prefs, /previousDisabled/);
+	assert.match(prefs, /_finishInputOffsetAdjust/);
+	assert.doesNotMatch(prefs, /event\.timeStamp/);
+	assert.match(prefs, /input\.disabled = true|control\.disabled = true/);
 });

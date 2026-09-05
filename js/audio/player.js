@@ -526,13 +526,17 @@ export class AudioPlayer extends EventTarget {
 		return record;
 	}
 
-	async playMetronome(delay = 0) {
+	async playMetronome(delay = 0, scheduledAt = null) {
 		const generation = this.playbackGeneration;
 		const context = await this.ensureContext();
 		if (!context || generation !== this.playbackGeneration || !context.createOscillator || !context.createGain) {
 			return null;
 		}
-		const time = context.currentTime + Math.max(0, Number(delay) || 0);
+		const requestedTime = scheduledAt == null ? NaN : Number(scheduledAt);
+		let time = context.currentTime + Math.max(0, Number(delay) || 0);
+		if (Number.isFinite(requestedTime)) {
+			time = Math.max(context.currentTime, requestedTime);
+		}
 		const source = context.createOscillator();
 		const gain = context.createGain();
 		source.type = "square";

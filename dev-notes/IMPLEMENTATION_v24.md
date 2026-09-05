@@ -8,6 +8,8 @@ v24 相对 v23 的需求来自 `dev-notes/PROMPT-v23.md` 与 `dev-notes/PROMPT-v
 
 复查补丁作为 **v0.15.1** 发版（`sviber-v01510`）：检查/历史高度用 `inspectorHistoryFractions(F) → {inspectorFr:F, historyFr:1-F}`，CSS 两侧都是 `fr`，默认 0.58→58/42；`eventIconScale` 驱动叠层偏移、游标线宽、时长尾和游标点；隐藏通道越出时间范围时在分隔线上画左/右三角；`T(C)` 把停用通道视为空序列。`v0.15.0` 保留为功能发版，修复不并进该 tag。
 
+复查补丁作为 **v0.15.2** 发版（`sviber-v01520`）：工具栏补上 Tip point switch；事件创建模式忽略长按 `keydown` 重复；偏好输入偏移 adjust 可二次点击结束并禁用全部输入、按 AudioContext 拍点采样；状态栏按钮图标拖拽不再设背景图。
+
 ## Diff 清单与实现
 
 ### 1. 面板拖拽改布局并写入偏好

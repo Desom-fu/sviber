@@ -528,6 +528,7 @@ export const TOOLBAR_ITEMS = Object.freeze([
 	"channel.createAbove",
 	"channel.createBelow",
 	"channel.delete",
+	"channel.tipPointSwitch",
 	"separator",
 	"snappee.rectangularMesh",
 	"snappee.radialMesh",

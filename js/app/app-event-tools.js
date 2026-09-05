@@ -110,6 +110,10 @@ class EventToolsTrait {
 		if (!this.creationMode || !this.audio?.playing) {
 			return false;
 		}
+		// Long-press keydown repeats must not place extra notes.
+		if (event.repeat) {
+			return false;
+		}
 		if (event.ctrlKey || event.altKey || event.metaKey) {
 			return false;
 		}

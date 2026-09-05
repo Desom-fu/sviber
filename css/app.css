@@ -549,6 +549,12 @@ textarea:focus-visible,
 	margin: 0;
 }
 
+.status-option img {
+	-webkit-user-drag: none;
+	user-select: none;
+	pointer-events: none;
+}
+
 /* v20: the time, beat and speed readouts share one label-free line to save space, and
    wrap as whole values when the line runs out. */
 .status-readouts {

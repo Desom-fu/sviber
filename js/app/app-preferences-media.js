@@ -118,7 +118,40 @@ function preferenceFields(app) {
 	];
 }
 
+export const INPUT_OFFSET_METRONOME_BPM = 120;
+export const INPUT_OFFSET_BEAT_SECONDS = 60 / INPUT_OFFSET_METRONOME_BPM;
+
+export function closestMetronomeDelta(audioTime, beatTimes) {
+	if (!Array.isArray(beatTimes) || !beatTimes.length) {
+		return 0;
+	}
+	const closest = beatTimes.reduce(
+		(best, time) => (Math.abs(time - audioTime) < Math.abs(best - audioTime) ? time : best),
+		beatTimes[0],
+	);
+	return audioTime - closest;
+}
+
+export function averageInputOffsetSamples(samples) {
+	if (!samples.length) {
+		return 0;
+	}
+	return samples.reduce((sum, value) => sum + value, 0) / samples.length;
+}
+
+export function isInputOffsetSampleKey(event) {
+	if (!event || event.repeat || event.ctrlKey || event.altKey || event.metaKey || event.key?.length !== 1) {
+		return false;
+	}
+	return /[\p{L}\p{N}\p{S}\p{P}]/u.test(event.key);
+}
+
 async function runInputOffsetAdjust(app, input) {
+	// Second click on "adjust" ends the session and keeps the measured value.
+	if (input.dataset.inputOffsetAdjusting === "1") {
+		input._finishInputOffsetAdjust?.(false);
+		return;
+	}
 	const origin = Number(input.value) || 0;
 	const samples = [];
 	const context = await app.audio.ensureContext();
@@ -127,28 +160,34 @@ async function runInputOffsetAdjust(app, input) {
 	}
 	const dialog = input.closest(".dialog");
 	const controls = [...(dialog?.querySelectorAll("input, select, textarea, button") || [])];
+	const previousDisabled = new Map(controls.map(control => [control, control.disabled]));
 	for (const control of controls) {
 		control.disabled = true;
 	}
-	input.disabled = false;
 	const button = input.parentElement?.querySelector("button");
 	if (button) {
 		button.disabled = false;
 	}
-	const beat = 0.5;
-	let next = context.currentTime + 0.05;
+	input.dataset.inputOffsetAdjusting = "1";
+	const beat = INPUT_OFFSET_BEAT_SECONDS;
+	let next = context.currentTime + 0.1;
 	const ticks = [];
+	let stopped = false;
+	let timer = 0;
 	const schedule = () => {
 		if (stopped) {
 			return;
 		}
-		void app.audio.playMetronome(Math.max(0, next - context.currentTime));
-		ticks.push(next);
-		next += beat;
-		timer = setTimeout(schedule, beat * 1000);
+		// Schedule beats on the AudioContext clock so samples match heard clicks.
+		const horizon = context.currentTime + 0.75;
+		while (next <= horizon) {
+			const when = next;
+			ticks.push(when);
+			void app.audio.playMetronome(0, when);
+			next += beat;
+		}
+		timer = setTimeout(schedule, 50);
 	};
-	let stopped = false;
-	let timer = 0;
 	const finish = restore => {
 		if (stopped) {
 			return;
@@ -156,13 +195,16 @@ async function runInputOffsetAdjust(app, input) {
 		stopped = true;
 		clearTimeout(timer);
 		document.removeEventListener("keydown", onKey, true);
+		delete input.dataset.inputOffsetAdjusting;
+		input._finishInputOffsetAdjust = null;
 		for (const control of controls) {
-			control.disabled = false;
+			control.disabled = previousDisabled.get(control) ?? false;
 		}
 		if (restore) {
 			input.value = String(origin);
 		}
 	};
+	input._finishInputOffsetAdjust = finish;
 	const onKey = event => {
 		if (event.key === "Escape") {
 			event.preventDefault();
@@ -176,24 +218,17 @@ async function runInputOffsetAdjust(app, input) {
 			finish(false);
 			return;
 		}
-		if (event.ctrlKey || event.altKey || event.metaKey || event.key.length !== 1) {
-			return;
-		}
-		if (!/[\p{L}\p{N}\p{S}\p{P}]/u.test(event.key)) {
+		if (!isInputOffsetSampleKey(event)) {
 			return;
 		}
 		event.preventDefault();
 		event.stopImmediatePropagation();
+		// Sample against the AudioContext clock (not the event timestamp).
 		const now = context.currentTime;
-		const closest = ticks.reduce((best, time) =>
-			Math.abs(time - now) < Math.abs(best - now) ? time : best,
-		ticks[ticks.length - 1] || now);
-		samples.push(now - closest);
-		const average = samples.reduce((sum, value) => sum + value, 0) / samples.length;
-		input.value = average.toFixed(3);
+		samples.push(closestMetronomeDelta(now, ticks));
+		input.value = averageInputOffsetSamples(samples).toFixed(3);
 	};
 	document.addEventListener("keydown", onKey, true);
-	button?.addEventListener("click", () => finish(false), { once: true });
 	schedule();
 }
 

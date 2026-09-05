@@ -21,16 +21,45 @@ function classifyFile(file) {
 	return null;
 }
 
+function isExternalFileDrop(dataTransfer) {
+	if (!dataTransfer) {
+		return false;
+	}
+	const types = [...(dataTransfer.types || [])].map(type => String(type).toLowerCase());
+	// Ignore in-page icon/image drags (often expose text/uri-list without Files).
+	if (!types.includes("files")) {
+		return false;
+	}
+	const files = [...(dataTransfer.files || [])];
+	if (files.length > 0) {
+		return true;
+	}
+	return [...(dataTransfer.items || [])].some(item => item.kind === "file");
+}
+
 class FileDropTrait {
 	_bindFileDrop() {
 		const root = document.getElementById("app") || document.body;
+		// Status/tool/menu icons must not start a drag that would set the editor background.
+		root.addEventListener(
+			"dragstart",
+			event => {
+				if (event.target?.closest?.(".status-panel, .status-option, .tool-bar, .menu-bar, .menu-popup")) {
+					event.preventDefault();
+				}
+			},
+			true,
+		);
 		root.addEventListener("dragover", event => {
-			if ([...event.dataTransfer.files].length || [...event.dataTransfer.items].length) {
+			if (isExternalFileDrop(event.dataTransfer)) {
 				event.preventDefault();
 				event.dataTransfer.dropEffect = "copy";
 			}
 		});
 		root.addEventListener("drop", event => {
+			if (!isExternalFileDrop(event.dataTransfer)) {
+				return;
+			}
 			event.preventDefault();
 			const files = [...(event.dataTransfer.files || [])];
 			void this._handleDroppedFiles(files);
@@ -56,4 +85,4 @@ class FileDropTrait {
 }
 
 export const withFileDrop = composeTraits("FileDropLayer", FileDropTrait);
-export { classifyFile };
+export { classifyFile, isExternalFileDrop };

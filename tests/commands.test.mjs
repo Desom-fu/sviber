@@ -121,6 +121,11 @@ test("commands move Channel items, add Lyrica export, bar-line icon, and shortcu
 	assert.ok(channel.items.some(item => item.command === "channel.showAll"));
 	assert.ok(TOOLBAR_ITEMS.includes("timing.barLine"));
 	assert.ok(TOOLBAR_ITEMS.includes("events.moveChannelAbove"));
+	assert.ok(TOOLBAR_ITEMS.includes("channel.tipPointSwitch"));
+	assert.equal(
+		TOOLBAR_ITEMS[TOOLBAR_ITEMS.indexOf("channel.delete") + 1],
+		"channel.tipPointSwitch",
+	);
 });
 
 test("commands add recent, autosave, run macro, and HUD icon", async () => {
