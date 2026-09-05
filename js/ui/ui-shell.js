@@ -1,5 +1,5 @@
 import { i18n as defaultI18n } from "./i18n.js";
-import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS } from "../app/commands.js";
+import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS, suppressControlSpaceActivation } from "../app/commands.js";
 import { appendMnemonic, clearElement, resolveElement, translated } from "./ui-shared.js";
 
 export class TooltipManager {
@@ -167,6 +167,10 @@ export class MenuBar {
 			});
 			rootButton.addEventListener("keydown", event => {
 				if (this.openIndex >= 0) {
+					return;
+				}
+				// Ctrl/Meta+Space is the viewport pan modifier; never open the menu with it.
+				if (suppressControlSpaceActivation(event)) {
 					return;
 				}
 				if (["ArrowDown", "Enter", " "].includes(event.key)) {
@@ -414,6 +418,9 @@ export class MenuBar {
 			}
 			case "Enter":
 			case " ": {
+				if (suppressControlSpaceActivation(event)) {
+					break;
+				}
 				const active = this.document.activeElement;
 				if (active?.classList.contains("menu-command")) {
 					event.preventDefault();

@@ -22,7 +22,7 @@ function node(tag) {
 test("menu bar keyboard navigation and dismissal work through the documented controls", async () => {
 	const shell = await readSource("js/ui/ui-shell.js");
 	await assertSourceContracts([
-		["js/ui/ui-shell.js", [/altKey|Alt/, /ArrowUp|ArrowDown|Tab/, /Enter|Space/, /pointerdown|click/, /separator/, /title/]],
+		["js/ui/ui-shell.js", [/altKey|Alt/, /ArrowUp|ArrowDown|Tab/, /Enter|Space/, /suppressControlSpaceActivation/, /pointerdown|click/, /separator/, /title/]],
 	]);
 	assert.match(shell, /menu/);
 });

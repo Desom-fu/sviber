@@ -198,3 +198,10 @@ tag. Release metadata is `0.14.9` with Service Worker cache `sviber-v01490`.
 Unify Simplified/Traditional Chinese channel command labels that still said 轨道/軌道
 to 通道 (deactivate / activateAll / hide / showAll and their hints). Release metadata is
 `0.14.10` with Service Worker cache `sviber-v01410`.
+
+## v0.14.11 Patch
+
+Menu-bar root buttons and open menu items no longer treat Ctrl/Meta+Space as a menu
+activation key, so the Ctrl+Space viewport pan drag still works while the menu bar has
+focus. The handlers reuse `suppressControlSpaceActivation` from `js/app/commands.js`.
+Release metadata is `0.14.11` with Service Worker cache `sviber-v01411`.
