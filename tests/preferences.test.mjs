@@ -136,10 +136,10 @@ test("theme CSS and standalone pages expose explicit preference states", async (
 	assert.match(appStyles, /:root\[data-theme="dark"\] \.tool-button img/);
 	assert.match(appStyles, /:root:not\(\[data-theme\]\) \.tool-button img/);
 	assert.doesNotMatch(appStyles, /drop-shadow/);
-	for (const standaloneStyles of [macroStyles, docsStyles]) {
-		assert.match(standaloneStyles, /:root\[data-theme="dark"\]/);
-		assert.match(standaloneStyles, /:root:not\(\[data-theme\]\)/);
-	}
+	assert.match(macroStyles, /@import url\("\.\/themes\.css"\)/);
+	assert.match(macroStyles, /@import url\("\.\/shared-chrome\.css"\)/);
+	assert.match(docsStyles, /:root\[data-theme="dark"\]/);
+	assert.match(docsStyles, /:root:not\(\[data-theme\]\)/);
 	assert.match(macroPage, /src="js\/boot\/theme-bootstrap\.js"/);
 	assert.match(docsPage, /src="\.\.\/js\/boot\/theme-bootstrap\.js"/);
 	assert.match(index, /src="js\/boot\/theme-bootstrap\.js"/);

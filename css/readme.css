@@ -1,6 +1,7 @@
 @import url("macros.css");
 
-.readme-shell { display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100vh; }
+.readme-shell { display: grid; grid-template-rows: var(--menu-height) minmax(0, 1fr); height: 100vh; }
+.readme-chrome { background: var(--chrome); border-bottom: 1px solid var(--border-strong); }
 .readme-workspace {
 	display: grid;
 	grid-template-columns: var(--readme-sidebar, 22%) 6px minmax(0, 1fr) 6px var(--readme-preview, 36%);
@@ -9,9 +10,8 @@
 .readme-workspace.is-preview-hidden { grid-template-columns: var(--readme-sidebar, 22%) 6px minmax(0, 1fr) 0 0; }
 .readme-workspace.is-preview-hidden .readme-preview,
 .readme-workspace.is-preview-hidden #readme-resize-preview { visibility: hidden; pointer-events: none; }
-.readme-sidebar, .readme-preview { overflow: auto; background: var(--panel); }
+.readme-sidebar { overflow: auto; background: var(--panel); border-right: 1px solid var(--border); }
+.readme-preview { overflow: auto; background: var(--panel); padding: 12px 14px; }
+.readme-editor-area { min-width: 0; min-height: 0; }
 .readme-editor { min-height: 0; height: 100%; }
-.readme-file { display: block; width: 100%; padding: 6px 8px; border: 0; background: transparent; color: inherit; text-align: left; }
-.readme-file.is-active { background: var(--hover); font-weight: 700; }
-.readme-preview { padding: 12px 14px; }
 .layout-resize { background: var(--border); cursor: col-resize; }

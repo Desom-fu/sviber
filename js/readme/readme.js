@@ -2,6 +2,7 @@ import { MESSAGES, SUPPORTED_LANGUAGES, normalizeLanguage } from "../ui/i18n.js"
 import { loadMonaco } from "../macro/macro-monaco-loader.js";
 import { needsDisplayTextFile } from "../platform/platform-file-kinds.js";
 import { DEFAULT_PREFERENCES, loadPreferences, storePreferences } from "../app/app-helpers.js";
+import { appendMnemonic } from "../ui/ui-shared.js";
 
 function preferredLanguage() {
 	const query = new URLSearchParams(location.search).get("lang");
@@ -32,7 +33,12 @@ function applyLocale() {
 	document.documentElement.lang = LANGUAGE;
 	document.title = t("page.title");
 	for (const element of document.querySelectorAll("[data-i18n]")) {
-		element.textContent = t(element.dataset.i18n);
+		const value = t(element.dataset.i18n);
+		if (element.dataset.mnemonic) {
+			appendMnemonic(document, element, value, element.dataset.mnemonic);
+		} else {
+			element.textContent = value;
+		}
 	}
 }
 
@@ -73,7 +79,7 @@ function renderList() {
 	for (const [name, record] of files) {
 		const button = document.createElement("button");
 		button.type = "button";
-		button.className = `readme-file${name === active ? " is-active" : ""}`;
+		button.className = `file-list-item${name === active ? " is-active" : ""}`;
 		button.textContent = `${record.dirty ? "* " : ""}${name}`;
 		button.addEventListener("click", () => openFile(name));
 		sidebar.append(button);
@@ -152,12 +158,36 @@ function promptName(initial) {
 	return name;
 }
 
+function closeMenus() {
+	document.querySelectorAll(".menu-root").forEach(root => root.classList.remove("is-open"));
+}
+
+function openMenuRoot(root) {
+	for (const other of document.querySelectorAll(".menu-root")) {
+		other.classList.toggle("is-open", other === root);
+	}
+}
+
 function bindMenus() {
+	for (const root of document.querySelectorAll(".menu-root")) {
+		root.querySelector("[data-menu]")?.addEventListener("click", event => {
+			event.stopPropagation();
+			if (root.classList.contains("is-open")) {
+				root.classList.remove("is-open");
+			} else {
+				openMenuRoot(root);
+			}
+		});
+	}
 	document.addEventListener("click", event => {
 		const action = event.target.closest("[data-action]")?.dataset.action;
+		if (!event.target.closest(".menu-root")) {
+			closeMenus();
+		}
 		if (!action) {
 			return;
 		}
+		closeMenus();
 		if (action === "new") {
 			const name = promptName(files.has("README.md") ? "" : "README.md");
 			if (name) {
@@ -195,9 +225,29 @@ function bindMenus() {
 			editor?.trigger?.("readme", "undo");
 		} else if (action === "redo") {
 			editor?.trigger?.("readme", "redo");
+		} else if (action === "cut") {
+			editor?.trigger?.("readme", "editor.action.clipboardCutAction");
+		} else if (action === "copy") {
+			editor?.trigger?.("readme", "editor.action.clipboardCopyAction");
+		} else if (action === "paste") {
+			editor?.trigger?.("readme", "editor.action.clipboardPasteAction");
 		}
 	});
 	document.addEventListener("keydown", event => {
+		if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.length === 1) {
+			const root = [...document.querySelectorAll(".menu-root")].find(item => {
+				const mnemonic = item.querySelector("[data-menu]")?.dataset.mnemonic || "";
+				return mnemonic.toLowerCase() === event.key.toLowerCase();
+			});
+			if (root) {
+				event.preventDefault();
+				openMenuRoot(root);
+				return;
+			}
+		}
+		if (event.key === "Escape") {
+			closeMenus();
+		}
 		if (event.ctrlKey && event.key.toLowerCase() === "s") {
 			event.preventDefault();
 			void saveActive();
@@ -230,6 +280,12 @@ async function loadPreviewLibraries() {
 	}
 }
 
+window.addEventListener("sviber-theme-change", event => {
+	if (editor && globalThis.monaco?.editor) {
+		globalThis.monaco.editor.setTheme(event.detail?.dark ? "vs-dark" : "vs");
+	}
+});
+
 applyLocale();
 bindMenus();
 applyLayout();
@@ -239,7 +295,7 @@ editor = monaco.editor.create(document.getElementById("readme-editor"), {
 	value: "",
 	language: "markdown",
 	automaticLayout: true,
-	theme: document.documentElement.dataset.theme === "light" ? "vs" : "vs-dark",
+	theme: globalThis.sviberTheme?.isDark() ? "vs-dark" : "vs",
 });
 editor.onDidChangeModelContent(markDirty);
 await loadFiles();

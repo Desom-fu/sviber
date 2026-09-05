@@ -3,6 +3,7 @@ import { registerMacroCompletions } from "./macro-completions.js";
 import { loadMonaco } from "./macro-monaco-loader.js";
 import { saveMacroFile } from "./macro-file-export.js";
 import { installMacroLayout } from "./macro-layout.js";
+import { appendMnemonic } from "../ui/ui-shared.js";
 
 const GLOBAL_KEY = "sviber.macros";
 const LAST_LANGUAGE_KEY = "sviber.macroLanguage";
@@ -62,10 +63,11 @@ window.addEventListener("sviber-theme-change", event => {
 
 function applyLocale() {
 	document.documentElement.lang = LANGUAGE;
+	document.title = t("page.title");
 	for (const element of document.querySelectorAll("[data-i18n]")) {
 		const value = t(element.dataset.i18n);
-		if (element.dataset.mnemonic && LANGUAGE === "en-US" && value.length > 1) {
-			element.innerHTML = `<u>${element.dataset.mnemonic}</u>${value.slice(1)}`;
+		if (element.dataset.mnemonic) {
+			appendMnemonic(document, element, value, element.dataset.mnemonic);
 		} else {
 			element.textContent = value;
 		}
@@ -334,6 +336,7 @@ function renderList() {
 	for (const macro of macros[activeList].values()) {
 		const button = document.createElement("button");
 		button.type = "button";
+		button.className = "file-list-item";
 		button.textContent = macro.name;
 		button.classList.toggle("is-active", activeKey === macroKey(macro));
 		button.addEventListener("click", () => openMacro(macro));
@@ -342,7 +345,7 @@ function renderList() {
 	if (!elements.list.childElementCount) {
 		const empty = document.createElement("div");
 		empty.textContent = activeList === "project" && !projectAvailable ? t("empty.projectBrowser") : t("empty.none");
-		empty.style.cssText = "padding:12px;color:var(--muted);font-size:12px";
+		empty.style.cssText = "padding:12px;color:var(--text-muted);font-size:12px";
 		elements.list.append(empty);
 	}
 }
@@ -797,25 +800,35 @@ async function runMacro() {
 	}
 }
 
+function closeMenus() {
+	document.querySelectorAll(".menu-root").forEach(root => root.classList.remove("is-open"));
+}
+
+function openMenuRoot(root) {
+	for (const other of document.querySelectorAll(".menu-root")) {
+		other.classList.toggle("is-open", other === root);
+	}
+}
+
 function installMenus() {
 	for (const root of document.querySelectorAll(".menu-root")) {
-		root.querySelector("[data-menu]").addEventListener("click", () => {
-			for (const other of document.querySelectorAll(".menu-root")) {
-				if (other !== root) {
-					other.classList.remove("is-open");
-				}
+		root.querySelector("[data-menu]").addEventListener("click", event => {
+			event.stopPropagation();
+			if (root.classList.contains("is-open")) {
+				root.classList.remove("is-open");
+			} else {
+				openMenuRoot(root);
 			}
-			root.classList.toggle("is-open");
 		});
 	}
 	document.addEventListener("click", event => {
 		if (!event.target.closest(".menu-root")) {
-			document.querySelectorAll(".menu-root").forEach(root => root.classList.remove("is-open"));
+			closeMenus();
 		}
 	});
 	document.querySelectorAll("[data-action]").forEach(button =>
 		button.addEventListener("click", () => {
-			document.querySelectorAll(".menu-root").forEach(root => root.classList.remove("is-open"));
+			closeMenus();
 			const editAction = action => {
 				const commands = {
 					cut: "editor.action.clipboardCutAction",
@@ -847,6 +860,20 @@ function installMenus() {
 		}),
 	);
 	document.addEventListener("keydown", event => {
+		if (event.altKey && !event.ctrlKey && !event.metaKey && event.key.length === 1) {
+			const root = [...document.querySelectorAll(".menu-root")].find(item => {
+				const mnemonic = item.querySelector("[data-menu]")?.dataset.mnemonic || "";
+				return mnemonic.toLowerCase() === event.key.toLowerCase();
+			});
+			if (root) {
+				event.preventDefault();
+				openMenuRoot(root);
+				return;
+			}
+		}
+		if (event.key === "Escape") {
+			closeMenus();
+		}
 		if (event.key === "F8") {
 			event.preventDefault();
 			if (!readOnly) {

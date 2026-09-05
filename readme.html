@@ -3,6 +3,7 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<meta name="theme-color" content="#eceeef">
 	<title data-i18n="page.title">sviber Readme</title>
 	<link rel="icon" href="svg/icon.svg" type="image/svg+xml">
 	<script src="js/boot/theme-bootstrap.js"></script>
@@ -11,37 +12,40 @@
 <body>
 	<div class="readme-shell">
 		<header class="readme-chrome">
-			<nav class="readme-menu" aria-label="Readme menu">
-				<div class="menu-root"><button type="button" data-menu="file" data-i18n="menu.file" data-mnemonic="F">File</button>
-					<div class="menu-popup" data-popup="file">
-						<button data-action="new"><span data-i18n="menu.new">New...</span> <kbd>Ctrl+N</kbd></button>
-						<button data-action="save"><span data-i18n="menu.save">Save</span> <kbd>Ctrl+S</kbd></button>
-						<button data-action="rename" data-i18n="menu.rename">Rename...</button>
-						<button data-action="import" data-i18n="menu.import">Import...</button>
-						<button data-action="export" data-i18n="menu.export">Export...</button>
-						<button data-action="delete" data-i18n="menu.delete">Delete...</button>
+			<nav class="menu-bar" aria-label="Readme menu">
+				<div class="menu-root">
+					<button type="button" class="menu-root-button" data-menu="file" data-i18n="menu.file" data-mnemonic="F">File</button>
+					<div class="menu-popup" data-popup="file" role="menu">
+						<button type="button" class="menu-command" data-action="new"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.new">New...</span><span class="menu-shortcut">Ctrl+N</span></button>
+						<button type="button" class="menu-command" data-action="save"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.save">Save</span><span class="menu-shortcut">Ctrl+S</span></button>
+						<button type="button" class="menu-command" data-action="rename"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.rename">Rename...</span><span class="menu-shortcut"></span></button>
+						<button type="button" class="menu-command" data-action="import"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.import">Import...</span><span class="menu-shortcut"></span></button>
+						<button type="button" class="menu-command" data-action="export"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.export">Export...</span><span class="menu-shortcut"></span></button>
+						<button type="button" class="menu-command" data-action="delete"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.delete">Delete...</span><span class="menu-shortcut"></span></button>
 					</div>
 				</div>
-				<div class="menu-root"><button type="button" data-menu="edit" data-i18n="menu.edit" data-mnemonic="E">Edit</button>
-					<div class="menu-popup" data-popup="edit">
-						<button data-action="undo"><span data-i18n="menu.undo">Undo</span> <kbd>Ctrl+Z</kbd></button>
-						<button data-action="redo"><span data-i18n="menu.redo">Redo</span> <kbd>Ctrl+Y</kbd></button>
-						<hr>
-						<button data-action="cut"><span data-i18n="menu.cut">Cut</span> <kbd>Ctrl+X</kbd></button>
-						<button data-action="copy"><span data-i18n="menu.copy">Copy</span> <kbd>Ctrl+C</kbd></button>
-						<button data-action="paste"><span data-i18n="menu.paste">Paste</span> <kbd>Ctrl+V</kbd></button>
+				<div class="menu-root">
+					<button type="button" class="menu-root-button" data-menu="edit" data-i18n="menu.edit" data-mnemonic="E">Edit</button>
+					<div class="menu-popup" data-popup="edit" role="menu">
+						<button type="button" class="menu-command" data-action="undo"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.undo">Undo</span><span class="menu-shortcut">Ctrl+Z</span></button>
+						<button type="button" class="menu-command" data-action="redo"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.redo">Redo</span><span class="menu-shortcut">Ctrl+Y</span></button>
+						<div class="menu-separator" role="separator"></div>
+						<button type="button" class="menu-command" data-action="cut"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.cut">Cut</span><span class="menu-shortcut">Ctrl+X</span></button>
+						<button type="button" class="menu-command" data-action="copy"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.copy">Copy</span><span class="menu-shortcut">Ctrl+C</span></button>
+						<button type="button" class="menu-command" data-action="paste"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.paste">Paste</span><span class="menu-shortcut">Ctrl+V</span></button>
 					</div>
 				</div>
-				<div class="menu-root"><button type="button" data-menu="view" data-i18n="menu.view" data-mnemonic="V">View</button>
-					<div class="menu-popup" data-popup="view">
-						<button data-action="toggle-preview"><span data-i18n="menu.togglePreview">Toggle preview</span> <kbd>Ctrl+Shift+V</kbd></button>
-						<button data-action="reset-layout" data-i18n="menu.resetLayout">Reset to default</button>
+				<div class="menu-root">
+					<button type="button" class="menu-root-button" data-menu="view" data-i18n="menu.view" data-mnemonic="V">View</button>
+					<div class="menu-popup" data-popup="view" role="menu">
+						<button type="button" class="menu-command" data-action="toggle-preview"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.togglePreview">Toggle preview</span><span class="menu-shortcut">Ctrl+Shift+V</span></button>
+						<button type="button" class="menu-command" data-action="reset-layout"><span class="menu-command-icon"></span><span class="menu-command-label" data-i18n="menu.resetLayout">Reset to default</span><span class="menu-shortcut"></span></button>
 					</div>
 				</div>
 			</nav>
 		</header>
 		<main class="readme-workspace">
-			<aside id="readme-sidebar" class="readme-sidebar"></aside>
+			<aside id="readme-sidebar" class="readme-sidebar file-list"></aside>
 			<div id="readme-resize-sidebar" class="layout-resize"></div>
 			<section class="readme-editor-area">
 				<div id="readme-editor" class="readme-editor"></div>

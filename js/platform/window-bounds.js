@@ -64,5 +64,13 @@ export function rememberNwWindow(name, nwWindow, fallback) {
 	};
 	nwWindow.on?.("move", persist);
 	nwWindow.on?.("resize", persist);
-	nwWindow.on?.("close", persist);
+	/* NW.js intercepts close when a listener is attached; force-close after saving bounds. */
+	nwWindow.on?.("close", function handleClose() {
+		persist();
+		try {
+			this.close(true);
+		} catch {
+			/* Already closing. */
+		}
+	});
 }

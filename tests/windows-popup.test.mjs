@@ -13,5 +13,6 @@ test("browser opens the manual in a tab and other tools as popups; NW.js remembe
 	assert.match(core, /window\.open\(url, "sviber-macros", "popup/);
 	assert.match(readme, /window\.open\(url, "sviber-readme", "popup/);
 	assert.match(bounds, /rememberNwWindow/);
+	assert.match(bounds, /close\(true\)/);
 	assert.match(help, /rememberNwWindow\("docs"/);
 });
