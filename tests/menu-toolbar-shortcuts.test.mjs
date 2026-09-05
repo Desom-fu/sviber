@@ -25,6 +25,15 @@ test("menu bar keyboard navigation and dismissal work through the documented con
 		["js/ui/ui-shell.js", [/altKey|Alt/, /ArrowUp|ArrowDown|Tab/, /Enter|Space/, /suppressControlSpaceActivation/, /pointerdown|click/, /separator/, /title/]],
 	]);
 	assert.match(shell, /menu/);
+	// Both Space activation paths (menu-root open + open-menu item) must refuse Ctrl/Meta+Space.
+	assert.match(
+		shell,
+		/if \(suppressControlSpaceActivation\(event\)\) \{\s*return;\s*\}\s*if \(\["ArrowDown", "Enter", " "\]\.includes\(event\.key\)\)/,
+	);
+	assert.match(
+		shell,
+		/case " ": \{\s*if \(suppressControlSpaceActivation\(event\)\) \{\s*break;\s*\}/,
+	);
 });
 
 test("toolbar exposes the same command shortcut and tooltip surfaces", async () => {

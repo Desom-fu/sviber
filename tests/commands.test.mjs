@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { toggledCreationMode } from "../js/app/app-history-commands.js";
-import { COMMAND_DEFINITIONS, CommandRegistry, MENU_DEFINITION, TOOLBAR_ITEMS } from "../js/app/commands.js";
+import {
+	COMMAND_DEFINITIONS,
+	CommandRegistry,
+	MENU_DEFINITION,
+	TOOLBAR_ITEMS,
+	suppressControlSpaceActivation,
+} from "../js/app/commands.js";
 import { MESSAGES } from "../js/ui/i18n.js";
 
 function menuById(id) {
@@ -250,4 +256,71 @@ test("commands have shortcuts and complete English and Chinese text", () => {
 			assert.ok(MESSAGES[language][key], `${language} lacks ${key}`);
 		}
 	}
+});
+
+
+test("suppressControlSpaceActivation blocks Ctrl/Meta+Space outside editable fields", () => {
+	const calls = [];
+	const base = {
+		key: " ",
+		code: "Space",
+		isComposing: false,
+		ctrlKey: false,
+		metaKey: false,
+		target: { closest: () => null },
+		preventDefault() {
+			calls.push("preventDefault");
+		},
+	};
+
+	assert.equal(suppressControlSpaceActivation({ ...base }), false);
+	assert.deepEqual(calls, []);
+
+	assert.equal(suppressControlSpaceActivation({ ...base, ctrlKey: true }), true);
+	assert.deepEqual(calls, ["preventDefault"]);
+	calls.length = 0;
+
+	assert.equal(suppressControlSpaceActivation({ ...base, metaKey: true }), true);
+	assert.deepEqual(calls, ["preventDefault"]);
+	calls.length = 0;
+
+	assert.equal(suppressControlSpaceActivation({ ...base, ctrlKey: true, key: "a", code: "KeyA" }), false);
+	assert.deepEqual(calls, []);
+
+	assert.equal(
+		suppressControlSpaceActivation({
+			...base,
+			ctrlKey: true,
+			isComposing: true,
+		}),
+		false,
+	);
+	assert.deepEqual(calls, []);
+
+	const editable = {
+		closest(selector) {
+			return selector.includes("input") ? { matches: () => false } : null;
+		},
+	};
+	assert.equal(
+		suppressControlSpaceActivation({
+			...base,
+			ctrlKey: true,
+			target: editable,
+		}),
+		false,
+	);
+	assert.deepEqual(calls, []);
+
+	// Menu-bar focus: Space with Ctrl must suppress even when target is a button-like node.
+	assert.equal(
+		suppressControlSpaceActivation({
+			...base,
+			ctrlKey: true,
+			key: "Spacebar",
+			target: { closest: () => null },
+		}),
+		true,
+	);
+	assert.deepEqual(calls, ["preventDefault"]);
 });

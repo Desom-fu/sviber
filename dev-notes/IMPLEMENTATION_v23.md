@@ -205,3 +205,9 @@ Menu-bar root buttons and open menu items no longer treat Ctrl/Meta+Space as a m
 activation key, so the Ctrl+Space viewport pan drag still works while the menu bar has
 focus. The handlers reuse `suppressControlSpaceActivation` from `js/app/commands.js`.
 Release metadata is `0.14.11` with Service Worker cache `sviber-v01411`.
+
+## v0.14.12 Patch
+
+Add executable coverage for `suppressControlSpaceActivation` and assert both MenuBar
+Space paths refuse Ctrl/Meta+Space (viewport pan). Release metadata is `0.14.12` with
+Service Worker cache `sviber-v01412`.
