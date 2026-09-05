@@ -1,5 +1,10 @@
 import { i18n as defaultI18n } from "./i18n.js";
-import { COMMAND_DEFINITIONS, MENU_DEFINITION, TOOLBAR_ITEMS, suppressControlSpaceActivation } from "../app/commands.js";
+import {
+	COMMAND_DEFINITIONS,
+	MENU_DEFINITION,
+	TOOLBAR_ITEMS,
+	suppressControlSpaceActivation,
+} from "../app/commands.js";
 import { appendMnemonic, clearElement, resolveElement, translated } from "./ui-shared.js";
 
 export class TooltipManager {
