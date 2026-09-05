@@ -121,15 +121,18 @@ function preferenceFields(app) {
 export const INPUT_OFFSET_METRONOME_BPM = 120;
 export const INPUT_OFFSET_BEAT_SECONDS = 60 / INPUT_OFFSET_METRONOME_BPM;
 
-export function closestMetronomeDelta(audioTime, beatTimes) {
-	if (!Array.isArray(beatTimes) || !beatTimes.length) {
+export function closestMetronomeDelta(audioTime, beatZero, beatSeconds = INPUT_OFFSET_BEAT_SECONDS) {
+	// Nearest beat = beatZero + round((now - beatZero) / beatSeconds) * beatSeconds.
+	if (
+		!Number.isFinite(audioTime)
+		|| !Number.isFinite(beatZero)
+		|| !Number.isFinite(beatSeconds)
+		|| beatSeconds <= 0
+	) {
 		return 0;
 	}
-	const closest = beatTimes.reduce(
-		(best, time) => (Math.abs(time - audioTime) < Math.abs(best - audioTime) ? time : best),
-		beatTimes[0],
-	);
-	return audioTime - closest;
+	const nearest = beatZero + Math.round((audioTime - beatZero) / beatSeconds) * beatSeconds;
+	return audioTime - nearest;
 }
 
 export function averageInputOffsetSamples(samples) {
@@ -170,8 +173,8 @@ async function runInputOffsetAdjust(app, input) {
 	}
 	input.dataset.inputOffsetAdjusting = "1";
 	const beat = INPUT_OFFSET_BEAT_SECONDS;
-	let next = context.currentTime + 0.1;
-	const ticks = [];
+	const beatZero = context.currentTime + 0.1;
+	let next = beatZero;
 	let stopped = false;
 	let timer = 0;
 	const schedule = () => {
@@ -182,7 +185,6 @@ async function runInputOffsetAdjust(app, input) {
 		const horizon = context.currentTime + 0.75;
 		while (next <= horizon) {
 			const when = next;
-			ticks.push(when);
 			void app.audio.playMetronome(0, when);
 			next += beat;
 		}
@@ -225,7 +227,7 @@ async function runInputOffsetAdjust(app, input) {
 		event.stopImmediatePropagation();
 		// Sample against the AudioContext clock (not the event timestamp).
 		const now = context.currentTime;
-		samples.push(closestMetronomeDelta(now, ticks));
+		samples.push(closestMetronomeDelta(now, beatZero, beat));
 		input.value = averageInputOffsetSamples(samples).toFixed(3);
 	};
 	document.addEventListener("keydown", onKey, true);

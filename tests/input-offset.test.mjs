@@ -36,8 +36,12 @@ test("event creation during playback uses audio currentTime plus input offset", 
 test("input offset adjust uses AudioContext beats at 120 BPM and averages samples", async () => {
 	assert.equal(INPUT_OFFSET_METRONOME_BPM, 120);
 	assert.equal(INPUT_OFFSET_BEAT_SECONDS, 0.5);
-	assert.ok(Math.abs(closestMetronomeDelta(1.02, [0.5, 1.0, 1.5]) - 0.02) < 1e-12);
-	assert.ok(Math.abs(closestMetronomeDelta(0.9, [0.5, 1.0, 1.5]) + 0.1) < 1e-12);
+	assert.ok(Math.abs(closestMetronomeDelta(1.02, 0.5, 0.5) - 0.02) < 1e-12);
+	assert.ok(Math.abs(closestMetronomeDelta(0.9, 0.5, 0.5) + 0.1) < 1e-12);
+	assert.ok(Math.abs(closestMetronomeDelta(0.74, 0.5, 0.5) - 0.24) < 1e-12);
+	assert.ok(Math.abs(closestMetronomeDelta(0.76, 0.5, 0.5) + 0.24) < 1e-12);
+	assert.ok(Math.abs(closestMetronomeDelta(0.75, 0.5, 0.5) + 0.25) < 1e-12);
+	assert.equal(closestMetronomeDelta(1.0, Number.NaN, 0.5), 0);
 	assert.ok(Math.abs(averageInputOffsetSamples([0.01, 0.03, -0.01]) - 0.01) < 1e-12);
 	assert.equal(isInputOffsetSampleKey({ key: "a", repeat: false }), true);
 	assert.equal(isInputOffsetSampleKey({ key: "a", repeat: true }), false);
@@ -46,6 +50,8 @@ test("input offset adjust uses AudioContext beats at 120 BPM and averages sample
 	const prefs = await readFile(new URL("../js/app/app-preferences-media.js", import.meta.url), "utf8");
 	assert.match(prefs, /inputOffsetAdjusting/);
 	assert.match(prefs, /playMetronome\(0, when\)/);
+	assert.match(prefs, /beatZero/);
+	assert.match(prefs, /Math\.round\(\(audioTime - beatZero\) \/ beatSeconds\)/);
 	assert.match(prefs, /previousDisabled/);
 	assert.match(prefs, /_finishInputOffsetAdjust/);
 	assert.doesNotMatch(prefs, /event\.timeStamp/);

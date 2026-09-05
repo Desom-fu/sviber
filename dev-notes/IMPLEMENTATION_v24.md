@@ -10,6 +10,8 @@ v24 相对 v23 的需求来自 `dev-notes/PROMPT-v23.md` 与 `dev-notes/PROMPT-v
 
 复查补丁作为 **v0.15.2** 发版（`sviber-v01520`）：工具栏补上 Tip point switch；事件创建模式忽略长按 `keydown` 重复；偏好输入偏移 adjust 可二次点击结束并禁用全部输入、按 AudioContext 拍点采样；状态栏按钮图标拖拽不再设背景图。
 
+复查补丁作为 **v0.15.3** 发版（`sviber-v01530`）：输入偏移最近拍改为 `beatZero + round((now - beatZero) / beatSeconds) * beatSeconds`，不再在已排程 ticks 列表里搜最近拍；含 v0.15.2 全部修复，直接推 main 不经 PR。
+
 ## Diff 清单与实现
 
 ### 1. 面板拖拽改布局并写入偏好
