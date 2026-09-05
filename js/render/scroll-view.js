@@ -6,8 +6,11 @@ import {
 	TIMELINE_DURATION_TYPES,
 	TIMELINE_EVENT_COLORS,
 	drawTimelineEventIcon,
+	durationTailWidth,
 	eventIconRadius,
 	eventDrawLayer,
+	tipConnectorLineWidth,
+	tipSpawnLineWidth,
 	isBackgroundEvent,
 	projectState,
 	relativeBeatColor,
@@ -324,7 +327,7 @@ export class ScrollView {
 			const connector = tipSpawnDirectionSegment(firstPosition, spawnPosition, firstScreen, 12);
 			context.save();
 			context.strokeStyle = "rgba(255,255,255,0.24)";
-			context.lineWidth = 5;
+			context.lineWidth = tipConnectorLineWidth(project.preferences);
 			context.lineCap = "round";
 			context.beginPath();
 			checkpoints.forEach((point, index) =>
@@ -335,7 +338,7 @@ export class ScrollView {
 			}
 			if (connector.length > 1) {
 				context.strokeStyle = "#a98500";
-				context.lineWidth = 1.5;
+				context.lineWidth = tipSpawnLineWidth(project.preferences);
 				context.beginPath();
 				context.moveTo(connector[0].x, connector[0].y);
 				context.lineTo(connector[1].x, connector[1].y);
@@ -424,7 +427,7 @@ export class ScrollView {
 				context.save();
 				context.strokeStyle = color;
 				context.globalAlpha = selected ? 0.92 : 0.58;
-				context.lineWidth = event.type === "hold" ? 8 : 6;
+				context.lineWidth = durationTailWidth(event.type, project.preferences);
 				context.beginPath();
 				context.moveTo(screen.x, screen.y);
 				context.lineTo(end.x, end.y);

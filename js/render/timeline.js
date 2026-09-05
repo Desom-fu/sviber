@@ -19,6 +19,7 @@ import {
 	currentSeconds,
 	drawTimelineEventIcon,
 	eventDrawLayer,
+	stackedEventLaneOffset,
 	isBackgroundEvent,
 	projectState,
 	relativeBeatColor,
@@ -310,7 +311,12 @@ export class TimelineView {
 		}
 		const offsets = new Map();
 		for (const simultaneous of groups.values()) {
-			simultaneous.forEach((event, index) => offsets.set(event.id, (index - (simultaneous.length - 1) / 2) * 7));
+			simultaneous.forEach((event, index) =>
+				offsets.set(
+					event.id,
+					stackedEventLaneOffset(index, simultaneous.length, projectState(this.state)?.preferences),
+				),
+			);
 		}
 		return offsets;
 	}

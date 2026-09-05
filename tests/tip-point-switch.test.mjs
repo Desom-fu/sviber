@@ -47,6 +47,26 @@ test("writing an identity permutation deletes the switch", () => {
 	assert.deepEqual(permutationImages(model.channels, [2, 0, 1]), [0, 1]);
 });
 
+test("inactive channels contribute no events to a tip point track", () => {
+	const model = ChartModel.createDefault();
+	model.addChannel(1);
+	model.addEvent("tap", { time: [0, 0, 1], channel: 0, x: 0, y: 0, tipPointSpawnType: "chain" });
+	model.addEvent("tap", { time: [8, 0, 1], channel: 1, x: 10, y: 0, tipPointSpawnType: "inherit" });
+	writeTipPointSwitch(model.channels, [4, 0, 1], [1, 0]);
+	assert.equal(tipPointTrackEvents(model, 0).length, 2);
+	model.channels[0].active = false;
+	const afterFirstInactive = tipPointTrackEvents(model, 0);
+	assert.equal(afterFirstInactive.length, 1);
+	assert.equal(afterFirstInactive[0].channel, 1);
+	model.channels[0].active = true;
+	model.channels[1].active = false;
+	const afterImageInactive = tipPointTrackEvents(model, 0);
+	assert.equal(afterImageInactive.length, 1);
+	assert.equal(afterImageInactive[0].channel, 0);
+	model.channels[0].active = false;
+	assert.equal(tipPointTrackEvents(model, 0).length, 0);
+});
+
 test("packing tracks assigns channels and can insert a switch", () => {
 	const model = ChartModel.createDefault();
 	const early = model.addEvent("tap", { time: [0, 0, 1], x: 0, y: 0 });

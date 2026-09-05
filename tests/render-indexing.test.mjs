@@ -61,8 +61,8 @@ test("render index separates inactive gameplay from complete timeline and commen
 		[1, 2],
 	);
 	assert.equal(index.tipGuides.length, 1);
-	assert.equal(index.allTipGuides.length, 2);
-	assert.equal(index.timelineTipGuides(-10, 10).length, 2);
+	assert.equal(index.allTipGuides.length, 1);
+	assert.equal(index.timelineTipGuides(-10, 10).length, 1);
 	assert.deepEqual(
 		index.activeComments(0.5).map(event => event.text),
 		["active", "inactive"],

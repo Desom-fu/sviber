@@ -9,6 +9,7 @@ import {
 } from "./stage-helpers.js";
 import { refreshDoubleTapTime } from "./double-tap-index.js";
 import { IntervalIndex } from "./interval-index.js";
+import { stackedEventLaneOffset } from "./timeline-helpers.js";
 
 function active(index, event) {
 	if (event.type === "group") {
@@ -182,7 +183,12 @@ function rebuildLanes(index) {
 	}
 	index.eventLaneOffsets = new Map();
 	for (const lane of index.laneEventsByKey.values()) {
-		lane.forEach((event, position) => index.eventLaneOffsets.set(event.id, (position - (lane.length - 1) / 2) * 7));
+		lane.forEach((event, position) =>
+			index.eventLaneOffsets.set(
+				event.id,
+				stackedEventLaneOffset(position, lane.length, index.project?.preferences),
+			),
+		);
 	}
 	index.channelOrder = new Map((index.project.channels || []).map((channel, position) => [channel.id, position]));
 }

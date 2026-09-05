@@ -12,11 +12,19 @@ export function selectedEventMarker(record, viewport) {
 	if (inTime && inChannel) {
 		return null;
 	}
-	if (record.hiddenSeparatorVisible && inTime) {
-		return null;
-	}
 	const earlier = time < rangeStart;
 	const later = time > rangeEnd;
+	if (record.hiddenSeparatorVisible) {
+		if (inTime) {
+			return null;
+		}
+		if (earlier) {
+			return { kind: "left", time, onHiddenSeparator: true };
+		}
+		if (later) {
+			return { kind: "right", time, onHiddenSeparator: true };
+		}
+	}
 	const above = channelIndex < 0;
 	const below = channelIndex >= visibleChannelCount;
 	if (inChannel && earlier) {

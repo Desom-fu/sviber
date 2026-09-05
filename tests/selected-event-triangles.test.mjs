@@ -93,3 +93,35 @@ test("selected event triangles point toward off-screen events", () => {
 	assert.equal(corners.length, 2);
 	assert.ok(trianglePath("left", 8).length === 3);
 });
+
+test("hidden-channel events outside the range mark the separator with left or right triangles", () => {
+	const viewport = {};
+	const hiddenLeft = selectedEventMarker(
+		{
+			event: { selected: true },
+			time: -1,
+			channelIndex: -1,
+			visibleChannelCount: 3,
+			rangeStart: 0,
+			rangeEnd: 10,
+			hiddenSeparatorVisible: true,
+		},
+		viewport,
+	);
+	assert.equal(hiddenLeft.kind, "left");
+	assert.equal(hiddenLeft.onHiddenSeparator, true);
+	const hiddenRight = selectedEventMarker(
+		{
+			event: { selected: true },
+			time: 12,
+			channelIndex: -1,
+			visibleChannelCount: 3,
+			rangeStart: 0,
+			rangeEnd: 10,
+			hiddenSeparatorVisible: true,
+		},
+		viewport,
+	);
+	assert.equal(hiddenRight.kind, "right");
+	assert.equal(hiddenRight.onHiddenSeparator, true);
+});

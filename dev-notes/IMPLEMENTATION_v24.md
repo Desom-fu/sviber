@@ -6,6 +6,8 @@ v24 相对 v23 的需求来自 `dev-notes/PROMPT-v23.md` 与 `dev-notes/PROMPT-v
 
 验证：`eslint . --max-warnings 0` 通过；`node --test tests/*.test.mjs` 共 576 项，575 通过，1 项 NW.js 无头环境 skip，0 失败。`git diff --check` 退出码 0。CLI `--version` 输出 `sviber 0.15.0`，`--help` 含 `--version`。
 
+复查补丁（tag 后）：检查/历史高度用 `inspectorHistoryFractions(F) → {inspectorFr:F, historyFr:1-F}`，CSS 两侧都是 `fr`，默认 0.58→58/42；`eventIconScale` 驱动叠层偏移、游标线宽、时长尾和游标点；隐藏通道越出时间范围时在分隔线上画左/右三角；`T(C)` 把停用通道视为空序列。
+
 ## Diff 清单与实现
 
 ### 1. 面板拖拽改布局并写入偏好

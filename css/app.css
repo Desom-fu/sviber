@@ -310,7 +310,8 @@ textarea:focus-visible,
 	--left-panel-width: clamp(150px, 14vw, 220px);
 	--right-panel-width: clamp(260px, 24vw, 320px);
 	--status-panel-width: clamp(260px, 24vw, 320px);
-	--inspector-fraction: 0.58;
+	--inspector-fraction: 0.58fr;
+	--history-fraction: 0.42fr;
 	grid-template-rows: var(--timeline-height) 6px minmax(0, 1fr);
 	min-width: 0;
 	min-height: 0;
@@ -602,7 +603,11 @@ textarea:focus-visible,
 
 .side-panel {
 	display: grid;
-	grid-template-rows: 31px minmax(80px, var(--inspector-fraction, 0.58fr)) 6px minmax(80px, 1fr);
+	grid-template-rows:
+		31px
+		minmax(80px, var(--inspector-fraction, 0.58fr))
+		6px
+		minmax(80px, var(--history-fraction, 0.42fr));
 	border-left: 1px solid var(--border-strong);
 	overflow: hidden;
 }

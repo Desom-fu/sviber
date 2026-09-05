@@ -7,11 +7,15 @@ import {
 	TIMELINE_DURATION_TYPES as DURATION_TYPES,
 	TIMELINE_EVENT_COLORS as NOTE_COLORS,
 	drawTimelineEventIcon,
+	durationTailWidth,
 	eventDrawLayer,
+	eventIconScale,
 	isBackgroundEvent,
 	relativeBeatColor,
 	timelineTipSegments,
+	tipConnectorLineWidth,
 	tipSpawnDirectionSegment,
+	tipSpawnLineWidth,
 	timelineTipCheckpointSignature,
 	scrollbarNoteDensity,
 	scrollbarHeatmapColors,
@@ -302,7 +306,7 @@ export class TimelineDrawingTrait {
 			context.globalAlpha = 0.28;
 		}
 		if (DURATION_TYPES.has(event.type)) {
-			this._drawEventDurationBar(context, { event, position, endX, color, selected, interactive });
+			this._drawEventDurationBar(context, { event, position, endX, color, selected, interactive, project });
 		}
 		drawTimelineEventIcon(
 			context,
@@ -349,10 +353,10 @@ export class TimelineDrawingTrait {
 			});
 	}
 
-	_drawEventDurationBar(context, { event, position, endX, color, selected, interactive }) {
+	_drawEventDurationBar(context, { event, position, endX, color, selected, interactive, project }) {
 		context.strokeStyle = color;
 		context.globalAlpha *= selected ? 0.92 : 0.58;
-		context.lineWidth = event.type === "hold" ? 8 : 6;
+		context.lineWidth = durationTailWidth(event.type, project.preferences);
 		context.beginPath();
 		context.moveTo(position.x, position.y);
 		context.lineTo(endX, position.y);
@@ -508,16 +512,17 @@ export class TimelineDrawingTrait {
 			if (!activeChannelIds.has(guide.events[0]?.channel)) {
 				context.globalAlpha = 0.28;
 			}
+			const prefs = project.preferences;
 			if (shortConnector.length > 1) {
 				context.strokeStyle = "#a98500";
-				context.lineWidth = 1.5;
+				context.lineWidth = tipSpawnLineWidth(prefs);
 				context.beginPath();
 				context.moveTo(shortConnector[0].x, shortConnector[0].y);
 				context.lineTo(shortConnector[1].x, shortConnector[1].y);
 				context.stroke();
 			}
 			context.strokeStyle = "rgba(255,255,255,0.24)";
-			context.lineWidth = 5;
+			context.lineWidth = tipConnectorLineWidth(prefs);
 			context.lineCap = "round";
 			context.lineJoin = "round";
 			context.beginPath();
@@ -533,8 +538,8 @@ export class TimelineDrawingTrait {
 				context.restore();
 				continue;
 			}
-			drawTipPointTrail(context, visual.trail, 5, visual.scale, visual.alpha, 0.64);
-			this._drawTipPointMarker(context, visual.head, visual.scale);
+			drawTipPointTrail(context, visual.trail, tipConnectorLineWidth(prefs), visual.scale, visual.alpha, 0.64);
+			this._drawTipPointMarker(context, visual.head, visual.scale * eventIconScale(prefs));
 			context.restore();
 		}
 	}

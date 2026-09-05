@@ -7,6 +7,7 @@ import {
 } from "./stage-helpers.js";
 import { refreshDoubleTapTime } from "./double-tap-index.js";
 import { IntervalIndex, compareNoteRecords, insertSorted, mergeSorted } from "./interval-index.js";
+import { stackedEventLaneOffset } from "./timeline-helpers.js";
 
 // Incremental mutations of the chart render index.
 //
@@ -297,7 +298,12 @@ export class ChartIndexMutationsTrait {
 			if (!lane.length) {
 				this.laneEventsByKey.delete(key);
 			}
-			lane.forEach((event, index) => this.eventLaneOffsets.set(event.id, (index - (lane.length - 1) / 2) * 7));
+			lane.forEach((event, index) =>
+				this.eventLaneOffsets.set(
+					event.id,
+					stackedEventLaneOffset(index, lane.length, this.project?.preferences),
+				),
+			);
 		}
 	}
 
@@ -551,7 +557,10 @@ export class ChartIndexMutationsTrait {
 		lane.push(event);
 		this.laneEventsByKey.set(laneKey, lane);
 		lane.forEach((candidate, index) =>
-			this.eventLaneOffsets.set(candidate.id, (index - (lane.length - 1) / 2) * 7),
+			this.eventLaneOffsets.set(
+				candidate.id,
+				stackedEventLaneOffset(index, lane.length, this.project?.preferences),
+			),
 		);
 		if (active && NOTE_TYPES.has(event.type)) {
 			insertSorted(

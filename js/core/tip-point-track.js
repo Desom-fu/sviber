@@ -65,6 +65,11 @@ export function applySwitchMapping(channelId, mapping) {
 	return mapping.has(channelId) ? mapping.get(channelId) : channelId;
 }
 
+function isActiveChannel(project, channelId) {
+	const channel = (project?.channels || []).find(item => item.id === channelId);
+	return Boolean(channel) && channel.active !== false;
+}
+
 function inHalfOpenBeatRange(beat, start, end) {
 	if (start && beat.compare(start) < 0) {
 		return false;
@@ -85,12 +90,14 @@ export function tipPointTrackEvents(project, startChannelId, events = project?.e
 	for (let index = 0; index <= switches.length; index += 1) {
 		const start = index === 0 ? null : switches[index - 1].time;
 		const end = index === switches.length ? null : switches[index].time;
-		for (const record of records) {
-			if (record.event.channel !== channelId) {
-				continue;
-			}
-			if (inHalfOpenBeatRange(Rational.from(record.event.time), start, end)) {
-				result.push(record);
+		if (isActiveChannel(project, channelId)) {
+			for (const record of records) {
+				if (record.event.channel !== channelId) {
+					continue;
+				}
+				if (inHalfOpenBeatRange(Rational.from(record.event.time), start, end)) {
+					result.push(record);
+				}
 			}
 		}
 		if (index < switches.length) {

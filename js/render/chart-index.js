@@ -28,6 +28,7 @@ import {
 	mergeSorted,
 	upperBound,
 } from "./interval-index.js";
+import { stackedEventLaneOffset } from "./timeline-helpers.js";
 function snapPointKey(value) {
 	return JSON.stringify(value);
 }
@@ -133,9 +134,8 @@ export class ChartRenderIndex {
 			.sort((left, right) => left.start - right.start || left.sequence - right.sequence);
 	}
 
-	// Tip point guides are computed over the whole chart so that deactivating a channel
-	// does not change how the remaining guides inherit their spawn settings; the active
-	// subset is filtered afterwards.
+	// Tip point guides follow T(C): an inactive channel is an empty sequence, then the
+	// remaining guides are filtered to active channels for the stage.
 	_buildTipGuideIndexes(project, timing) {
 		const leafProject = { ...project, events: this.flatEvents.filter(event => event.type !== "group") };
 		this.allTipGuides = buildTipPointGuides(leafProject, timing).map((guide, sequence) => ({
@@ -362,7 +362,9 @@ export class ChartRenderIndex {
 		this.laneEventsByKey = groups;
 		const offsets = new Map();
 		for (const group of groups.values()) {
-			group.forEach((event, index) => offsets.set(event.id, (index - (group.length - 1) / 2) * 7));
+			group.forEach((event, index) =>
+				offsets.set(event.id, stackedEventLaneOffset(index, group.length, this.project?.preferences)),
+			);
 		}
 		return offsets;
 	}

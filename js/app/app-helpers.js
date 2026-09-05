@@ -90,6 +90,11 @@ export const DEFAULT_PREFERENCES = Object.freeze({
 	macrosConsoleHidden: false,
 });
 
+export function inspectorHistoryFractions(fraction = DEFAULT_PREFERENCES.inspectorHeightFraction) {
+	const inspectorFr = Number(fraction);
+	return { inspectorFr, historyFr: Math.round((1 - inspectorFr) * 1e6) / 1e6 };
+}
+
 function preferenceChoice(value, choices, fallback) {
 	return choices.includes(value) ? value : fallback;
 }

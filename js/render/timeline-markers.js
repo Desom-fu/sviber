@@ -66,20 +66,22 @@ export class TimelineMarkersTrait {
 			const channelIndex = visibleIndex - this.channelOffset;
 			const hidden = ordered[originalIndex]?.hidden === true;
 			const hiddenSeparatorVisible = hidden && this._hiddenSeparatorVisible(project, originalIndex, visible);
-			markers.push(
-				selectedEventMarker(
-					{
-						event,
-						time,
-						channelIndex,
-						visibleChannelCount: visible.length,
-						rangeStart: beginning,
-						rangeEnd: ending,
-						hiddenSeparatorVisible,
-					},
-					{},
-				),
+			const marker = selectedEventMarker(
+				{
+					event,
+					time,
+					channelIndex,
+					visibleChannelCount: visible.length,
+					rangeStart: beginning,
+					rangeEnd: ending,
+					hiddenSeparatorVisible,
+				},
+				{},
 			);
+			if (marker?.onHiddenSeparator) {
+				marker.separatorY = this._channelDrawY(project, layout, event.channel, visible);
+			}
+			markers.push(marker);
 		}
 		const unique = dedupeCornerMarkers(markers);
 		const size = Math.max(7, this._eventIconRadius(project) * 0.9);
@@ -123,9 +125,9 @@ export class TimelineMarkersTrait {
 		const yForLane = index => layout.channels.y + (index + 0.5) * layout.channelHeight;
 		switch (marker.kind) {
 			case "left":
-				return { x: left, y: yForLane(marker.channelIndex) };
+				return { x: left, y: marker.separatorY ?? yForLane(marker.channelIndex) };
 			case "right":
-				return { x: right, y: yForLane(marker.channelIndex) };
+				return { x: right, y: marker.separatorY ?? yForLane(marker.channelIndex) };
 			case "up":
 				return { x: xForTime(marker.time), y: top };
 			case "down":

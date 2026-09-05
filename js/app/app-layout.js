@@ -4,6 +4,7 @@
 import { composeTraits } from "../core/mixin.js";
 import {
 	DEFAULT_PREFERENCES,
+	inspectorHistoryFractions,
 	storePreferences,
 	timelineRowHeight,
 } from "./app-helpers.js";
@@ -33,14 +34,16 @@ class LayoutTrait {
 		workspace.style.setProperty("--left-panel-width", `${prefs.leftPanelWidthFraction * 100}vw`);
 		workspace.style.setProperty("--right-panel-width", `${prefs.rightPanelWidthFraction * 100}vw`);
 		workspace.style.setProperty("--status-panel-width", `${prefs.statusPanelWidthFraction * 100}vw`);
-		const inspector = `${prefs.inspectorHeightFraction}fr`;
-		workspace.style.setProperty("--inspector-fraction", inspector);
+		const { inspectorFr, historyFr } = inspectorHistoryFractions(prefs.inspectorHeightFraction);
+		workspace.style.setProperty("--inspector-fraction", `${inspectorFr}fr`);
+		workspace.style.setProperty("--history-fraction", `${historyFr}fr`);
 		workspace.classList.toggle("is-timeline-hidden", prefs.topPanelsHidden);
 		editorRow.classList.toggle("is-scroll-hidden", prefs.leftPanelsHidden);
 		editorRow.classList.toggle("is-side-hidden", prefs.rightPanelsHidden);
 		workspace.classList.toggle("is-layout-locked", prefs.lockLayout);
 		if (sidePanel) {
-			sidePanel.style.setProperty("--inspector-fraction", inspector);
+			sidePanel.style.setProperty("--inspector-fraction", `${inspectorFr}fr`);
+			sidePanel.style.setProperty("--history-fraction", `${historyFr}fr`);
 		}
 		this._syncLayoutToggleButtons();
 	}

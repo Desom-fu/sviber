@@ -196,9 +196,42 @@ export function drawPatternIcon(context, type, x, y, radius, color) {
 	context.restore();
 }
 
+export const DEFAULT_EVENT_ICON_RADIUS = 8;
+export const BASE_STACKED_EVENT_OFFSET = 7;
+export const BASE_TIP_CONNECTOR_WIDTH = 5;
+export const BASE_TIP_SPAWN_WIDTH = 1.5;
+export const BASE_HOLD_DURATION_TAIL = 8;
+export const BASE_OTHER_DURATION_TAIL = 6;
+export const BASE_TIP_POINT_MARKER_RADIUS = 4.5;
+
 export function eventIconRadius(preferences) {
 	const size = Number(preferences?.eventIconSize);
-	return size > 0 ? size : 8;
+	return size > 0 ? size : DEFAULT_EVENT_ICON_RADIUS;
+}
+
+export function eventIconScale(preferences) {
+	return eventIconRadius(preferences) / DEFAULT_EVENT_ICON_RADIUS;
+}
+
+export function stackedEventLaneOffset(index, count, preferences) {
+	return (index - (count - 1) / 2) * BASE_STACKED_EVENT_OFFSET * eventIconScale(preferences);
+}
+
+export function tipConnectorLineWidth(preferences) {
+	return BASE_TIP_CONNECTOR_WIDTH * eventIconScale(preferences);
+}
+
+export function tipSpawnLineWidth(preferences) {
+	return BASE_TIP_SPAWN_WIDTH * eventIconScale(preferences);
+}
+
+export function durationTailWidth(eventType, preferences) {
+	const base = eventType === "hold" ? BASE_HOLD_DURATION_TAIL : BASE_OTHER_DURATION_TAIL;
+	return base * eventIconScale(preferences);
+}
+
+export function tipPointMarkerRadius(preferences) {
+	return BASE_TIP_POINT_MARKER_RADIUS * eventIconScale(preferences);
 }
 
 export function drawTimelineEventIcon(context, event, x, y, color, radius = 8) {
