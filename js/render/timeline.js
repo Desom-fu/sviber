@@ -163,8 +163,12 @@ export class TimelineView {
 			return;
 		}
 		const visibleLimit = this._visibleChannelLimit(project);
-		const nextOffset =
-			index < this.channelOffset ? index : index >= this.channelOffset + visibleLimit ? index - (visibleLimit - 1) : this.channelOffset;
+		let nextOffset = this.channelOffset;
+		if (index < this.channelOffset) {
+			nextOffset = index;
+		} else if (index >= this.channelOffset + visibleLimit) {
+			nextOffset = index - (visibleLimit - 1);
+		}
 		if (nextOffset !== this.channelOffset) {
 			this.channelOffset = nextOffset;
 			this.callbacks.onChannelOffset?.(nextOffset);
