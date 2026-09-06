@@ -375,9 +375,23 @@ test("Alt+Shift drag in the channels moves the selection from the closest select
 	timeline.callbacks = { onPreviewMoveEvents: (delta, channelDelta) => (preview = [delta, channelDelta]) };
 	timeline._xToSeconds = x => x / 10;
 	timeline._moveEvents({ point: { x: 400, y: 120 }, project, layout, drag });
-	// x 400 → 40 s → snapped beat 40, so the delta from beat 8 is 32; the pointer sits at
-	// lane (120 − 50) / 50 = 1.4 → round 1, so the selection moves one lane down.
+	// x 400 → 40 s → snapped beat 40, so the delta from beat 8 is 32; the pointer sits in
+	// lane (120 − 50) / 50 = 1.4 → floor 1, so the selection moves one lane down.
 	assert.deepEqual(preview, [[32, 0, 1], 1]);
+
+	// Lane targeting is floor-based: the lane under the pointer is the target even when
+	// the pointer sits in its lower half. Rounding here used to displace the target by
+	// half a channel height (lane centers sit at +0.5 in pointerLane units).
+	preview = null;
+	timeline._moveEvents({ point: { x: 400, y: 135 }, project, layout, drag });
+	// y 135 → pointerLane 1.7 → floor 1: still lane 1, not lane 2.
+	assert.deepEqual(preview, [[32, 0, 1], 1]);
+
+	// Aiming exactly at the governing event's drawn center (lane 0 center at y 75) is a
+	// zero-lane move; rounding would have pushed the selection one lane down.
+	preview = null;
+	timeline._moveEvents({ point: { x: 400, y: 75 }, project, layout, drag });
+	assert.deepEqual(preview, [[32, 0, 1], 0]);
 
 	// Any pointer movement counts — a sub-pixel move already applies for this gesture.
 	timeline.surface = { toLocal: () => ({ x: 400.2, y: 120.1 }), width: 800, height: 200 };
@@ -387,6 +401,29 @@ test("Alt+Shift drag in the channels moves the selection from the closest select
 	timeline._pointerMove({});
 	assert.equal(timeline.pointerMoved, true);
 	assert.ok(preview, "the sub-threshold movement previewed a move");
+
+	// The commit path mirrors the preview's floor-based targeting: releasing in the lower
+	// half of lane 1 commits to lane 1, not lane 2.
+	let committed = null;
+	timeline.callbacks = {
+		onPreviewMoveEvents: () => {},
+		onMoveEvents: (delta, channelDelta) => (committed = [delta, channelDelta]),
+	};
+	timeline.requestRender = () => {};
+	const previousDocument = globalThis.document;
+	globalThis.document = { removeEventListener() {} };
+	try {
+		timeline.surface = { toLocal: () => ({ x: 400, y: 135 }), width: 800, height: 200 };
+		timeline._layout = () => layout;
+		timeline._pointerUp({});
+	} finally {
+		if (previousDocument === undefined) {
+			delete globalThis.document;
+		} else {
+			globalThis.document = previousDocument;
+		}
+	}
+	assert.deepEqual(committed, [[32, 0, 1], 1]);
 
 	// Without Alt the same press keeps its ordinary semantics (plain event drag on the hit).
 	const plainDrag = timeline._timelineDrag(

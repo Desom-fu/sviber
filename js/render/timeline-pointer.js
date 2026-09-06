@@ -388,8 +388,11 @@ export class TimelinePointerTrait {
 			const seconds = this.timing.beatToSeconds(candidate.time);
 			const x = this._timeToX(seconds, layout.channels.width);
 			const channelIndex = visibleChannels.findIndex(entry => entry.id === candidate.channel);
+			// Events are drawn at lane centers, which sit at channelIndex + 0.5 in
+			// pointerLane units; compare against the center, not the lane boundary.
 			const distance =
-				(x - point.x) ** 2 + ((channelIndex - pointerChannelIndex) * layout.channelHeight) ** 2;
+				(x - point.x) ** 2 +
+				((channelIndex + 0.5 - pointerChannelIndex) * layout.channelHeight) ** 2;
 			if (distance < bestDistance) {
 				bestDistance = distance;
 				governing = candidate;
@@ -540,8 +543,11 @@ export class TimelinePointerTrait {
 		const ending = snap(point.x);
 		let channelDelta = Math.round((point.y - drag.start.y) / layout.channelHeight);
 		if (drag.absoluteChannel) {
+			// pointerLane has lane boundaries at integers, so the lane under the pointer is
+			// floor(pointerLane); rounding would target the next lane whenever the pointer
+			// sits in the lower half of a lane (a perceived half-channel offset).
 			const pointerLane = (point.y - layout.channels.y) / layout.channelHeight + this.channelOffset;
-			channelDelta = Math.round(pointerLane) - drag.governingLaneIndex;
+			channelDelta = Math.floor(pointerLane) - drag.governingLaneIndex;
 		}
 		const delta = drag.absoluteBeatSnap ? ending.sub(drag.startBeat) : ending.sub(snap(drag.start.x));
 		this.callbacks.onPreviewMoveEvents?.(delta.toJSON(), channelDelta, drag.copy);
@@ -700,8 +706,9 @@ export class TimelinePointerTrait {
 			// v22: an Alt+Shift drag commits the same absolute channel target it previewed.
 			let channelDelta = Math.round((point.y - drag.start.y) / layout.channelHeight);
 			if (drag.absoluteChannel) {
+				// Same floor-based lane targeting as the preview so the commit matches it.
 				const pointerLane = (point.y - layout.channels.y) / layout.channelHeight + this.channelOffset;
-				channelDelta = Math.round(pointerLane) - drag.governingLaneIndex;
+				channelDelta = Math.floor(pointerLane) - drag.governingLaneIndex;
 			}
 			const delta = drag.absoluteBeatSnap ? ending.sub(drag.startBeat) : ending.sub(beginning);
 			this.callbacks.onMoveEvents?.(delta.toJSON(), channelDelta, drag.copy);
