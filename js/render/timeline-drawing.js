@@ -737,15 +737,16 @@ export class TimelineDrawingTrait {
 
 	_drawChannelScrollbar(context, layout, project) {
 		const channels = visibleTimelineChannels(project);
-		if (channels.length <= 3) {
+		const visibleLimit = this._visibleChannelLimit(project);
+		if (channels.length <= visibleLimit) {
 			return;
 		}
 		const width = 10;
 		const x = layout.channels.width - width;
 		context.fillStyle = "#20242a";
 		context.fillRect(x, layout.channels.y, width, layout.channels.height);
-		const thumbHeight = Math.max(22, (layout.channels.height * 3) / channels.length);
-		const maxOffset = channels.length - 3;
+		const thumbHeight = Math.max(22, (layout.channels.height * visibleLimit) / channels.length);
+		const maxOffset = channels.length - visibleLimit;
 		const thumbY = layout.channels.y + ((layout.channels.height - thumbHeight) * this.channelOffset) / maxOffset;
 		context.fillStyle = "#68717a";
 		context.fillRect(x + 2, thumbY, width - 4, thumbHeight);

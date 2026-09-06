@@ -321,15 +321,9 @@ export class SviberAppCore extends CoreShell {
 		if (!autosaveOffered && !(await this.openArgvPath?.())) {
 			await this.reopenLastDocument?.();
 		}
-		this.refreshNow();
-		// Dialog / project chrome can settle one frame after recovery; repaint + re-sync title
-		// so an autosaved chart is visible and the window title matches without needing input.
-		requestAnimationFrame(() => {
-			this.timeline?.requestRender?.();
-			this.stage?.requestRender?.();
-			this.scrollView?.requestRender?.();
-			this._syncDocumentTitle();
-		});
+		// Autosave / reopen can change channel count (timeline height) and NW chrome after the
+		// modal closes; settle layout then paint+title so the chart is visible without input.
+		this._settleViewsAfterOpen();
 		this.startAutosave();
 		if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !globalThis.nw) {
 			navigator.serviceWorker
@@ -546,6 +540,8 @@ export class SviberAppCore extends CoreShell {
 		this._syncAudioLoop();
 		const view = this.viewState();
 		this.applyLayoutPreferences?.();
+		// Channel-count height is CSS; force reflow so Pixi hosts see the new size before paint.
+		this._forceWorkspaceReflow();
 		this.timeline.setState(view);
 		this.stage.setState(view);
 		this.scrollView.setState(view);
@@ -566,6 +562,39 @@ export class SviberAppCore extends CoreShell {
 		this._syncDocumentTitle();
 	}
 
+	_forceWorkspaceReflow() {
+		try {
+			document.querySelector(".timeline-row")?.getBoundingClientRect();
+			document.querySelector(".workspace")?.getBoundingClientRect();
+			document.querySelector(".stage-host, .main-field, #stage")?.getBoundingClientRect();
+		} catch {
+			/* DOM may be unavailable in tests. */
+		}
+	}
+
+	_paintOpenViews() {
+		this._forceWorkspaceReflow();
+		this.timeline?.render?.();
+		this.stage?.render?.();
+		this.scrollView?.render?.();
+		this._syncDocumentTitle();
+	}
+
+	_settleViewsAfterOpen() {
+		this.refreshNow();
+		const paint = () => this._paintOpenViews();
+		// Double rAF: first applies CSS timeline height; second catches post-dialog NW chrome.
+		const schedule = globalThis.requestAnimationFrame?.bind(globalThis);
+		if (!schedule) {
+			paint();
+			return;
+		}
+		schedule(() => {
+			paint();
+			schedule(paint);
+		});
+	}
+
 	_syncDocumentTitle() {
 		const metadata = this.model?.metadata;
 		if (!metadata) {
@@ -573,10 +602,11 @@ export class SviberAppCore extends CoreShell {
 		}
 		const next = `${this.dirty ? "* " : ""}${metadata.title} ${metadata.difficultyName} - sviber`;
 		document.title = next;
-		// NW.js sometimes keeps the package window.title until the native title is set too.
+		// NW.js keeps package window.title ("sviber") unless the native title is rewritten;
+		// always assign after open/recovery — dialog teardown can reset it asynchronously.
 		try {
 			const nwWindow = globalThis.nw?.Window?.get?.();
-			if (nwWindow && nwWindow.title !== next) {
+			if (nwWindow) {
 				nwWindow.title = next;
 			}
 		} catch {

@@ -187,5 +187,8 @@ test("startup recovery paints immediately and syncs document title", async () =>
 	assert.doesNotMatch(recovery, /this\.refresh\(\)/);
 	assert.match(core, /_syncDocumentTitle\(\)/);
 	assert.match(core, /nwWindow\.title = next/);
-	assert.match(core, /timeline\?\.requestRender/);
+	assert.match(core, /_settleViewsAfterOpen\(\)/);
+	assert.match(core, /_forceWorkspaceReflow\(\)/);
+	assert.match(core, /_paintOpenViews\(\)/);
+	assert.match(core, /Double rAF/);
 });

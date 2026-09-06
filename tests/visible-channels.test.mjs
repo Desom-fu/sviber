@@ -20,7 +20,18 @@ test("visible channels default to 3 and clamp to 1-16", () => {
 });
 
 test("timeline layout uses the visible-channels preference instead of a hardcoded 3", async () => {
-	const source = await readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8");
-	assert.match(source, /preferences\?\.visibleChannels/);
-	assert.doesNotMatch(source, /channels\.length - 3/);
+	const [timeline, drawing, pointer] = await Promise.all([
+		readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/timeline-drawing.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/timeline-pointer.js", import.meta.url), "utf8"),
+	]);
+	assert.match(timeline, /_visibleChannelLimit\(/);
+	assert.match(timeline, /_maxChannelOffset\(/);
+	assert.doesNotMatch(timeline, /length - 3/);
+	assert.doesNotMatch(timeline, /channelOffset \+ 3/);
+	assert.match(drawing, /_visibleChannelLimit\(/);
+	assert.doesNotMatch(drawing, /channels\.length <= 3/);
+	assert.doesNotMatch(drawing, /channels\.length - 3/);
+	assert.match(pointer, /_visibleChannelLimit\(/);
+	assert.doesNotMatch(pointer, /\.length > 3 && event\.shiftKey/);
 });

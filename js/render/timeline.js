@@ -108,10 +108,18 @@ export class TimelineView {
 		});
 	}
 
+	_visibleChannelLimit(project) {
+		return Math.max(1, Number(project?.preferences?.visibleChannels) || 3);
+	}
+
+	_maxChannelOffset(project) {
+		return Math.max(0, visibleTimelineChannels(project).length - this._visibleChannelLimit(project));
+	}
+
 	setState(state, options = {}) {
 		this.state = state;
 		const project = projectState(state);
-		const maxOffset = Math.max(0, visibleTimelineChannels(project).length - 3);
+		const maxOffset = this._maxChannelOffset(project);
 		const savedOffset = Number(project.editor?.timelineChannelOffset);
 		this.channelOffset = Number.isFinite(savedOffset)? Math.max(0, Math.min(maxOffset, Math.round(savedOffset))): 0;
 		this.renderIndex =
@@ -154,8 +162,9 @@ export class TimelineView {
 		if (index < 0) {
 			return;
 		}
+		const visibleLimit = this._visibleChannelLimit(project);
 		const nextOffset =
-			index < this.channelOffset ? index : index >= this.channelOffset + 3 ? index - 2 : this.channelOffset;
+			index < this.channelOffset ? index : index >= this.channelOffset + visibleLimit ? index - (visibleLimit - 1) : this.channelOffset;
 		if (nextOffset !== this.channelOffset) {
 			this.channelOffset = nextOffset;
 			this.callbacks.onChannelOffset?.(nextOffset);
@@ -165,7 +174,7 @@ export class TimelineView {
 
 	scrollChannelsBy(delta) {
 		const project = projectState(this.state);
-		const maxOffset = Math.max(0, visibleTimelineChannels(project).length - 3);
+		const maxOffset = this._maxChannelOffset(project);
 		const nextOffset = Math.max(0, Math.min(maxOffset, this.channelOffset + Math.sign(Number(delta) || 0)));
 		if (nextOffset === this.channelOffset) {
 			return nextOffset;
@@ -231,7 +240,7 @@ export class TimelineView {
 		const scrollHeight = 25;
 		const project = projectState(this.state);
 		const shown = Math.max(1, visibleTimelineChannels(project).length);
-		const visibleLimit = Math.max(1, Number(project.preferences?.visibleChannels) || 3);
+		const visibleLimit = this._visibleChannelLimit(project);
 		const visibleCount = Math.max(1, Math.min(visibleLimit, shown));
 		const remaining = Math.max(visibleCount + 1, height - scrollHeight);
 		const channelHeight = remaining / (visibleCount + 1);
@@ -292,8 +301,8 @@ export class TimelineView {
 	// non-hidden channels; the channel offset scrolls over that collapsed list.
 	_visibleChannels(project) {
 		const channels = visibleTimelineChannels(project);
-		const visibleLimit = Math.max(1, Number(project.preferences?.visibleChannels) || 3);
-		const maxOffset = Math.max(0, channels.length - visibleLimit);
+		const visibleLimit = this._visibleChannelLimit(project);
+		const maxOffset = this._maxChannelOffset(project);
 		this.channelOffset = Math.max(0, Math.min(this.channelOffset, maxOffset));
 		return channels.slice(this.channelOffset, this.channelOffset + visibleLimit);
 	}

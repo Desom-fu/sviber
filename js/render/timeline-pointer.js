@@ -841,7 +841,7 @@ export class TimelinePointerTrait {
 			this.callbacks.onMainFieldZoom?.(event.deltaY < 0 ? 1.12 : 1 / 1.12);
 			return;
 		}
-		if (visibleTimelineChannels(project).length > 3 && event.shiftKey) {
+		if (visibleTimelineChannels(project).length > this._visibleChannelLimit(project) && event.shiftKey) {
 			this.scrollChannelsBy(event.deltaY);
 			return;
 		}
