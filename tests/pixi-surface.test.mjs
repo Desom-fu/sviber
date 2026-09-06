@@ -8,6 +8,7 @@ import {
 	canvasHostSize,
 	clampDevicePixelRatio,
 	createResizeCoalescer,
+	hostGeometryChanged,
 } from "../js/render/pixi-surface.js";
 
 test("canvasHostSize ignores a collapsed host so a 1px playhead cannot fill the panel", () => {
@@ -86,12 +87,31 @@ test("createResizeCoalescer cancel drops a pending flush", () => {
 	assert.equal(runs, 0);
 });
 
+
+test("hostGeometryChanged detects size or dpr deltas and ignores collapsed hosts", () => {
+	const host = { clientWidth: 200, clientHeight: 100 };
+	assert.equal(hostGeometryChanged(host, 200, 100, 1), false);
+	assert.equal(hostGeometryChanged(host, 180, 100, 1), true);
+	assert.equal(hostGeometryChanged(host, 200, 90, 1), true);
+	assert.equal(hostGeometryChanged({ clientWidth: 0, clientHeight: 100 }, 200, 100, 1), false);
+});
+
 test("pixi surface coalesces ResizeObserver and avoids desynchronized + style-size churn", async () => {
-	const [surface, css] = await Promise.all([
+	const [surface, css, stage, timeline, scroll] = await Promise.all([
 		readFile(new URL("../js/render/pixi-surface.js", import.meta.url), "utf8"),
 		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/stage-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/timeline.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/render/scroll-view.js", import.meta.url), "utf8"),
 	]);
 	assert.match(surface, /createResizeCoalescer/);
+	assert.match(surface, /hostGeometryChanged/);
+	// Coalesced RO must notify without clearing; render() owns resize()+draw atomically.
+	assert.match(surface, /Do not realloc\/clear the bitmap here/);
+	assert.doesNotMatch(
+		surface.slice(surface.indexOf("this._coalescedResize"), surface.indexOf("this.resizeObserver")),
+		/if \(this\.resize\(\)\)/,
+	);
 	assert.match(surface, /desynchronized:\s*false/);
 	assert.doesNotMatch(surface, /desynchronized:\s*true/);
 	assert.doesNotMatch(surface, /canvas\.style\.width/);
@@ -99,4 +119,7 @@ test("pixi surface coalesces ResizeObserver and avoids desynchronized + style-si
 	assert.match(css, /\.render-surface canvas\s*\{[^}]*position:\s*absolute/s);
 	assert.match(css, /\.render-surface canvas\s*\{[^}]*width:\s*100%/s);
 	assert.match(css, /\.render-surface canvas\s*\{[^}]*height:\s*100%/s);
+	assert.match(stage, /onResize:\s*\(\)\s*=>\s*this\.render\(\)/);
+	assert.match(timeline, /this\.render\(\);\s*this\.callbacks\.onTimelineResize/);
+	assert.match(scroll, /onResize:\s*\(\)\s*=>\s*this\.render\(\)/);
 });

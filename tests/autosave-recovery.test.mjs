@@ -95,8 +95,8 @@ test("applyAutosaveRecovery reopens the full project before overlaying the chart
 
 			async syncMediaFromModel() {}
 
-			refresh() {
-				this.calls.push("refresh");
+			refreshNow() {
+				this.calls.push("refreshNow");
 			}
 		},
 	);
@@ -149,8 +149,8 @@ test("applyAutosaveRecovery falls back to a standalone chart without nw", async 
 
 			async syncMediaFromModel() {}
 
-			refresh() {
-				this.calls.push("refresh");
+			refreshNow() {
+				this.calls.push("refreshNow");
 			}
 		},
 	);
@@ -172,4 +172,20 @@ test("applyAutosaveRecovery falls back to a standalone chart without nw", async 
 			globalThis.nw = previousNw;
 		}
 	}
+});
+
+test("startup recovery paints immediately and syncs document title", async () => {
+	const [core, history] = await Promise.all([
+		readFile(new URL("../js/app/app-core.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/app/app-history-commands.js", import.meta.url), "utf8"),
+	]);
+	const recovery = history.slice(
+		history.indexOf("async applyAutosaveRecovery"),
+		history.indexOf("async openAutosave"),
+	);
+	assert.match(recovery, /this\.refreshNow\(\)/);
+	assert.doesNotMatch(recovery, /this\.refresh\(\)/);
+	assert.match(core, /_syncDocumentTitle\(\)/);
+	assert.match(core, /nwWindow\.title = next/);
+	assert.match(core, /timeline\?\.requestRender/);
 });

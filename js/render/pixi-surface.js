@@ -26,6 +26,16 @@ export function canvasBufferSize(cssWidth, cssHeight, dpr) {
 	};
 }
 
+/** True when the host has a positive size that differs from the last applied bitmap geometry. */
+export function hostGeometryChanged(host, width, height, resolution) {
+	const size = canvasHostSize(host);
+	if (!size) {
+		return false;
+	}
+	const dpr = clampDevicePixelRatio(globalThis.devicePixelRatio || 1);
+	return size.width !== width || size.height !== height || dpr !== resolution;
+}
+
 /** 2D context attrs: never desynchronized — that path can stop presenting after resize storms. */
 export function canvas2dContextAttributes() {
 	return { alpha: false, desynchronized: false };
@@ -109,11 +119,17 @@ export class PixiCanvasSurface {
 			this.host.append(this.canvas);
 		}
 		this.resolution = initialDpr;
-		// Collapse thrash-resize (sidebar drag) to one geometry apply + notify per frame.
+		// Collapse thrash-resize (sidebar drag) to one notify per frame.
+		// Do not realloc/clear the bitmap here: clearing then deferring redraw (via
+		// requestRender) presented a blank frame, and a later same-size RO could skip
+		// onResize entirely — leaving the chart invisible until the next interaction.
+		// Views' render() applies resize() and paints in the same turn.
 		this._coalescedResize = createResizeCoalescer(() => {
-			if (this.resize()) {
-				this.onResize?.(this.width, this.height);
+			if (!hostGeometryChanged(this.host, this.width, this.height, this.resolution)) {
+				return;
 			}
+			const size = canvasHostSize(this.host);
+			this.onResize?.(size.width, size.height);
 		});
 		this.resizeObserver = new ResizeObserver(() => {
 			this._coalescedResize();

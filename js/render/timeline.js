@@ -51,7 +51,8 @@ export class TimelineView {
 		this.surface = new PixiCanvasSurface(host, {
 			background: "#090a0c",
 			onResize: () => {
-				this.requestRender();
+				// Sync paint: coalescer is already on rAF; avoid a blank frame after buffer resize.
+				this.render();
 				this.callbacks.onTimelineResize?.();
 			},
 		});

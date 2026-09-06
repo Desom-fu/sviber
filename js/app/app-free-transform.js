@@ -108,9 +108,7 @@ class FreeTransformTrait {
 		if (!options.skipCommands) {
 			this._syncCheckedCommands?.();
 		}
-		const { title, difficultyName } = this.model.metadata;
-		const prefix = this.dirty ? "* " : "";
-		document.title = `${prefix}${title} ${difficultyName} - sviber`;
+		this._syncDocumentTitle?.();
 	}
 
 	previewFreeTransform(transform) {

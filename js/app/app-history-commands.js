@@ -190,7 +190,7 @@ class HistoryCommandsTrait {
 					if (this.files.supportsLocalPaths) {
 						await this.syncMediaFromModel();
 					}
-					this.refresh();
+					this.refreshNow();
 					return true;
 				}
 			} catch (error) {
@@ -217,7 +217,7 @@ class HistoryCommandsTrait {
 		if (this.files.supportsLocalPaths) {
 			await this.syncMediaFromModel();
 		}
-		this.refresh();
+		this.refreshNow();
 		return true;
 	}
 

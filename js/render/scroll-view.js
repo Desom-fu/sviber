@@ -77,7 +77,7 @@ export class ScrollView {
 	constructor(host, callbacks = {}) {
 		this.host = host;
 		this.callbacks = callbacks;
-		this.surface = new PixiCanvasSurface(host, { background: "#090a0c", onResize: () => this.requestRender() });
+		this.surface = new PixiCanvasSurface(host, { background: "#090a0c", onResize: () => this.render() });
 		this.state = null;
 		this.timing = null;
 		this.renderIndex = null;

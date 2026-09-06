@@ -322,6 +322,14 @@ export class SviberAppCore extends CoreShell {
 			await this.reopenLastDocument?.();
 		}
 		this.refreshNow();
+		// Dialog / project chrome can settle one frame after recovery; repaint + re-sync title
+		// so an autosaved chart is visible and the window title matches without needing input.
+		requestAnimationFrame(() => {
+			this.timeline?.requestRender?.();
+			this.stage?.requestRender?.();
+			this.scrollView?.requestRender?.();
+			this._syncDocumentTitle();
+		});
 		this.startAutosave();
 		if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !globalThis.nw) {
 			navigator.serviceWorker
@@ -555,8 +563,25 @@ export class SviberAppCore extends CoreShell {
 		this._refreshDifficultyUi();
 		this.registry.notifyAll();
 		this._syncCheckedCommands();
-		const metadata = this.model.metadata;
-		document.title = `${this.dirty ? "* " : ""}${metadata.title} ${metadata.difficultyName} - sviber`;
+		this._syncDocumentTitle();
+	}
+
+	_syncDocumentTitle() {
+		const metadata = this.model?.metadata;
+		if (!metadata) {
+			return;
+		}
+		const next = `${this.dirty ? "* " : ""}${metadata.title} ${metadata.difficultyName} - sviber`;
+		document.title = next;
+		// NW.js sometimes keeps the package window.title until the native title is set too.
+		try {
+			const nwWindow = globalThis.nw?.Window?.get?.();
+			if (nwWindow && nwWindow.title !== next) {
+				nwWindow.title = next;
+			}
+		} catch {
+			/* Some NW builds expose a read-only title. */
+		}
 	}
 
 	openMacros() {
