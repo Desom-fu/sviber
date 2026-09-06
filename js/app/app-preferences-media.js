@@ -6,6 +6,7 @@ import { ChartModel } from "../core/chart-model.js";
 import { Rational } from "../core/rational.js";
 import {
 	loadPreferences,
+	localizedErrorMessage,
 	storePreferences,
 	resolvePreferenceLanguage,
 	applyThemePreference,

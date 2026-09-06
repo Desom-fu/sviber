@@ -31,7 +31,13 @@ import { HelpController } from "../ui/help.js";
 import { AutosaveManager, FileManager } from "../platform/platform.js";
 import { ChannelsPanel, ClipsPanel, HistoryPanel, InspectorPanel, SnappeesPanel } from "../ui/panels.js";
 import { ChecksPanel } from "../ui/checks-panel.js";
-import { loadPreferences, resolvePreferenceLanguage, applyThemePreference, selected } from "./app-helpers.js";
+import {
+	loadPreferences,
+	localizedErrorMessage,
+	resolvePreferenceLanguage,
+	applyThemePreference,
+	selected,
+} from "./app-helpers.js";
 import { rememberNwWindow } from "../platform/window-bounds.js";
 import { handleMacroMessage } from "./app-macro-bridge.js";
 import { handleReadmeMessage } from "./app-readme-editor.js";
@@ -317,9 +323,24 @@ export class SviberAppCore extends CoreShell {
 		this.refreshNow();
 		document.getElementById("app").setAttribute("aria-busy", "false");
 		document.getElementById("loading-screen").hidden = true;
-		const autosaveOffered = await this._offerAutosave();
-		if (!autosaveOffered && !(await this.openArgvPath?.())) {
-			await this.reopenLastDocument?.();
+		let autosaveOffered = false;
+		try {
+			autosaveOffered = await this._offerAutosave();
+		} catch (error) {
+			// A failed recovery used to reject initialize() itself, skipping the view settle,
+			// the title sync and startAutosave() — the editor then sat on the default chart.
+			console.error("Startup autosave recovery failed", error);
+			this.toast?.error("toast.autosaveRecoveryFailed", { message: localizedErrorMessage(error) });
+		}
+		if (!autosaveOffered) {
+			try {
+				if (!(await this.openArgvPath?.())) {
+					await this.reopenLastDocument?.();
+				}
+			} catch (error) {
+				console.error("Startup document open failed", error);
+				this.toast?.error("toast.openFailed", { message: localizedErrorMessage(error) });
+			}
 		}
 		// Autosave / reopen can change channel count (timeline height) and NW chrome after the
 		// modal closes; settle layout then paint+title so the chart is visible without input.

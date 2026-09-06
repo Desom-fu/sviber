@@ -345,6 +345,7 @@
   "toast.musicLoadFailed": "無法加載音樂：{message}",
   "toast.backgroundLoadFailed": "無法加載背景：{message}",
   "toast.musicRestoreFailed": "無法恢復譜面引用的音樂：{message}",
+"toast.autosaveRecoveryFailed": "恢復自動儲存失敗：{message}",
   "toast.backgroundRestoreFailed": "無法恢復譜面引用的背景：{message}",
   "error.webAudioUnsupported": "此瀏覽器不支持 Web Audio。",
   "error.audioDecode": "無法解碼所選音頻文件。",

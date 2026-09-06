@@ -186,9 +186,22 @@ class HistoryCommandsTrait {
 						this.difficulties[0]?.file ||
 						uniqueChartFilename(recovery.model.metadata.difficultyName);
 					this.activateProjectChart(recovery.model, filename, { saved: false });
-					this.projectDirty = true;
+					// Only a chart that is not part of the manifest yet changes the project
+					// itself; restoring content into a known chart is exactly what Ctrl+S
+					// saves, so keep the project clean there instead of forcing a full
+					// project save before the unsaved-changes prompt goes away.
+					const knownChart = this.difficulties.some(
+						entry => entry.file.toLowerCase() === String(filename).toLowerCase(),
+					);
+					this.projectDirty = !knownChart;
+					// Media is auxiliary: a failed restore must not abort the pipeline
+					// before refreshNow installs the recovered chart into the views.
 					if (this.files.supportsLocalPaths) {
-						await this.syncMediaFromModel();
+						try {
+							await this.syncMediaFromModel();
+						} catch (error) {
+							console.warn("Autosave media restore failed", error);
+						}
 					}
 					this.refreshNow();
 					return true;
@@ -214,8 +227,15 @@ class HistoryCommandsTrait {
 			},
 		);
 		this.editingProject = false;
+		// Media is auxiliary to the recovery: a failure here (missing file, undecodable
+		// asset, ...) must not abort the pipeline before refreshNow installs the recovered
+		// chart into the views — that used to leave title/timeline/stage on the default chart.
 		if (this.files.supportsLocalPaths) {
-			await this.syncMediaFromModel();
+			try {
+				await this.syncMediaFromModel();
+			} catch (error) {
+				console.warn("Autosave media restore failed", error);
+			}
 		}
 		this.refreshNow();
 		return true;

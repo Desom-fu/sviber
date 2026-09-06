@@ -345,6 +345,7 @@
   "toast.musicLoadFailed": "Could not load the music: {message}",
   "toast.backgroundLoadFailed": "Could not load the background: {message}",
   "toast.musicRestoreFailed": "Could not restore the referenced music: {message}",
+"toast.autosaveRecoveryFailed": "Could not restore the autosave: {message}",
   "toast.backgroundRestoreFailed": "Could not restore the referenced background: {message}",
   "error.webAudioUnsupported": "This browser does not support Web Audio.",
   "error.audioDecode": "The selected audio file could not be decoded.",

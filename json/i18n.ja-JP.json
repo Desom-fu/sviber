@@ -345,6 +345,7 @@
   "toast.musicLoadFailed": "音楽を読み込めませんでした： {message}",
   "toast.backgroundLoadFailed": "バックグラウンドを読み込めませんでした： {message}",
   "toast.musicRestoreFailed": "参照された音楽を復元できませんでした： {message}",
+"toast.autosaveRecoveryFailed": "自動保存の復元に失敗しました： {message}",
   "toast.backgroundRestoreFailed": "参照された背景を復元できませんでした： {message}",
   "error.webAudioUnsupported": "このブラウザはWebオーディオをサポートしていません。",
   "error.audioDecode": "選択したオーディオファイルをデコードできませんでした。",

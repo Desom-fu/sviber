@@ -305,11 +305,11 @@ export class TimelinePointerTrait {
 			height: 25,
 		};
 		const drag = { type: "scroll-alt", hit: { ...hit, rectangle, bounds }, bounds };
-		this._moveScrollAlt(point, drag, project);
+		this._moveScrollAlt({ point, drag, project });
 		return drag;
 	}
 
-	_moveScrollAlt(point, drag, project) {
+	_moveScrollAlt({ point, drag, project }) {
 		const rectangle = drag.hit.rectangle;
 		const bounds = drag.bounds;
 		const span = Math.max(
