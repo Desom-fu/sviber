@@ -208,7 +208,7 @@ textarea:focus-visible,
 	--status-panel-width: clamp(260px, 24vw, 320px);
 	--inspector-fraction: 0.58fr;
 	--history-fraction: 0.42fr;
-	grid-template-rows: var(--timeline-height) 6px minmax(0, 1fr);
+	grid-template-rows: var(--timeline-height) 0 minmax(0, 1fr);
 	min-width: 0;
 	min-height: 0;
 	overflow: hidden;
@@ -223,12 +223,12 @@ textarea:focus-visible,
 }
 
 .timeline-row {
-	grid-template-columns: minmax(0, 1fr) 6px var(--status-panel-width);
+	grid-template-columns: minmax(0, 1fr) 0 var(--status-panel-width);
 	border-bottom: 1px solid var(--border-strong);
 }
 
 .editor-row {
-	grid-template-columns: var(--left-panel-width) 6px minmax(0, 1fr) 6px var(--right-panel-width);
+	grid-template-columns: var(--left-panel-width) 0 minmax(0, 1fr) 0 var(--right-panel-width);
 }
 
 .render-surface {
@@ -271,8 +271,8 @@ textarea:focus-visible,
 .workspace.is-timeline-hidden .timeline-row,
 .workspace.is-timeline-hidden #layout-resize-top { visibility: hidden; pointer-events: none; }
 
-.editor-row.is-scroll-hidden { grid-template-columns: 0 0 minmax(0, 1fr) 6px var(--right-panel-width); }
-.editor-row.is-side-hidden { grid-template-columns: var(--left-panel-width) 6px minmax(0, 1fr) 0 0; }
+.editor-row.is-scroll-hidden { grid-template-columns: 0 0 minmax(0, 1fr) 0 var(--right-panel-width); }
+.editor-row.is-side-hidden { grid-template-columns: var(--left-panel-width) 0 minmax(0, 1fr) 0 0; }
 .editor-row.is-scroll-hidden.is-side-hidden { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
 .workspace.is-layout-locked .layout-resize,
 .workspace.is-layout-locked .edge-toggle { pointer-events: none; visibility: hidden; }
@@ -511,25 +511,36 @@ textarea:focus-visible,
 	grid-template-rows:
 		31px
 		minmax(80px, var(--inspector-fraction, 0.58fr))
-		6px
+		0
 		minmax(80px, var(--history-fraction, 0.42fr));
 	border-left: 1px solid var(--border-strong);
 	overflow: hidden;
 }
 
+/* Zero-width grid gutters keep panels flush; handles are transparent hit layers
+   that spill ±3px over the seam so drag-resize still works. */
 .layout-resize {
-	background: var(--border);
+	background: transparent;
 	z-index: 6;
+	position: relative;
 }
 
 .layout-resize-x {
 	cursor: col-resize;
+	width: 6px;
 	min-width: 6px;
+	margin-left: -3px;
+	margin-right: -3px;
+	justify-self: center;
 }
 
 .layout-resize-y {
 	cursor: row-resize;
+	height: 6px;
 	min-height: 6px;
+	margin-top: -3px;
+	margin-bottom: -3px;
+	align-self: center;
 }
 
 .field-control-row {

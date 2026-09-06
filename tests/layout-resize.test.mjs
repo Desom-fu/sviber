@@ -41,3 +41,20 @@ test("workspace exposes drag handles between the main panels", async () => {
 		assert.match(index, new RegExp(`id="${id}"`));
 	}
 });
+
+
+test("panel resize handles are transparent hit layers on zero-width gutters", async () => {
+	const [appCss, readmeCss, overlaysCss] = await Promise.all([
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+		readFile(new URL("../css/readme.css", import.meta.url), "utf8"),
+		readFile(new URL("../css/overlays.css", import.meta.url), "utf8"),
+	]);
+	assert.match(appCss, /\.layout-resize\s*\{[^}]*background:\s*transparent/);
+	assert.match(appCss, /grid-template-rows:\s*var\(--timeline-height\)\s+0\s+minmax/);
+	assert.match(appCss, /grid-template-columns:\s*var\(--left-panel-width\)\s+0\s+minmax\(0,\s*1fr\)\s+0\s+var\(--right-panel-width\)/);
+	assert.match(appCss, /\.layout-resize-x\s*\{[^}]*margin-left:\s*-3px/);
+	assert.match(appCss, /\.layout-resize-y\s*\{[^}]*margin-top:\s*-3px/);
+	assert.match(readmeCss, /\.layout-resize\s*\{[^}]*background:\s*transparent/);
+	assert.match(readmeCss, /grid-template-columns:\s*var\(--readme-sidebar[^)]*\)\s+0\s+minmax/);
+	assert.match(overlaysCss, /grid-template-rows:\s*var\(--timeline-height\)\s+0\s+minmax/);
+});
