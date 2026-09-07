@@ -38,7 +38,7 @@ export async function resolveAudioDecode(options = {}) {
 	return moduleDefault(await importModule(AUDIO_DECODE_CDN_URL));
 }
 
-export function loadAudioDecode() {
+function loadAudioDecode() {
 	if (!sharedDecoderPromise) {
 		sharedDecoderPromise = resolveAudioDecode().catch(error => {
 			sharedDecoderPromise = null;
@@ -48,7 +48,7 @@ export function loadAudioDecode() {
 	return sharedDecoderPromise;
 }
 
-export function audioDataToBuffer(context, audioData) {
+function audioDataToBuffer(context, audioData) {
 	if (audioData?.getChannelData && Number.isFinite(audioData.sampleRate)) {
 		return audioData;
 	}

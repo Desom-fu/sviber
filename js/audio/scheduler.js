@@ -1,4 +1,4 @@
-export const HIT_LOOKAHEAD_SECONDS = 0.1;
+const HIT_LOOKAHEAD_SECONDS = 0.1;
 export const HIT_SOUND_TYPES = Object.freeze(new Set(["tap", "hold", "drag", "flick"]));
 
 function lowerBound(records, value, field) {

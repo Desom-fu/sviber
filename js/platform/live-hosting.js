@@ -368,4 +368,4 @@ export class LiveHosting {
 	}
 }
 
-export { DEFAULT_ADDRESS, DEFAULT_RELOAD_PORT, SSCHARTER_VERSION, parseAddress, encodeWebSocketFrame };
+export { SSCHARTER_VERSION, parseAddress, encodeWebSocketFrame };

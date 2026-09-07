@@ -8,55 +8,8 @@
 
 import { resolveAttachedPosition } from "../core/geometry.js";
 import { TIMELINE_EVENT_COLORS, drawTimelineEventIcon } from "../render/timeline-helpers.js";
-import { clear } from "./panel-controls.js";
 
-function makeInlineActionRow(documentRef, i18n, tooltip, items) {
-	const row = documentRef.createElement("div");
-	row.className = "item-expanded-actions";
-	for (const item of items) {
-		const button = documentRef.createElement("button");
-		button.type = "button";
-		button.className = "snappee-action";
-		button.disabled = Boolean(item.disabled);
-		button.setAttribute("aria-label", i18n.t(item.tooltipKey));
-		const image = documentRef.createElement("img");
-		image.src = `svg/icons/${item.icon}.svg`;
-		image.alt = "";
-		image.draggable = false;
-		button.append(image);
-		button.addEventListener("click", event => {
-			event.stopPropagation();
-			if (!button.disabled) {
-				item.onSelect?.();
-			}
-		});
-		tooltip?.register(button, item.tooltipKey);
-		row.append(button);
-	}
-	return row;
-}
-
-function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
-	const button = documentRef.createElement("button");
-	button.type = "button";
-	button.className = "snappee-action item-expand-button";
-	button.setAttribute("aria-expanded", String(expanded));
-	button.setAttribute("aria-label", i18n.t(expanded ? "panel.item.collapse" : "panel.item.expand"));
-	const image = documentRef.createElement("img");
-	image.src = "svg/icons/more.svg";
-	image.alt = "";
-	image.draggable = false;
-	button.append(image);
-	image.alt = "";
-	image.draggable = false;
-	button.append(image);
-	button.addEventListener("click", event => {
-		event.stopPropagation();
-		onToggle(!expanded);
-	});
-	tooltip?.register(button, expanded ? "panel.item.collapse" : "panel.item.expand");
-	return button;
-}
+import { clearElement, makeExpansionButton, makeInlineActionRow } from "./ui-shared.js";
 
 export function drawClipThumbnail(canvas, data, size = 42) {
 	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -222,7 +175,7 @@ export class ClipsPanel {
 		const readOnly = Boolean(context.readOnly);
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
-		clear(this.element);
+		clearElement(this.element);
 		if (!model.clips?.length) {
 			const empty = document.createElement("div");
 			empty.className = "empty-panel";

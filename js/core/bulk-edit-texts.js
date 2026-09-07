@@ -18,11 +18,11 @@ const ESCAPE_BACK = Object.freeze({
 	t: "\t",
 });
 
-export function isTextableEvent(event) {
+function isTextableEvent(event) {
 	return TEXT_TYPES.has(event?.type);
 }
 
-export function isBulkEditableEvent(event) {
+function isBulkEditableEvent(event) {
 	return isTextableEvent(event) && event.type !== "comment";
 }
 
@@ -30,7 +30,7 @@ export function convertBackslashEscapes(text) {
 	return String(text ?? "").replace(/\\([\\snt])/g, (_match, token) => ESCAPE_BACK[token] ?? token);
 }
 
-export function escapeEventText(text) {
+function escapeEventText(text) {
 	let result = String(text ?? "");
 	for (const [from, to] of ESCAPE_PAIRS) {
 		result = result.replaceAll(from, to);

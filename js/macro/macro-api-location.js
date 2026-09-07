@@ -170,7 +170,7 @@ export function installLocationApi(ctx) {
 	ctx.assignRawLocation = assignRawLocation;
 }
 
-export function locationFields(location) {
+function locationFields(location) {
 	if (!location.attached) {
 		return { attached: false, x: location.x, y: location.y };
 	}

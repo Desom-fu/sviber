@@ -14,22 +14,11 @@
 // Split out of js/panels.js.
 
 import { Rational } from "../core/rational.js";
+import { MIXED, commonValue } from "./ui-shared.js";
 
-export const MIXED = Symbol("mixed");
-
-// The value the selected items agree on, or MIXED when they disagree.
-export function commonValue(items, getter) {
-	if (!items.length) {
-		return undefined;
-	}
-	const first = getter(items[0]);
-	const serialized = JSON.stringify(first);
-	return items.every(item => JSON.stringify(getter(item)) === serialized) ? first : MIXED;
-}
-
-export function clear(element) {
-	element.replaceChildren();
-}
+// The sentinel and the multi-selection agreement helper live in ui-shared.js; re-exported
+// here so existing importers of this module keep working.
+export { MIXED, commonValue };
 
 // A beat is edited as the integer triple `whole + numerator / denominator`, committed only
 // once all three parts form a valid rational.

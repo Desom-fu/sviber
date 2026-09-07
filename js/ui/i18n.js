@@ -28,7 +28,7 @@ export function normalizeLanguage(language) {
 // v22: on Mac keyboards Ctrl is the Command key and Alt is Option. The command registry
 // already fires Ctrl shortcuts on Command (metaAsCtrl), so this only changes how the
 // shortcuts are spelled for the user: in the menus, the toolbar, the shortcuts dialog.
-export function isMacPlatform() {
+function isMacPlatform() {
 	return /Mac|iPhone|iPad/.test(globalThis.navigator?.platform || globalThis.navigator?.userAgent || "");
 }
 

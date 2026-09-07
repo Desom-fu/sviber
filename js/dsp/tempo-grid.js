@@ -7,7 +7,7 @@
 // independently in each window; the final timing map keeps one continuous beat
 // origin and only emits sustained tempo changes.
 
-export const DEFAULT_TEMPO_GRID_PARAMETERS = Object.freeze({
+const DEFAULT_TEMPO_GRID_PARAMETERS = Object.freeze({
 	minimumTempo: 40,
 	maximumTempo: 280,
 	phaseSteps: 36,

@@ -77,7 +77,9 @@ export class TransformTargetsTrait {
 			}
 			try {
 				points.push(...sampleSnappee(snappee));
-			} catch {}
+			} catch {
+				/* Sampling can fail for degenerate snappee geometry; skip and keep the rest. */
+			}
 		}
 		if (!points.length) {
 			return null;

@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v015120";
+const CACHE_VERSION = "sviber-v015130";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -11,7 +11,6 @@ const APP_SHELL = [
 	"./javascript.html",
 	"./source-viewer.html",
 	"./package.json",
-	"./css/app-v11.css",
 	"./css/app.css",
 	"./css/dialogs.css",
 	"./css/fonts-local.css",
@@ -86,7 +85,6 @@ const APP_SHELL = [
 	"./js/app/app-timeline-navigation.js",
 	"./js/app/app-tip-point-modes.js",
 	"./js/app/app-tip-spawn-move.js",
-	"./js/app/app-transform-commands.js",
 	"./js/app/app-transform-targets.js",
 	"./js/app/app-view-callbacks.js",
 	"./js/app/app-view-controls.js",
@@ -155,6 +153,7 @@ const APP_SHELL = [
 	"./js/macro/macro-sandbox.js",
 	"./js/macro/macro-sandbox.bundle.js",
 	"./js/macro/macros.js",
+	"./js/core/math-utils.js",
 	"./js/core/mixin.js",
 	"./js/boot/nw-source-bootstrap.js",
 	"./js/ui/panel-clips.js",
@@ -178,7 +177,6 @@ const APP_SHELL = [
 	"./js/render/pixi-surface.js",
 	"./js/render/scroll-view.js",
 	"./js/render/selection.js",
-	"./js/render/sorted-records.js",
 	"./js/render/stage-core.js",
 	"./js/render/stage-drafts.js",
 	"./js/render/stage-helpers.js",
@@ -204,7 +202,6 @@ const APP_SHELL = [
 	"./js/ui/ui-panels.js",
 	"./js/ui/ui-shared.js",
 	"./js/ui/ui-shell.js",
-	"./js/ui/item-menu.js",
 	"./js/ui/ui.js",
 	"./js/boot/vendor-loader.js",
 	"./json/i18n.en-US.json",
@@ -237,7 +234,7 @@ const APP_SHELL = [
 		"hide-channel.svg", "show-bg-events-in-main-field.svg", "show-bg-events-in-timeline.svg",
 		"show-chart-boundary.svg",
 		"show-grouping-in-main-field.svg", "show-grouping-in-timeline.svg", "show-hud.svg",
-		"menu.svg", "show-channel.svg", "show-tip-points.svg", "speed-0-1.svg", "speed-0-25.svg",
+		"show-channel.svg", "show-tip-points.svg", "speed-0-1.svg", "speed-0-25.svg",
 		"speed-0-5.svg", "speed-1.svg", "time-lattice-1.svg",
 		"time-lattice-2.svg", "time-lattice-3.svg", "time-lattice-4.svg", "time-lattice-6.svg",
 		"time-lattice-8.svg", "up.svg", "zoom-in.svg", "zoom-out.svg",

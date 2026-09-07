@@ -1,6 +1,6 @@
 const STORAGE_KEY = "sviber.windowBounds";
 
-export function loadWindowBounds(name) {
+function loadWindowBounds(name) {
 	try {
 		const all = JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) || "{}");
 		const bounds = all?.[name];
@@ -25,7 +25,7 @@ export function loadWindowBounds(name) {
 	}
 }
 
-export function storeWindowBounds(name, bounds) {
+function storeWindowBounds(name, bounds) {
 	try {
 		const all = JSON.parse(globalThis.localStorage?.getItem(STORAGE_KEY) || "{}");
 		all[name] = bounds;

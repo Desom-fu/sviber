@@ -24,7 +24,7 @@ const CoreWithV24 = withReadmeEditor(
 	withFileDrop(withBulkEditTexts(withTipPointSwitch(withProjectFiles(CoreWithTools)))),
 );
 const ComposedSviberApp = CoreWithV24;
-export class SviberApp extends ComposedSviberApp {}
+class SviberApp extends ComposedSviberApp {}
 
 const app = new SviberApp();
 globalThis.sviber = app;

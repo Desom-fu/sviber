@@ -21,7 +21,7 @@ export const DEFAULT_BEAT_PARAMETERS = Object.freeze({
 // FMP (6.36) - (6.39). The overlap-add is normalized by the accumulated window
 // weight so that perfectly aligned sinusoids peak at 1, turning the peak height
 // into a confidence value.
-export function predominantLocalPulse(novelty, frameRate, tempogram) {
+function predominantLocalPulse(novelty, frameRate, tempogram) {
 	const { magnitude, tempi, frames, hop, radius, window } = tempogram;
 	const accumulator = new Float64Array(novelty.length);
 	const overlapWeight = new Float64Array(novelty.length);
@@ -58,7 +58,7 @@ export function predominantLocalPulse(novelty, frameRate, tempogram) {
 	return pulse;
 }
 
-export function pickPeaks(values, threshold = 0) {
+function pickPeaks(values, threshold = 0) {
 	const peaks = [];
 	for (let index = 1; index + 1 < values.length; index += 1) {
 		if (values[index] <= threshold) {
@@ -72,7 +72,7 @@ export function pickPeaks(values, threshold = 0) {
 }
 
 // FMP (6.40): P(delta) = -(log2(delta / idealDelta))^2
-export function beatPeriodPenalty(delta, idealDelta) {
+function beatPeriodPenalty(delta, idealDelta) {
 	if (delta <= 0 || idealDelta <= 0) {
 		return -Infinity;
 	}
@@ -82,7 +82,7 @@ export function beatPeriodPenalty(delta, idealDelta) {
 
 // FMP Table 6.1 with a bounded search window (Exercise 6.13) so that a ten
 // minute recording stays within a linear-ish amount of work.
-export function dynamicProgrammingBeats(novelty, idealDelta, lambda) {
+function dynamicProgrammingBeats(novelty, idealDelta, lambda) {
 	const length = novelty.length;
 	const accumulated = new Float64Array(length + 1);
 	const predecessor = new Int32Array(length + 1);

@@ -33,7 +33,7 @@ export const DEFAULT_TEMPOGRAM_PARAMETERS = Object.freeze({
 	}),
 });
 
-export function tempoSet(parameters) {
+function tempoSet(parameters) {
 	const minimum = Math.max(1, Number(parameters.minimumTempo) || 30);
 	const maximum = Math.max(minimum + 1, Number(parameters.maximumTempo) || 600);
 	const step = Math.max(0.1, Number(parameters.tempoStep) || 1);
@@ -115,7 +115,7 @@ export function fourierTempogram(novelty, frameRate, overrides = {}) {
 	return { magnitude, tempi, frames, hop, frameRate, radius, window, algorithm: "fourier", parameters };
 }
 
-export function autocorrelationTempogram(novelty, frameRate, overrides = {}) {
+function autocorrelationTempogram(novelty, frameRate, overrides = {}) {
 	const parameters = { ...DEFAULT_TEMPOGRAM_PARAMETERS.autocorrelation, ...overrides };
 	const tempi = tempoSet(parameters);
 	const geometry = tempogramGeometry(novelty, frameRate, parameters);
@@ -151,7 +151,7 @@ export function autocorrelationTempogram(novelty, frameRate, overrides = {}) {
 }
 
 // FMP (6.32).
-export function averageTempogram(tempogram) {
+function averageTempogram(tempogram) {
 	const { magnitude, tempi, frames } = tempogram;
 	const average = new Float64Array(tempi.length);
 	for (let frame = 0; frame < frames; frame += 1) {

@@ -1,4 +1,4 @@
-export const ICON_BASE = "svg/icons";
+const ICON_BASE = "svg/icons";
 
 const icon = name => `${ICON_BASE}/${name}.svg`;
 
@@ -610,7 +610,7 @@ export function parseShortcut(shortcut) {
 	return Object.freeze(result);
 }
 
-export function matchesShortcut(event, shortcut, { metaAsCtrl = false } = {}) {
+function matchesShortcut(event, shortcut, { metaAsCtrl = false } = {}) {
 	const parsed = typeof shortcut === "string" ? parseShortcut(shortcut) : shortcut;
 	if (!parsed || !parsed.key || event.isComposing) {
 		return false;
@@ -640,7 +640,7 @@ export function isEditableTarget(target) {
 	return !editable.matches?.('input[type="checkbox"], input[type="radio"]');
 }
 
-export function isSpaceKey(event) {
+function isSpaceKey(event) {
 	return event?.key === " " || event?.key === "Spacebar" || event?.code === "Space";
 }
 

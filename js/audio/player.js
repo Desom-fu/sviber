@@ -3,7 +3,7 @@ import { HIT_SOUND_TYPES } from "./scheduler.js";
 import { WaveformPeaks } from "./waveform.js";
 
 // f(t) = sin(2*pi*1000*t) * sin(2*pi*100*t) / (2*pi*100*t) * max(sgn(0.02 - t), 0)
-export const BG_NOTE_SE_DURATION = 0.02;
+const BG_NOTE_SE_DURATION = 0.02;
 const SE_SOUND_TYPES = new Set([...HIT_SOUND_TYPES, "bgNote"]);
 
 export function sunniesnowHitSample(type, time) {

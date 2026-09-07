@@ -1,13 +1,14 @@
 // The snappee and channel list panels: the two side lists whose items carry an
-// activate/deactivate toggle plus a popup menu with the rest of their actions.
+// activate/deactivate toggle plus an expandable row with the rest of their actions.
 //
 // v22 moved the rarely used actions of every list item (duplicate, reorder, edit, delete,
-// and the channel-specific hide/show and create-above/below) into the small popup menu
-// built by ./item-menu.js, so the item itself only keeps its primary toggle. Split out of
-// js/panels.js, which re-exports these classes so existing importers keep working.
+// and the channel-specific hide/show and create-above/below) into an expandable inline
+// action row (makeInlineActionRow/makeExpansionButton in ./ui-shared.js), so the item
+// itself only keeps its primary toggle. Split out of js/panels.js, which re-exports these
+// classes so existing importers keep working.
 
 import { sampleSnappee } from "../core/geometry.js";
-import { clear } from "./panel-controls.js";
+import { clearElement, makeExpansionButton, makeInlineActionRow } from "./ui-shared.js";
 
 // The snappee's sampled points, scaled into the preview box. Chart y grows upwards while
 // canvas y grows downwards, so the projection flips it.
@@ -237,32 +238,6 @@ function channelMenuItems(panel, channel, index, model, readOnly) {
 	];
 }
 
-function makeInlineActionRow(documentRef, i18n, tooltip, items) {
-	const row = documentRef.createElement("div");
-	row.className = "item-expanded-actions";
-	for (const item of items) {
-		const button = documentRef.createElement("button");
-		button.type = "button";
-		button.className = "snappee-action";
-		button.disabled = Boolean(item.disabled);
-		button.setAttribute("aria-label", i18n.t(item.tooltipKey));
-		const image = documentRef.createElement("img");
-		image.src = `svg/icons/${item.icon}.svg`;
-		image.alt = "";
-		image.draggable = false;
-		button.append(image);
-		button.addEventListener("click", event => {
-			event.stopPropagation();
-			if (!button.disabled) {
-				item.onSelect?.();
-			}
-		});
-		tooltip?.register(button, item.tooltipKey);
-		row.append(button);
-	}
-	return row;
-}
-
 function bindItemReorder(item, index, onReorder, readOnly) {
 	if (readOnly) {
 		return;
@@ -285,26 +260,6 @@ function bindItemReorder(item, index, onReorder, readOnly) {
 		}
 		onReorder(source, index);
 	});
-}
-
-function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
-	const button = documentRef.createElement("button");
-	button.type = "button";
-	button.className = "snappee-action item-expand-button";
-	button.setAttribute("aria-expanded", String(expanded));
-	button.setAttribute("aria-label", i18n.t(expanded ? "panel.item.collapse" : "panel.item.expand"));
-	const image = documentRef.createElement("img");
-	image.src = "svg/icons/more.svg";
-	image.alt = "";
-	image.draggable = false;
-	button.append(image);
-	button.addEventListener("click", event => {
-		event.stopPropagation();
-		onToggle(!expanded);
-	});
-	tooltip?.register(button, expanded ? "panel.item.collapse" : "panel.item.expand");
-	button.classList.add("item-expand-button");
-	return button;
 }
 
 export class SnappeesPanel {
@@ -457,7 +412,7 @@ export class SnappeesPanel {
 		const scrollLeft = Number(this.element.scrollLeft) || 0;
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
-		clear(this.element);
+		clearElement(this.element);
 		if (!model.snappees.length) {
 			const empty = document.createElement("div");
 			empty.className = "empty-panel";
@@ -584,7 +539,7 @@ export class ChannelsPanel {
 		const readOnly = Boolean(context.readOnly);
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
-		clear(this.element);
+		clearElement(this.element);
 		model.channels.forEach((channel, index) => {
 			this.element.append(this.#item(channel, index, model, readOnly));
 		});

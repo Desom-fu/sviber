@@ -1,4 +1,4 @@
-// Node/NW.js implementation of the CLI I/O surface used by js/cli-operations.js.
+// Node/NW.js implementation of the CLI I/O surface used by js/cli/cli-operations.js.
 
 import { ChartModel } from "../core/chart-model.js";
 import { PROJECT_FILENAME } from "../core/project.js";

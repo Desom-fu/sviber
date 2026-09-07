@@ -418,7 +418,7 @@ function registerHelpCommands(app) {
 	register(app, "help.about", () => void app.help.showAbout());
 }
 
-export function registerAllCommands(app) {
+function registerAllCommands(app) {
 	registerFileCommands(app);
 	registerEditCommands(app);
 	registerEventCommands(app);

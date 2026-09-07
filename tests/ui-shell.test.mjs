@@ -27,7 +27,7 @@ test("UI uses icon controls, sliders, fullscreen, read-only macros, and PWA cach
 	const [index, styles, fields, core, shortcuts, macros, bridge, manifestText, worker, sandboxHtml] =
 		await Promise.all([
 		readFile(new URL("../index.html", import.meta.url), "utf8"),
-		readFile(new URL("../css/app-v11.css", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui/ui-fields.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app/app-core.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/app/app-global-shortcuts.js", import.meta.url), "utf8"),

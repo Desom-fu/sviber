@@ -643,16 +643,4 @@ export class ChartModel {
 	}
 }
 
-export function createDefaultChartState(overrides = {}) {
-	return ChartModel.createDefault(overrides).snapshot();
-}
-
-export function importChart(source, options = {}) {
-	return ChartModel.import(source, options);
-}
-
-export function exportSunniesnowChart(model, options = {}) {
-	return (model instanceof ChartModel ? model : new ChartModel(model)).exportSunniesnow(options);
-}
-
 export default ChartModel;

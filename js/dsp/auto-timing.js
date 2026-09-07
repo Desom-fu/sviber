@@ -10,12 +10,6 @@ import { DEFAULT_DENOISE_PARAMETERS, denoiseBeats, timingFromDenoisedBeats } fro
 import { DEFAULT_REFINE_PARAMETERS, refineBeatTimes } from "./onset-refine.js";
 import { timingFromTempoGrid } from "./tempo-grid.js";
 
-export const AUTO_TIMING_ALGORITHMS = Object.freeze({
-	novelty: NOVELTY_ALGORITHMS,
-	tempogram: TEMPOGRAM_ALGORITHMS,
-	beat: BEAT_ALGORITHMS,
-});
-
 export const AUTO_TIMING_DEFAULTS = Object.freeze({
 	novelty: "energy",
 	tempogram: "fourier",
