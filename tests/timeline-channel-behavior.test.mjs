@@ -207,17 +207,18 @@ test("the timeline paints hidden-channel separators and marks selected hidden ev
 });
 
 test("the panel items keep one primary action and reveal an inline second row", async () => {
-	const [lists, clips] = await Promise.all([
+	const [lists, clips, shared] = await Promise.all([
 		readFile(new URL("../js/ui/panel-lists.js", import.meta.url), "utf8"),
 		readFile(new URL("../js/ui/panel-clips.js", import.meta.url), "utf8"),
+		readFile(new URL("../js/ui/ui-shared.js", import.meta.url), "utf8"),
 	]);
 	// Channels: activate/deactivate stays, the expanded row carries hide/show, create, and the rest.
 	assert.match(lists, /makeInlineActionRow/);
 	assert.match(lists, /icon: channel\.hidden === true \? "show-channel" : "hide-channel"/);
 	assert.match(lists, /icon: "create-channel-above"/);
 	assert.match(lists, /icon: "create-channel-below"/);
-	assert.match(lists, /item-expanded-actions/);
+	assert.match(shared, /item-expanded-actions/);
 	// Clips: pasting stays on the item, the rest appears in the expanded row.
 	assert.match(clips, /this\.#action\("paste", "panel\.clip\.paste"/);
-	assert.match(clips, /item-expanded-actions/);
+	assert.match(shared, /makeInlineActionRow/);
 });

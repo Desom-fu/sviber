@@ -2,7 +2,7 @@
 // dragging, offset adjustment and the auto-chase behaviour that shifts the visible
 // range (and the channel lanes) when a drag leaves the visible area.
 
-export const CHASE_MARGIN = 12;
+const CHASE_MARGIN = 12;
 export const CHASE_SPEED = 0.55;
 
 // Fraction of the visible span that the range should move by, based on how far the

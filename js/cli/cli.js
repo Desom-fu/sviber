@@ -5,27 +5,6 @@
 // Lyrica chart, and importing any of those as a sviber chart or a sviber project.
 
 import { Rational } from "../core/rational.js";
-export const CLI_FLAGS = Object.freeze([
-	"--export",
-	"--import",
-	"--help",
-	"-h",
-	"--version",
-	"-v",
-	"--offset",
-	"--initial-bpm",
-	"--largest-denominator",
-	"--bpm-change",
-	"--seed",
-	"--quantization-denominator",
-	"--charter",
-	"--difficulty-name",
-	"--difficulty-color",
-	"--difficulty",
-	"--difficulty-sup",
-	"--chart",
-]);
-
 const VALUE_FLAGS = new Map([
 	["--export", "exportPath"],
 	["--import", "importPath"],

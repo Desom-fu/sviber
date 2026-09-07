@@ -312,11 +312,11 @@ export class Rational {
 	}
 }
 
-export function normalizeRational(value) {
+function normalizeRational(value) {
 	return Rational.normalize(value);
 }
 
-export function snapRational(value, subdivision) {
+function snapRational(value, subdivision) {
 	return Rational.snap(value, subdivision);
 }
 
@@ -327,8 +327,5 @@ export const add = (left, right) => Rational.from(left).add(right);
 export const sub = (left, right) => Rational.from(left).sub(right);
 export const compare = (left, right) => Rational.compare(left, right);
 export const snap = snapRational;
-
-export const ZERO = new Rational(0, 1);
-export const ONE = new Rational(1, 1);
 
 export default Rational;

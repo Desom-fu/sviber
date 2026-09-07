@@ -16,10 +16,7 @@ import {
 	LYRICA_MAX_GAP,
 	LYRICA_SLOW_SPAWN,
 } from "./lyrica-format.js";
-
-function clamp(value, min, max) {
-	return Math.min(max, Math.max(min, value));
-}
+import { clamp } from "./math-utils.js";
 
 function abs(value) {
 	return Math.abs(Number(value) || 0);

@@ -6,7 +6,7 @@ import { deepClone, leafEventsOf, selected } from "./app-helpers.js";
 // so a one-lane mouse move must skip them. Inactive (paused) channels stay visible but are
 // not a legal landing place.
 
-export function visibleMoveChannels(model) {
+function visibleMoveChannels(model) {
 	return (model.channels || []).filter(channel => channel.hidden !== true);
 }
 

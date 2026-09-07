@@ -1,4 +1,5 @@
 import { i18n, SUPPORTED_LANGUAGES } from "../ui/i18n.js";
+import { clamp } from "../core/math-utils.js";
 import { walkEvents } from "../core/grouping.js";
 import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "../ui/ui.js";
@@ -99,21 +100,20 @@ function preferenceChoice(value, choices, fallback) {
 	return choices.includes(value) ? value : fallback;
 }
 
+// Preference clamps share one core implementation; each adds its own fallback semantics.
 function clampVolume(value, fallback, maximum) {
-	return Number.isFinite(Number(value)) ? Math.max(0, Math.min(maximum, Number(value))) : fallback;
+	const number = Number(value);
+	return Number.isFinite(number) ? clamp(number, 0, maximum) : fallback;
 }
 
 function clampFraction(value, fallback, minimum = 0.06, maximum = 0.55) {
 	const number = Number(value);
-	return Number.isFinite(number) ? Math.min(maximum, Math.max(minimum, number)) : fallback;
+	return Number.isFinite(number) ? clamp(number, minimum, maximum) : fallback;
 }
 
 function clampNumber(value, fallback, minimum, maximum) {
 	const number = Number(value);
-	if (!Number.isFinite(number)) {
-		return fallback;
-	}
-	return Math.min(maximum, Math.max(minimum, number));
+	return Number.isFinite(number) ? clamp(number, minimum, maximum) : fallback;
 }
 
 function normalizePreferences(source = {}) {
@@ -281,25 +281,6 @@ export function leafEventsOf(model, event) {
 	return model.groupDescendants(event.id).filter(item => item.type !== "group");
 }
 
-// Lookup tables the selection code needs. The render index already holds both, so they are
-// only rebuilt when the index is missing or stale.
-export function eventMapOf(model) {
-	return new Map(model.allEvents().map(event => [event.id, event]));
-}
-
-export function activeChannelIdsOf(model) {
-	return new Set(model.channels.filter(channel => channel.active !== false).map(channel => channel.id));
-}
-
-export function selectedEventIdsOf(model) {
-	return new Set(
-		model
-			.allEvents()
-			.filter(event => event.selected)
-			.map(event => event.id),
-	);
-}
-
 export function deepClone(value) {
 	return structuredClone(value);
 }
@@ -365,7 +346,7 @@ export function attachedMoveAllowed(model, snappee, events, snapPoints) {
 	});
 }
 
-export function attachedNotesStayWithinBounds(model, snappeeId) {
+function attachedNotesStayWithinBounds(model, snappeeId) {
 	if (allowsOutOfBounds(model)) {
 		return true;
 	}
@@ -590,7 +571,7 @@ function dialogControlElement(entry) {
 	return entry?.control?.element;
 }
 
-export function dialogEventTargetsField(dialogState, fieldId) {
+function dialogEventTargetsField(dialogState, fieldId) {
 	const entry = dialogState?.entries?.find(item => item.field.id === fieldId);
 	const element = dialogControlElement(entry);
 	const target = dialogState?.event?.target;

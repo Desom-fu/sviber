@@ -1,8 +1,8 @@
 export const INTERNAL = Symbol("sviber macro wrapper");
 export const OMITTED = Symbol("omitted macro argument");
 
-export const MESH_SNAPPEE_TYPES = new Set(["rectangularMesh", "radialMesh", "parametricMesh"]);
-export const CURVE_SNAPPEE_TYPES = new Set([
+const MESH_SNAPPEE_TYPES = new Set(["rectangularMesh", "radialMesh", "parametricMesh"]);
+const CURVE_SNAPPEE_TYPES = new Set([
 	"regularPolygonCurve",
 	"bezierCurve",
 	"circularArcCurve",

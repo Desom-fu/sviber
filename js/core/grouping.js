@@ -31,7 +31,7 @@ export function findEvent(events, id) {
 	return found;
 }
 
-export function findEventContainer(events, id) {
+function findEventContainer(events, id) {
 	let container = null;
 	const visit = (items, ancestors) => {
 		for (const event of items || []) {

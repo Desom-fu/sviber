@@ -12,7 +12,7 @@ function numberOf(value) {
 
 // The form stores every command with all six coordinates, so a straight conversion to
 // the drawing commands is needed before serializing.
-export function commandsToSvgPath(commands, closed) {
+function commandsToSvgPath(commands, closed) {
 	const drawing = (commands || []).map(command => {
 		const type = String(command?.type || "L").toUpperCase();
 		if (type === "C" || type === "Q") {
@@ -31,7 +31,7 @@ export function commandsToSvgPath(commands, closed) {
 	return penCommandsToSvgPath(drawing, Boolean(closed));
 }
 
-export function svgPathToFormCommands(pathData) {
+function svgPathToFormCommands(pathData) {
 	const parsed = svgPathToPenCommands(pathData);
 	const commands = parsed.commands.map(command => ({
 		type: command.type,

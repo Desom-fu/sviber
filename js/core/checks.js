@@ -9,7 +9,7 @@ import { CHECK_DEFINITIONS, CHECK_IDS, defaultChecks, normalizeChecks } from "./
 
 export { CHECK_DEFINITIONS, CHECK_IDS, defaultChecks, normalizeChecks };
 
-export const CHECK_EPSILON = 1e-6;
+const CHECK_EPSILON = 1e-6;
 
 const NOTE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 const FINGER_DOWN_TYPES = new Set(["tap", "hold", "flick"]);
@@ -709,12 +709,4 @@ export function runChecks(model, options = {}) {
 		step();
 	}
 	return sortViolations(violations);
-}
-
-export function checkBeat(timing, seconds) {
-	try {
-		return Rational.from(timing.secondsToBeat(seconds)).toNumber();
-	} catch {
-		return null;
-	}
 }

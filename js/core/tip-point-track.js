@@ -43,7 +43,7 @@ export function normalizeTipPointSwitches(source, channelId) {
 	return result;
 }
 
-export function collectTipPointSwitchTimes(channels) {
+function collectTipPointSwitchTimes(channels) {
 	const grouped = new Map();
 	for (const channel of channels || []) {
 		for (const item of channel.tipPointSwitches || []) {
@@ -61,7 +61,7 @@ export function hasTipPointSwitches(project) {
 	return (project?.channels || []).some(channel => (channel.tipPointSwitches || []).length > 0);
 }
 
-export function applySwitchMapping(channelId, mapping) {
+function applySwitchMapping(channelId, mapping) {
 	return mapping.has(channelId) ? mapping.get(channelId) : channelId;
 }
 
@@ -115,18 +115,6 @@ export function allTipPointTracks(project) {
 		startChannelId: channel.id,
 		events: tipPointTrackEvents(project, channel.id),
 	}));
-}
-
-export function startChannelOfTrackContaining(project, event) {
-	if (!event || !TIP_POINTABLE_TYPES.has(event.type)) {
-		return event?.channel ?? null;
-	}
-	for (const channel of project?.channels || []) {
-		if (tipPointTrackEvents(project, channel.id).includes(event)) {
-			return channel.id;
-		}
-	}
-	return event.channel;
 }
 
 export function switchedChannelsAt(channels, time) {

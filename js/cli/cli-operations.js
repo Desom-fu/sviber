@@ -189,4 +189,3 @@ export async function runCli(argv, io) {
 	}
 }
 
-export { CHART_ORDER_EPSILON };

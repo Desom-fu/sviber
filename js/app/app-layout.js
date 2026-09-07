@@ -2,6 +2,7 @@
 // preferences, not in the chart file.
 
 import { composeTraits } from "../core/mixin.js";
+import { clamp } from "../core/math-utils.js";
 import {
 	DEFAULT_PREFERENCES,
 	inspectorHistoryFractions,
@@ -16,10 +17,6 @@ function workspaceElements() {
 		editorRow: document.querySelector(".editor-row"),
 		sidePanel: document.querySelector(".side-panel"),
 	};
-}
-
-function clamp(value, minimum, maximum) {
-	return Math.min(maximum, Math.max(minimum, value));
 }
 
 class LayoutTrait {

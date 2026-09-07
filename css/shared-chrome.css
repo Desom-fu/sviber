@@ -71,8 +71,7 @@
 }
 
 .menu-command:hover,
-.menu-command:focus,
-.menu-command.is-keyboard-active {
+.menu-command:focus {
 	background: var(--hover);
 }
 

@@ -42,7 +42,7 @@ function attackStrength(samples, position, width) {
 	return Math.log(1 + 1e4 * after) - Math.log(1 + 1e4 * before);
 }
 
-export function refineBeatTime(samples, sampleRate, time, overrides = {}) {
+function refineBeatTime(samples, sampleRate, time, overrides = {}) {
 	const parameters = { ...DEFAULT_REFINE_PARAMETERS, ...overrides };
 	const step = Math.max(1, Math.floor(parameters.stepSamples));
 	const width = Math.max(16, Math.floor(parameters.windowSamples));

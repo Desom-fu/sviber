@@ -40,7 +40,7 @@ function cloneFallback(value, seen = new Map()) {
 	return result;
 }
 
-export function cloneSnapshot(value) {
+function cloneSnapshot(value) {
 	return typeof globalThis.structuredClone === "function" ? globalThis.structuredClone(value) : cloneFallback(value);
 }
 
@@ -179,7 +179,7 @@ export function captureHistoryView(model, options = {}) {
 	};
 }
 
-export function applyHistoryView(state, view) {
+function applyHistoryView(state, view) {
 	if (!state || !view) {
 		return state;
 	}
@@ -247,7 +247,7 @@ export function applyHistoryView(state, view) {
 	return state;
 }
 
-export function applyHistoryPatch(state, patch) {
+function applyHistoryPatch(state, patch) {
 	if (!state || !patch?.kind) {
 		return state;
 	}
@@ -332,7 +332,7 @@ export function applyHistoryPatch(state, patch) {
 	return applyHistoryView(state, patch.view);
 }
 
-export function historyViewsEqual(left, right) {
+function historyViewsEqual(left, right) {
 	if (left === right) {
 		return true;
 	}
@@ -711,7 +711,5 @@ export class History {
 		return this._cursor < this._entries.length - 1;
 	}
 }
-
-export const SnapshotHistory = History;
 
 export default History;

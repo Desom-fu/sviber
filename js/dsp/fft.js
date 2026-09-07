@@ -83,7 +83,7 @@ export function fftInPlace(real, imaginary) {
 	}
 }
 
-export function ifftInPlace(real, imaginary) {
+function ifftInPlace(real, imaginary) {
 	const size = real.length;
 	fftInPlace(imaginary, real);
 	for (let index = 0; index < size; index += 1) {
@@ -152,50 +152,4 @@ export function streamSpectra(samples, options = {}, visit = () => {}) {
 		visit(frame, magnitude, phase);
 	}
 	return geometry;
-}
-
-// Returns magnitude and phase (normalized to [0, 1) as in FMP (6.9)) arrays of
-// shape [frames, bins] together with the frame times in seconds.
-export function shortTimeFourierTransform(samples, options = {}) {
-	const windowLength = nextPowerOfTwo(Math.max(4, Math.floor(options.windowLength || 1024)));
-	const hopSize = Math.max(1, Math.floor(options.hopSize || windowLength / 4));
-	const sampleRate = Number(options.sampleRate) || 44100;
-	const window = createWindow(windowLength, options.windowType || "hann");
-	const bins = windowLength / 2 + 1;
-	const frames = samples.length >= windowLength ? Math.floor((samples.length - windowLength) / hopSize) + 1 : 1;
-	const magnitude = new NDArray([frames, bins], null, { storage: Float32Array });
-	const phase = new NDArray([frames, bins], null, { storage: Float32Array });
-	const real = new Float64Array(windowLength);
-	const imaginary = new Float64Array(windowLength);
-	for (let frame = 0; frame < frames; frame += 1) {
-		const start = frame * hopSize;
-		imaginary.fill(0);
-		for (let index = 0; index < windowLength; index += 1) {
-			const position = start + index;
-			real[index] = position < samples.length ? samples[position] * window[index] : 0;
-		}
-		fftInPlace(real, imaginary);
-		const base = frame * bins;
-		for (let bin = 0; bin < bins; bin += 1) {
-			const re = real[bin];
-			const im = imaginary[bin];
-			magnitude.data[base + bin] = Math.sqrt(re * re + im * im);
-			let normalized = Math.atan2(im, re) / (2 * Math.PI);
-			if (normalized < 0) {
-				normalized += 1;
-			}
-			phase.data[base + bin] = normalized;
-		}
-	}
-	return {
-		magnitude,
-		phase,
-		frames,
-		bins,
-		hopSize,
-		windowLength,
-		sampleRate,
-		frameRate: sampleRate / hopSize,
-		frameTime: index => (index * hopSize + windowLength / 2) / sampleRate,
-	};
 }

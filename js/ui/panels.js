@@ -18,10 +18,7 @@ import { Rational } from "../core/rational.js";
 import { eventTime } from "../core/grouping.js";
 import { AFFINE_MATRIX_GRID, resolveAttachedPosition } from "../core/geometry.js";
 import {
-	MIXED,
 	bindEscapeRestore,
-	clear,
-	commonValue,
 	makeAngleControl,
 	makeExpressionControl,
 	makeInput,
@@ -32,6 +29,7 @@ import {
 	setControlDisabled,
 	setControlHidden,
 } from "./panel-controls.js";
+import { MIXED, clearElement, commonValue } from "./ui-shared.js";
 
 import { ZERO_DURATION_TYPES } from "../render/timeline-helpers.js";
 import { makeSnappeePreview } from "./panel-lists.js";
@@ -539,7 +537,7 @@ export class InspectorPanel {
 	render(model, context = {}) {
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
-		clear(this.element);
+		clearElement(this.element);
 		this.escapeBound ||= Boolean((this.cleanupEscape = bindEscapeRestore(this.element)));
 		const { selectedGroups, selected } = this.#selectionOf(model, context);
 		const commentsOnly = selected.length > 0 && selected.every(event => event.type === "comment");

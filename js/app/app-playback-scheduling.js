@@ -124,7 +124,7 @@ export function excludeHitsBeforePlaybackOrigin(app, origin = app?.playbackOrigi
 	return app;
 }
 
-export function playbackScheduleBounds(current, lateTolerance, origin, direction = 1) {
+function playbackScheduleBounds(current, lateTolerance, origin, direction = 1) {
 	return {
 		reverse: direction < 0,
 		scheduleTolerance: playbackLateTolerance(current, lateTolerance, origin, direction),

@@ -1,9 +1,7 @@
 import { i18n as defaultI18n } from "./i18n.js";
-import { nextControlId } from "./ui-shared.js";
+import { MIXED, nextControlId } from "./ui-shared.js";
 import { AFFINE_MATRIX_GRID } from "../core/geometry.js";
 import { Rational } from "../core/rational.js";
-
-export const MIXED_VALUE = Symbol("mixed-value");
 
 export function initialValue(field, suppliedValues = {}) {
 	if (Object.hasOwn(suppliedValues, field.id)) {
@@ -21,7 +19,7 @@ export function initialValue(field, suppliedValues = {}) {
 function makeInput(documentRef, type, value, field = {}) {
 	const input = documentRef.createElement("input");
 	input.type = type;
-	if (value !== null && value !== undefined && value !== MIXED_VALUE) {
+	if (value !== null && value !== undefined && value !== MIXED) {
 		if (type === "checkbox") {
 			input.checked = Boolean(value);
 		} else {
@@ -325,7 +323,7 @@ function createGroupControl(field, value, environment) {
 function buildTextareaControl({ documentRef, field, value }) {
 	const textarea = documentRef.createElement("textarea");
 	textarea.rows = field.rows || 3;
-	textarea.value = value === MIXED_VALUE || value == null ? "" : String(value);
+	textarea.value = value === MIXED || value == null ? "" : String(value);
 	if (field.placeholder) {
 		textarea.placeholder = field.placeholder;
 	}
@@ -366,7 +364,7 @@ function buildNumberControl({ documentRef, i18n, field, value, type }) {
 
 function buildTextControl({ documentRef, i18n, field, value }) {
 	const input = makeInput(documentRef, "text", value, field);
-	if (value === MIXED_VALUE) {
+	if (value === MIXED) {
 		input.placeholder = i18n.t("panel.mixed");
 	}
 	return { element: input, read: () => input.value, focus: () => input.focus() };
@@ -398,7 +396,7 @@ function buildSelectControl({ documentRef, i18n, field, value }) {
 		option.disabled = Boolean(optionData?.disabled);
 		select.appendChild(option);
 	}
-	if (value !== MIXED_VALUE && value != null) {
+	if (value !== MIXED && value != null) {
 		select.value = String(value);
 	}
 	return {
@@ -431,7 +429,7 @@ function buildSliderControl({ documentRef, field, value, notify }) {
 	if (field.step != null) {
 		input.step = String(field.step);
 	}
-	input.value = value == null || value === MIXED_VALUE ? String(field.default ?? field.min ?? 0) : String(value);
+	input.value = value == null || value === MIXED ? String(field.default ?? field.min ?? 0) : String(value);
 	const output = documentRef.createElement("output");
 	output.htmlFor = input.id = nextControlId("slider");
 	const update = () => {
@@ -452,7 +450,7 @@ function buildCheckboxControl({ documentRef, i18n, field, value }) {
 	const line = documentRef.createElement("label");
 	line.className = "checkbox-line";
 	const input = makeInput(documentRef, "checkbox", value, field);
-	input.indeterminate = value === MIXED_VALUE;
+	input.indeterminate = value === MIXED;
 	const text = documentRef.createElement("span");
 	text.textContent = field.choiceLabelKey ? i18n.t(field.choiceLabelKey) : String(field.choiceLabel || "");
 	line.append(input, text);

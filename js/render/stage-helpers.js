@@ -81,7 +81,7 @@ export function sunniesnowNoteTextColor(event, visibility) {
 }
 
 export const SUNNIESNOW_PLAYFIELD_WIDTH = 250;
-export const SUNNIESNOW_PLAYFIELD_HEIGHT = 150;
+const SUNNIESNOW_PLAYFIELD_HEIGHT = 150;
 
 export function sunniesnowPlayfieldScale(width, height) {
 	const safeWidth = Math.max(1, Number(width) || 1);

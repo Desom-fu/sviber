@@ -1,6 +1,6 @@
 import { DEFAULT_PREFERENCES, loadPreferences, storePreferences } from "../app/app-helpers.js";
 
-export function applyMacroLayout() {
+function applyMacroLayout() {
 	const prefs = loadPreferences();
 	const workspace = document.querySelector(".macro-workspace");
 	const area = document.querySelector(".macro-editor-area");

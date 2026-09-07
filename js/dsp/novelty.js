@@ -41,7 +41,7 @@ export const DEFAULT_NOVELTY_PARAMETERS = Object.freeze({
 });
 
 // FMP (6.7) / (6.8): subtract a local average and half-wave rectify.
-export function subtractLocalAverage(values, halfWidth) {
+function subtractLocalAverage(values, halfWidth) {
 	const radius = Math.max(0, Math.floor(halfWidth));
 	if (!radius) {
 		return values;
@@ -64,7 +64,7 @@ export function subtractLocalAverage(values, halfWidth) {
 }
 
 // FMP (6.14): principal argument mapping phase differences into [-0.5, 0.5].
-export function principalArgument(value) {
+function principalArgument(value) {
 	return value - Math.round(value);
 }
 

@@ -22,7 +22,7 @@ function changeBeat(change) {
 	return Rational.from(change?.time ?? change?.beat ?? 0);
 }
 
-export function normalizeBpmChanges(changes = []) {
+function normalizeBpmChanges(changes = []) {
 	if (!Array.isArray(changes)) {
 		throw new TypeError("bpmChanges must be an array");
 	}
@@ -45,7 +45,7 @@ export function normalizeBpmChanges(changes = []) {
 	return deduplicated.map(({ time, bpm }) => ({ time, bpm }));
 }
 
-export function normalizeBarLines(lines = []) {
+function normalizeBarLines(lines = []) {
 	if (!Array.isArray(lines)) {
 		throw new TypeError("barLines must be an array");
 	}

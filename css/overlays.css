@@ -147,11 +147,6 @@
 		display: none;
 	}
 
-	.difficulty-action {
-		width: 27px;
-		height: 27px;
-	}
-
 	.status-panel {
 		padding: 5px 6px;
 	}
@@ -196,8 +191,4 @@
 		display: none;
 	}
 
-	.difficulty-action {
-		width: 27px;
-		height: 27px;
-	}
 }

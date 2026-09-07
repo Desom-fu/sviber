@@ -146,7 +146,7 @@ export function relativeBeatColor(relative) {
 	return BEAT_LINE_COLORS[denominator] || BEAT_LINE_COLORS.other;
 }
 
-export function drawPatternIcon(context, type, x, y, radius, color) {
+function drawPatternIcon(context, type, x, y, radius, color) {
 	context.save();
 	context.translate(x, y);
 	context.strokeStyle = color;
@@ -197,12 +197,12 @@ export function drawPatternIcon(context, type, x, y, radius, color) {
 }
 
 export const DEFAULT_EVENT_ICON_RADIUS = 8;
-export const BASE_STACKED_EVENT_OFFSET = 7;
-export const BASE_TIP_CONNECTOR_WIDTH = 5;
-export const BASE_TIP_SPAWN_WIDTH = 1.5;
-export const BASE_HOLD_DURATION_TAIL = 8;
-export const BASE_OTHER_DURATION_TAIL = 6;
-export const BASE_TIP_POINT_MARKER_RADIUS = 4.5;
+const BASE_STACKED_EVENT_OFFSET = 7;
+const BASE_TIP_CONNECTOR_WIDTH = 5;
+const BASE_TIP_SPAWN_WIDTH = 1.5;
+const BASE_HOLD_DURATION_TAIL = 8;
+const BASE_OTHER_DURATION_TAIL = 6;
+const BASE_TIP_POINT_MARKER_RADIUS = 4.5;
 
 export function eventIconRadius(preferences) {
 	const size = Number(preferences?.eventIconSize);

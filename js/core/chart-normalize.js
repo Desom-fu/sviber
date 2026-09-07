@@ -29,7 +29,7 @@ export function validId(value) {
 	return Number.isSafeInteger(value) && value >= 0;
 }
 
-export function normalizeLoopMarks(value) {
+function normalizeLoopMarks(value) {
 	const marks = [];
 	for (const item of Array.isArray(value) ? value.slice(0, 2) : []) {
 		try {

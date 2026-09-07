@@ -1,8 +1,8 @@
 import { i18n as defaultI18n } from "./i18n.js";
-import { clearElement, nextControlId, resolveElement } from "./ui-shared.js";
-import { createFieldControl, MIXED_VALUE } from "./ui-fields.js";
+import { MIXED, clearElement, commonValue, nextControlId, resolveElement } from "./ui-shared.js";
+import { createFieldControl } from "./ui-fields.js";
 
-export function wireSideTabs(documentRef = globalThis.document) {
+function wireSideTabs(documentRef = globalThis.document) {
 	const inspectorTab = documentRef?.getElementById("inspector-tab");
 	const snappeesTab = documentRef?.getElementById("snappees-tab");
 	const inspectorPanel = documentRef?.getElementById("inspector-panel");
@@ -32,17 +32,6 @@ export function wireSideTabs(documentRef = globalThis.document) {
 		snappeesTab.removeEventListener("click", snap);
 		delete inspectorTab.dataset.tabsWired;
 	};
-}
-
-function deepEqual(left, right) {
-	if (Object.is(left, right)) {
-		return true;
-	}
-	try {
-		return JSON.stringify(left) === JSON.stringify(right);
-	} catch {
-		return false;
-	}
 }
 
 const LABELABLE_CONTROL_SELECTOR = "input, select, textarea";
@@ -150,9 +139,6 @@ export class InspectorPanel {
 			...group,
 			fields: (group.fields || []).map(field => {
 				const getter = field.get || (item => item?.[field.id]);
-				const first = getter(items[0]);
-				const common = items.every(item => deepEqual(getter(item), first));
-				return { ...field, value: common ? first : MIXED_VALUE };
 			}),
 		}));
 		this.render(renderedGroups, {

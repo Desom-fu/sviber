@@ -2,7 +2,7 @@
 // registered as completion items for both JavaScript and Ruby, and the JavaScript
 // language service gets an ambient declaration file so that members resolve.
 
-export const MACRO_GLOBALS = Object.freeze([
+const MACRO_GLOBALS = Object.freeze([
 	{ name: "Chart", detail: "chart-wide state, timing, events and snappees" },
 	{ name: "Channel", detail: "channel list and the current channel" },
 	{ name: "Event", detail: "event list, selection and creation" },
@@ -33,7 +33,7 @@ export const MACRO_GLOBALS = Object.freeze([
 	{ name: "ParametricCurve", detail: "parametric curve snappee class" },
 ]);
 
-export const MACRO_CHART_MEMBERS = Object.freeze([
+const MACRO_CHART_MEMBERS = Object.freeze([
 	"currentTime",
 	"current_time",
 	"currentChannel",
@@ -63,7 +63,7 @@ export const MACRO_CHART_MEMBERS = Object.freeze([
 	"channels",
 ]);
 
-export const MACRO_HELPERS = Object.freeze([
+const MACRO_HELPERS = Object.freeze([
 	{ name: "t", detail: "create a tap at the current time" },
 	{ name: "h", detail: "create a hold at the current time" },
 	{ name: "d", detail: "create a drag at the current time" },
@@ -74,7 +74,7 @@ export const MACRO_HELPERS = Object.freeze([
 	{ name: "log", detail: "print to the macro console" },
 ]);
 
-export function macroTypeDeclarations() {
+function macroTypeDeclarations() {
 	const chartMembers = MACRO_CHART_MEMBERS.map(member => `\tconst ${member}: any;`).join("\n");
 	const globals = MACRO_GLOBALS.map(entry => `declare const ${entry.name}: any;`).join("\n");
 	const helpers = MACRO_HELPERS.map(entry => `declare const ${entry.name}: any;`).join("\n");
