@@ -304,7 +304,10 @@ export class TimelinePointerTrait {
 			y: 0,
 			height: 25,
 		};
-		const drag = { type: "scroll-alt", hit: { ...hit, rectangle, bounds }, bounds };
+		// `start` is mandatory: _pointerMove measures the drag distance against it for
+		// every drag type; without it each move throws before the handler dispatches,
+		// so the gesture pans once on press and then cannot follow the pointer.
+		const drag = { type: "scroll-alt", start: point, hit: { ...hit, rectangle, bounds }, bounds };
 		this._moveScrollAlt({ point, drag, project });
 		return drag;
 	}

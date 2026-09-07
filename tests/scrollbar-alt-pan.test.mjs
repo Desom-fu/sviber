@@ -49,6 +49,9 @@ test("Alt scrollbar pan follows pointer moves through the move-handler dispatch"
 	};
 	const drag = view._scrollbarAltPan({ x: 400, y: 110 }, hit, project);
 	assert.equal(drag.type, "scroll-alt");
+	// `_pointerMove` measures the drag distance against `drag.start` for every drag type;
+	// a scroll-alt drag without `start` throws on every move (can click but not drag).
+	assert.deepEqual(drag.start, { x: 400, y: 110 });
 	// The press itself already centers the range on the pointer.
 	assert.ok(ranges.length === 1, "press did not apply the initial pan");
 	// A pointer move with the same payload shape _pointerMove dispatches must keep moving
@@ -57,6 +60,33 @@ test("Alt scrollbar pan follows pointer moves through the move-handler dispatch"
 	assert.ok(ranges.length === 2, "move did not apply the pan");
 	const [beginning, ending] = ranges[1];
 	assert.ok(beginning < ranges[0][0] && ending < ranges[0][1], "moving left did not move the range left");
+});
+
+test("Alt scrollbar pan survives the full _pointerMove threshold path", () => {
+	const { view, ranges } = altPanView();
+	const project = view.state;
+	const hit = {
+		type: "scroll-track",
+		x: 0,
+		y: 95,
+		width: 800,
+		height: 25,
+		bounds: [0, 60],
+		rectangle: { x: 0, width: 800, y: 95, height: 25 },
+	};
+	const drag = view._scrollbarAltPan({ x: 400, y: 110 }, hit, project);
+	view.drag = drag;
+	view.pointerMoved = false;
+	// Map client coordinates into canvas space so the move covers real distance.
+	view.surface.toLocal = event => ({ x: event.clientX - 100, y: event.clientY - 190 });
+	// The real dispatch path: _pointerMove reads drag.start before handing off to the
+	// handler; this used to throw "Cannot read properties of undefined (reading 'x')".
+	view._pointerMove({ clientX: 600, clientY: 300 });
+	assert.equal(view.pointerMoved, true);
+	assert.ok(ranges.length === 2, "pointer move did not apply the pan");
+	const [beginning, ending] = ranges[1];
+	// Canvas x 500 of 800 → progress 0.625 → center 37.5 of [0, 60], span 10.
+	assert.ok(Math.abs(beginning - 32.5) < 1e-9 && Math.abs(ending - 42.5) < 1e-9);
 });
 
 test("every timeline move handler accepts the dispatch payload", async () => {
