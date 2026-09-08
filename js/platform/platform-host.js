@@ -54,9 +54,15 @@ export async function writeLocalFile(filesystem, pathname, blob) {
 
 // NW.js has no save dialog API, only a file input carrying `nwsaveas`/`nwdirectory`. Such an
 // input reports its result either through `change` or, when the dialog is dismissed in a way
-// that fires no event, through the window regaining focus, so both are watched and whichever
-// settles first wins. Chromium reports a sandboxed `C:\fakepath\...` value when it refuses to
-// disclose the real path, which counts as no selection.
+// that fires no event, through the window regaining focus, so both are watched. Chromium
+// reports a sandboxed `C:\fakepath\...` value when it refuses to disclose the real path,
+// which counts as no selection.
+//
+// v26: on Windows the dialog returns focus to the window BEFORE the `change` event
+// dispatches, so an immediate read on focus used to see no selection, settle the promise
+// with null, and swallow the real result that arrived moments later. Focus now only starts
+// a poll that defers to `change`; a still empty input after the poll expires means the
+// dialog was dismissed without a selection.
 function pickNwPath(configure) {
 	if (!globalThis.document?.body) {
 		return Promise.resolve(null);
@@ -67,29 +73,65 @@ function pickNwPath(configure) {
 		input.className = "visually-hidden";
 		configure(input);
 		let settled = false;
+		let pollTimer = 0;
 		const selectedPath = () => input.files?.[0]?.path || input.value || "";
 		const finish = value => {
 			if (settled) {
 				return;
 			}
 			settled = true;
+			window.clearTimeout(pollTimer);
 			window.removeEventListener("focus", onFocus);
 			input.remove();
 			resolve(value && !String(value).includes("fakepath") ? String(value) : null);
 		};
-		const onFocus = () => setTimeout(() => finish(selectedPath()), 250);
+		const onFocus = () => {
+			window.clearTimeout(pollTimer);
+			let elapsed = 0;
+			const poll = () => {
+				if (settled) {
+					return;
+				}
+				elapsed += FOCUS_POLL_INTERVAL_MS;
+				if (selectedPath()) {
+					finish(selectedPath());
+					return;
+				}
+				if (elapsed >= FOCUS_SETTLE_TIMEOUT_MS) {
+					finish(null);
+					return;
+				}
+				pollTimer = window.setTimeout(poll, FOCUS_POLL_INTERVAL_MS);
+			};
+			pollTimer = window.setTimeout(poll, FOCUS_POLL_INTERVAL_MS);
+		};
 		input.addEventListener("change", () => finish(selectedPath()), { once: true });
 		input.addEventListener("cancel", () => finish(null), { once: true });
 		window.addEventListener("focus", onFocus, { once: true });
-		document.body.append(input);
+		// Mount inside the open dialog layer when a dialog hosts the picker, so the input
+		// shares the interactive tree the user is working in; the bare body is the fallback.
+		const layer = document.getElementById?.("modal-layer");
+		(layer && !layer.hidden ? layer : document.body).append(input);
 		input.click();
 	});
 }
+
+const FOCUS_POLL_INTERVAL_MS = 150;
+const FOCUS_SETTLE_TIMEOUT_MS = 3000;
 
 export function pickNwSavePath(suggestedName, accept) {
 	return pickNwPath(input => {
 		input.accept = accept;
 		input.setAttribute("nwsaveas", suggestedName);
+	});
+}
+
+// Opens an "open file" dialog and resolves to the native path of the chosen file.
+export function pickNwOpenPath(accept) {
+	return pickNwPath(input => {
+		if (accept) {
+			input.accept = accept;
+		}
 	});
 }
 

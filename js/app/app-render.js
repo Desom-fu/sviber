@@ -4,7 +4,7 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { localizedErrorMessage } from "./app-helpers.js";
-import { pickNwSavePath } from "../platform/platform-host.js";
+import { pickNwOpenPath, pickNwSavePath } from "../platform/platform-host.js";
 import { createCoverThemeWidget } from "./app-render-cover-widget.js";
 
 class RenderTrait {
@@ -54,15 +54,6 @@ async function showRenderDialog(app, kind) {
 			waitForMusic: true,
 		},
 		fields: formFields(app, kind, bundledFfmpeg, suggested),
-		onChange: (next, { entries }) => {
-			// Depending on the avatar kind, at most one of the three avatar fields is enabled.
-			for (const id of ["avatarOnline", "avatarUpload", "avatarGravatar"]) {
-				const entry = entries.find(candidate => candidate.field.id === id);
-				if (entry?.control?.element) {
-					entry.control.element.disabled = id !== `avatar${capitalize(next.avatar)}`;
-				}
-			}
-		},
 	});
 	if (!values) {
 		return false;
@@ -84,6 +75,30 @@ async function showRenderDialog(app, kind) {
 	return true;
 }
 
+// Builds the shared browse-row control for path fields: a read-only text input
+// showing the chosen native path plus a browse button that opens a native dialog
+// via `pick`, and reports the result back through the custom-field onChange.
+function pathPickerRow({ documentRef, value, onChange, id, pick }) {
+	const row = documentRef.createElement("div");
+	row.className = "render-output-row";
+	const input = documentRef.createElement("input");
+	input.type = "text";
+	input.readOnly = true;
+	input.value = String(value ?? "");
+	const browse = documentRef.createElement("button");
+	browse.type = "button";
+	browse.textContent = i18n.t("field.renderBrowse");
+	browse.addEventListener("click", async () => {
+		const picked = await pick();
+		if (picked) {
+			input.value = picked;
+			onChange?.({ id, value: picked });
+		}
+	});
+	row.append(input, browse);
+	return { element: row, read: () => input.value };
+}
+
 function formFields(app, kind, bundledFfmpeg, suggested) {
 	const isVideo = kind === "video";
 	const fields = [
@@ -94,29 +109,13 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 			required: true,
 			// Custom fields receive an environment object ({ document, i18n, value, onChange })
 			// and return a control object ({ element, read }); see createCustomControl.
-			render: ({ document: documentRef, value, onChange }) => {
-				const row = documentRef.createElement("div");
-				row.className = "render-output-row";
-				const input = documentRef.createElement("input");
-				input.type = "text";
-				input.readOnly = true;
-				input.value = String(value ?? "");
-				const browse = documentRef.createElement("button");
-				browse.type = "button";
-				browse.textContent = i18n.t("field.renderBrowse");
-				browse.addEventListener("click", async () => {
-					const picked = await pickNwSavePath(
-						suggested,
-						isVideo ? ".mkv,.mp4,.webm" : ".png",
-					);
-					if (picked) {
-						input.value = picked;
-						onChange?.({ id: "output", value: picked });
-					}
-				});
-				row.append(input, browse);
-				return { element: row, read: () => input.value };
-			},
+			render: ({ document: documentRef, value, onChange }) => pathPickerRow({
+				documentRef,
+				value,
+				onChange,
+				id: "output",
+				pick: () => pickNwSavePath(suggested, isVideo ? ".mkv,.mp4,.webm" : ".png"),
+			}),
 		},
 		{ id: "nickname", type: "text", labelKey: "field.renderNickname" },
 		{
@@ -128,9 +127,36 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 				label: i18n.t(`field.renderAvatar.${value}`),
 			})),
 		},
-		{ id: "avatarOnline", type: "text", labelKey: "field.renderAvatarOnline" },
-		{ id: "avatarUpload", type: "text", labelKey: "field.renderAvatarUpload" },
-		{ id: "avatarGravatar", type: "text", labelKey: "field.renderAvatarGravatar" },
+		// v27: avatar fields are disabled declaratively via predicates, which the dialog
+		// framework evaluates on open and on every change — so only the avatar kind
+		// matching the current selection is enabled, including on first open.
+		{
+			id: "avatarOnline",
+			type: "text",
+			labelKey: "field.renderAvatarOnline",
+			disabled: values => values.avatar !== "online",
+		},
+		{
+			id: "avatarUpload",
+			type: "custom",
+			labelKey: "field.renderAvatarUpload",
+			disabled: values => values.avatar !== "upload",
+			// Same browse-row interaction as the output field, but opens an "open file"
+			// dialog since the uploaded avatar is an existing image on disk.
+			render: ({ document: documentRef, value, onChange }) => pathPickerRow({
+				documentRef,
+				value,
+				onChange,
+				id: "avatarUpload",
+				pick: () => pickNwOpenPath(".svg,.png,.jpg,.jpeg,.gif,.webp"),
+			}),
+		},
+		{
+			id: "avatarGravatar",
+			type: "text",
+			labelKey: "field.renderAvatarGravatar",
+			disabled: values => values.avatar !== "gravatar",
+		},
 	];
 	if (bundledFfmpeg) {
 		fields.push({
@@ -347,10 +373,6 @@ async function runRenderJob(app, kind, recordOptions, onProgress) {
 
 function isVideoKind(kind) {
 	return kind === "video";
-}
-
-function capitalize(text) {
-	return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
 }
 
 // Gathers everything useful from a render failure for the copyable error box: the
