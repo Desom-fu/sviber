@@ -155,6 +155,12 @@ export class TimelineMarkersTrait {
 		if (original < 0 || !visible.length) {
 			return null;
 		}
+		// v26: only genuinely hidden channels collapse onto the surrounding lane separators;
+		// a channel merely scrolled out of the vertical scroll window has no drawable lane,
+		// so cursors and guides anchored to it stay invisible instead of clamping into view.
+		if (ordered[original]?.hidden !== true) {
+			return null;
+		}
 		const first = ordered.findIndex(channel => channel.id === visible[0].id);
 		const last = ordered.findIndex(channel => channel.id === visible.at(-1).id);
 		if (original < first) {

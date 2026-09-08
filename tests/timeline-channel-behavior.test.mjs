@@ -222,3 +222,74 @@ test("the panel items keep one primary action and reveal an inline second row", 
 	assert.match(clips, /this\.#action\("paste", "panel\.clip\.paste"/);
 	assert.match(shared, /makeInlineActionRow/);
 });
+
+test("channels scrolled out of the vertical window are not collapsed like hidden ones", () => {
+	const channels = [
+		{ id: 0, name: "Above" },
+		{ id: 1, name: "Lead" },
+		{ id: 2, name: "Collapsed", hidden: true },
+		{ id: 3, name: "Third" },
+		{ id: 4, name: "Below" },
+	];
+	const project = { channels };
+	const layout = {
+		channels: { x: 0, y: 30, width: 600, height: 150 },
+		channelHeight: 50,
+	};
+	const view = Object.create(TimelineView.prototype);
+	view.channelOffset = 1; // window over the collapsed list: [Lead, Third, Below]
+	const visible = view._visibleChannels(project);
+	assert.deepEqual(visible.map(channel => channel.id), [1, 3, 4]);
+	// v26: scrolled-out but shown channels have no drawable lane, so their cursors stay invisible.
+	assert.equal(view._channelDrawY(project, layout, 0, visible), null);
+	// Hidden channels still collapse onto the separator between their shown neighbors.
+	assert.equal(view._channelDrawY(project, layout, 2, visible), 30 + 1 * 50);
+	// Scrolling back up brings the channel into the window again with its real lane position.
+	view.channelOffset = 0;
+	const shifted = view._visibleChannels(project);
+	assert.equal(view._channelDrawY(project, layout, 0, shifted), 30 + 0.5 * 50);
+	// Now "Below" is out of the window and reports no lane instead of clamping to the edge.
+	assert.equal(view._channelDrawY(project, layout, 4, shifted), null);
+});
+
+test("tip-point guides anchored to channels outside the scroll window are skipped", () => {
+	const channels = [
+		{ id: 0, name: "Above" },
+		{ id: 1, name: "Lead" },
+		{ id: 2, name: "Second" },
+		{ id: 3, name: "Below" },
+	];
+	const project = { channels };
+	const layout = {
+		channels: { x: 0, y: 30, width: 600, height: 150 },
+		channelHeight: 50,
+	};
+	const view = Object.create(TimelineView.prototype);
+	view.channelOffset = 1; // window = [Lead, Second, Below]
+	view.renderIndex = {};
+	view._timeToX = () => 0;
+	const offsets = new Map();
+	// Every checkpoint channel is scrolled out: no guide at all.
+	const outGuide = { events: [{ id: "a", channel: 0 }], eventTimes: [[0, 0, 1]], spawnTime: 0 };
+	assert.equal(view._tipPointCheckpoints(outGuide, layout, project, offsets, "sig"), null);
+	// Even when a later event is visible, a guide spawned on a scrolled-out channel is skipped
+	// instead of falling back to the top edge of the channels area.
+	const mixedGuide = {
+		events: [
+			{ id: "a", channel: 0 },
+			{ id: "b", channel: 1 },
+		],
+		eventTimes: [
+			[0, 0, 1],
+			[1, 0, 1],
+		],
+		spawnTime: 0,
+	};
+	assert.equal(view._tipPointCheckpoints(mixedGuide, layout, project, offsets, "sig"), null);
+	// A guide on a windowed channel still resolves to its real lane position.
+	const inGuide = { events: [{ id: "b", channel: 1 }], eventTimes: [[0, 0, 1]], spawnTime: 0 };
+	const checkpoints = view._tipPointCheckpoints(inGuide, layout, project, offsets, "sig");
+	assert.equal(checkpoints.length, 2);
+	assert.equal(checkpoints[0].y, 30 + 0.5 * 50);
+	assert.equal(checkpoints[1].y, 30 + 0.5 * 50);
+});

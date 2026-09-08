@@ -577,7 +577,13 @@ export class TimelineDrawingTrait {
 			});
 			return point;
 		};
-		const baseY = laneY(guide.events[0].channel) ?? layout.channels.y;
+		// v26: a guide whose spawn channel is scrolled out of the vertical window (or has no
+		// drawable lane) is skipped entirely instead of falling back to the top edge.
+		const baseY = laneY(guide.events[0].channel);
+		if (baseY == null) {
+			this.tipPointCheckpointCache.guides.set(guide, null);
+			return null;
+		}
 		const firstY = baseY + (offsets.get(guide.events[0].id) || 0);
 		const checkpoints = [makePoint(guide.spawnTime, firstY)];
 		for (let index = 0; index < guide.events.length; index += 1) {
