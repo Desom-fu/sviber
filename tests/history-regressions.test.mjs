@@ -154,6 +154,95 @@ test("toggleChannel can deactivate then activate the same channel", () => {
 	assert.equal(app.model.channels[0].active, true);
 });
 
+test("toggling a channel keeps the current-channel cursor UI in sync", () => {
+	const App = withHistoryCommands(
+		withFreeTransform(
+			class {
+				commit(label, mutation, options = {}) {
+					return this._finishCommit(label, mutation, options, false);
+				}
+
+				_invalidatePlaybackSchedule() {}
+
+				_normalizeGroupSelectionScope() {}
+
+				_rebuildRenderIndex() {
+					return null;
+				}
+
+				_flushInvalidatedPlaybackSchedule() {}
+
+				refresh() {
+					this.fullRefreshes += 1;
+				}
+
+				requestStatusUpdate() {}
+
+				syncActiveDifficultyState() {}
+
+				broadcastLiveChartUpdate() {}
+			},
+		),
+	);
+	// The real _refreshAfterCommit dispatches into _refreshLightweight, which must notify
+	// the command registry because toggling can move the current-channel cursor.
+	App.prototype._refreshAfterCommit = function (options) {
+		this._refreshLightweight(options);
+	};
+	const app = new App();
+	app.fullRefreshes = 0;
+	let notifications = 0;
+	const revealed = [];
+	app.registry = {
+		notifyAll: () => {
+			notifications += 1;
+		},
+	};
+	app.timeline = {
+		renders: 0,
+		revealChannel: id => {
+			revealed.push(id);
+		},
+		requestRender: () => {},
+	};
+	app.stage = { requestRender: () => {} };
+	app.preferences = {};
+	app.model = ChartModel.createDefault({
+		channels: [
+			{ id: 0, name: "A" },
+			{ id: 1, name: "B" },
+			{ id: 2, name: "C" },
+		],
+		editor: { currentChannel: 0 },
+	});
+	app.history = new History(app.model.snapshot());
+	const previousDocument = globalThis.document;
+	globalThis.document = { querySelector: () => null };
+
+	app.toggleChannel(0);
+
+	assert.equal(app.model.channels[0].active, false);
+	// Deactivating the current channel hands the cursor to the next active channel.
+	assert.equal(app.model.editor.currentChannel, 1);
+	// The lightweight incremental path stays in place: the views repaint through
+	// requestRender and no full refresh happened.
+	assert.equal(app.fullRefreshes, 0);
+	// The channelState flag drives registry.notifyAll, so cursor-driven command states
+	// (enabled/checked) update immediately instead of waiting for a full refresh.
+	assert.equal(notifications, 1);
+	// The moved cursor is kept inside the visible timeline channel window.
+	assert.deepEqual(revealed, [1]);
+
+	// Toggling a non-current channel moves nothing, so nothing is revealed, but the
+	// registry still refreshes because the active-channel set changed.
+	app.toggleChannel(2);
+	globalThis.document = previousDocument;
+	assert.equal(app.model.channels[2].active, false);
+	assert.equal(app.model.editor.currentChannel, 1);
+	assert.deepEqual(revealed, [1]);
+	assert.equal(notifications, 2);
+});
+
 test("moveSelectedChannel captures view and restores previous currentTime on undo", () => {
 	const App = withHistoryCommands(
 		withFreeTransform(

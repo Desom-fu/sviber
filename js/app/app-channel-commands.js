@@ -215,6 +215,7 @@ class ChannelCommandsTrait {
 	}
 
 	toggleChannel(id) {
+		const previousCurrent = this.model.editor.currentChannel;
 		this.commit(
 			i18n.t("history.editChannel"),
 			model => {
@@ -259,6 +260,8 @@ class ChannelCommandsTrait {
 				lightweight: true,
 				activeChannels: true,
 				channelOnly: true,
+				channelLayout: true,
+				channelState: true,
 				rebuildIndex: false,
 				selectionOnly: true,
 				selectionSynced: true,
@@ -266,6 +269,11 @@ class ChannelCommandsTrait {
 				skipCommands: true,
 			},
 		);
+		// Deactivating the current channel hands the current-channel cursor to a neighbour;
+		// keep it inside the visible timeline channel window so the marker updates at once.
+		if (this.model.editor.currentChannel !== previousCurrent) {
+			this.timeline?.revealChannel?.(this.model.editor.currentChannel);
+		}
 	}
 
 	duplicateChannel(id) {
