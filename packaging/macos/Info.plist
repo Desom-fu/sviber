@@ -17,6 +17,13 @@
       <key>CFBundleTypeExtensions</key><array><string>json</string></array>
     </dict>
     <dict>
+      <key>CFBundleTypeName</key><string>Sunniesnow level</string>
+      <key>CFBundleTypeRole</key><string>Editor</string>
+      <key>LSItemContentTypes</key>
+      <array><string>com.desomfu.sviber.level</string></array>
+      <key>CFBundleTypeExtensions</key><array><string>ssc</string></array>
+    </dict>
+    <dict>
       <key>CFBundleTypeName</key><string>Lyrica chart</string>
       <key>CFBundleTypeRole</key><string>Editor</string>
       <key>CFBundleTypeExtensions</key><array><string>txt</string></array>

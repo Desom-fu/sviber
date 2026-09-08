@@ -137,7 +137,12 @@ export class ChartRenderIndex {
 	// Tip point guides follow T(C): an inactive channel is an empty sequence, then the
 	// remaining guides are filtered to active channels for the stage.
 	_buildTipGuideIndexes(project, timing) {
-		const leafProject = { ...project, events: this.flatEvents.filter(event => event.type !== "group") };
+		// v25: only active tip-pointable events take part in tip point chains, so an
+		// inactive event hides its guide and never connects to a tip point.
+		const leafProject = {
+			...project,
+			events: this.flatEvents.filter(event => event.type !== "group" && event.active !== false),
+		};
 		this.allTipGuides = buildTipPointGuides(leafProject, timing).map((guide, sequence) => ({
 			...guide,
 			sequence,
@@ -152,7 +157,7 @@ export class ChartRenderIndex {
 		);
 		this.noteEventRecordsByChannel = new Map((project.channels || []).map(channel => [channel.id, []]));
 		for (const record of this.eventRecords) {
-			if (NOTE_TYPES.has(record.event.type)) {
+			if (NOTE_TYPES.has(record.event.type) && record.event.active !== false) {
 				this.noteEventRecordsByChannel.get(record.event.channel)?.push(record);
 			}
 		}
@@ -249,6 +254,11 @@ export class ChartRenderIndex {
 	}
 
 	_isActive(event) {
+		// v25: an event-level inactive flag removes the event from the main field and the
+		// scroll view even when its channel is active; the timeline still shows it.
+		if (event.active === false) {
+			return false;
+		}
 		if (event.type === "group") {
 			return eventUsesChannel(event, this.activeChannelIds);
 		}

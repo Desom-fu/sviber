@@ -141,17 +141,56 @@ class EventToolsTrait {
 			return false;
 		}
 		if (!event.repeat) {
-			this.placeCreationEventFromPointer();
+			const created = this.placeCreationEventFromPointer();
+			// v25: a hold created by holding a key down gets its end time from the key up event.
+			if (created && this.creationMode === "hold") {
+				this.pendingKeyboardHold = { key: event.key, id: created.id, time: created.time };
+			}
 		}
 		return true;
+	}
+
+	// v25: the end time of a keyboard-created hold is the subdivision closest to the key up
+	// event; when that is the start time itself, the next subdivision is used instead.
+	finishKeyboardHoldCreation(event) {
+		const pending = this.pendingKeyboardHold;
+		if (!pending || event.repeat || event.key !== pending.key) {
+			return;
+		}
+		this.pendingKeyboardHold = null;
+		if (!this.audio?.playing || this.creationMode !== "hold") {
+			return;
+		}
+		const subdivision = this.model.editor.subdivision ?? 4;
+		const offset = Number(this.preferences?.inputOffset) || 0;
+		const end = this.timing().secondsToSnappedBeat(
+			this.audio.currentTime + offset,
+			subdivision,
+		);
+		const start = Rational.from(pending.time);
+		let duration = end.sub(start).toJSON();
+		if (end.compare(start) <= 0) {
+			// The key up landed on the same subdivision as the key down: use the next one.
+			duration = Rational.from(end).add(Rational.from([0, 1, subdivision])).sub(start).toJSON();
+		}
+		this.commit(
+			i18n.t("history.editEvent", { type: eventTypeLabel("hold") }),
+			model => {
+				const hold = model.findEvent(pending.id);
+				if (hold) {
+					hold.duration = duration;
+				}
+			},
+			{ lightweight: true, rebuildIndex: false, scheduleDirty: true, skipInspector: true, skipHistory: true },
+		);
 	}
 
 	placeCreationEventFromPointer() {
 		const preview = this.stage?.creationPreview;
 		if (!this.creationMode || !preview) {
-			return;
+			return null;
 		}
-		this.createPositionedEvent(this.creationMode, preview);
+		return this.createPositionedEvent(this.creationMode, preview);
 	}
 
 	createPositionedEvent(type, preview) {
@@ -204,7 +243,14 @@ class EventToolsTrait {
 		);
 		if (created) {
 			this.rememberCreationDefaults([created]);
+			// v25: the newly created event must not sound its SE right away.
+			if (this.audio?.playing) {
+				for (const set of ["scheduledHitIds", "scheduledBgNoteIds", "scheduledHoldReleaseIds"]) {
+					this[set]?.add?.(created.id);
+				}
+			}
 		}
+		return created;
 	}
 
 	deleteSelected() {
@@ -392,6 +438,24 @@ class EventToolsTrait {
 				}
 			}
 		});
+	}
+
+	// v25: Activate/Deactivate toggle the event-level active flag of the whole selection
+	// (including groups). Inactive events leave the main field and the scroll view, stay
+	// translucent and selectable in the timeline, never sound their SE, and cannot be
+	// connected by a tip point.
+	setEventsActive(active) {
+		this.commit(i18n.t(active ? "history.activateEvents" : "history.deactivateEvents"), model => {
+			for (const event of model.allEvents()) {
+				if (event.selected) {
+					event.active = active;
+				}
+			}
+		});
+	}
+
+	canSetEventsActive(active) {
+		return selected(this.model).some(event => Boolean(event.active) !== active);
 	}
 
 	reverseSelectedTime() {

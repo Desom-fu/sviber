@@ -563,6 +563,56 @@ export class FileManager {
 		return true;
 	}
 
+	// v25: renders place their output next to the chart, so the result can be opened in
+	// the system file explorer directly.
+	showItemInFileExplorer(pathname) {
+		if (!globalThis.nw || !pathname) {
+			return false;
+		}
+		globalThis.nw.Shell.showItemInFolder(String(pathname));
+		return true;
+	}
+
+	// Path of the FFmpeg binary the build script bundled into the package, or null when it
+	// is unavailable (source checkout, or the bundling was disabled at build time).
+	bundledFfmpegPath() {
+		const modules = nwModules();
+		if (!modules) {
+			return null;
+		}
+		try {
+			const binaryName = modules.process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg";
+			const candidate = modules.path.join(this.appDirectory(), "bin", binaryName);
+			return modules.fs.existsSync(candidate) ? candidate : null;
+		} catch {
+			return null;
+		}
+	}
+
+	// Directory holding the fonts bundled into the package, so rendering can reuse them
+	// instead of downloading its own copies. Null when unavailable (source checkout).
+	bundledFontsDir() {
+		const modules = nwModules();
+		if (!modules) {
+			return null;
+		}
+		try {
+			const candidate = modules.path.join(this.appDirectory(), "assets", "fonts");
+			return modules.fs.existsSync(candidate) ? candidate : null;
+		} catch {
+			return null;
+		}
+	}
+
+	// NW.js: the directory the app was launched from; plain web: null.
+	appDirectory() {
+		const modules = nwModules();
+		if (!modules || typeof globalThis.nw?.App?.startDir !== "string") {
+			return null;
+		}
+		return globalThis.nw.App.startDir;
+	}
+
 	async readProjectText(filename) {
 		const directory = this.currentProjectDirectory();
 		if (!directory) {

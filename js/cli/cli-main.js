@@ -11,10 +11,11 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const CLI_OPERATION_FLAGS = new Set(["--export", "--import", "--help", "-h", "--version", "-v"]);
+const CLI_OPERATION_FLAGS = new Set(["--export", "--import", "--render", "--help", "-h", "--version", "-v"]);
 const VALUE_FLAGS = new Set([
 	"--export",
 	"--import",
+	"--render",
 	"--offset",
 	"--initial-bpm",
 	"--largest-denominator",
@@ -27,6 +28,17 @@ const VALUE_FLAGS = new Set([
 	"--difficulty",
 	"--difficulty-sup",
 	"--chart",
+	"--nickname",
+	"--avatar",
+	"--avatar-online",
+	"--avatar-upload",
+	"--avatar-gravatar",
+	"--width",
+	"--height",
+	"--fps",
+	"--speed",
+	"--results-duration",
+	"--ffmpeg",
 ]);
 
 function nodeMainDirectory() {

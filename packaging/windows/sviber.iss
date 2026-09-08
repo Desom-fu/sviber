@@ -15,6 +15,10 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Root: HKCU; Subkey: "Software\Classes\.sviber"; ValueType: string; ValueName: ""; ValueData: "sviber.project"; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Classes\.json"; ValueType: string; ValueName: ""; ValueData: "sviber.chart"; Flags: uninsdeletevalue
 Root: HKCU; Subkey: "Software\Classes\.txt"; ValueType: string; ValueName: ""; ValueData: "sviber.lyrica"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\.ssc"; ValueType: string; ValueName: ""; ValueData: "sviber.level"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\sviber.level"; ValueType: string; ValueName: ""; ValueData: "Sunniesnow level"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\sviber.level\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\sviber.exe,0"
+Root: HKCU; Subkey: "Software\Classes\sviber.level\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\sviber.exe"" ""%1"""
 Root: HKCU; Subkey: "Software\Classes\sviber.project"; ValueType: string; ValueName: ""; ValueData: "sviber project"; Flags: uninsdeletekey
 Root: HKCU; Subkey: "Software\Classes\sviber.project\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\sviber.exe,0"
 Root: HKCU; Subkey: "Software\Classes\sviber.project\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\sviber.exe"" ""%1"""

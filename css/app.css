@@ -532,16 +532,26 @@ textarea:focus-visible,
 	margin: 0;
 	padding: 0;
 	list-style: none;
-	border: 1px solid var(--border);
 }
 
+/* v25: both columns share one row height so rows line up across columns, and the source
+   column carries no grid lines at all; only the editable target column has separators. */
 .tip-switch-column li {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
 	gap: 6px;
 	padding: 4px 6px;
+	height: 28px;
+	box-sizing: border-box;
+}
+
+.tip-switch-column.is-target li {
 	border-bottom: 1px solid var(--border);
+}
+
+.tip-switch-column.is-target li:last-child {
+	border-bottom: none;
 }
 
 .checks-tab-count {
@@ -991,4 +1001,43 @@ textarea:focus-visible,
 	font-family: "Cascadia Mono", Consolas, monospace;
 	font-variant-numeric: tabular-nums;
 	text-align: right;
+}
+
+/* v25: render video/cover dialogs */
+.render-output-row {
+	display: flex;
+	gap: 6px;
+}
+
+.render-output-row input {
+	flex: 1;
+	min-width: 0;
+}
+
+.render-progress {
+	display: grid;
+	gap: 6px;
+}
+
+.render-progress-bar {
+	width: 100%;
+}
+
+.render-progress-status {
+	font-size: 12px;
+	min-height: 1.4em;
+}
+
+.cover-theme-widget {
+	display: grid;
+	gap: 6px;
+}
+
+.cover-theme-widget-canvas {
+	max-width: 100%;
+	line-height: 0;
+}
+
+.cover-theme-widget-canvas canvas {
+	max-width: 100%;
 }

@@ -62,6 +62,11 @@ export const CHECK_DEFINITIONS = Object.freeze([
 		parameters: Object.freeze([Object.freeze({ id: "seconds", type: "number", default: 2, min: 0, unit: "s" })]),
 	}),
 	Object.freeze({ id: "blockedTexts", target: "event", parameters: Object.freeze([]) }),
+	Object.freeze({
+		id: "conflictingBgPatterns",
+		target: "event",
+		parameters: Object.freeze([Object.freeze({ id: "strict", type: "checkbox", default: true })]),
+	}),
 ]);
 
 export const CHECK_IDS = Object.freeze(CHECK_DEFINITIONS.map(definition => definition.id));

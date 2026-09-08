@@ -295,6 +295,8 @@ export class TimelineDrawingTrait {
 	_drawTimelineEvent(context, entry) {
 		const { event, position, endX, activeChannelIds, project, durationHandles } = entry;
 		const interactive = activeChannelIds.has(event.channel);
+		// v25: an inactive event stays visible and selectable in the timeline, but translucent.
+		const inactive = event.active === false;
 		const selected = this.renderIndex?.isEventSelected(event) ?? Boolean(event.selected);
 		// v19: selected locked events use a magenta tint instead of the bright red one.
 		const color = selected ? (event.locked ? "#e83dff" : "#ff3158") : NOTE_COLORS[event.type] || "#d5dade";
@@ -304,6 +306,8 @@ export class TimelineDrawingTrait {
 		}
 		if (!interactive) {
 			context.globalAlpha = 0.28;
+		} else if (inactive) {
+			context.globalAlpha = 0.4;
 		}
 		if (DURATION_TYPES.has(event.type)) {
 			this._drawEventDurationBar(context, { event, position, endX, color, selected, interactive, project });

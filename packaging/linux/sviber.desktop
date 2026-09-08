@@ -6,4 +6,4 @@ Exec=sviber %F
 Icon=sviber
 Terminal=false
 Categories=AudioVideo;Audio;Development;
-MimeType=application/x-sviber;application/json;text/plain;
+MimeType=application/x-sviber;application/x-sviber-level;application/json;text/plain;

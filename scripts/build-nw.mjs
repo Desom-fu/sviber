@@ -28,6 +28,21 @@ const fontCacheDirectory = path.join(sviberDirectory, "node_modules", ".cache", 
 const HOST_PLATFORM = process.platform === "win32" ? "win" : process.platform === "darwin" ? "osx" : "linux";
 const TARGET_PLATFORM = String(process.env.SVIBER_NW_PLATFORM || HOST_PLATFORM).toLowerCase();
 const TARGET_ARCH = String(process.env.SVIBER_NW_ARCH || process.arch).toLowerCase();
+// PROMPT-v25: bundling FFmpeg is the default, but the Nix package (and any other packager
+// that supplies its own FFmpeg via PATH) can cancel it with SVIBER_SKIP_FFMPEG=1. When the
+// bundling is skipped, rendering video falls back to the FFmpeg found on PATH.
+const SKIP_FFMPEG = /^(1|true|yes)$/i.test(String(process.env.SVIBER_SKIP_FFMPEG || ""));
+const FFMPEG_URL_OVERRIDE = String(process.env.SVIBER_FFMPEG_URL || "").trim();
+const FFMPEG_SOURCES = {
+	"win-x64": "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-win64-gpl.zip",
+	"win-arm64": "https://github.com/BtbN/FFmpeg-Builds/releases/latest/download/ffmpeg-master-latest-winarm64-gpl.zip",
+	"linux-x64": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz",
+	"linux-arm64": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-arm64-static.tar.xz",
+	"linux-ia32": "https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-i686-static.tar.xz",
+	"osx-arm64": "https://www.osxexperts.net/FFmpeg71arm.zip",
+	"osx-x64": "https://www.osxexperts.net/FFmpeg71Intel.zip",
+};
+const FFMPEG_BINARY_NAME = TARGET_PLATFORM === "win" ? "ffmpeg.exe" : "ffmpeg";
 const PACKAGE_ONLY = /^(?:1|true)$/i.test(String(process.env.SVIBER_NW_PACKAGE_ONLY || ""));
 const TARGET_ARCHITECTURES = {
 	win: new Set(["ia32", "x64", "arm64"]),
@@ -255,6 +270,72 @@ async function downloadAsset(asset, destination) {
 	throw new Error(`Unable to download ${asset.name}:\n${failures.join("\n")}`);
 }
 
+// PROMPT-v25: downloads a static FFmpeg build for the target platform and places the
+// executable under `bin/` inside the packaged app. Cancel with SVIBER_SKIP_FFMPEG=1; a
+// custom archive can be supplied with SVIBER_FFMPEG_URL.
+async function bundleFfmpeg(applicationDirectory) {
+	const key = `${TARGET_PLATFORM}-${TARGET_ARCH}`;
+	const url = FFMPEG_URL_OVERRIDE || FFMPEG_SOURCES[key];
+	if (!url) {
+		console.warn(`No FFmpeg source for ${key}; rendering will use FFmpeg from PATH.`);
+		return;
+	}
+	const work = path.join(effectiveBuildDirectory, "ffmpeg");
+	const archive = path.join(work, "archive");
+	await rm(work, { recursive: true, force: true });
+	await mkdir(work, { recursive: true });
+	try {
+		await downloadWithFetch(url, archive);
+		const extractDirectory = path.join(work, "extracted");
+		await mkdir(extractDirectory, { recursive: true });
+		if (url.endsWith(".zip")) {
+			const zip = await JSZip.loadAsync(await readFile(archive));
+			for (const entry of Object.values(zip.files)) {
+				if (entry.dir) {
+					continue;
+				}
+				const target = path.join(extractDirectory, entry.name);
+				await mkdir(path.dirname(target), { recursive: true });
+				await writeFile(target, await entry.async("nodebuffer"));
+			}
+		} else {
+			// tar.gz / tar.xz: system tar understands both on every supported build host.
+			await new Promise((resolve, reject) => {
+				const child = spawn("tar", ["xf", archive, "-C", extractDirectory], { stdio: "inherit" });
+				child.on("exit", code => (code === 0 ? resolve() : reject(new Error(`tar exited with ${code}`))));
+				child.on("error", reject);
+			});
+		}
+		const binary = await findFfmpegBinary(extractDirectory);
+		if (!binary) {
+			throw new Error("The FFmpeg archive did not contain an ffmpeg executable.");
+		}
+		const destination = path.join(applicationDirectory, "bin", FFMPEG_BINARY_NAME);
+		await mkdir(path.dirname(destination), { recursive: true });
+		await cp(binary, destination);
+		console.log(`FFmpeg bundled at ${destination}`);
+	} catch (error) {
+		console.warn(`FFmpeg bundling failed (${error.message}); rendering will use FFmpeg from PATH.`);
+	} finally {
+		await rm(work, { recursive: true, force: true });
+	}
+}
+
+async function findFfmpegBinary(directory) {
+	for (const entry of await readdir(directory, { withFileTypes: true })) {
+		const filename = path.join(directory, entry.name);
+		if (entry.isDirectory()) {
+			const nested = await findFfmpegBinary(filename);
+			if (nested) {
+				return nested;
+			}
+		} else if (entry.name === FFMPEG_BINARY_NAME) {
+			return filename;
+		}
+	}
+	return null;
+}
+
 async function downloadFonts() {
 	const destination = path.join(stageDirectory, "sviber", "assets", "fonts");
 	await Promise.all([mkdir(destination, { recursive: true }), mkdir(fontCacheDirectory, { recursive: true })]);
@@ -446,6 +527,12 @@ async function copyApplication() {
 	await cp(applicationLicense, path.join(applicationDirectory, "LICENSE"));
 	await writeBuildInformation(applicationDirectory);
 	await copyProductionDependencies(applicationDirectory);
+	if (PACKAGE_ONLY) {
+		// The runtime-free .nw package carries no FFmpeg: the host supplies it via PATH or
+		// the full builds bundle it below.
+	} else {
+		await bundleFfmpeg(applicationDirectory);
+	}
 	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), {
 		minify: true,
 	});

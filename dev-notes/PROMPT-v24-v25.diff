@@ -1,0 +1,427 @@
+diff --git a/dev-notes/PROMPT-v24.md b/dev-notes/PROMPT-v25.md
+index f89e352..8b61959 100644
+--- a/dev-notes/PROMPT-v24.md
++++ b/dev-notes/PROMPT-v25.md
+@@ -161,6 +161,10 @@ trades its width with the history panel.
+ The fraction of the inspection panel height over the combined height of the inspection panel and the history panel
+ is recorded in the editor preferences.
+ 
++There should be no gap between these panels.
++The HTML element to handle the mouse events for resizing should be transparent
++so that the panels do not appear with gaps.
++
+ ### Menu bar
+ 
+ At the top of the window, there is the menu bar.
+@@ -345,7 +349,7 @@ For background patterns, devise your own design of icons, inspired from how they
+ `../game-unstable/js/ui/event/bg-pattern/*.js`.
+ For `comment`, devise your own design of an icon.
+ The colors of the icons must be very distinguishable from that of selected events (red or magenta).
+-For events with a duration, including `hold`, `bigText`, `bgNote`, and background patterns, show a tail to indicate the duration.
++For perdurant events, show a tail to indicate the duration.
+ Check how Sunniesnow renders a tail for hold notes when the user setting `scroll` is `true` to inspire your design of tails.
+ Specially, for `bigText`, show the contents of the texts on the tail.
+ 
+@@ -882,8 +886,8 @@ A selected `group` event (not including those nested inside selected `group` eve
+ bounding all events directly or indicrectly contained in it,
+ and the rectangle uses the user-set color of the `group` event.
+ 
+-When there is only one movable event (i.e., note or `bgNote`)
+-and possibly unmovable events (i.e., `bigText` and background patterns) in the selection,
++When there is only one movable event
++and possibly unmovable events in the selection,
+ the user can drag the selected movable event with mouse to change its position.
+ The drag can be done by the same mouse down as the one that selects this event.
+ The event cannot be moved outside the chart boundary
+@@ -1605,6 +1609,7 @@ The "File" menu contains the following submenu items:
+ - Save (<kbd>Ctrl</kbd>+<kbd>S</kbd>)
+ - Save as...
+ - Save project
++- Open project folder in explorer
+ - (separator)
+ - Import chart/level file...
+ - Import from clipboard
+@@ -1612,15 +1617,14 @@ The "File" menu contains the following submenu items:
+ - Export level... (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd>)
+ - Export Lyrica chart...
+ - Export to clipboard
++- Render video...
++- Render cover...
+ - (separator)
+ - Set music...
+ - Set background...
+ - Edit level readme...
+-- (separator)
+-- Open project folder in explorer
+-- (separator)
++- Rename chart...
+ - Edit chart properties...
+-- (separator)
+ - Delete chart...
+ - (separator)
+ - Close chart/project
+@@ -1968,6 +1972,60 @@ When choosing Lyrica tip point spawn types, never choose those involving randomn
+ and choose the one whose spawn position is the closest to the spawn position in the sviber chart.
+ Do not take spawn time into account when choosing Lyrica spawn types.
+ 
++#### Render video..., Render cover...
++
++Grayed out if not in NW.js app.
++Show a popup form, confirming which
++renders and saves the video or the cover image to local filesystem
++using [sunniesnow-record](https://www.npmjs.com/package/sunniesnow-record).
++
++When calling its API, generate the level file in the memory and provide it as a `Blob` object.
++For rendering video, always use the currently loaded music as the selected music in the rendering
++(so rendering video is grayed out if no music is loaded);
++for rendering either, always use the currently loaded image as the background provided for sunniesnow-record,
++and use `background: "none"` in the options if no image is loaded.
++Also properly set `assetsDir` so that sunniesnow-record reuses the fonts bundled by sviber
++instead of downloading them.
++
++The popup form has an input field for the output path in the local filesystem.
++Near the input field, there is a "Browse" button for using a file dialogue to pick the path.
++Then, there are input fields for customizable options
++that will be passed to sunniesnow-record.
++Note that not every option accepted by sunniesnow-record should customizable.
++
++For rendering video, the customizable options are:
++
++- `nickname`: Use the chart's `charter` property as default.
++- `avatar`.
++- `avatarOnline`, `avatarUpload`, `avatarGravatar`:
++  Depending on which value is set for `avatar`, at most one input field is enabled.
++- Whether to use bundled FFmpeg. This option does not appear if bundled FFmpeg is not available
++  (e.g., when directly running with `nw .` in the source repo or if the FFmpeg bundling was disabled when the build script ran).
++- `speed`: default 2, regardless of editor preferences.
++- `width`, `height`: default 1920 and 1080.
++- `fps`: default 60.
++- `resultsDuration`: default 1.
++- `waitForMusic`: default true.
++
++For rendering cover, the customizable options are:
++
++- `nickname`, `avatar`, `avatarOnline`, `avatarUpload`, `avatarGravatar`, `width`, `height`:
++  Handle them in the same way as those in options for rendering video.
++- `coverThemeImageX`, `coverThemeImageY`, `coverThemeImageWidth`:
++  Show a GUI widget powered by PixiJS for setting those parameters instead of having input fields.
++  The canvas has the same aspect ratio as the loaded image, and the loaded image is a controllable sprite.
++  The user can move the sprite by dragging and zoom the sprite by scrolling.
++  There is a diamond shape area indicating the resultant part of the image shown as the cover theme image,
++  outside which the sprite appears darkened.
++
++After confirming the popup form, show another popup form while waiting for the rendering.
++If rendering video, show a progress bar
++(empty when rendering the zeroth frame and full when rendering the last frame)
++and a text near it saying the current status of the rendering.
++This popup form can only be confirmed after the rendering finishes.
++When the rendering finishes, another button shows, clicking which opens the directory
++containing the rendered file using the system file explorer.
++
+ #### Open project folder in file explorer
+ 
+ Open the currently open project folder in system's file explorer.
+@@ -2023,6 +2081,7 @@ The "Edit" menu has the following submenu items:
+ 
+ - Undo (<kbd>Ctrl</kbd>+<kbd>Z</kbd>)
+ - Redo (<kbd>Ctrl</kbd>+<kbd>Y</kbd>)
++- (separator)
+ - Cut (<kbd>Ctrl</kbd>+<kbd>X</kbd>)
+ - Copy (<kbd>Ctrl</kbd>+<kbd>C</kbd>)
+ - Save to clips (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>)
+@@ -2352,9 +2411,14 @@ The "Events" menu has the following submenu items:
+ - Lock (<kbd>Ctrl</kbd>+<kbd>L</kbd>)
+ - Unlock (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>L</kbd>)
+ - (separator)
++- Activate (<kbd>A</kbd>)
++- Deactivate (<kbd>Shift</kbd>+<kbd>A</kbd>)
++- (separator)
+ - Fill curve with drag notes
+ - (separator)
+ - Bulk edit texts...
++- Bulk edit texts by channel...
++- Import lyrics/subtitle file...
+ 
+ #### Tap, Hold, Drag, Flick, Bg note
+ 
+@@ -2383,13 +2447,19 @@ The event creation mode does not end after this, and the user can continue placi
+ 
+ In the event creation mode,
+ if the music is playing, hitting any letter, number, or symbol key
+-(this overrides any keyboard shortcuts on these keys without modification keys)
++(this overrides any keyboard shortcuts on these keys without modification keys;
++key repetition from long pressing should be ignored)
+ (only if no input field is focused)
+ or any mouse button (only if the mouse is in the main editor field)
+ places the event according to where the mouse is (according to the last paragraph)
+ at the subdivion closest to the current time
+ (using the current audio context time; never use `Event.timeStamp`)
+ plus the [input offset](#input-offset).
++Do not immediately play the SE for the newly created event.
++If a `hold` event is created in this way,
++also set its end time to the subdivision closest to the key up event
++for the same key whose key down event triggered the creation of the `hold` event
++(but if that subdivision is the same as the start time, use the next subdivision).
+ 
+ Hitting <kbd>Esc</kbd>, triggering most sub-menu items and tool bar items, and modifying events selection using the timeline
+ exit the event creation mode.
+@@ -2472,6 +2542,17 @@ Locked events cannot be edited in the inspection panel.
+ The flick direction handles in the main editor field
+ and the duration tail handles in the timeline do not appear for locked events.
+ 
++#### Activate, Deactivate
++
++Activate or deactivate all selected events.
++
++Any event is active by default.
++If an event is inactive, it does not appear in the main editor field and the scroll view
++and cannot be selected there.
++Its SE does not play.
++It cannot be connected by a tip point.
++It still appears and can be selected in the timeline, but is transluscent.
++
+ #### Fill curve with drag notes
+ 
+ This item is not grayed out only if a curve is currently selected from the snappees panel.
+@@ -2481,13 +2562,22 @@ the next event's time incrementing by one beat subdivision, etc.
+ 
+ #### Bulk edit texts...
+ 
++Similar to [bulk edit texts by channel](#bulk-edit-texts-by-channel),
++but it edits the texts of all selected textable events except `comment`,
++and there is no `<select>` element in the popup form.
++The sequence of edited events is sorted by time and then by channel.
++Grayed out if no non-`comment` textable events are selected.
++Texts of all selected textable events except `comment` are edited after this operation.
++
++#### Bulk edit texts by channel...
++
+ Shows a popup form.
+ The popup form has a `<select>` listing all channels
+ (by default, the current channel is selected)
+ and a `<textarea>` containing the texts of all textable events (except `comment`) in the selected channel.
+ The user can edit the texts in the text area,
+-and selecting a different channel in the dropdown selection does not discard the previously edited text:
+-the edits for different channels will be sumitted altogether when the user submits the form.
++and selecting a different option in the dropdown selection does not discard the previously edited text:
++the edits for different channels or the selection will be sumitted altogether when the user submits the form.
+ 
+ To convert all texts of a sequence of textable events into a single string,
+ follow this pseudocode:
+@@ -2529,8 +2619,46 @@ function stringToEventTexts(string, events) {
+ where `convertBackslashEscapes()` converts `\\`, `\s`, `\n`, and `\t`
+ back to the backslash, space, line feed, and tabulation characters.
+ 
++When the popup form opens and when the selected option in the `<select>` element changes to an option
++that has not been edited since opening this popup form,
++the cursor position is set to the text of the first textable event after (inclusive) the current time.
++When the selected option in the `<select>` element changes to an option having been edited before
++since opening this popup form,
++the cursor position is set to where the user left it last time.
++
+ Texts of all textable evets except `comment` are edited after this operation.
+ 
++#### Import lyrics/subtitle file...
++
++Show a file dialogue to choose a lyrics/subtitle file to import.
++Acceptable file formats are LRC, SRT, WebVTT, and ASS.
++Then, show a popup form to enter an offset (default zero) and a quantization denominator.
++
++For some of the formats (LRC with A2 extension, WebVTT with timestamp objects, and ASS with `\k` tags),
++there can be timestamps marked within the line.
++A line with such timestamps are imported as `tap` events in the current channel,
++and a line without such timestamps are imported as a `bigText` event in the current channel.
++For example, for the following WebVTT file:
++
++```vtt
++1
++00:00:12.340 --> 00:00:16.780
++<00:00:12.340>Never <00:00:12.800>gonna <00:00:13.200>give
++
++2
++00:00:16.780 --> 00:00:20.500
++Never gonna let you down
++```
++
++`tap` events are created at respectively 12.340 s, 12.800 s, and 13.200 s
++(assuming zero offset) and then quantized to subdivisions.
++A `bigText` event is created at 16.780 s, ending at 20.500 s
++(assuming zero offset) and then quantized to subdivisions.
++
++The $i$th (zero-based) line of `tap` events are created at y coordinates $(-1)^i\cdot12.5$,
++and the $j$th (zero-based) `tap` event in a line is created at x coordinate $(-(n-1)/2+j)\cdot25$ if $n\le 9$
++or $(-4+8j/(n-1))\cdot25$ if $n>9$, where $n$ is the total number of `tap` events in the line.
++
+ ### Channel
+ 
+ The "Channel" menu item has the following submenu items:
+@@ -2625,6 +2753,8 @@ The left column is not editable.
+ The right column is editable: each item in the right column has a button for moving down and a button for moving up,
+ and the user can click the buttons or use drag-and-drop to reorder the items in the right column.
+ The channel pair in each row gives a mapping relation of the permutation.
++Typeset the rows and columns so that the rows and columns are well-aligned,
++and do not have grid lines in the left column.
+ 
+ Besides the usual confirmation and cancelation button,
+ there is also a deletion button.
+@@ -2647,9 +2777,9 @@ The "Snappee" menu item contains the following submenu items:
+ - (separator)
+ - Preset snappee...
+ - (separator)
+-- Activate (<kbd>A</kbd>) (`../maker/svg/icons/activate-snappee.svg`)
+-- Deactivate (<kbd>Shift</kbd>+<kbd>A</kbd>) (`../maker/svg/icons/deactivate-snappee.svg`)
+-- Deactivate all (<kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd>)
++- Activate snappee (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>D</kbd>) (`../maker/svg/icons/activate-snappee.svg`)
++- Deactivate snappee (<kbd>Ctrl</kbd>+<kbd>D</kbd>) (`../maker/svg/icons/deactivate-snappee.svg`)
++- Deactivate all snappees (<kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>D</kbd>)
+ - (separator)
+ - Attach (<kbd>S</kbd>) (`../maker/svg/icons/attach.svg`)
+ - Detach (<kbd>Shift</kbd>+<kbd>S</kbd>) (`../maker/svg/icons/detach.svg`)
+@@ -2808,13 +2938,13 @@ After the user confirms the popup form, the chosen snappee is added to the chart
+ 
+ The name of a preset snappee is internationalized and is dependent on the editor language when it is created.
+ 
+-#### Activate, Deactivate
++#### Activate snappee, Deactivate snappee
+ 
+ If there are events selected, activate or deactivate all snappees that at least one of the selected events are attached to;
+ otherwise, if there is a snapee selected, activate or deactivate it.
+ These items are grayed out if no events nor a snappee is selected.
+ 
+-#### Deactivate all
++#### Deactivate all snappees
+ 
+ Deactivate all snappees.
+ 
+@@ -2897,6 +3027,7 @@ The "Transform" menu has the following submenu items:
+ - Time dilation...
+ - Time translation...
+ - Reverse in time
++- Quantization...
+ 
+ #### Move left, Move down, Move up, Move right, Move left by 12.5, Move down by 12.5, Move up by 12.5, Move right by 12.5
+ 
+@@ -3024,6 +3155,18 @@ and $M$ is the largest time among all selected events.
+ 
+ If no events are selected, this item is grayed out.
+ 
++#### Quantization...
++
++Show a popup form for the following input fields,
++confirming which rounds the times and end times of all selected events
++to the nearest subdivision.
++
++- The subdivision denominator to quantize to.
++  By default it is the current subdivision.
++- What to do if there are two nearest subdivisions.
++  Possible options are towards negative infinity, towards positive infinity,
++  and to even subdivision.
++
+ ### Music
+ 
+ The "Music" menu has the following submenu items:
+@@ -3387,6 +3530,7 @@ Here is a glossary of event type categories used elsewhere in the prompt:
+ - Tip-pointable events: `tap`, `drag`, `hold`, `flick`.
+ - Notes: `tap`, `drag`, `hold`, `flick`.
+ - Background events: `bgNote`, `bigText`, `grid`, `hexagon`, `checkerboard`, `diamondGrid`, `pentagon`, `turntable`, `hexagram`.
++- Background patterns: `bigText`, `grid`, `hexagon`, `checkerboard`, `diamondGrid`, `pentagon`, `turntable`, `hexagram`.
+ - Textable events: `tap`, `hold`, `flick`, `bgNote`, `bigText`, `comment`.
+ - Perdurant events: `hold` ,`bgNote`, `bigText`, `grid`, `hexagon`, `checkerboard`, `diamondGrid`, `pentagon`, `turntable`, `hexagram`, `comment`.
+ 
+@@ -3514,7 +3658,7 @@ the result is the identity function.
+ 
+ Denote the set of all channels as $\mathscr C$,
+ and a channel $C\in\mathscr C$ is mathematically a sequence of events
+-(for this section, we only consider tip-pointable events,
++(for this section, we only consider active tip-pointable events,
+ and an inactive channel is regarded as an empty sequence).
+ For an event $E$, denote $t(E)\in\mathbb Q$ as the time (in beats) of the event.
+ The ordering of events in $C$ is compatible with their time ordering:
+@@ -3790,6 +3934,19 @@ A violating event is a movable textable event $E$ meeting both the following cri
+ 
+ When a violation is clicked, the violating event is selected.
+ 
++### Conflicting bg patterns
++
++For an event $E$, denote its time $t_0(E)$ and its end time $t_1(E)$.
++If two background patterns $E_1$ and $E_2$ satisfy
++$t_0(E_2)\le t_1(E_1)$ and $t_0(E_1)\le t_1(E_2)$, then they are conflicting background patterns.
++This check checks that there are no conflicting background patterns.
++When a violation is clicked, both background patterns are selected.
++
++There is a boolean parameter for this check,
++setting which to false makes the check less strict:
++the condition of confliction becomes $t_0(E_2)<t_1(E_1)$ and $t_0(E_1)<t_1(E_2)$.
++It is true by default.
++
+ ## Live hosting
+ 
+ Live hosting is the feature that sets up a server for Sunniesnow to connect to
+@@ -3844,8 +4001,8 @@ In the popup form for editing editor preferences,
+ additionally put a button near the input field for this setting saying "adjust".
+ After clicking the button, disable all input fields in the popup form and start playing a 120 BPM metronome.
+ When the user hits any letter, symbol, or number key,
+-subtract the audio context time of the closest metronome beat
+-from the current audio context time to get a datum
++subtract the current audio context time
++from the audio context time of the closest metronome beat to get a datum
+ (never use `Event.timeStamp` as it is inaccurate in most browsers,
+ but this setting requires millisecond-level accuracy).
+ As the user does this, replace the value of the number input with the average value of the data.
+@@ -4385,7 +4542,7 @@ The JSON object under the key `sviber` is an object containing the following pro
+ - `timing`: an object containing timing information, such as offset and BPM.
+ - `channels`: an array of objects containing information of channels.
+ - `events`: an array of objects containing information of events,
+-  including notes, `bgNote` events, and background patterns.
++  including notes, `bgNote` events, background patterns, comments, and `group` events.
+ - `snappees`: an array of objects containing information of snappees.
+ - `clips`: an array of objects containing information of clips.
+ - `checks`: enabled checks and their parameters.
+@@ -4669,6 +4826,8 @@ and it possibly contain extra fields for parameters.
+ - `dragScreening`: extra field `seconds` and `distance`.
+ - `simultaneousOverlappingNotes`: extra field `invisibleOnly`.
+ - `driftingTipPoint`: extra field `seconds`.
++- `blockedTexts`.
++- `conflictingBgPatterns`: extra field `strict`.
+ 
+ ## Lyrica chart format
+ 
+@@ -5106,10 +5265,23 @@ Also put a `.nw` package without NW.js runtime in the release assets
+ for those who wish not to download NW.js binaries.
+ The filename format is `sviber-${version}.nw`.
+ 
+-The NW.js app can be used to open files with `.sviber`, `.json`, and `.txt` extensions.
+-The Linux distribution should include the MIME type definition XML file for `.sviber`,
+-and the desktop entry file have relevant contents for opening these three file types.
+-The macOS distribution should have `Info.plist` include the relevant contents for opening these three file types.
++Compile the native modules of `gl` and `canvas` (dependencies from `sunniesnow-record`)
++instead of using precompiled binaries for bundling in the release assets.
++The requirement for the build environment is finicky,
++and you should look at the CI workflow of sunniesnow-record
++and read documentation of `gl` and `canvas` to write the CI workflow properly.
++
++Because sunniesnow-record uses FFmpeg CLI, you also need to bundle FFmpeg binaries in the release assets.
++Downloading and bundling FFmpeg binaries should be cancelable by setting an environment variable
++when running the build script,
++in which case [rendering video](#render-video-render-cover) can only use FFmpeg from `PATH`.
++This environment variable is useful for, e.g., building the Nix package,
++for which the FFmpeg binary should be provided by using `--prefix PATH :` in `makeWrapper` arguments.
++
++The NW.js app can be used to open files with `.sviber`, `.ssc`, `.json`, and `.txt` extensions.
++The Linux distribution should include the MIME type definition XML file for `.sviber` and `.ssc`,
++and the desktop entry file have relevant contents for opening these file types.
++The macOS distribution should have `Info.plist` include the relevant contents for opening these file types.
+ The Windows distribution should have an Inno setup script for setting up the relevant registry fields.
+ 
+ When you are prompted to generate a new release after bug fixes, bump the patch version in `package.json` and push a new tag.
+@@ -5160,6 +5332,10 @@ Example usage:
+ 
+ - `sviber chart-or-project --export output.ssc` exports a Sunniesnow level based on the input path
+   of a chart file or a project folder.
++- `sviber chart-or-project --render output.mkv ...` renders video.
++  The dots are additional parameters such as the nickname and the avatar.
++- `sviber chart-or-project --render output.png ...` renders image.
++  The dots are additional parameters such as the cover theme image area.
+ - `sviber chart --export output.json` exports a Sunniesnow chart based on the input path.
+ - `sviber chart --export output.txt` exports a Lyrica chart based on the input.
+ - `sviber json-or-txt-or-ssc --import output.json ...` imports a chart or level file and saves as sviber chart.

@@ -8,6 +8,7 @@ import { Rational } from "../core/rational.js";
 const VALUE_FLAGS = new Map([
 	["--export", "exportPath"],
 	["--import", "importPath"],
+	["--render", "renderPath"],
 	["--offset", "offset"],
 	["--initial-bpm", "initialBpm"],
 	["--largest-denominator", "largestDenominator"],
@@ -18,6 +19,17 @@ const VALUE_FLAGS = new Map([
 	["--difficulty-color", "difficultyColor"],
 	["--difficulty", "difficulty"],
 	["--difficulty-sup", "difficultySup"],
+	["--nickname", "nickname"],
+	["--avatar", "avatar"],
+	["--avatar-online", "avatarOnline"],
+	["--avatar-upload", "avatarUpload"],
+	["--avatar-gravatar", "avatarGravatar"],
+	["--width", "renderWidth"],
+	["--height", "renderHeight"],
+	["--fps", "renderFps"],
+	["--speed", "renderSpeed"],
+	["--results-duration", "renderResultsDuration"],
+	["--ffmpeg", "renderFfmpeg"],
 	["--chart", "chart"],
 ]);
 
@@ -36,6 +48,8 @@ export function helpText() {
 		"  sviber CHART --export OUTPUT.txt                export a Lyrica chart",
 		"  sviber INPUT --import OUTPUT.json [options]     import as a sviber chart",
 		"  sviber INPUT --import OUTPUT-DIR [options]      import as a sviber project",
+		"  sviber PATH --render OUTPUT.mkv [options]       render a video (chart/level/project)",
+		"  sviber PATH --render OUTPUT.png [options]       render a cover image",
 		"  sviber --help                                   show this message",
 		"  sviber --version                                show version information",
 		"",
@@ -56,6 +70,19 @@ export function helpText() {
 		"",
 		"Export options:",
 		"  --chart ID_OR_FILE              choose one chart of a project when exporting a single chart",
+		"",
+		"Render options:",
+		"  --nickname NAME                 nickname shown in the video or cover",
+		"  --avatar KIND                   avatar kind: online, upload or gravatar",
+		"  --avatar-online FILE            avatar file used when --avatar=online",
+		"  --avatar-upload FILE            avatar file used when --avatar=upload",
+		"  --avatar-gravatar EMAIL         gravatar email used when --avatar=gravatar",
+		"  --width N                       render width (default 1920)",
+		"  --height N                      render height (default 1080)",
+		"  --fps N                         video frame rate (default 60)",
+		"  --speed VALUE                   playback speed (default 2)",
+		"  --results-duration SECONDS      duration of the results screen (default 1)",
+		"  --ffmpeg PATH                   path to the FFmpeg executable (default ffmpeg)",
 	].join("\n");
 }
 
@@ -91,7 +118,8 @@ export function parseCliArguments(argv = []) {
 
 // True when the arguments ask for a headless operation, so the GUI must not launch.
 export function isHeadlessInvocation(args) {
-	return Boolean(args.help || args.version || args.exportPath || args.importPath || args.unknown.length);
+	const requested = [args.help, args.version, args.exportPath, args.importPath, args.renderPath];
+	return Boolean(requested.some(Boolean) || args.unknown.length);
 }
 
 function parseBeat(value) {

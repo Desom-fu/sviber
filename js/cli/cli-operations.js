@@ -180,6 +180,11 @@ export async function runCli(argv, io) {
 	}
 	try {
 		const input = await loadInput(io, args.input, args);
+		if (args.renderPath) {
+			const message = await runRender(io, args, input);
+			io.print(message);
+			return 0;
+		}
 		const message = args.exportPath ? await runExport(io, args, input) : await runImport(io, args, input);
 		io.print(message);
 		return 0;
@@ -187,5 +192,74 @@ export async function runCli(argv, io) {
 		io.printError(String(error?.message || error));
 		return 1;
 	}
+}
+
+const IMAGE_ASSET_PATTERN = /\.(png|jpe?g|webp|gif|avif|bmp|svg)$/i;
+const AUDIO_ASSET_PATTERN = /\.(mp3|ogg|wav|flac|m4a|aac|opus)$/i;
+
+// v25: renders a video or a cover image with sunniesnow-record. The level file is built
+// in memory and provided as a Blob; FFmpeg comes from --ffmpeg or PATH.
+async function runRender(io, args, input) {
+	const output = args.renderPath;
+	const isVideo = !/\.(png|jpe?g|webp)$/i.test(output);
+	const charts = chartsOf(input);
+	const chart = pickChart(charts, args.chart);
+	const assets =
+		input.kind === "project" ? await io.projectAssets(input.project.directory, charts) : input.level?.assets || [];
+	if (isVideo && !assets.some(asset => AUDIO_ASSET_PATTERN.test(asset.name))) {
+		throw new Error("Rendering video requires music; load a level whose music is present.");
+	}
+	const hasImage = assets.some(asset => IMAGE_ASSET_PATTERN.test(asset.name));
+	const levelBytes = await io.buildLevelBytes([chart], assets);
+	const { default: SunniesnowRecord } = await import("sunniesnow-record");
+	const options = {
+		levelFile: "upload",
+		levelFileUpload: new Blob([levelBytes]),
+		chartSelect: "from-level",
+		musicSelect: "from-level",
+		background: hasImage ? "from-level" : "none",
+		output,
+		quiet: false,
+	};
+	if (args.nickname) {
+		options.nickname = args.nickname;
+	}
+	if (args.avatar) {
+		options.avatar = args.avatar;
+	}
+	if (args.avatarOnline) {
+		options.avatarOnline = args.avatarOnline;
+	}
+	if (args.avatarUpload) {
+		options.avatarUpload = args.avatarUpload;
+	}
+	if (args.avatarGravatar) {
+		options.avatarGravatar = args.avatarGravatar;
+	}
+	if (args.renderWidth) {
+		options.width = Number(args.renderWidth);
+	}
+	if (args.renderHeight) {
+		options.height = Number(args.renderHeight);
+	}
+	if (isVideo) {
+		if (args.renderFps) {
+			options.fps = Number(args.renderFps);
+		}
+		if (args.renderSpeed) {
+			options.speed = Number(args.renderSpeed);
+		}
+		if (args.renderResultsDuration) {
+			options.resultsDuration = Number(args.renderResultsDuration);
+		}
+	} else if (args.renderWidth != null || args.renderHeight != null) {
+		io.print("Cover rendering ignores --width/--height for the theme area; use the editor widget instead.");
+	}
+	if (args.renderFfmpeg) {
+		options.ffmpeg = args.renderFfmpeg;
+	}
+	const runner = isVideo ? SunniesnowRecord.Record : SunniesnowRecord.CoverGen;
+	await runner.run(options);
+	return `Rendered ${output}`;
 }
 

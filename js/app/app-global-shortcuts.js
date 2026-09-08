@@ -146,6 +146,17 @@ function bindUnloadGuard(app) {
 	});
 }
 
+// v25: releasing the creation key sets the end time of a hold created during playback.
+function bindCreationHoldKeyUp(app) {
+	document.addEventListener(
+		"keyup",
+		event => {
+			app.finishKeyboardHoldCreation?.(event);
+		},
+		true,
+	);
+}
+
 export const withGlobalShortcuts = Base =>
 	class extends Base {
 		_bindGlobalInteraction() {
@@ -153,6 +164,7 @@ export const withGlobalShortcuts = Base =>
 			bindModeKeys(this);
 			bindFullscreenSync(this);
 			bindSpaceHold(this);
+			bindCreationHoldKeyUp(this);
 			bindWheelNavigation(this);
 			bindUnloadGuard(this);
 			i18n.subscribe(() => this.refresh());

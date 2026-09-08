@@ -71,6 +71,24 @@ jobs:
           SVIBER_NW_PLATFORM: ${{ matrix.nwPlatform }}
           SVIBER_NW_ARCH: ${{ matrix.arch }}
         run: npm run build
+      # PROMPT-v25: sunniesnow-record needs gl and canvas. When the runner architecture
+      # matches the target, rebuild them from source inside the packaged node_modules so
+      # the release ships compiled native modules instead of prebuilt binaries. Cross
+      # builds (windows aarch64, linux aarch64) keep the prebuilt binaries because the
+      # runner cannot execute the target toolchain.
+      - name: Install native build prerequisites (Linux)
+        if: startsWith(matrix.osName, 'linux') && matrix.arch == 'x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config python3-dev libgl1-mesa-dev libglu1-mesa-dev libxi-dev libxext-dev
+      - name: Rebuild gl and canvas native modules
+        if: >-
+          (startsWith(matrix.osName, 'windows') && matrix.arch == 'x64') ||
+          (startsWith(matrix.osName, 'linux') && matrix.arch == 'x64') ||
+          startsWith(matrix.osName, 'macos')
+        run: |
+          cd build/nw
+          npm rebuild gl canvas --update-binary --foreground-scripts
       - name: Archive Windows app as ZIP
         if: startsWith(matrix.osName, 'windows')
         shell: pwsh

@@ -12,6 +12,9 @@ import { withChecks } from "./app-checks.js";
 import { withProjectFiles } from "./app-project-files.js";
 import { withTipPointSwitch } from "./app-tip-point-switch.js";
 import { withBulkEditTexts } from "./app-bulk-edit.js";
+import { withQuantization } from "./app-quantization.js";
+import { withLyricsImport } from "./app-lyrics-import.js";
+import { withRender } from "./app-render.js";
 import { withFileDrop } from "./app-file-drop.js";
 import { withReadmeEditor } from "./app-readme-editor.js";
 
@@ -23,7 +26,10 @@ const CoreWithTools = withChecks(withAutoTiming(withAttachment(withChartTools(Co
 const CoreWithV24 = withReadmeEditor(
 	withFileDrop(withBulkEditTexts(withTipPointSwitch(withProjectFiles(CoreWithTools)))),
 );
-const ComposedSviberApp = CoreWithV24;
+const CoreWithV25 = withRender(
+	withLyricsImport(withQuantization(CoreWithV24)),
+);
+const ComposedSviberApp = CoreWithV25;
 class SviberApp extends ComposedSviberApp {}
 
 const app = new SviberApp();

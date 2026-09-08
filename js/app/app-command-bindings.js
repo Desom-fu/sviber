@@ -48,6 +48,18 @@ function registerFileCommands(app) {
 	register(app, "file.exportClipboard", () => void app.exportClipboard());
 	register(
 		app,
+		"file.renderVideo",
+		() => void app.showRenderVideoDialog(),
+		() => app.canRenderVideo(),
+	);
+	register(
+		app,
+		"file.renderCover",
+		() => void app.showRenderCoverDialog(),
+		() => app.canRenderCover(),
+	);
+	register(
+		app,
 		"file.openProjectFolder",
 		() => app.files.openProjectFolder(),
 		() => Boolean(globalThis.nw && app.files.projectPath),
@@ -174,6 +186,18 @@ function registerEventCommands(app) {
 		() => app.unlockSelected(),
 		() => selected(app.model).some(event => event.locked),
 	);
+	register(
+		app,
+		"events.activate",
+		() => app.setEventsActive(true),
+		() => app.canSetEventsActive(true),
+	);
+	register(
+		app,
+		"events.deactivate",
+		() => app.setEventsActive(false),
+		() => app.canSetEventsActive(false),
+	);
 	register(app, "events.moveChannelAbove", () => app.moveSelectedChannel(-1), () => app.canMoveSelectedChannel(-1));
 	register(app, "events.moveChannelBelow", () => app.moveSelectedChannel(1), () => app.canMoveSelectedChannel(1));
 	register(
@@ -182,7 +206,19 @@ function registerEventCommands(app) {
 		() => app.fillSelectedCurve(),
 		() => app.model.snappees.some(snappee => snappee.selected && !snappee.type.endsWith("Mesh")),
 	);
-	register(app, "events.bulkEditTexts", () => void app.showBulkEditTextsDialog());
+	register(
+		app,
+		"events.bulkEditTexts",
+		() => void app.showBulkEditTextsDialog(),
+		() => app.canBulkEditTextsSelection(),
+	);
+	register(
+		app,
+		"events.bulkEditTextsByChannel",
+		() => void app.showBulkEditTextsByChannelDialog(),
+		() => app.canBulkEditTextsByChannel(),
+	);
+	register(app, "events.importLyrics", () => void app.showImportLyricsDialog());
 }
 
 function registerTimingCommands(app) {
@@ -358,6 +394,12 @@ function registerTransformCommands(app) {
 	);
 	register(app, "transform.reverseTime", () => app.reverseSelectedTime(), () =>
 		selected(app.model).some(event => !event.locked),
+	);
+	register(
+		app,
+		"transform.quantization",
+		() => void app.showQuantizationDialog(),
+		() => app.canQuantizeSelection(),
 	);
 }
 

@@ -169,7 +169,12 @@ test("command definitions cover the new file, edit, timing and channel actions",
 	assertCommand("channel.showAll", { shortcut: "Ctrl+Alt+J" });
 	assertCommand("channel.moveAboveWithinChannel", { shortcut: "Ctrl+Alt+ArrowUp" });
 	assertCommand("channel.moveBelowWithinChannel", { shortcut: "Ctrl+Alt+ArrowDown" });
-	assertCommand("snappee.deactivateAll", { shortcut: "Alt+Shift+A" });
+	assertCommand("snappee.deactivateAll", { shortcut: "Ctrl+Alt+D" });
+	assertCommand("snappee.activate", { shortcut: "Ctrl+Shift+D" });
+	assertCommand("snappee.deactivate", { shortcut: "Ctrl+D" });
+	assertCommand("events.activate", { shortcut: "A" });
+	assertCommand("events.deactivate", { shortcut: "Shift+A" });
+	assertCommand("transform.quantization", {});
 	assertCommand("snappee.attachCurveOrder", {});
 	assertCommand("snappee.attachCurveTime", {});
 	assertCommand("transform.flipHorizontalReattach", { shortcut: "Ctrl+%" });

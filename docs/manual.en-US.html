@@ -503,7 +503,15 @@ a whole chain moves to a no-tip-point channel. Simultaneous taps export as type 
 <tr><td>Export to clipboard</td><!---->
 <td>—</td><!---->
 <td>Copy editable sviber JSON.</td><!---->
+</tr>
+<tr><td>Render video...</td><!---->
+<td>—</td><!---->
+<td>Render the current chart and music into a video with sunniesnow-record.</td><!---->
 </tr><!---->
+<tr><td>Render cover...</td><!---->
+<td>—</td><!---->
+<td>Render the cover image of the current chart with sunniesnow-record.</td><!---->
+</tr><!----><!---->
 <tr><td>Open project folder in file explorer</td><!---->
 <td>—</td><!---->
 <td>Reveal the desktop project folder.</td><!---->
@@ -664,15 +672,29 @@ Click the active tool again to exit it.</td><!---->
 <tr><td>Lock / Unlock</td><!---->
 <td>Ctrl+L / Ctrl+Shift+L</td><!---->
 <td>Lock all selected events with Ctrl+L, or unlock them with Ctrl+Shift+L.</td><!---->
-</tr><!---->
+</tr>
+<tr><td>Activate / Deactivate</td><!---->
+<td>A / Shift+A</td><!---->
+<td>Activate or deactivate all selected events; inactive events leave the main field and the scroll view, cannot <!---->
+sound their SE, cannot be connected by a tip point, and stay translucent and selectable in the timeline.</td><!---->
+</tr><!----><!---->
 <tr><td>Fill curve with drag notes</td><!---->
 <td>—</td><!---->
 <td>Place drag notes along the selected curve.</td><!---->
 </tr><!---->
 <tr><td>Bulk edit texts...</td><!---->
 <td>—</td><!---->
+<td>Edit the texts of all selected textable events (except comments) in one form, sorted by time and then by <!---->
+channel.</td><!---->
+</tr><!---->
+<tr><td>Bulk edit texts by channel...</td><!---->
+<td>—</td><!---->
 <td>Edit texts of textable events (except comments) by channel in one form.</td><!---->
-</tr>				<!---->
+</tr><!---->
+<tr><td>Import lyrics/subtitle file...</td><!---->
+<td>—</td><!---->
+<td>Import LRC, SRT, WebVTT or ASS lyrics as tap and bigText events with an offset and quantization.</td><!---->
+</tr><!---->
 </tbody><!---->
 </table>				<!---->
 <h3 id="en-channel-menu">Channel</h3>				<!---->
@@ -776,12 +798,12 @@ The parameter form copies the SVG path and can import one from the clipboard.</t
 <td>Add Playfield grid, Radial grid, Outer/Middle/Smallest/Inner hexagons, or Pentagon; <!---->
 names follow the current language.</td><!---->
 </tr><!---->
-<tr><td>Activate / Deactivate</td><!---->
-<td>A / Shift+A</td><!---->
+<tr><td>Activate snappee / Deactivate snappee</td><!---->
+<td>Ctrl+Shift+D / Ctrl+D</td><!---->
 <td>If events are selected, those events' snappees; otherwise the selected snappee.</td><!---->
 </tr><!---->
-<tr><td>Deactivate all</td><!---->
-<td>Alt+Shift+A</td><!---->
+<tr><td>Deactivate all snappees</td><!---->
+<td>Ctrl+Alt+D</td><!---->
 <td>Deactivate every snappee.</td><!---->
 </tr><!---->
 <tr><td>Attach / Detach</td><!---->
@@ -868,7 +890,12 @@ Grayed if nothing is selected.</td><!---->
 <tr><td>Reverse in time</td><!---->
 <td>—</td><!---->
 <td>Mirror selected event times around their selection bounds.</td><!---->
-</tr>				<!---->
+</tr>
+<tr><td>Quantization...</td><!---->
+<td>—</td><!---->
+<td>Round the times and end times of all selected events to the nearest subdivision, with an explicit tie-break <!---->
+mode.</td><!---->
+</tr><!---->				<!---->
 </tbody><!---->
 </table>				<!---->
 <h3 id="en-music-menu">Music</h3>				<!---->

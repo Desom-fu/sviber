@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v015130";
+const CACHE_VERSION = "sviber-v016000";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -45,7 +45,11 @@ const APP_SHELL = [
 	"./js/app/app-bulk-edit.js",
 	"./js/app/app-file-drop.js",
 	"./js/app/app-layout.js",
+	"./js/app/app-lyrics-import.js",
+	"./js/app/app-quantization.js",
 	"./js/app/app-readme-editor.js",
+	"./js/app/app-render-cover-widget.js",
+	"./js/app/app-render.js",
 	"./js/app/app-tip-point-switch.js",
 	"./js/core/bulk-edit-texts.js",
 	"./js/core/selected-event-markers.js",
@@ -119,6 +123,9 @@ const APP_SHELL = [
 	"./js/core/lyrica.js",
 	"./js/core/ndarray.js",
 	"./js/core/project.js",
+	"./js/core/lyrics-import.js",
+	"./js/core/math-utils.js",
+	"./js/core/quantize.js",
 	"./js/core/rational.js",
 	"./js/core/snappee-presets.js",
 	"./js/core/sunniesnow-import.js",
@@ -153,7 +160,6 @@ const APP_SHELL = [
 	"./js/macro/macro-sandbox.js",
 	"./js/macro/macro-sandbox.bundle.js",
 	"./js/macro/macros.js",
-	"./js/core/math-utils.js",
 	"./js/core/mixin.js",
 	"./js/boot/nw-source-bootstrap.js",
 	"./js/ui/panel-clips.js",

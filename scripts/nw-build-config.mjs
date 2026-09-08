@@ -1,6 +1,11 @@
 export const PACKAGED_WINDOW_ICON = "sviber/icon.png";
-export const SUPPORTED_FILE_EXTENSIONS = Object.freeze(["sviber", "json", "txt"]);
-export const SUPPORTED_MIME_TYPES = Object.freeze(["application/x-sviber", "application/json", "text/plain"]);
+export const SUPPORTED_FILE_EXTENSIONS = Object.freeze(["sviber", "ssc", "json", "txt"]);
+export const SUPPORTED_MIME_TYPES = Object.freeze([
+	"application/x-sviber",
+	"application/x-sviber-level",
+	"application/json",
+	"text/plain",
+]);
 
 const BUILDER_ICONS = {
 	win: "sviber/icon.ico",

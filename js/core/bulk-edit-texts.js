@@ -3,6 +3,7 @@
 // separated. Backslash escapes preserve spaces, tabs, newlines and backslashes.
 
 import { MOVABLE_TYPES, TEXT_TYPES } from "./chart-vocabulary.js";
+import { Rational } from "./rational.js";
 
 const ESCAPE_PAIRS = Object.freeze([
 	["\\", "\\\\"],
@@ -73,4 +74,20 @@ export function bulkEditableEventsInChannel(model, channelId) {
 	return (model?.allEvents?.({ includeGroups: false }) || model?.events || []).filter(
 		event => isBulkEditableEvent(event) && event.channel === channelId,
 	);
+}
+
+// v25: the selection-based "Bulk edit texts..." dialog edits the selected textable events
+// except `comment`, sorted by time and then by channel.
+export function bulkEditableSelectedEvents(model) {
+	const channelOrder = new Map(
+		(model?.channels || []).map((channel, index) => [channel.id, index]),
+	);
+	return (model?.allEvents?.({ includeGroups: false }) || [])
+		.filter(event => isBulkEditableEvent(event) && event.selected)
+		.sort(
+			(left, right) =>
+				Rational.compare(left.time, right.time) ||
+				(channelOrder.get(left.channel) ?? 0) - (channelOrder.get(right.channel) ?? 0) ||
+				left.id - right.id,
+		);
 }

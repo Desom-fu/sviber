@@ -4,4 +4,8 @@
     <comment>sviber chart project</comment>
     <glob pattern="*.sviber"/>
   </mime-type>
+  <mime-type type="application/x-sviber-level">
+    <comment>Sunniesnow level</comment>
+    <glob pattern="*.ssc"/>
+  </mime-type>
 </mime-info>

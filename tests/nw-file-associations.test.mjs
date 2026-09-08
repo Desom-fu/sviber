@@ -7,9 +7,14 @@ import {
 	SUPPORTED_MIME_TYPES,
 } from "../scripts/nw-build-config.mjs";
 
-test("NW.js distributions declare sviber, JSON, and text file associations", async () => {
-	assert.deepEqual([...SUPPORTED_FILE_EXTENSIONS], ["sviber", "json", "txt"]);
-	assert.deepEqual([...SUPPORTED_MIME_TYPES], ["application/x-sviber", "application/json", "text/plain"]);
+test("NW.js distributions declare sviber, ssc, JSON, and text file associations", async () => {
+	assert.deepEqual([...SUPPORTED_FILE_EXTENSIONS], ["sviber", "ssc", "json", "txt"]);
+	assert.deepEqual([...SUPPORTED_MIME_TYPES], [
+		"application/x-sviber",
+		"application/x-sviber-level",
+		"application/json",
+		"text/plain",
+	]);
 	const [linuxMime, desktop, macInfo, inno, packageJson] = await Promise.all([
 		readFile(new URL("../packaging/linux/sviber.xml", import.meta.url), "utf8"),
 		readFile(new URL("../packaging/linux/sviber.desktop", import.meta.url), "utf8"),
@@ -18,15 +23,18 @@ test("NW.js distributions declare sviber, JSON, and text file associations", asy
 		readFile(new URL("../package.json", import.meta.url), "utf8").then(JSON.parse),
 	]);
 	assert.match(linuxMime, /\*\.sviber/);
-	assert.match(desktop, /application\/json;text\/plain/);
+	assert.match(linuxMime, /\*\.ssc/);
+	assert.match(desktop, /application\/x-sviber-level/);
 	assert.match(macInfo, /<string>sviber<\/string>/);
 	assert.match(macInfo, /<string>json<\/string>/);
+	assert.match(macInfo, /<string>ssc<\/string>/);
 	assert.match(macInfo, /<string>txt<\/string>/);
 	assert.match(inno, /Software\\Classes\\\.sviber/);
+	assert.match(inno, /Software\\Classes\\\.ssc/);
 	assert.equal(packageJson["single-instance"], false);
 	assert.deepEqual(builderApplicationOptions("linux", packageJson).mimeType, [...SUPPORTED_MIME_TYPES]);
 	assert.equal(builderApplicationOptions("linux", packageJson).exec, "sviber %F");
-	assert.deepEqual(builderApplicationOptions("win", packageJson).fileAssociations, ["sviber", "json", "txt"]);
+	assert.deepEqual(builderApplicationOptions("win", packageJson).fileAssociations, ["sviber", "ssc", "json", "txt"]);
 	const buildScript = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
 	assert.match(buildScript, /copyDistributionAssociationMetadata/);
 	assert.match(buildScript, /parsePlist/);
@@ -41,5 +49,5 @@ test("NW.js distributions declare sviber, JSON, and text file associations", asy
 	assert.match(inno, /OutputBaseFilename=sviber-\{#AppVersion\}-\{#Architecture\}-setup/);
 	assert.match(inno, /OutputDir=\.\.\\\.\.\\build\\installer/);
 	assert.match(inno, /Source: "\.\.\\\.\.\\build\\nw\\\*"/);
-	assert.equal((inno.match(/ValueData: """\{app\}\\sviber\.exe"" ""%1"""/g) || []).length, 3);
+	assert.equal((inno.match(/ValueData: """\{app\}\\sviber\.exe"" ""%1"""/g) || []).length, 4);
 });

@@ -429,6 +429,34 @@ function coversRange(start, end, ranges) {
 	return cursor >= end - CHECK_EPSILON;
 }
 
+// v25: two background patterns whose [time, end time] ranges overlap are conflicting.
+// The strict mode (default) treats touching ranges as conflicting; the relaxed mode
+// requires a positive overlap instead.
+function checkConflictingBgPatterns(context, violations) {
+	const strict = context.settings.conflictingBgPatterns.strict !== false;
+	const patterns = context.leafEvents.filter(event => PATTERN_TYPES.has(event.type));
+	for (let i = 0; i < patterns.length; i += 1) {
+		const first = patterns[i];
+		const firstStart = context.startOf(first);
+		const firstEnd = context.endOf(first);
+		for (let j = i + 1; j < patterns.length; j += 1) {
+			const second = patterns[j];
+			const secondStart = context.startOf(second);
+			const secondEnd = context.endOf(second);
+			const firstCondition = strict ? secondStart <= firstEnd : secondStart < firstEnd;
+			const secondCondition = strict ? firstStart <= secondEnd : firstStart < secondEnd;
+			if (firstCondition && secondCondition) {
+				violations.push(
+					violation("conflictingBgPatterns", {
+						time: Math.min(firstStart, secondStart),
+						eventIds: [first.id, second.id],
+					}),
+				);
+			}
+		}
+	}
+}
+
 function checkBlockedTexts(context, violations) {
 	const candidates = context.leafEvents.filter(
 		event => event.type === "tap" || event.type === "hold" || event.type === "flick" || event.type === "bgNote",
@@ -683,6 +711,9 @@ export function createChecksSteps(model, options = {}) {
 	}
 	if (settings.blockedTexts.enabled) {
 		steps.push(() => checkBlockedTexts(context, violations));
+	}
+	if (settings.conflictingBgPatterns.enabled) {
+		steps.push(() => checkConflictingBgPatterns(context, violations));
 	}
 	return { violations, steps };
 }

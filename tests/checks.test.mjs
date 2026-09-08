@@ -34,6 +34,7 @@ const CHECK_ID_LIST = [
 	"badCharacters",
 	"driftingTipPoint",
 	"blockedTexts",
+	"conflictingBgPatterns",
 ];
 
 function validChart(overrides = {}) {
@@ -417,6 +418,7 @@ test("each check carries exactly the extra parameters it documents", () => {
 	assert.deepEqual(parameters.get("dragScreening"), ["seconds", "distance"]);
 	assert.deepEqual(parameters.get("simultaneousOverlappingNotes"), ["invisibleOnly"]);
 	assert.deepEqual(parameters.get("driftingTipPoint"), ["seconds"]);
+	assert.deepEqual(parameters.get("conflictingBgPatterns"), ["strict"]);
 	const parameterized = [
 		"requiredFingers",
 		"outOfBoundaryNotes",
@@ -426,6 +428,7 @@ test("each check carries exactly the extra parameters it documents", () => {
 		"dragScreening",
 		"simultaneousOverlappingNotes",
 		"driftingTipPoint",
+		"conflictingBgPatterns",
 	];
 	for (const id of CHECK_ID_LIST.filter(id => !parameterized.includes(id))) {
 		assert.deepEqual(parameters.get(id), [], `${id} should have no parameters`);

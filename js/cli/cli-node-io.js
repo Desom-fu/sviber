@@ -133,5 +133,24 @@ export function createNodeCliIo(host) {
 		writeLevel(pathname, charts, assets) {
 			return writeLevelArchive(host, pathname, charts, assets);
 		},
+
+		// v25: builds an .ssc level archive in memory (Buffer) so the render pipeline can
+		// hand it to sunniesnow-record as a Blob without touching the filesystem.
+		async buildLevelBytes(charts, assets) {
+			const zip = new host.JSZip();
+			for (const chart of charts) {
+				const document = chart.model.exportSunniesnow({ includeSchema: true });
+				zip.file(chart.file, `${JSON.stringify(document, null, 2)}\n`, { date: ZIP_EPOCH });
+			}
+			for (const asset of assets) {
+				zip.file(asset.name, asset.data, { date: ZIP_EPOCH });
+			}
+			return zip.generateAsync({
+				type: "nodebuffer",
+				compression: "DEFLATE",
+				compressionOptions: { level: 6 },
+				platform: "UNIX",
+			});
+		},
 	};
 }

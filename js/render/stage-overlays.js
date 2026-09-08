@@ -386,7 +386,7 @@ export class StageOverlaysTrait {
 				continue;
 			}
 			const ancestors = this.renderIndex.ancestorsById.get(event.id) || [];
-			if (!ancestors.length || !this.renderIndex.activeChannelIds.has(event.channel)) {
+			if (!ancestors.length || !this.renderIndex.activeChannelIds.has(event.channel) || event.active === false) {
 				continue;
 			}
 			const position = this.renderIndex.positionFor(event) || event;
@@ -538,7 +538,7 @@ export class StageOverlaysTrait {
 			if (seen.has(event.id) || !event.attached || event.snappee !== selectedSnappee.id) {
 				continue;
 			}
-			if (!this.renderIndex.activeChannelIds.has(event.channel)) {
+			if (event.active === false || !this.renderIndex.activeChannelIds.has(event.channel)) {
 				continue;
 			}
 			seen.add(event.id);

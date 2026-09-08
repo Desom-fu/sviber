@@ -168,6 +168,9 @@ export function createEvent(type, overrides = {}) {
 		time: Rational.from(overrides.time ?? 0).toJSON(),
 		selected: Boolean(overrides.selected),
 		locked: Boolean(overrides.locked),
+		// v25: an inactive event keeps living in the timeline but leaves the main field,
+		// the scroll view, tip point chains, and hit sounds.
+		active: overrides.active !== false,
 		channel: validId(overrides.channel) ? overrides.channel : 0,
 	};
 	stripUnsupportedFields(event, type);
@@ -213,7 +216,10 @@ export function connectSelectedTipPointChain(events) {
 
 	const selectedEvents = new Set(selectedRecords.map(({ event }) => event));
 	const channelEvents = indexed
-		.filter(({ event }) => event.channel === channel && TIP_POINTABLE_TYPES.has(event.type))
+		.filter(
+			({ event }) =>
+				event.channel === channel && event.active !== false && TIP_POINTABLE_TYPES.has(event.type),
+		)
 		.toSorted(
 			(left, right) => Rational.compare(left.event.time, right.event.time) || left.sequence - right.sequence,
 		);
