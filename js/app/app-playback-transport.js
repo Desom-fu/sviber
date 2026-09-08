@@ -27,7 +27,13 @@ function clearScheduledSounds(app) {
 // Once the playhead has reached the middle of the visible range the range starts to
 // follow it, keeping the playhead at a constant offset. `false` means "never follow for
 // this playback run", `null` means "not yet, keep watching".
-function initialPlayFollowOffset(editor, direction, time) {
+// The armed offset anchors to the strict chart bounds, not the raw visible range: a
+// paused seek may legally place the range slightly outside the bounds (the snapped
+// playhead can land before time zero, and setVisibleRange(includeCurrent) follows it),
+// while applyPlayFollowOffset clamps against the strict bounds. Anchoring to the clamped
+// bounds keeps the first apply step consistent, so follow is not mistaken for a
+// chart-bound hit and disabled for the whole run.
+function initialPlayFollowOffset(editor, direction, time, bounds) {
 	if (editor.lockVisibleRange) {
 		return false;
 	}
@@ -37,7 +43,8 @@ function initialPlayFollowOffset(editor, direction, time) {
 			return false;
 		}
 		if (time >= center && time >= editor.visibleRangeBeginning) {
-			return { direction: 1, value: time - editor.visibleRangeBeginning };
+			const anchor = Math.max(bounds[0], editor.visibleRangeBeginning);
+			return { direction: 1, value: time - anchor };
 		}
 		return null;
 	}
@@ -45,7 +52,8 @@ function initialPlayFollowOffset(editor, direction, time) {
 		return false;
 	}
 	if (time <= center && time <= editor.visibleRangeEnd) {
-		return { direction: -1, value: editor.visibleRangeEnd - time };
+		const anchor = Math.min(bounds[1], editor.visibleRangeEnd);
+		return { direction: -1, value: anchor - time };
 	}
 	return null;
 }
@@ -56,9 +64,11 @@ function armPlayFollowOffset(app, editor, time, center) {
 		return;
 	}
 	if (app.audio.direction > 0 && time >= center && time <= editor.visibleRangeEnd) {
-		app.playFollowOffset = { direction: 1, value: time - editor.visibleRangeBeginning };
+		const anchor = Math.max(app.timeBounds()[0], editor.visibleRangeBeginning);
+		app.playFollowOffset = { direction: 1, value: time - anchor };
 	} else if (app.audio.direction < 0 && time <= center && time >= editor.visibleRangeBeginning) {
-		app.playFollowOffset = { direction: -1, value: editor.visibleRangeEnd - time };
+		const anchor = Math.min(app.timeBounds()[1], editor.visibleRangeEnd);
+		app.playFollowOffset = { direction: -1, value: anchor - time };
 	}
 }
 
@@ -107,7 +117,7 @@ function bindPlaybackStart(app) {
 		app._syncAudioLoop();
 		const time = app.currentSeconds();
 		const editor = app.model.editor;
-		app.playFollowOffset = initialPlayFollowOffset(editor, app.audio.direction, time);
+		app.playFollowOffset = initialPlayFollowOffset(editor, app.audio.direction, time, app.timeBounds());
 		app.lastPlaybackTime = time;
 		app.playbackOrigin ||= {
 			time,
