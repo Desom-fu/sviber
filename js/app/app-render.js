@@ -36,14 +36,10 @@ async function showRenderDialog(app, kind) {
 	const charter = String(app.model.metadata.charter || "").trim();
 	const bundledFfmpeg = app.files.bundledFfmpegPath();
 	const suggested = `${app.model.metadata.title || "chart"}-${isVideo ? "video.mkv" : "cover.png"}`;
-	const outputPath = await pickNwSavePath(suggested, isVideo ? ".mkv,.mp4,.webm" : ".png");
-	if (!outputPath) {
-		return false;
-	}
 	const values = await app.dialogs.form({
 		titleKey: isVideo ? "command.file.renderVideo" : "command.file.renderCover",
 		values: {
-			output: outputPath,
+			output: "",
 			nickname: charter,
 			avatar: "online",
 			avatarOnline: "default.svg",
@@ -57,7 +53,7 @@ async function showRenderDialog(app, kind) {
 			resultsDuration: "1",
 			waitForMusic: true,
 		},
-		fields: formFields(app, kind, bundledFfmpeg),
+		fields: formFields(app, kind, bundledFfmpeg, suggested),
 		onChange: (next, { entries }) => {
 			// Depending on the avatar kind, at most one of the three avatar fields is enabled.
 			for (const id of ["avatarOnline", "avatarUpload", "avatarGravatar"]) {
@@ -69,6 +65,10 @@ async function showRenderDialog(app, kind) {
 		},
 	});
 	if (!values) {
+		return false;
+	}
+	const outputPath = values.output;
+	if (!outputPath) {
 		return false;
 	}
 	const coverTheme = kind === "cover" ? app.renderCoverThemeWidget?.read() : null;
@@ -84,38 +84,39 @@ async function showRenderDialog(app, kind) {
 	return true;
 }
 
-function formFields(app, kind, bundledFfmpeg) {
+function formFields(app, kind, bundledFfmpeg, suggested) {
 	const isVideo = kind === "video";
 	const fields = [
 		{
 			id: "output",
 			type: "custom",
 			labelKey: "field.renderOutput",
-			render: (element, value, environment) => {
-				const row = element.ownerDocument.createElement("div");
+			required: true,
+			// Custom fields receive an environment object ({ document, i18n, value, onChange })
+			// and return a control object ({ element, read }); see createCustomControl.
+			render: ({ document: documentRef, value, onChange }) => {
+				const row = documentRef.createElement("div");
 				row.className = "render-output-row";
-				const input = element.ownerDocument.createElement("input");
+				const input = documentRef.createElement("input");
 				input.type = "text";
 				input.readOnly = true;
 				input.value = String(value ?? "");
-				const browse = element.ownerDocument.createElement("button");
+				const browse = documentRef.createElement("button");
 				browse.type = "button";
 				browse.textContent = i18n.t("field.renderBrowse");
 				browse.addEventListener("click", async () => {
 					const picked = await pickNwSavePath(
-						`render${isVideo ? ".mkv" : ".png"}`,
+						suggested,
 						isVideo ? ".mkv,.mp4,.webm" : ".png",
 					);
 					if (picked) {
-						element.dataset.value = picked;
 						input.value = picked;
-						environment.onChange?.({ id: "output", value: picked });
+						onChange?.({ id: "output", value: picked });
 					}
 				});
 				row.append(input, browse);
-				element.append(row);
+				return { element: row, read: () => input.value };
 			},
-			read: element => element.dataset.value || "",
 		},
 		{ id: "nickname", type: "text", labelKey: "field.renderNickname" },
 		{
@@ -155,15 +156,14 @@ function formFields(app, kind, bundledFfmpeg) {
 		id: "coverTheme",
 		type: "custom",
 		labelKey: "field.renderCoverTheme",
-		render: element => {
+		render: ({ document: documentRef }) => {
 			const widget = createCoverThemeWidget({
 				imageUrl: app.model.image ? app.files.backgroundUrl || app.model.image : null,
-				documentRef: element.ownerDocument,
+				documentRef,
 			});
 			app.renderCoverThemeWidget = widget;
-			element.append(widget.element);
+			return { element: widget.element, read: () => app.renderCoverThemeWidget?.read() };
 		},
-		read: () => app.renderCoverThemeWidget?.read(),
 	});
 	return fields;
 }
@@ -225,21 +225,22 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 			{
 				id: "progress",
 				type: "custom",
-				render: element => {
-					element.classList.add("render-progress");
-					const bar = element.ownerDocument.createElement("progress");
+				render: ({ document: documentRef }) => {
+					const host = documentRef.createElement("div");
+					host.classList.add("render-progress");
+					const bar = documentRef.createElement("progress");
 					bar.className = "render-progress-bar";
 					bar.max = 1;
-					const status = element.ownerDocument.createElement("div");
+					const status = documentRef.createElement("div");
 					status.className = "render-progress-status";
-					const openFolder = element.ownerDocument.createElement("button");
+					const openFolder = documentRef.createElement("button");
 					openFolder.type = "button";
 					openFolder.hidden = true;
 					openFolder.textContent = i18n.t("command.file.showRenderResult");
 					openFolder.addEventListener("click", () => {
 						app.files.showItemInFileExplorer(recordOptions.output);
 					});
-					element.append(bar, status, openFolder);
+					host.append(bar, status, openFolder);
 					updater = next => {
 						bar.value = next.ratio;
 						status.textContent = next.text;
@@ -249,8 +250,8 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 						}
 					};
 					updater(state);
+					return { element: host, read: () => done };
 				},
-				read: () => done,
 			},
 		],
 		buttons: [
