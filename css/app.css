@@ -1028,6 +1028,17 @@ textarea:focus-visible,
 	min-height: 1.4em;
 }
 
+.render-progress-error {
+	font-family: "Cascadia Mono", Consolas, monospace;
+	font-size: 11px;
+	width: 100%;
+	max-height: 40vh;
+	resize: vertical;
+	white-space: pre;
+	overflow: auto;
+	user-select: text;
+}
+
 .cover-theme-widget {
 	display: grid;
 	gap: 6px;

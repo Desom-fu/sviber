@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildRenderRecordOptions, renderProgressState, withRender } from "../js/app/app-render.js";
+import {
+	buildRenderRecordOptions,
+	renderErrorDetails,
+	renderProgressState,
+	withRender,
+} from "../js/app/app-render.js";
 
 function makeRenderApp({ music = "song.mp3", nw = true } = {}) {
 	const shellStub = {
@@ -126,4 +131,26 @@ test("render progress states map to a ratio and a status text", () => {
 	assert.equal(rendering.ratio > 0.1, true);
 	const combining = renderProgressState({ status: "done" });
 	assert.equal(combining.ratio, 1);
+});
+
+test("renderErrorDetails keeps the message, stderr, and stack for copying", () => {
+	// A plain error renders as its message (the stack is omitted when it only repeats it).
+	const plain = renderErrorDetails(new Error("boom"));
+	assert.match(plain, /boom/);
+	// FFmpeg stderr sections are appended when attached to the error.
+	const detailed = renderErrorDetails(
+		Object.assign(new Error("ffmpeg exited"), {
+			stderr: ["line one", "line two"],
+		}),
+	);
+	assert.match(detailed, /--- FFmpeg stderr ---/);
+	assert.match(detailed, /line one\nline two/);
+	// A stack that carries the message replaces the bare message so frames stay visible.
+	const withStack = renderErrorDetails({ message: "only", stack: "Error: only\n    at run" });
+	assert.equal(withStack, "Error: only\n    at run");
+	// A stack that does not contain the message is appended after it.
+	const split = renderErrorDetails({ message: "reason", stack: "at somewhere" });
+	assert.match(split, /reason[\s\S]+at somewhere/);
+	// Nothing to show renders as an empty string.
+	assert.equal(renderErrorDetails(null), "");
 });

@@ -1073,6 +1073,8 @@
   "field.lyricsOffset": "偏移（秒）",
   "field.renderOutput": "輸出路徑",
   "field.renderBrowse": "瀏覽",
+  "field.renderCopyError": "複製錯誤詳情",
+  "field.renderErrorCopied": "已複製",
   "field.renderNickname": "暱稱",
   "field.renderAvatar": "頭像",
   "field.renderAvatar.online": "線上",

@@ -1073,6 +1073,8 @@
   "field.lyricsOffset": "Offset (s)",
   "field.renderOutput": "Output path",
   "field.renderBrowse": "Browse",
+  "field.renderCopyError": "Copy error details",
+  "field.renderErrorCopied": "Copied",
   "field.renderNickname": "Nickname",
   "field.renderAvatar": "Avatar",
   "field.renderAvatar.online": "Online",

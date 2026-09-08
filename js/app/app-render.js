@@ -212,7 +212,11 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 		updater?.(state);
 	})
 		.catch(error => {
-			state = { ratio: 0, text: `${i18n.t("status.renderFailed")}: ${localizedErrorMessage(error)}` };
+			state = {
+				ratio: 0,
+				text: `${i18n.t("status.renderFailed")}: ${localizedErrorMessage(error)}`,
+				details: renderErrorDetails(error),
+			};
 			updater?.(state);
 		})
 		.finally(() => {
@@ -233,6 +237,29 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 					bar.max = 1;
 					const status = documentRef.createElement("div");
 					status.className = "render-progress-status";
+					// v26: render failures show a scrollable, selectable error box plus a copy
+					// button so the full details (message, FFmpeg stderr, stack) can be reported.
+					const errorBox = documentRef.createElement("textarea");
+					errorBox.className = "render-progress-error";
+					errorBox.readOnly = true;
+					errorBox.rows = 7;
+					errorBox.hidden = true;
+					const copyError = documentRef.createElement("button");
+					copyError.type = "button";
+					copyError.hidden = true;
+					copyError.textContent = i18n.t("field.renderCopyError");
+					copyError.addEventListener("click", async () => {
+						let copied = false;
+						try {
+							await navigator.clipboard.writeText(errorBox.value);
+							copied = true;
+						} catch {
+							errorBox.focus();
+							errorBox.select();
+							copied = documentRef.execCommand("copy");
+						}
+						copyError.textContent = i18n.t(copied ? "field.renderErrorCopied" : "field.renderCopyError");
+					});
 					const openFolder = documentRef.createElement("button");
 					openFolder.type = "button";
 					openFolder.hidden = true;
@@ -240,10 +267,17 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 					openFolder.addEventListener("click", () => {
 						app.files.showItemInFileExplorer(recordOptions.output);
 					});
-					host.append(bar, status, openFolder);
+					host.append(bar, status, errorBox, copyError, openFolder);
 					updater = next => {
 						bar.value = next.ratio;
 						status.textContent = next.text;
+						if (next.details) {
+							if (errorBox.value !== next.details) {
+								errorBox.value = next.details;
+							}
+							errorBox.hidden = false;
+							copyError.hidden = false;
+						}
 						if (done) {
 							bar.value = 1;
 							openFolder.hidden = false;
@@ -299,6 +333,36 @@ function isVideoKind(kind) {
 
 function capitalize(text) {
 	return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
+// Gathers everything useful from a render failure for the copyable error box: the
+// message, any FFmpeg stderr/stdout attached to the error, and the stack trace.
+export function renderErrorDetails(error) {
+	const message = error?.message ?? error;
+	const stack = error?.stack && String(error.stack).trim() ? String(error.stack).trim() : null;
+	const parts = [];
+	if (stack && (!message || !String(message).trim() || stack.includes(String(message)))) {
+		// The stack trace already carries the message; keep the full trace only.
+		parts.push(stack);
+	} else {
+		if (message != null && String(message).trim()) {
+			parts.push(String(message));
+		}
+		if (stack) {
+			parts.push(stack);
+		}
+	}
+	const stderr = error?.stderr;
+	if (typeof stderr === "string" && stderr.trim()) {
+		parts.push(`--- FFmpeg stderr ---\n${stderr.trim()}`);
+	} else if (Array.isArray(stderr) && stderr.length) {
+		parts.push(`--- FFmpeg stderr ---\n${stderr.map(line => String(line)).join("\n").trim()}`);
+	}
+	const stdout = error?.stdout;
+	if (Array.isArray(stdout) && stdout.length) {
+		parts.push(`--- FFmpeg stdout ---\n${stdout.map(line => String(line)).join("\n").trim()}`);
+	}
+	return parts.join("\n\n") || String(error ?? "");
 }
 
 export function renderProgressState(progress) {

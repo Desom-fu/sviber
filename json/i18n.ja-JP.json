@@ -1073,6 +1073,8 @@
   "field.lyricsOffset": "オフセット（秒）",
   "field.renderOutput": "出力パス",
   "field.renderBrowse": "参照",
+  "field.renderCopyError": "エラー詳細をコピー",
+  "field.renderErrorCopied": "コピーしました",
   "field.renderNickname": "ニックネーム",
   "field.renderAvatar": "アバター",
   "field.renderAvatar.online": "オンライン",

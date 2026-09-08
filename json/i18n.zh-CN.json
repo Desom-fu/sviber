@@ -1073,6 +1073,8 @@
   "field.lyricsOffset": "偏移（秒）",
   "field.renderOutput": "输出路径",
   "field.renderBrowse": "浏览",
+  "field.renderCopyError": "复制错误详情",
+  "field.renderErrorCopied": "已复制",
   "field.renderNickname": "昵称",
   "field.renderAvatar": "头像",
   "field.renderAvatar.online": "在线",
