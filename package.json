@@ -1,6 +1,6 @@
 {
   "name": "sviber",
-  "version": "0.16.6",
+  "version": "0.16.7",
   "private": true,
   "type": "module",
   "description": "Desktop-style chart editor for Sunniesnow",
@@ -28,6 +28,7 @@
   },
   "scripts": {
     "start": "http-server .. -p 4173 -c-1",
+    "postinstall": "node scripts/patch-sunniesnow-record.cjs",
     "build:macro-sandbox": "node scripts/macro-sandbox-bundle.cjs",
     "lint": "eslint . --max-warnings 0",
     "build": "node scripts/build-nw.mjs",

@@ -303,11 +303,29 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 	await job;
 }
 
+// Loads sunniesnow-record through the CJS bridge in the NW.js Node context: the package
+// is ESM with top-level await and imports Node builtins, so the page context's browser
+// import() cannot resolve the bare specifier (see js/app/render-record-bridge.cjs).
+// Outside NW.js (tests, plain Node) the direct import works and is kept as a fallback.
+async function loadSunniesnowRecord() {
+	if (globalThis.nw) {
+		const path = nw.require("node:path");
+		const bridgePath = path.join(
+			nw.App.startPath || globalThis.process.cwd(),
+			"js",
+			"app",
+			"render-record-bridge.cjs",
+		);
+		return nw.require(bridgePath).load();
+	}
+	return import("sunniesnow-record");
+}
+
 // Builds the .ssc level in memory (provided to sunniesnow-record as a Blob) and runs the
 // renderer. Video always uses the currently loaded music from the level; the background is
 // the loaded image, or "none" when no image is loaded.
 async function runRenderJob(app, kind, recordOptions, onProgress) {
-	const { default: SunniesnowRecord } = await import("sunniesnow-record");
+	const { default: SunniesnowRecord } = await loadSunniesnowRecord();
 	const project = app.projectSnapshot();
 	if (!app.editingProject) {
 		project.charts = project.charts.filter(entry => entry.id === app.activeDifficultyId);

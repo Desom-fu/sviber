@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createRequire } from "node:module";
 
 import {
 	buildRenderRecordOptions,
@@ -153,4 +154,13 @@ test("renderErrorDetails keeps the message, stderr, and stack for copying", () =
 	assert.match(split, /reason[\s\S]+at somewhere/);
 	// Nothing to show renders as an empty string.
 	assert.equal(renderErrorDetails(null), "");
+});
+
+test("the CJS bridge loads sunniesnow-record through Node's ESM loader", async () => {
+	// createRequire runs the bridge in the same Node context NW.js relies on.
+	const require = createRequire(import.meta.url);
+	const bridge = require("../js/app/render-record-bridge.cjs");
+	const record = await bridge.load();
+	assert.equal(typeof record.default?.Record, "function");
+	assert.equal(typeof record.default?.CoverGen, "function");
 });
