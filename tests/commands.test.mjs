@@ -154,6 +154,40 @@ test("File menu adds Close and disables Open recent on the web", () => {
 	);
 });
 
+test("File menu matches the PROMPT-v25 structure with render commands", () => {
+	const fileItems = MENU_DEFINITION.find(menu => menu.id === "file").items
+		.filter(item => item.type === "command")
+		.map(item => item.command);
+	assert.deepEqual(fileItems, [
+		"file.newProject",
+		"file.newChart",
+		"file.openProject",
+		"file.openChart",
+		"file.openRecent",
+		"file.openAutosave",
+		"file.reloadChart",
+		"file.save",
+		"file.saveAs",
+		"file.saveProject",
+		"file.openProjectFolder",
+		"file.importFile",
+		"file.importClipboard",
+		"file.saveLevel",
+		"file.exportLyrica",
+		"file.exportClipboard",
+		"file.renderVideo",
+		"file.renderCover",
+		"file.setMusic",
+		"file.setBackground",
+		"file.editLevelReadme",
+		"file.renameChart",
+		"file.chartProperties",
+		"file.deleteChart",
+		"file.close",
+		"file.preferences",
+	]);
+});
+
 test("command definitions cover the new file, edit, timing and channel actions", () => {
 	assertCommand("file.reloadChart", { desktopOnly: true });
 	assertCommand("file.renameChart", { desktopOnly: true });
