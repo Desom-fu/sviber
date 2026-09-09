@@ -153,9 +153,9 @@ function startRenderJob(app, session) {
 				};
 			}
 			paintRenderSession(session);
-			// With the progress window closed, toasts are the only completion signal
-			// (v0.16.14 issue #1); a user-initiated stop needs no toast.
-			if (!session.dialogOpen && !session.canceled) {
+			// v0.16.17: always raise the bottom-right toast on completion (like the
+			// autosave notice), whether or not the progress dialog is open.
+			if (!session.canceled) {
 				if (session.failed) {
 					app.toast?.error("toast.renderFailed", {
 						message: localizedErrorMessage(session.lastError),
@@ -299,26 +299,30 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 			disabled: values => values.avatar !== "gravatar",
 		},
 	];
-	if (bundledFfmpeg) {
-		fields.push({
-			id: "useBundledFfmpeg",
-			type: "checkbox",
-			labelKey: "field.renderUseBundledFfmpeg",
-		});
-	}
-	fields.push(
-		{ id: "speed", type: "number", labelKey: "field.renderSpeed", step: 0.1, min: 0.1 },
-		{ id: "width", type: "integer", labelKey: "field.renderWidth", min: 1, step: 1 },
-		{ id: "height", type: "integer", labelKey: "field.renderHeight", min: 1, step: 1 },
-	);
+	// Cover renders skip the video-only controls (FFmpeg bundling, speed, fps, results
+	// duration, wait-for-music) and add the theme-image picker instead.
 	if (isVideo) {
+		if (bundledFfmpeg) {
+			fields.push({
+				id: "useBundledFfmpeg",
+				type: "checkbox",
+				labelKey: "field.renderUseBundledFfmpeg",
+			});
+		}
 		fields.push(
+			{ id: "speed", type: "number", labelKey: "field.renderSpeed", step: 0.1, min: 0.1 },
+			{ id: "width", type: "integer", labelKey: "field.renderWidth", min: 1, step: 1 },
+			{ id: "height", type: "integer", labelKey: "field.renderHeight", min: 1, step: 1 },
 			{ id: "fps", type: "integer", labelKey: "field.renderFps", min: 1, step: 1 },
 			{ id: "resultsDuration", type: "number", labelKey: "field.renderResultsDuration", step: 0.1, min: 0 },
 			{ id: "waitForMusic", type: "checkbox", labelKey: "field.renderWaitForMusic" },
 		);
 		return fields;
 	}
+	fields.push(
+		{ id: "width", type: "integer", labelKey: "field.renderWidth", min: 1, step: 1 },
+		{ id: "height", type: "integer", labelKey: "field.renderHeight", min: 1, step: 1 },
+	);
 	fields.push({
 		id: "coverTheme",
 		type: "custom",

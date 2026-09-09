@@ -24,7 +24,7 @@ export function createCoverThemeWidget({
 	element.append(canvasHost);
 
 	const state = { x: 0, y: 0, width: 1 };
-	const theme = { pixi: null, app: null, overlay: null };
+	const theme = { pixi: null, app: null, overlay: null, texture: null };
 
 	function drawDiamondOverlay(app) {
 		const centerX = app.screen.width / 2 + state.x * app.screen.width * 0.25;
@@ -89,7 +89,7 @@ export function createCoverThemeWidget({
 		canvasHost.append(theme.app.canvas);
 		layout();
 		if (imageUrl) {
-			loadCoverThemeImage(theme.app, pixi, imageUrl, layout);
+			loadCoverThemeImage(theme.app, pixi, imageUrl, layout, theme);
 		}
 		attachCoverThemeDragHandlers(theme.app, state, layout);
 	})();
@@ -98,15 +98,39 @@ export function createCoverThemeWidget({
 		element,
 		ready,
 		destroy: () => theme.app?.destroy(true, { children: true, texture: false }),
-		// Values are relative to the image size, matching sunniesnow-record's expectations.
-		read: () => ({ x: state.x, y: state.y, width: state.width }),
+		// sunniesnow-record's CoverThemeImage expects image-space pixels — see
+		// coverThemeSelection for the conversion; without a loaded image there is nothing
+		// to pick, so return nulls (the renderer then centers the image).
+		read: () => coverThemeSelection(theme.app, theme.texture, state),
+	};
+}
+
+// Converts the widget's screen-space diamond into the values sunniesnow-record's
+// CoverThemeImage expects: (x, y) is the image point that lands on the cover diamond's
+// center (its sprite anchor), and width is the image-space span of the diamond
+// (cover scale = coverDiamondWidth / width).
+function coverThemeSelection(app, texture, state) {
+	if (!app || !texture) {
+		return { x: null, y: null, width: null };
+	}
+	const centerX = app.screen.width / 2 + state.x * app.screen.width * 0.25;
+	const centerY = app.screen.height / 2 + state.y * app.screen.height * 0.25;
+	const half = (DIAMOND_HALF_WIDTH * state.width * app.screen.width) / 2;
+	const scale = Math.min(app.screen.width / texture.width, app.screen.height / texture.height);
+	const offsetX = (app.screen.width - texture.width * scale) / 2;
+	const offsetY = (app.screen.height - texture.height * scale) / 2;
+	return {
+		x: (centerX - offsetX) / scale,
+		y: (centerY - offsetY) / scale,
+		width: (half * 2) / scale,
 	};
 }
 
 // Load the cover image as a background sprite; keep the empty diamond layout on failure.
-function loadCoverThemeImage(app, pixi, imageUrl, layout) {
+function loadCoverThemeImage(app, pixi, imageUrl, layout, theme) {
 	pixi.Assets.load(imageUrl)
 		.then(texture => {
+			theme.texture = texture;
 			const sprite = new pixi.Sprite(texture);
 			const scale = Math.min(app.screen.width / texture.width, app.screen.height / texture.height);
 			sprite.scale.set(scale);
