@@ -177,8 +177,12 @@ async function openRenderProgressDialog(app, session) {
 		titleKey: isVideoKind(session.kind) ? "command.file.renderVideo" : "command.file.renderCover",
 		fields: [
 			{
+				// The progress body paints its own layout (bar, status, log), so it must
+				// not get a label cell — otherwise the framework falls back to showing
+				// the raw field id "progress" as the label (v0.16.19).
 				id: "progress",
 				type: "custom",
+				hideLabel: true,
 				render: ({ document: documentRef }) => {
 					const { element, apply, destroy } = createProgressDialogBody(app, session, documentRef);
 					session.updaters.add(apply);
