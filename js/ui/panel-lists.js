@@ -8,7 +8,7 @@
 // classes so existing importers keep working.
 
 import { sampleSnappee } from "../core/geometry.js";
-import { clearElement, makeExpansionButton, makeInlineActionRow } from "./ui-shared.js";
+import { clearElement, isInteractiveEventTarget, makeExpansionButton, makeInlineActionRow } from "./ui-shared.js";
 
 // The snappee's sampled points, scaled into the preview box. Chart y grows upwards while
 // canvas y grows downwards, so the projection flips it.
@@ -392,8 +392,8 @@ export class SnappeesPanel {
 				this.onSelect(snappee.id);
 			}
 		});
-		item.addEventListener("dblclick", () => {
-			if (!readOnly) {
+		item.addEventListener("dblclick", event => {
+			if (!readOnly && !isInteractiveEventTarget(event)) {
 				this.onEdit(snappee.id);
 			}
 		});
@@ -521,8 +521,8 @@ export class ChannelsPanel {
 				this.onSelect(channel.id);
 			}
 		});
-		item.addEventListener("dblclick", () => {
-			if (!readOnly) {
+		item.addEventListener("dblclick", event => {
+			if (!readOnly && !isInteractiveEventTarget(event)) {
 				this.onEdit(channel.id);
 			}
 		});

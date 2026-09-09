@@ -9,7 +9,7 @@
 import { resolveAttachedPosition } from "../core/geometry.js";
 import { TIMELINE_EVENT_COLORS, drawTimelineEventIcon } from "../render/timeline-helpers.js";
 
-import { clearElement, makeExpansionButton, makeInlineActionRow } from "./ui-shared.js";
+import { clearElement, isInteractiveEventTarget, makeExpansionButton, makeInlineActionRow } from "./ui-shared.js";
 
 export function drawClipThumbnail(canvas, data, size = 42) {
 	const ratio = Math.max(1, globalThis.devicePixelRatio || 1);
@@ -163,8 +163,8 @@ export class ClipsPanel {
 				}
 			});
 		}
-		item.addEventListener("dblclick", () => {
-			if (!readOnly) {
+		item.addEventListener("dblclick", event => {
+			if (!readOnly && !isInteractiveEventTarget(event)) {
 				this.onEdit(index);
 			}
 		});

@@ -1,5 +1,12 @@
 import { i18n as defaultI18n } from "./i18n.js";
-import { MIXED, clearElement, commonValue, nextControlId, resolveElement } from "./ui-shared.js";
+import {
+	MIXED,
+	clearElement,
+	commonValue,
+	isInteractiveEventTarget,
+	nextControlId,
+	resolveElement,
+} from "./ui-shared.js";
 import { createFieldControl } from "./ui-fields.js";
 
 function wireSideTabs(documentRef = globalThis.document) {
@@ -399,6 +406,9 @@ export class SnappeesPanel {
 				}
 			});
 			row.addEventListener("dblclick", event => {
+				if (isInteractiveEventTarget(event)) {
+					return;
+				}
 				event.preventDefault();
 				this.callbacks.onEdit?.(item);
 			});

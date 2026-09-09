@@ -57,6 +57,13 @@ export function nextControlId(prefix) {
 	return `${prefix}-${++controlSequence}`;
 }
 
+// True when a double-click started on an interactive control inside a list row. Row-level
+// dblclick handlers (rename/edit gestures) must skip these: double-clicking a row's action
+// buttons is just two button presses, not an intent to rename the item (v0.16.22).
+export function isInteractiveEventTarget(event) {
+	return Boolean(event.target?.closest?.("button, input, select, textarea, label, a"));
+}
+
 // The expandable inline action row shared by the list panels (clips, snappees, channels): the
 // row itself carries one icon button per action, and the expansion button toggles it.
 export function makeInlineActionRow(documentRef, i18n, tooltip, items) {
