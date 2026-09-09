@@ -32,8 +32,10 @@ async function showRenderDialog(app, kind) {
 	// v0.16.14 issue #4: a running or finished render session is revisited through the
 	// same command instead of a fresh form, so a closed progress window can always be
 	// reopened ("新建渲染" in the dialog discards the session and shows the form again).
-	if (renderSession?.kind === kind) {
-		return openRenderProgressDialog(app, renderSession);
+	// v0.16.15: one session per kind, so video and cover can render at the same time
+	// (each runs in its own worker process).
+	if (renderSessions.has(kind)) {
+		return openRenderProgressDialog(app, renderSessions.get(kind));
 	}
 	const isVideo = kind === "video";
 	if (isVideo && !app.model.music) {
@@ -78,16 +80,17 @@ async function showRenderDialog(app, kind) {
 		coverTheme,
 	);
 	const session = createRenderSession(kind, recordOptions);
-	renderSession = session;
+	renderSessions.set(kind, session);
 	startRenderJob(app, session);
 	await openRenderProgressDialog(app, session);
 	return true;
 }
 
-// The most recent render job (video or cover). Keeping it around lets the command reopen
-// the progress dialog after its window was closed; the render itself keeps running in
-// the worker process in the meantime.
-let renderSession = null;
+// The running or most recently finished render job per kind (video, cover). Keeping
+// them around lets the command reopen the progress dialog after its window was closed;
+// the renders themselves keep running in their worker processes in the meantime, and
+// video and cover can run concurrently.
+const renderSessions = new Map();
 
 function createRenderSession(kind, recordOptions) {
 	return {
@@ -207,7 +210,7 @@ async function openRenderProgressDialog(app, session) {
 	});
 	session.dialogOpen = false;
 	if (result?.button === "new") {
-		renderSession = null;
+		renderSessions.delete(session.kind);
 		return showRenderDialog(app, session.kind);
 	}
 	return true;
