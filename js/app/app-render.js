@@ -535,6 +535,9 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 // machine paints "canceled" rather than a failure.
 // v0.16.18: stopping must kill the whole process tree — the record worker spawns FFmpeg
 // as its own child, which a plain kill() would leave running (ssr_gui parity).
+// v0.16.20: on POSIX the worker is spawned detached (its own process group), so the
+// group-wide signal reaches the FFmpeg grandchild too — the programmatic equivalent of
+// the CLI's Ctrl+C, which delivers INT to every process attached to the terminal.
 function killRenderProcess(child) {
 	if (process.platform === "win32") {
 		const childProcess = nw.require("node:child_process");
@@ -543,6 +546,14 @@ function killRenderProcess(child) {
 			windowsHide: true,
 		});
 	} else {
+		if (child.pid) {
+			try {
+				process.kill(-child.pid, "SIGTERM");
+				return;
+			} catch {
+				// The group is already gone; fall through to the direct kill.
+			}
+		}
 		child.kill("SIGTERM");
 	}
 }
@@ -575,6 +586,10 @@ async function runRenderWorker(app, kind, requestPath, onProgress, session = {})
 	return new Promise((resolve, reject) => {
 		const child = childProcess.spawn(nodeExecutable, [workerPath, requestPath], {
 			windowsHide: true,
+			// POSIX only: detach the worker into its own process group so
+			// killRenderProcess can signal the whole tree (record spawns FFmpeg);
+			// Windows tree-kills via taskkill /t instead.
+			detached: process.platform !== "win32",
 			stdio: ["ignore", "pipe", "pipe"],
 			env: spawnEnv,
 		});
