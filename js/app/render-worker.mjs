@@ -25,8 +25,12 @@ request.options.assetsDir ||= path.join(os.tmpdir(), "sviber-render-fonts");
 // registerFont() is a silent no-op for font resolution, so every game font fell back
 // to Sans in rendered videos. Forcing the fontconfig backend with a generated config
 // that also scans the assets directory makes the bundled/downloaded fonts resolvable
-// by their internal family names — which is exactly what the game requests. This must
-// happen BEFORE sunniesnow-record (and therefore canvas) is imported.
+// by their internal family names — which is exactly what the game requests.
+// v0.16.16: the env vars themselves MUST be set by the parent process at spawn time
+// (see runRenderWorker in app-render.js): fontconfig/glib read the environment through
+// the CRT getenv snapshot taken at process creation, so assignments to process.env
+// inside this worker are invisible to it. We only prepare the config file here, before
+// sunniesnow-record (and therefore canvas/fontconfig) is imported.
 if (process.platform === "win32") {
 	try {
 		fs.mkdirSync(request.options.assetsDir, { recursive: true });
@@ -44,8 +48,6 @@ if (process.platform === "win32") {
 	<cachedir prefix="xdg">fontconfig</cachedir>
 </fontconfig>
 `);
-		process.env.PANGOCAIRO_BACKEND = "fc";
-		process.env.FONTCONFIG_FILE = confPath;
 	} catch (error) {
 		send({ log: `Font config setup failed: ${error.message}` });
 	}
@@ -90,7 +92,11 @@ try {
 	const options = { ...request.options, levelFileUpload: request.levelFile };
 	// CoverGen.run takes no progress callback; only the video renderer reports progress.
 	await runner.run(options, request.kind === "video" ? progress => send({ progress }) : undefined);
-	send({ done: true });
+	// v0.16.16: exit explicitly after the done report is flushed. The PIXI ticker keeps
+	// the event loop alive after Record/CoverGen finish, and without this the worker
+	// never exits, so the app never sees the process close and the dialog stays stuck
+	// on the last progress state even though the output file was already written.
+	process.stdout.write(`${JSON.stringify({ done: true })}\n`, () => process.exit(0));
 } catch (error) {
 	send({
 		error: String(error?.message ?? error),

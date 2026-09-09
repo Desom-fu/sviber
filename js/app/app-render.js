@@ -503,7 +503,11 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 				// real names; null lets the game pick the only matching entry as a fallback.
 				chartSelect: levelEntries.charts[0] ?? null,
 				musicSelect: levelEntries.music ?? null,
+				// v0.16.16: "from-level" also needs the actual zip entry name for the
+				// background image, otherwise the game never loads it and the cover theme
+				// area renders as a black square (Sprite without a texture).
 				background: app.model.image ? "from-level" : "none",
+				backgroundFromLevel: app.model.image ? levelEntries.cover ?? null : null,
 				quiet: true,
 				suppressWarnings: true,
 				...recordOptions,
@@ -523,15 +527,27 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 // machine paints "canceled" rather than a failure.
 async function runRenderWorker(app, kind, requestPath, onProgress, session = {}) {
 	const fs = nw.require("node:fs");
+	const os = nw.require("node:os");
 	const path = nw.require("node:path");
 	const childProcess = nw.require("node:child_process");
 	const appRoot = path.dirname(nw.require.resolve("./package.json"));
 	const nodeExecutable = resolveRenderNode(path, fs, appRoot);
 	const workerPath = path.join(appRoot, "js", "app", "render-worker.mjs");
+	// v0.16.16: the fontconfig env vars must be present at process creation — fontconfig
+	// and glib read the environment through the CRT getenv snapshot taken at startup, so
+	// assignments inside the worker (process.env.X = ...) are invisible to them. Without
+	// this, the pango-win32 backend stays active and every game font falls back to Sans.
+	// The worker writes the config file itself before importing sunniesnow-record.
+	const spawnEnv = { ...process.env };
+	if (process.platform === "win32") {
+		spawnEnv.PANGOCAIRO_BACKEND = "fc";
+		spawnEnv.FONTCONFIG_FILE = path.join(os.tmpdir(), "sviber-fontconfig.conf");
+	}
 	return new Promise((resolve, reject) => {
 		const child = childProcess.spawn(nodeExecutable, [workerPath, requestPath], {
 			windowsHide: true,
 			stdio: ["ignore", "pipe", "pipe"],
+			env: spawnEnv,
 		});
 		session.abort = () => {
 			session.canceled = true;
@@ -565,6 +581,11 @@ async function runRenderWorker(app, kind, requestPath, onProgress, session = {})
 					onProgress({ logLine: event.log });
 				} else if (event.done) {
 					done = true;
+					// v0.16.16: the done report is the last event; resolve right away by
+					// stopping the worker. Its PIXI ticker keeps the event loop alive after
+					// Record/CoverGen finish, so waiting for a natural exit would leave the
+					// dialog stuck on the last progress state forever.
+					child.kill();
 				} else if (event.error) {
 					failure = new Error(event.error);
 					if (event.details) {
