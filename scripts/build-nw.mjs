@@ -527,6 +527,13 @@ async function copyApplication() {
 	await cp(applicationLicense, path.join(applicationDirectory, "LICENSE"));
 	await writeBuildInformation(applicationDirectory);
 	await copyProductionDependencies(applicationDirectory);
+	// Bundle the standalone Node runtime for the render worker (v0.16.10): sunniesnow-record's
+	// native dependencies hard-crash inside NW.js, so rendering runs in a child Node process.
+	// Copying the very Node that runs this build (and that installed node_modules) keeps the
+	// native module ABI consistent with the bundled runtime.
+	const runtimeDirectory = path.join(applicationDirectory, "runtime");
+	await mkdir(runtimeDirectory, { recursive: true });
+	await cp(process.execPath, path.join(runtimeDirectory, path.basename(process.execPath)));
 	if (PACKAGE_ONLY) {
 		// The runtime-free .nw package carries no FFmpeg: the host supplies it via PATH or
 		// the full builds bundle it below.

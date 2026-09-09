@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createRequire } from "node:module";
 
 import {
 	buildRenderRecordOptions,
+	parseRenderWorkerEvent,
 	renderErrorDetails,
 	renderProgressState,
 	withRender,
@@ -156,11 +156,21 @@ test("renderErrorDetails keeps the message, stderr, and stack for copying", () =
 	assert.equal(renderErrorDetails(null), "");
 });
 
-test("the CJS bridge loads sunniesnow-record through Node's ESM loader", async () => {
-	// createRequire runs the bridge in the same Node context NW.js relies on.
-	const require = createRequire(import.meta.url);
-	const bridge = require("../js/app/render-record-bridge.cjs");
-	const record = await bridge.load();
-	assert.equal(typeof record.default?.Record, "function");
-	assert.equal(typeof record.default?.CoverGen, "function");
+test("render worker protocol lines parse into events", () => {
+	// Progress events pass through untouched for the dialog state mapping.
+	assert.deepEqual(
+		parseRenderWorkerEvent('{"progress":{"status":"renderingGame","currentTime":1,"endTime":2}}'),
+		{ progress: { status: "renderingGame", currentTime: 1, endTime: 2 } },
+	);
+	// Done and error events are recognized as-is.
+	assert.deepEqual(parseRenderWorkerEvent('{"done":true}'), { done: true });
+	const failure = parseRenderWorkerEvent(
+		'{"error":"ffmpeg failed","details":"Error: ffmpeg failed\\n    at run","stderr":"x"}',
+	);
+	assert.equal(failure.error, "ffmpeg failed");
+	assert.match(failure.details, /at run/);
+	// Blank and non-JSON lines are ignored instead of crashing the listener.
+	assert.equal(parseRenderWorkerEvent(""), null);
+	assert.equal(parseRenderWorkerEvent("   "), null);
+	assert.equal(parseRenderWorkerEvent("not json"), null);
 });

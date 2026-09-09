@@ -329,61 +329,133 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 	await job;
 }
 
-// Loads sunniesnow-record through the CJS bridge in the NW.js Node context: the package
-// is ESM with top-level await and imports Node builtins, so the page context's browser
-// import() cannot resolve the bare specifier (see js/app/render-record-bridge.cjs).
-// Outside NW.js (tests, plain Node) the direct import works and is kept as a fallback.
-async function loadSunniesnowRecord() {
-	if (globalThis.nw) {
-		// v28: the window's Node require is anchored at the page's real disk path, so a
-		// relative specifier finds the bridge both in dev ("nw .") and in the packaged
-		// layout (package.nw/sviber/). nw.App.startPath points at the runtime directory
-		// in packaged builds, so the absolute path computed from it misses the file;
-		// it is kept only as a fallback for unusual launch modes.
-		let bridge = null;
-		try {
-			bridge = nw.require("./js/app/render-record-bridge.cjs");
-		} catch (error) {
-			if (error?.code !== "MODULE_NOT_FOUND") {
-				throw error;
-			}
-		}
-		if (!bridge) {
-			const path = nw.require("node:path");
-			bridge = nw.require(path.join(
-				nw.App.startPath || globalThis.process.cwd(),
-				"js",
-				"app",
-				"render-record-bridge.cjs",
-			));
-		}
-		return bridge.load();
-	}
-	return import("sunniesnow-record");
-}
-
-// Builds the .ssc level in memory (provided to sunniesnow-record as a Blob) and runs the
-// renderer. Video always uses the currently loaded music from the level; the background is
-// the loaded image, or "none" when no image is loaded.
+// Builds the .ssc level in memory, hands it to the render worker as a temp file, and
+// runs the renderer. Video always uses the currently loaded music from the level; the
+// background is the loaded image, or "none" when no image is loaded.
 async function runRenderJob(app, kind, recordOptions, onProgress) {
-	const { default: SunniesnowRecord } = await loadSunniesnowRecord();
 	const project = app.projectSnapshot();
 	if (!app.editingProject) {
 		project.charts = project.charts.filter(entry => entry.id === app.activeDifficultyId);
 	}
+	const fs = nw.require("node:fs");
+	const os = nw.require("node:os");
+	const path = nw.require("node:path");
 	const blob = await app.files.createLevelArchive(project, { compression: "STORE" });
-	const options = {
-		levelFile: "upload",
-		levelFileUpload: blob,
-		chartSelect: "from-level",
-		musicSelect: "from-level",
-		background: app.model.image ? "from-level" : "none",
-		quiet: true,
-		suppressWarnings: true,
-		...recordOptions,
-	};
-	const runner = isVideoKind(kind) ? SunniesnowRecord.Record : SunniesnowRecord.CoverGen;
-	await runner.run(options, progress => onProgress(renderProgressState(progress)));
+	const workDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "sviber-render-"));
+	try {
+		const levelPath = path.join(workDirectory, "level.ssc");
+		fs.writeFileSync(levelPath, Buffer.from(await blob.arrayBuffer()));
+		fs.writeFileSync(path.join(workDirectory, "request.json"), JSON.stringify({
+			kind,
+			levelFile: levelPath,
+			options: {
+				levelFile: "upload",
+				chartSelect: "from-level",
+				musicSelect: "from-level",
+				background: app.model.image ? "from-level" : "none",
+				quiet: true,
+				suppressWarnings: true,
+				...recordOptions,
+			},
+		}));
+		await runRenderWorker(app, kind, path.join(workDirectory, "request.json"), onProgress);
+	} finally {
+		fs.rmSync(workDirectory, { recursive: true, force: true });
+	}
+}
+
+// Spawns the standalone Node worker (js/app/render-worker.mjs) and drives it over its
+// JSON-line stdout protocol. Progress events map onto the dialog state; a worker error
+// (or a non-zero exit) rejects with an error carrying stderr/stdout so the failure box
+// can show full details.
+async function runRenderWorker(app, kind, requestPath, onProgress) {
+	const fs = nw.require("node:fs");
+	const path = nw.require("node:path");
+	const childProcess = nw.require("node:child_process");
+	const appRoot = path.dirname(nw.require.resolve("./package.json"));
+	const nodeExecutable = resolveRenderNode(path, fs, appRoot);
+	const workerPath = path.join(appRoot, "js", "app", "render-worker.mjs");
+	return new Promise((resolve, reject) => {
+		const child = childProcess.spawn(nodeExecutable, [workerPath, requestPath], {
+			windowsHide: true,
+			stdio: ["ignore", "pipe", "pipe"],
+		});
+		let buffer = "";
+		let stderrTail = "";
+		let done = false;
+		let failure = null;
+		child.stdout.setEncoding("utf8");
+		child.stdout.on("data", chunk => {
+			buffer += chunk;
+			for (;;) {
+				const newline = buffer.indexOf("\n");
+				if (newline < 0) {
+					break;
+				}
+				const event = parseRenderWorkerEvent(buffer.slice(0, newline));
+				buffer = buffer.slice(newline + 1);
+				if (!event) {
+					continue;
+				}
+				if (event.progress) {
+					onProgress(renderProgressState(event.progress));
+				} else if (event.done) {
+					done = true;
+				} else if (event.error) {
+					failure = new Error(event.error);
+					if (event.details) {
+						failure.stack = event.details;
+					}
+					if (typeof event.stderr === "string") {
+						failure.stderr = event.stderr;
+					}
+					if (Array.isArray(event.stdout)) {
+						failure.stdout = event.stdout;
+					}
+				}
+			}
+		});
+		child.stderr.setEncoding("utf8");
+		child.stderr.on("data", chunk => {
+			// Keep the tail: if the worker dies before reporting an error (for example a
+			// broken import), this carries the actual stack trace for the error box.
+			stderrTail = `${stderrTail}${chunk}`.slice(-8000);
+		});
+		child.on("error", error => reject(
+			Object.assign(new Error(`Failed to launch render worker: ${error.message}`), { stderr: stderrTail }),
+		));
+		child.on("close", code => {
+			if (done && !failure) {
+				resolve();
+			} else if (failure) {
+				reject(failure);
+			} else {
+				reject(new Error(`Render worker exited with code ${code}.\n${stderrTail}`));
+			}
+		});
+	});
+}
+
+// Packaged builds bundle the Node runtime that the native render dependencies were
+// built against (scripts/build-nw.mjs copies the running Node into runtime/); in dev
+// ("nw .") the Node available on PATH is used instead.
+function resolveRenderNode(path, fs, appRoot) {
+	const bundled = path.join(appRoot, "runtime", process.platform === "win32" ? "node.exe" : "node");
+	return fs.existsSync(bundled) ? bundled : "node";
+}
+
+// Pure parser (exported for tests): one stdout line of the render worker -> event
+// object, or null for blank/non-JSON lines.
+export function parseRenderWorkerEvent(line) {
+	if (!line?.trim()) {
+		return null;
+	}
+	try {
+		const event = JSON.parse(line);
+		return typeof event === "object" && event !== null ? event : null;
+	} catch {
+		return null;
+	}
 }
 
 function isVideoKind(kind) {
