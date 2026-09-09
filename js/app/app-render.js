@@ -335,14 +335,29 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 // Outside NW.js (tests, plain Node) the direct import works and is kept as a fallback.
 async function loadSunniesnowRecord() {
 	if (globalThis.nw) {
-		const path = nw.require("node:path");
-		const bridgePath = path.join(
-			nw.App.startPath || globalThis.process.cwd(),
-			"js",
-			"app",
-			"render-record-bridge.cjs",
-		);
-		return nw.require(bridgePath).load();
+		// v28: the window's Node require is anchored at the page's real disk path, so a
+		// relative specifier finds the bridge both in dev ("nw .") and in the packaged
+		// layout (package.nw/sviber/). nw.App.startPath points at the runtime directory
+		// in packaged builds, so the absolute path computed from it misses the file;
+		// it is kept only as a fallback for unusual launch modes.
+		let bridge = null;
+		try {
+			bridge = nw.require("./js/app/render-record-bridge.cjs");
+		} catch (error) {
+			if (error?.code !== "MODULE_NOT_FOUND") {
+				throw error;
+			}
+		}
+		if (!bridge) {
+			const path = nw.require("node:path");
+			bridge = nw.require(path.join(
+				nw.App.startPath || globalThis.process.cwd(),
+				"js",
+				"app",
+				"render-record-bridge.cjs",
+			));
+		}
+		return bridge.load();
 	}
 	return import("sunniesnow-record");
 }
