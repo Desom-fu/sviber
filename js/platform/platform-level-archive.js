@@ -41,9 +41,11 @@ function addChartEntries(zip, project, options, reserve) {
 }
 
 // Difficulties commonly share one music file and one cover, so assets are keyed by their
-// resolved source path and packaged only once.
+// resolved source path and packaged only once. The first packaged name per asset kind is
+// reported back so renderers can reference entries by their exact archived filename.
 async function addAssetEntries(zip, project, files, { usedNames, reserve }) {
 	const packagedAssets = new Map();
+	const assetNames = {};
 	for (const entry of project.charts) {
 		for (const [field, fallback] of [
 			["music", "music"],
@@ -66,9 +68,10 @@ async function addAssetEntries(zip, project, files, { usedNames, reserve }) {
 			reserve(assetName, field);
 			zip.file(assetName, new Uint8Array(await file.arrayBuffer()), { date: ZIP_EPOCH });
 			packagedAssets.set(resolved.toLowerCase(), assetName);
+			assetNames[field] ??= assetName;
 		}
 	}
-	return packagedAssets;
+	return assetNames;
 }
 
 // v17: text files that Sunniesnow would show as level readme texts are packaged too.
@@ -109,8 +112,15 @@ export async function createLevelArchive(files, project, options = {}) {
 	const zip = new JSZip();
 	const names = createNameReserver();
 	addChartEntries(zip, project, options, names.reserve);
-	await addAssetEntries(zip, project, files, names);
+	const assetNames = await addAssetEntries(zip, project, files, names);
 	await addReadmeEntries(zip, files, names.usedNames);
+	// Report the exact archived filenames so renderers can select the music and chart
+	// entries by name (sunniesnow-record treats unknown values as missing).
+	options.reportEntries?.({
+		charts: project.charts.map(entry => String(entry.file || "")),
+		music: assetNames.music ?? null,
+		cover: assetNames.cover ?? null,
+	});
 	// The live hosting archive is regenerated on every chart edit and kept in memory, so it
 	// skips DEFLATE entirely; file exports stay compressed.
 	const stored = options.compression === "STORE";

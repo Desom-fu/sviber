@@ -384,7 +384,15 @@ async function runRenderJob(app, kind, recordOptions, onProgress) {
 	const fs = nw.require("node:fs");
 	const os = nw.require("node:os");
 	const path = nw.require("node:path");
-	const blob = await app.files.createLevelArchive(project, { compression: "STORE" });
+	// Collect the exact archived entry names (chart JSON, music) so the worker can select
+	// them; sunniesnow-record treats unknown zip-entry values as missing files.
+	let levelEntries = { charts: [], music: null, cover: null };
+	const blob = await app.files.createLevelArchive(project, {
+		compression: "STORE",
+		reportEntries: entries => {
+			levelEntries = entries;
+		},
+	});
 	const workDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "sviber-render-"));
 	try {
 		const levelPath = path.join(workDirectory, "level.ssc");
@@ -394,8 +402,11 @@ async function runRenderJob(app, kind, recordOptions, onProgress) {
 			levelFile: levelPath,
 			options: {
 				levelFile: "upload",
-				chartSelect: "from-level",
-				musicSelect: "from-level",
+				// sunniesnow-record resolves zip entries by exact filename; pseudo-values like
+				// "from-level" would be treated as a missing file. The archive reports the
+				// real names; null lets the game pick the only matching entry as a fallback.
+				chartSelect: levelEntries.charts[0] ?? null,
+				musicSelect: levelEntries.music ?? null,
 				background: app.model.image ? "from-level" : "none",
 				quiet: true,
 				suppressWarnings: true,
@@ -443,6 +454,9 @@ async function runRenderWorker(app, kind, requestPath, onProgress) {
 				}
 				if (event.progress) {
 					onProgress(renderProgressState(event.progress));
+				} else if (event.log) {
+					// Game log lines (warnings, loader failures) feed the copyable log box.
+					onProgress({ logLine: event.log });
 				} else if (event.done) {
 					done = true;
 				} else if (event.error) {
@@ -456,6 +470,10 @@ async function runRenderWorker(app, kind, requestPath, onProgress) {
 					if (Array.isArray(event.stdout)) {
 						failure.stdout = event.stdout;
 					}
+					// The worker may keep hanging after a game termination (the loader loop
+					// stalls silently), so abort it as soon as the error report arrives.
+					done = true;
+					child.kill();
 				}
 			}
 		});
