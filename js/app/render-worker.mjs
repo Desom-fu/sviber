@@ -11,9 +11,45 @@
 //   {"done": true}                     — rendering finished, output written
 //   {"error": "...", "details": "..."} — fatal error; the process then exits non-zero
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 const request = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const send = payload => process.stdout.write(`${JSON.stringify(payload)}\n`);
+
+// Give sunniesnow-record a stable font/assets directory (it defaults to os.tmpdir())
+// so fonts downloaded for one render are reused by the next one.
+request.options.assetsDir ||= path.join(os.tmpdir(), "sviber-render-fonts");
+
+// Windows font fix (v0.16.14): with the default pango-win32 backend, node-canvas's
+// registerFont() is a silent no-op for font resolution, so every game font fell back
+// to Sans in rendered videos. Forcing the fontconfig backend with a generated config
+// that also scans the assets directory makes the bundled/downloaded fonts resolvable
+// by their internal family names — which is exactly what the game requests. This must
+// happen BEFORE sunniesnow-record (and therefore canvas) is imported.
+if (process.platform === "win32") {
+	try {
+		fs.mkdirSync(request.options.assetsDir, { recursive: true });
+		const fontDirectory = request.options.assetsDir.replace(/\\/g, "/")
+			.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+		const confPath = path.join(os.tmpdir(), "sviber-fontconfig.conf");
+		fs.writeFileSync(confPath, `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+	<dir>WINDOWSFONTDIR</dir>
+	<dir>WINDOWSUSERFONTDIR</dir>
+	<dir prefix="xdg">fonts</dir>
+	<dir>${fontDirectory}</dir>
+	<cachedir>LOCAL_APPDATA_FONTCONFIG_CACHE</cachedir>
+	<cachedir prefix="xdg">fontconfig</cachedir>
+</fontconfig>
+`);
+		process.env.PANGOCAIRO_BACKEND = "fc";
+		process.env.FONTCONFIG_FILE = confPath;
+	} catch (error) {
+		send({ log: `Font config setup failed: ${error.message}` });
+	}
+}
 // Ring of the most recent game log lines, attached to error reports for debugging.
 const recentLogs = [];
 const rememberLog = message => {

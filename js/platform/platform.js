@@ -604,13 +604,19 @@ export class FileManager {
 		}
 	}
 
-	// NW.js: the directory the app was launched from; plain web: null.
+	// NW.js: the app root directory; plain web: null. `nw.App.startDir` points at the
+	// launcher's working directory in packaged builds and is unusable there, so the page
+	// module base — the directory holding package.json, the same anchor as the v0.16.9
+	// bridge fix — is tried first.
 	appDirectory() {
 		const modules = nwModules();
-		if (!modules || typeof globalThis.nw?.App?.startDir !== "string") {
+		if (!modules) {
 			return null;
 		}
-		return globalThis.nw.App.startDir;
+		try {
+			return modules.path.dirname(nw.require.resolve("./package.json"));
+		} catch {}
+		return typeof globalThis.nw?.App?.startDir === "string" ? globalThis.nw.App.startDir : null;
 	}
 
 	async readProjectText(filename) {

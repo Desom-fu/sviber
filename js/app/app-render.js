@@ -29,6 +29,12 @@ async function showRenderDialog(app, kind) {
 	if (!globalThis.nw) {
 		return false;
 	}
+	// v0.16.14 issue #4: a running or finished render session is revisited through the
+	// same command instead of a fresh form, so a closed progress window can always be
+	// reopened ("新建渲染" in the dialog discards the session and shows the form again).
+	if (renderSession?.kind === kind) {
+		return openRenderProgressDialog(app, renderSession);
+	}
 	const isVideo = kind === "video";
 	if (isVideo && !app.model.music) {
 		return false;
@@ -71,7 +77,139 @@ async function showRenderDialog(app, kind) {
 		app.files.bundledFontsDir(),
 		coverTheme,
 	);
-	await runRenderWithProgress(app, kind, recordOptions);
+	const session = createRenderSession(kind, recordOptions);
+	renderSession = session;
+	startRenderJob(app, session);
+	await openRenderProgressDialog(app, session);
+	return true;
+}
+
+// The most recent render job (video or cover). Keeping it around lets the command reopen
+// the progress dialog after its window was closed; the render itself keeps running in
+// the worker process in the meantime.
+let renderSession = null;
+
+function createRenderSession(kind, recordOptions) {
+	return {
+		kind,
+		recordOptions,
+		output: recordOptions.output,
+		state: { ratio: 0, text: i18n.t("status.renderStarting") },
+		logLines: [],
+		lastLogLine: null,
+		updaters: new Set(),
+		dialogOpen: false,
+		requestNew: null,
+		abort: null,
+		canceled: false,
+		failed: false,
+		finished: false,
+		lastError: null,
+	};
+}
+
+function paintRenderSession(session) {
+	for (const updater of session.updaters) {
+		updater(session.state);
+	}
+}
+
+// Starts the worker job for a session and drives its state machine: loading / rendering
+// / combining progress first, then exactly one of success, failure, or canceled as the
+// final status (v0.16.14 issues #1 and #3 — the status line always resolves instead of
+// staying on the last stage text like "combining").
+function startRenderJob(app, session) {
+	return runRenderJob(app, session.kind, session.recordOptions, next => {
+		if (next.logLine && next.logLine !== session.lastLogLine) {
+			session.lastLogLine = next.logLine;
+			session.logLines.push(next.logLine);
+			next.log = session.logLines.join("\n");
+		}
+		Object.assign(session.state, next);
+		paintRenderSession(session);
+	})
+		.catch(error => {
+			session.lastError = error;
+			if (!session.canceled) {
+				session.failed = true;
+				session.state = {
+					ratio: 0,
+					text: `${i18n.t("status.renderFailed")}: ${localizedErrorMessage(error)}`,
+					details: renderErrorDetails(error),
+				};
+			}
+		})
+		.finally(() => {
+			session.finished = true;
+			if (session.canceled) {
+				session.state = { ratio: 0, text: i18n.t("status.renderCanceled") };
+			} else if (!session.failed) {
+				session.state = {
+					ratio: 1,
+					text: i18n.t("status.renderSucceeded", { output: session.output }),
+				};
+			}
+			paintRenderSession(session);
+			// With the progress window closed, toasts are the only completion signal
+			// (v0.16.14 issue #1); a user-initiated stop needs no toast.
+			if (!session.dialogOpen && !session.canceled) {
+				if (session.failed) {
+					app.toast?.error("toast.renderFailed", {
+						message: localizedErrorMessage(session.lastError),
+					});
+				} else {
+					app.toast?.show("toast.renderSucceeded", { output: session.output });
+				}
+			}
+		});
+}
+
+// Opens the progress dialog bound to a session, reattachable at any time. "关闭" never
+// cancels the render — the job keeps running and the dialog can be reopened through the
+// command; the stop button is what terminates the worker (v0.16.14 issue #2).
+async function openRenderProgressDialog(app, session) {
+	session.dialogOpen = true;
+	session.requestNew = () => app.dialogs.close({ button: "new" });
+	const result = await app.dialogs.open({
+		titleKey: isVideoKind(session.kind) ? "command.file.renderVideo" : "command.file.renderCover",
+		fields: [
+			{
+				id: "progress",
+				type: "custom",
+				render: ({ document: documentRef }) => {
+					const { element, apply, destroy } = createProgressDialogBody(app, session, documentRef);
+					session.updaters.add(apply);
+					apply(session.state);
+					return {
+						element,
+						read: () => session.finished,
+						destroy: () => session.updaters.delete(apply),
+					};
+				},
+			},
+		],
+		buttons: [
+			{
+				id: "stop",
+				labelKey: "dialog.renderStop",
+				onClick: () => {
+					// Flag first so a stop clicked before the worker even spawned is
+					// honored when it spawns (runRenderWorker checks this).
+					session.canceled = true;
+					session.abort?.();
+					// Stay open: the state machine paints the canceled status when the
+					// worker has terminated.
+					return false;
+				},
+			},
+			{ id: "close", labelKey: "dialog.close", primary: true, value: true },
+		],
+	});
+	session.dialogOpen = false;
+	if (result?.button === "new") {
+		renderSession = null;
+		return showRenderDialog(app, session.kind);
+	}
 	return true;
 }
 
@@ -228,9 +366,10 @@ export function buildRenderRecordOptions(kind, outputPath, values, bundledFfmpeg
 
 // Builds the render progress dialog body: progress bar, status line, a copyable loading
 // log (one line per module, v0.16.11), the failure details box with its copy button
-// (v26), and the reveal-in-explorer button shown once rendering finishes. Returns the
-// host element and an `apply` function that paints a progress state onto it.
-function createProgressDialogBody(app, recordOptions, documentRef, isDone) {
+// (v26), the reveal-in-explorer button, and (v0.16.14) a "new rendering" button shown
+// once the job reaches a final state. Returns the host element and an `apply` function
+// that paints a progress state onto it.
+function createProgressDialogBody(app, session, documentRef) {
 	const host = documentRef.createElement("div");
 	host.classList.add("render-progress");
 	const bar = documentRef.createElement("progress");
@@ -267,9 +406,14 @@ function createProgressDialogBody(app, recordOptions, documentRef, isDone) {
 	openFolder.hidden = true;
 	openFolder.textContent = i18n.t("command.file.showRenderResult");
 	openFolder.addEventListener("click", () => {
-		app.files.showItemInFileExplorer(recordOptions.output);
+		app.files.showItemInFileExplorer(session.recordOptions.output);
 	});
-	host.append(bar, status, logBox, copyLog, errorBox, copyError, openFolder);
+	const newRender = documentRef.createElement("button");
+	newRender.type = "button";
+	newRender.hidden = true;
+	newRender.textContent = i18n.t("field.renderNew");
+	newRender.addEventListener("click", () => session.requestNew?.());
+	host.append(bar, status, logBox, copyLog, errorBox, copyError, openFolder, newRender);
 	const apply = next => {
 		bar.value = next.ratio;
 		status.textContent = next.text;
@@ -288,9 +432,18 @@ function createProgressDialogBody(app, recordOptions, documentRef, isDone) {
 			errorBox.hidden = false;
 			copyError.hidden = false;
 		}
-		if (isDone()) {
+		if (session.finished) {
 			bar.value = 1;
 			openFolder.hidden = false;
+			newRender.hidden = false;
+		}
+		// The stop button lives in the dialog actions, not in this body; hide it once
+		// the job reached a final state. Guarded because paint can also happen after
+		// the dialog was closed (toast path).
+		const stopElement = app.dialogs.active?.buttons?.find(button => button.definition.id === "stop")
+			?.element;
+		if (stopElement) {
+			stopElement.hidden = session.finished;
 		}
 	};
 	return { element: host, apply };
@@ -313,70 +466,10 @@ function createCopyHandler(documentRef, box, button, copyKey) {
 	};
 }
 
-// Starts the render job and shows the progress dialog while it runs. The dialog can only
-// be confirmed after the rendering finishes, and then offers a button that opens the
-// directory containing the rendered file.
-async function runRenderWithProgress(app, kind, recordOptions) {
-	let updater = null;
-	let done = false;
-	let state = { ratio: 0, text: i18n.t("status.renderStarting") };
-	const logLines = [];
-	let lastLogLine = null;
-	const job = runRenderJob(app, kind, recordOptions, next => {
-		// Accumulate the loading log (one line per module) for the copyable log box.
-		if (next.logLine && next.logLine !== lastLogLine) {
-			lastLogLine = next.logLine;
-			logLines.push(next.logLine);
-			next.log = logLines.join("\n");
-		}
-		Object.assign(state, next);
-		updater?.(state);
-	})
-		.catch(error => {
-			state = {
-				ratio: 0,
-				text: `${i18n.t("status.renderFailed")}: ${localizedErrorMessage(error)}`,
-				details: renderErrorDetails(error),
-			};
-			updater?.(state);
-		})
-		.finally(() => {
-			done = true;
-			updater?.(state);
-		});
-	await app.dialogs.open({
-		titleKey: isVideoKind(kind) ? "command.file.renderVideo" : "command.file.renderCover",
-		fields: [
-			{
-				id: "progress",
-				type: "custom",
-				render: ({ document: documentRef }) => {
-					const { element, apply } = createProgressDialogBody(app, recordOptions, documentRef, () => done);
-					updater = apply;
-					apply(state);
-					return { element, read: () => done };
-				},
-			},
-		],
-		buttons: [
-			{
-				id: "ok",
-				labelKey: "dialog.ok",
-				primary: true,
-				value: true,
-				validate: () => (done ? "" : "validation.renderInProgress"),
-			},
-		],
-	});
-	done = true;
-	updater?.(state);
-	await job;
-}
-
 // Builds the .ssc level in memory, hands it to the render worker as a temp file, and
 // runs the renderer. Video always uses the currently loaded music from the level; the
 // background is the loaded image, or "none" when no image is loaded.
-async function runRenderJob(app, kind, recordOptions, onProgress) {
+async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) {
 	const project = app.projectSnapshot();
 	if (!app.editingProject) {
 		project.charts = project.charts.filter(entry => entry.id === app.activeDifficultyId);
@@ -413,7 +506,7 @@ async function runRenderJob(app, kind, recordOptions, onProgress) {
 				...recordOptions,
 			},
 		}));
-		await runRenderWorker(app, kind, path.join(workDirectory, "request.json"), onProgress);
+		await runRenderWorker(app, kind, path.join(workDirectory, "request.json"), onProgress, session);
 	} finally {
 		fs.rmSync(workDirectory, { recursive: true, force: true });
 	}
@@ -422,8 +515,10 @@ async function runRenderJob(app, kind, recordOptions, onProgress) {
 // Spawns the standalone Node worker (js/app/render-worker.mjs) and drives it over its
 // JSON-line stdout protocol. Progress events map onto the dialog state; a worker error
 // (or a non-zero exit) rejects with an error carrying stderr/stdout so the failure box
-// can show full details.
-async function runRenderWorker(app, kind, requestPath, onProgress) {
+// can show full details. The session receives an `abort` handle (v0.16.14 issue #2):
+// stopping kills the worker and resolves instead of rejecting, so the session state
+// machine paints "canceled" rather than a failure.
+async function runRenderWorker(app, kind, requestPath, onProgress, session = {}) {
 	const fs = nw.require("node:fs");
 	const path = nw.require("node:path");
 	const childProcess = nw.require("node:child_process");
@@ -435,6 +530,14 @@ async function runRenderWorker(app, kind, requestPath, onProgress) {
 			windowsHide: true,
 			stdio: ["ignore", "pipe", "pipe"],
 		});
+		session.abort = () => {
+			session.canceled = true;
+			child.kill();
+		};
+		if (session.canceled) {
+			// Stop was clicked before the worker spawned; terminate it right away.
+			child.kill();
+		}
 		let buffer = "";
 		let stderrTail = "";
 		let done = false;
@@ -487,7 +590,10 @@ async function runRenderWorker(app, kind, requestPath, onProgress) {
 			Object.assign(new Error(`Failed to launch render worker: ${error.message}`), { stderr: stderrTail }),
 		));
 		child.on("close", code => {
-			if (done && !failure) {
+			if (session.canceled) {
+				// User-initiated stop: not a failure, the state machine paints "canceled".
+				resolve();
+			} else if (done && !failure) {
 				resolve();
 			} else if (failure) {
 				reject(failure);
