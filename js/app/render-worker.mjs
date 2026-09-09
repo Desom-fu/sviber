@@ -46,6 +46,10 @@ if (process.platform === "win32") {
 	<dir>${fontDirectory}</dir>
 	<cachedir>LOCAL_APPDATA_FONTCONFIG_CACHE</cachedir>
 	<cachedir prefix="xdg">fontconfig</cachedir>
+	<match target="pattern">
+		<test name="family" compare="eq"><string>YujiBoku</string></test>
+		<edit name="family" mode="prepend" binding="strong"><string>Yuji Boku</string></edit>
+	</match>
 </fontconfig>
 `);
 	} catch (error) {
@@ -86,6 +90,28 @@ Sunniesnow.Game.prototype.terminate = function (...args) {
 };
 
 try {
+	// Video rendering hard-requires headless WebGL (Record.screenshot reads frames via
+	// gl.readPixels), but machines without usable OpenGL — VMs, remote-desktop sessions,
+	// missing GPU drivers — silently fall back to the Canvas renderer and then crash
+	// deep inside PIXI or the recorder (the SpinUp "getUniformLocation of null" and
+	// "gl.readPixels of undefined" failures seen in the wild). Probe the GL context up
+	// front and turn that into a clear report instead. Cover generation tolerates the
+	// Canvas fallback, so it is not probed.
+	if (request.kind === "video") {
+		let glContext = null;
+		try {
+			glContext = (await import("gl")).default?.(16, 16, {preserveDrawingBuffer: true}) ?? null;
+		} catch {}
+		if (!glContext) {
+			const message = "此电脑的 OpenGL 环境不可用，无法渲染视频。视频渲染需要 OpenGL 2.1+"
+				+ "（虚拟机、远程桌面会话或缺少显卡驱动时会出现；请更新显卡驱动或在有 GPU 的环境运行）。"
+				+ "OpenGL is unavailable on this machine, so video rendering cannot run.";
+			process.stdout.write(`${JSON.stringify({
+				error: message,
+				details: recentLogs.join("\n"),
+			})}\n`, () => process.exit(1));
+		}
+	}
 	const runner = request.kind === "video" ? SunniesnowRecord.Record : SunniesnowRecord.CoverGen;
 	// Record and CoverGen convert string option values through toBlob, which reads file
 	// paths from disk — so the level archive is handed over as a plain path.

@@ -529,6 +529,20 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 // can show full details. The session receives an `abort` handle (v0.16.14 issue #2):
 // stopping kills the worker and resolves instead of rejecting, so the session state
 // machine paints "canceled" rather than a failure.
+// v0.16.18: stopping must kill the whole process tree — the record worker spawns FFmpeg
+// as its own child, which a plain kill() would leave running (ssr_gui parity).
+function killRenderProcess(child) {
+	if (process.platform === "win32") {
+		const childProcess = nw.require("node:child_process");
+		childProcess.spawn("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], {
+			stdio: "ignore",
+			windowsHide: true,
+		});
+	} else {
+		child.kill("SIGTERM");
+	}
+}
+
 async function runRenderWorker(app, kind, requestPath, onProgress, session = {}) {
 	const fs = nw.require("node:fs");
 	const os = nw.require("node:os");
@@ -543,6 +557,13 @@ async function runRenderWorker(app, kind, requestPath, onProgress, session = {})
 	// this, the pango-win32 backend stays active and every game font falls back to Sans.
 	// The worker writes the config file itself before importing sunniesnow-record.
 	const spawnEnv = { ...process.env };
+	// Cover generation has no --ffmpeg option: its FFmpeg image/audio fallbacks spawn
+	// "ffmpeg" from PATH, so machines without a system FFmpeg need the bundled one on
+	// PATH (video passes the path explicitly, where this is harmless).
+	const bundledFfmpeg = app.files.bundledFfmpegPath();
+	if (bundledFfmpeg) {
+		spawnEnv.PATH = `${path.dirname(bundledFfmpeg)}${path.delimiter}${spawnEnv.PATH || ""}`;
+	}
 	if (process.platform === "win32") {
 		spawnEnv.PANGOCAIRO_BACKEND = "fc";
 		spawnEnv.FONTCONFIG_FILE = path.join(os.tmpdir(), "sviber-fontconfig.conf");
@@ -555,11 +576,11 @@ async function runRenderWorker(app, kind, requestPath, onProgress, session = {})
 		});
 		session.abort = () => {
 			session.canceled = true;
-			child.kill();
+			killRenderProcess(child);
 		};
 		if (session.canceled) {
 			// Stop was clicked before the worker spawned; terminate it right away.
-			child.kill();
+			killRenderProcess(child);
 		}
 		let buffer = "";
 		let stderrTail = "";
@@ -589,7 +610,7 @@ async function runRenderWorker(app, kind, requestPath, onProgress, session = {})
 					// stopping the worker. Its PIXI ticker keeps the event loop alive after
 					// Record/CoverGen finish, so waiting for a natural exit would leave the
 					// dialog stuck on the last progress state forever.
-					child.kill();
+					killRenderProcess(child);
 				} else if (event.error) {
 					failure = new Error(event.error);
 					if (event.details) {
@@ -604,7 +625,7 @@ async function runRenderWorker(app, kind, requestPath, onProgress, session = {})
 					// The worker may keep hanging after a game termination (the loader loop
 					// stalls silently), so abort it as soon as the error report arrives.
 					done = true;
-					child.kill();
+					killRenderProcess(child);
 				}
 			}
 		});
