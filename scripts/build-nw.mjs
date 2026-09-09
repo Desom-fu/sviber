@@ -1,5 +1,6 @@
 import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { createWriteStream, existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { pipeline } from "node:stream/promises";
@@ -648,6 +649,26 @@ async function createNwPackage() {
 
 if (!existsSync(path.join(sviberDirectory, "node_modules"))) {
 	throw new Error("Run npm install before building the NW.js application.");
+}
+
+// The render worker's native dependencies (gl, canvas) are tied to the Node ABI they
+// were compiled against, and the build bundles the running Node as the worker runtime.
+// gl is ABI-locked (unlike the NAPI-based canvas), so verify it loads under this build's
+// Node and fail with actionable advice instead of shipping a worker that cannot start.
+try {
+	createRequire(path.join(sviberDirectory, "package.json"))("gl");
+} catch (error) {
+	console.error(`
+The gl native module cannot load under Node ${process.version} (ABI ${process.versions.modules}).
+It was compiled for a different Node version; the bundled render worker would fail to start.
+
+Fix: run the build with the SAME Node version that installed node_modules, e.g.:
+  1. switch to that Node version
+  2. npm rebuild gl   (or npm ci)
+  3. npm run build
+
+Underlying error: ${error.message}`);
+	process.exit(1);
 }
 
 await generateSourceIcons();

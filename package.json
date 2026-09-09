@@ -1,10 +1,13 @@
 {
   "name": "sviber",
-  "version": "0.16.10",
+  "version": "0.16.11",
   "private": true,
   "type": "module",
   "description": "Desktop-style chart editor for Sunniesnow",
   "license": "AGPL-3.0-or-later",
+  "engines": {
+    "node": "^20.19.0 || ^22.13.0 || >=24.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/Desom-fu/sviber.git"

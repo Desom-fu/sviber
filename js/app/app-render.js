@@ -226,6 +226,93 @@ export function buildRenderRecordOptions(kind, outputPath, values, bundledFfmpeg
 	};
 }
 
+// Builds the render progress dialog body: progress bar, status line, a copyable loading
+// log (one line per module, v0.16.11), the failure details box with its copy button
+// (v26), and the reveal-in-explorer button shown once rendering finishes. Returns the
+// host element and an `apply` function that paints a progress state onto it.
+function createProgressDialogBody(app, recordOptions, documentRef, isDone) {
+	const host = documentRef.createElement("div");
+	host.classList.add("render-progress");
+	const bar = documentRef.createElement("progress");
+	bar.className = "render-progress-bar";
+	bar.max = 1;
+	const status = documentRef.createElement("div");
+	status.className = "render-progress-status";
+	// v0.16.11: scrollable, copyable log of the loading phase (one line per module), so
+	// slow or stuck module loading can be reported in detail.
+	const logBox = documentRef.createElement("textarea");
+	logBox.className = "render-progress-error";
+	logBox.readOnly = true;
+	logBox.rows = 7;
+	logBox.hidden = true;
+	const copyLog = documentRef.createElement("button");
+	copyLog.type = "button";
+	copyLog.hidden = true;
+	copyLog.textContent = i18n.t("field.renderCopyLog");
+	copyLog.addEventListener("click", createCopyHandler(documentRef, logBox, copyLog, "field.renderCopyLog"));
+	// v26: render failures show a scrollable, selectable error box plus a copy
+	// button so the full details (message, FFmpeg stderr, stack) can be reported.
+	const errorBox = documentRef.createElement("textarea");
+	errorBox.className = "render-progress-error";
+	errorBox.readOnly = true;
+	errorBox.rows = 7;
+	errorBox.hidden = true;
+	const copyError = documentRef.createElement("button");
+	copyError.type = "button";
+	copyError.hidden = true;
+	copyError.textContent = i18n.t("field.renderCopyError");
+	copyError.addEventListener("click", createCopyHandler(documentRef, errorBox, copyError, "field.renderCopyError"));
+	const openFolder = documentRef.createElement("button");
+	openFolder.type = "button";
+	openFolder.hidden = true;
+	openFolder.textContent = i18n.t("command.file.showRenderResult");
+	openFolder.addEventListener("click", () => {
+		app.files.showItemInFileExplorer(recordOptions.output);
+	});
+	host.append(bar, status, logBox, copyLog, errorBox, copyError, openFolder);
+	const apply = next => {
+		bar.value = next.ratio;
+		status.textContent = next.text;
+		if (next.log) {
+			if (logBox.value !== next.log) {
+				logBox.value = next.log;
+				logBox.scrollTop = logBox.scrollHeight;
+			}
+			logBox.hidden = false;
+			copyLog.hidden = false;
+		}
+		if (next.details) {
+			if (errorBox.value !== next.details) {
+				errorBox.value = next.details;
+			}
+			errorBox.hidden = false;
+			copyError.hidden = false;
+		}
+		if (isDone()) {
+			bar.value = 1;
+			openFolder.hidden = false;
+		}
+	};
+	return { element: host, apply };
+}
+
+// Clipboard write with a document.execCommand fallback for non-secure contexts; the
+// button label flips to the "copied" feedback on success.
+function createCopyHandler(documentRef, box, button, copyKey) {
+	return async () => {
+		let copied = false;
+		try {
+			await navigator.clipboard.writeText(box.value);
+			copied = true;
+		} catch {
+			box.focus();
+			box.select();
+			copied = documentRef.execCommand("copy");
+		}
+		button.textContent = i18n.t(copied ? "field.renderErrorCopied" : copyKey);
+	};
+}
+
 // Starts the render job and shows the progress dialog while it runs. The dialog can only
 // be confirmed after the rendering finishes, and then offers a button that opens the
 // directory containing the rendered file.
@@ -233,7 +320,15 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 	let updater = null;
 	let done = false;
 	let state = { ratio: 0, text: i18n.t("status.renderStarting") };
+	const logLines = [];
+	let lastLogLine = null;
 	const job = runRenderJob(app, kind, recordOptions, next => {
+		// Accumulate the loading log (one line per module) for the copyable log box.
+		if (next.logLine && next.logLine !== lastLogLine) {
+			lastLogLine = next.logLine;
+			logLines.push(next.logLine);
+			next.log = logLines.join("\n");
+		}
 		Object.assign(state, next);
 		updater?.(state);
 	})
@@ -256,61 +351,10 @@ async function runRenderWithProgress(app, kind, recordOptions) {
 				id: "progress",
 				type: "custom",
 				render: ({ document: documentRef }) => {
-					const host = documentRef.createElement("div");
-					host.classList.add("render-progress");
-					const bar = documentRef.createElement("progress");
-					bar.className = "render-progress-bar";
-					bar.max = 1;
-					const status = documentRef.createElement("div");
-					status.className = "render-progress-status";
-					// v26: render failures show a scrollable, selectable error box plus a copy
-					// button so the full details (message, FFmpeg stderr, stack) can be reported.
-					const errorBox = documentRef.createElement("textarea");
-					errorBox.className = "render-progress-error";
-					errorBox.readOnly = true;
-					errorBox.rows = 7;
-					errorBox.hidden = true;
-					const copyError = documentRef.createElement("button");
-					copyError.type = "button";
-					copyError.hidden = true;
-					copyError.textContent = i18n.t("field.renderCopyError");
-					copyError.addEventListener("click", async () => {
-						let copied = false;
-						try {
-							await navigator.clipboard.writeText(errorBox.value);
-							copied = true;
-						} catch {
-							errorBox.focus();
-							errorBox.select();
-							copied = documentRef.execCommand("copy");
-						}
-						copyError.textContent = i18n.t(copied ? "field.renderErrorCopied" : "field.renderCopyError");
-					});
-					const openFolder = documentRef.createElement("button");
-					openFolder.type = "button";
-					openFolder.hidden = true;
-					openFolder.textContent = i18n.t("command.file.showRenderResult");
-					openFolder.addEventListener("click", () => {
-						app.files.showItemInFileExplorer(recordOptions.output);
-					});
-					host.append(bar, status, errorBox, copyError, openFolder);
-					updater = next => {
-						bar.value = next.ratio;
-						status.textContent = next.text;
-						if (next.details) {
-							if (errorBox.value !== next.details) {
-								errorBox.value = next.details;
-							}
-							errorBox.hidden = false;
-							copyError.hidden = false;
-						}
-						if (done) {
-							bar.value = 1;
-							openFolder.hidden = false;
-						}
-					};
-					updater(state);
-					return { element: host, read: () => done };
+					const { element, apply } = createProgressDialogBody(app, recordOptions, documentRef, () => done);
+					updater = apply;
+					apply(state);
+					return { element, read: () => done };
 				},
 			},
 		],
@@ -499,10 +543,17 @@ export function renderProgressState(progress) {
 	if (progress.status === "loading") {
 		const modulesCount = Number(progress.modulesCount) || 0;
 		const totalModules = Math.max(1, Number(progress.totalModules) || 1);
-		return {
+		const currentModule = progress.currentModule ? String(progress.currentModule) : "";
+		const state = {
 			ratio: (modulesCount / totalModules) * 0.1,
-			text: i18n.t("status.renderLoading", { current: modulesCount, total: totalModules }),
+			text: i18n.t(
+				currentModule ? "status.renderLoadingModule" : "status.renderLoading",
+				{ current: modulesCount, total: totalModules, module: currentModule },
+			),
 		};
+		// v0.16.11: feed the copyable progress log — one line per module being loaded.
+		state.logLine = state.text;
+		return state;
 	}
 	const endTime = Number(progress.endTime);
 	const currentTime = Number(progress.currentTime) || 0;
