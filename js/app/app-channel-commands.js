@@ -66,7 +66,9 @@ class ChannelCommandsTrait {
 
 	selectChannel(id) {
 		const channel = this.model.channels.find(candidate => candidate.id === id);
-		if (!channel || channel.active === false) {
+		// v0.16.23: inactive channels select like any other — deactivation dims their notes
+		// for checks, it must not make the lane unreachable in the panel.
+		if (!channel) {
 			return false;
 		}
 		this.model.editor.currentChannel = id;

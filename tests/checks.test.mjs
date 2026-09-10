@@ -216,6 +216,22 @@ test("requiredFingers treats a same-position tap+drag as one finger", () => {
 	assert.equal(violationsFor(split, "requiredFingers").length, 0);
 });
 
+test("notes on deactivated channels are ignored by note checks", () => {
+	// v0.16.23: deactivation (active: false) marks a lane's notes as drafts — the checks
+	// must skip them, while the same note on an active channel still violates.
+	const model = validChart();
+	model.addChannel(model.channels.length);
+	const inactive = model.channels.at(-1);
+	inactive.active = false;
+	addNote(model, "tap", 1, 150, 0, { channel: inactive.id });
+	assert.equal(violationsFor(model, "outOfBoundaryNotes").length, 0);
+
+	const active = addNote(model, "tap", 4, 150, 0, { channel: model.channels[0].id });
+	const hits = violationsFor(model, "outOfBoundaryNotes");
+	assert.equal(hits.length, 1);
+	assert.deepEqual(hits[0].eventIds, [active.id]);
+});
+
 test("outOfBoundaryNotes includes bg notes when the bgNotes parameter is on", () => {
 	const notes = validChart();
 	const note = addNote(notes, "tap", 1, 150, 0);

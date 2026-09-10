@@ -110,10 +110,12 @@ const DEFINITIONS = [
 	define("channel.createBelow", "Shift+Insert", "create-channel-below"),
 	// v22: deactivation moves from Ctrl+, to Ctrl+K so that hide/show (Ctrl+J) sit next to
 	// it on the same keys, and the channel menu gains the within-channel stacking commands.
-	define("channel.deactivate", "Ctrl+K", null, { allowWhenReadOnly: true }),
-	define("channel.activateAll", "Ctrl+Alt+K", null, { allowWhenReadOnly: true }),
-	define("channel.hide", "Ctrl+J", null, { allowWhenReadOnly: true }),
-	define("channel.showAll", "Ctrl+Alt+J", null, { allowWhenReadOnly: true }),
+	// v0.16.23: the channel menu entries reuse the existing row-toggle icons — they had
+	// been defined with a null icon, so the menu rendered them without any image.
+	define("channel.deactivate", "Ctrl+K", "deactivate", { allowWhenReadOnly: true }),
+	define("channel.activateAll", "Ctrl+Alt+K", "activate", { allowWhenReadOnly: true }),
+	define("channel.hide", "Ctrl+J", "hide-channel", { allowWhenReadOnly: true }),
+	define("channel.showAll", "Ctrl+Alt+J", "show-channel", { allowWhenReadOnly: true }),
 	define("channel.moveAboveWithinChannel", "Ctrl+Alt+ArrowUp", null, { blockDuringPlayback: true }),
 	define("channel.moveBelowWithinChannel", "Ctrl+Alt+ArrowDown", null, { blockDuringPlayback: true }),
 	define("channel.delete", null, "delete-channel"),

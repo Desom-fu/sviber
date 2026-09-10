@@ -628,7 +628,17 @@ function buildContext(model, options) {
 	const timing = model.timing;
 	const settings = normalizeChecks(options.checks ?? model.checks);
 	const snappees = model.snappees || [];
-	const leafEvents = model.allEvents({ includeGroups: false }).filter(event => event.type !== "comment");
+	// v0.16.23: notes on deactivated channels are drafts — every note check ignores them.
+	// Deactivation (active: false) is a per-lane switch, distinct from hiding (hidden),
+	// which only collapses the lane out of the timeline without touching checks.
+	const inactiveChannels = new Set(
+		(model.channels || [])
+			.filter(channel => channel.active === false)
+			.map(channel => channel.id),
+	);
+	const leafEvents = model
+		.allEvents({ includeGroups: false })
+		.filter(event => event.type !== "comment" && !inactiveChannels.has(event.channel));
 	const startCache = new Map();
 	const endCache = new Map();
 	const positionCache = new Map();
