@@ -1,7 +1,51 @@
 # frozen_string_literal: true
 
 require "json"
-require "base64"
+
+# Ruby 4.0 moved base64 out of the standard library and ruby.wasm's stdlib bundle does not
+# ship the bundled gem, so `require "base64"` raises LoadError inside the macro sandbox.
+# Both the sandbox bridge (it decodes the state and source payloads) and user macros expect
+# the classic API, so provide it from pack/unpack — core, always available.
+begin
+  require "base64"
+rescue LoadError
+  module Base64
+    module_function
+
+    # pack/unpack "m0" is the strict (no line breaks, rejects invalid input) codec;
+    # "m" is the lenient one that wraps at 60 columns, matching encode64/decode64.
+    def strict_encode64(bin)
+      [String(bin)].pack("m0")
+    end
+
+    def strict_decode64(str)
+      String(str).unpack1("m0")
+    end
+
+    def encode64(bin)
+      [String(bin)].pack("m")
+    end
+
+    def decode64(str)
+      String(str).unpack1("m")
+    end
+
+    def urlsafe_encode64(bin, padding: true)
+      encoded = strict_encode64(bin).tr("+/", "-_")
+      padding ? encoded : encoded.delete("=")
+    end
+
+    def urlsafe_decode64(str)
+      source = String(str).tr("-_", "+/")
+      source += "=" * ((4 - (source.length % 4)) % 4)
+      strict_decode64(source)
+    end
+  end
+
+  # A macro doing `require "base64"` must not blow up either: the shim above is already in
+  # place, so mark the feature as loaded and let require return false.
+  $LOADED_FEATURES << "base64.rb"
+end
 
 class Vector2D
   attr_accessor :x, :y
