@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { CHECK_DEFINITIONS } from "../js/core/checks-config.js";
 import { I18n, MESSAGES } from "../js/ui/i18n.js";
 
 test("localization is loaded from matching JSON dictionaries", async () => {
@@ -49,5 +50,28 @@ test("language options are localized in each interface", () => {
 		for (const [index, name] of names.entries()) {
 			assert.equal(MESSAGES[language][`option.language.${["en-US", "zh-CN", "zh-TW", "ja-JP"][index]}`], name);
 		}
+	}
+});
+
+// A check parameter whose label or hint key is missing renders as the raw key inside the
+// checks dialog (v0.16.27 fixed check.conflictingBgPatterns.strict), so every definition the
+// dialog builds a key from is required in every dictionary.
+test("every check definition and parameter has its label and hint localized", async () => {
+	const languages = ["zh-CN", "zh-TW", "en-US", "ja-JP"];
+	const tables = await Promise.all(
+		languages.map(language =>
+			readFile(new URL(`../json/i18n.${language}.json`, import.meta.url), "utf8").then(JSON.parse),
+		),
+	);
+	const required = [];
+	for (const definition of CHECK_DEFINITIONS) {
+		required.push(`check.${definition.id}`, `check.${definition.id}.hint`);
+		for (const parameter of definition.parameters) {
+			required.push(`check.${definition.id}.${parameter.id}`, `check.${definition.id}.${parameter.id}.hint`);
+		}
+	}
+	for (const [index, language] of languages.entries()) {
+		const missing = required.filter(key => !(key in tables[index]));
+		assert.deepEqual(missing, [], `${language} is missing check keys: ${missing.join(", ")}`);
 	}
 });

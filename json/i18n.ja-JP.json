@@ -1109,5 +1109,7 @@
   "history.quantization": "クオンタイズ",
   "history.importLyrics": "歌詞を読み込む",
   "check.conflictingBgPatterns": "競合する背景パターン",
-  "check.conflictingBgPatterns.hint": "背景パターンは時間的に重なってはいけません。厳格モードをオフにすると、接触しているだけなら許容されます。"
+  "check.conflictingBgPatterns.hint": "背景パターンは時間的に重なってはいけません。厳格モードをオフにすると、接触しているだけなら許容されます。",
+  "check.conflictingBgPatterns.strict": "厳格モード",
+  "check.conflictingBgPatterns.strict.hint": "オンにすると末尾と先頭が接するだけでも競合とみなし、オフにすると実際に時間が重なる場合のみ競合とします。"
 }

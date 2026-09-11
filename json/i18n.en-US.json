@@ -1109,5 +1109,7 @@
   "history.quantization": "Quantization",
   "history.importLyrics": "Import lyrics",
   "check.conflictingBgPatterns": "Conflicting bg patterns",
-  "check.conflictingBgPatterns.hint": "Background patterns must not overlap in time. When strict mode is off, touching ranges are allowed."
+  "check.conflictingBgPatterns.hint": "Background patterns must not overlap in time. When strict mode is off, touching ranges are allowed.",
+  "check.conflictingBgPatterns.strict": "Strict mode",
+  "check.conflictingBgPatterns.strict.hint": "When on, ranges that merely touch end-to-start also conflict; when off, only a positive time overlap does."
 }

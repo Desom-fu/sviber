@@ -1109,5 +1109,7 @@
   "history.quantization": "量化",
   "history.importLyrics": "导入歌词",
   "check.conflictingBgPatterns": "冲突的背景图案",
-  "check.conflictingBgPatterns.hint": "背景图案在时间上不得重叠。关闭严格模式后，首尾相接不算冲突。"
+  "check.conflictingBgPatterns.hint": "背景图案在时间上不得重叠。关闭严格模式后，首尾相接不算冲突。",
+  "check.conflictingBgPatterns.strict": "严格模式",
+  "check.conflictingBgPatterns.strict.hint": "开启时首尾相接（一个图案结束的时刻正好是下一个的开始）也算冲突；关闭后只有真正存在时间交集才算冲突。"
 }
