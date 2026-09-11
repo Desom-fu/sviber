@@ -517,9 +517,12 @@ export class ChannelsPanel {
 			}
 		}, readOnly);
 		item.addEventListener("click", () => {
-			// v0.16.23: inactive channels select too — deactivation must not make the
-			// lane unreachable (its notes are ignored by checks instead).
-			this.onSelect(channel.id);
+			// v0.16.24: inactive channels stay unselectable — but their row keeps every
+			// other interaction (drag reorder, expansion, the eye toggle), all of which
+			// have their own handlers above and are not gated here.
+			if (channel.active !== false) {
+				this.onSelect(channel.id);
+			}
 		});
 		item.addEventListener("dblclick", event => {
 			if (!readOnly && !isInteractiveEventTarget(event)) {

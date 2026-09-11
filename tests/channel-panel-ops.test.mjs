@@ -1,26 +1,33 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { withChannelCommands } from "../js/app/app-channel-commands.js";
 import { withHistoryCommands } from "../js/app/app-history-commands.js";
 import { ChartModel } from "../js/core/chart-model.js";
+import { readSource } from "./audit-contract-helpers.mjs";
 
 // The channels panel operations: duplicating copies every event into a new channel,
 // moving up/down reorders without changing IDs or the current channel, and activating all
 // channels reports whether anything changed.
 function makeApp(model) {
-	const App = withHistoryCommands(
-		class {
-			commit(label, mutation) {
-				return mutation(this.model);
-			}
+	const App = withChannelCommands(
+		withHistoryCommands(
+			class {
+				commit(label, mutation) {
+					return mutation(this.model);
+				}
 
-			_syncAudioLoop() {}
+				_syncAudioLoop() {}
 
-			refreshInteractionPreview() {}
-		},
+				refreshInteractionPreview() {}
+			},
+		),
 	);
 	const app = new App();
 	app.model = model;
 	app.audio = { playing: false };
+	// selectChannel reveals the channel in the timeline; the other cases in this file never
+	// reach that call, so the stub only needs the one method.
+	app.timeline = { revealChannel() {} };
 	return app;
 }
 
@@ -106,4 +113,38 @@ test("activate all channels activates every channel", () => {
 	assert.ok(app.activateAllChannels());
 	assert.ok(model.channels.every(channel => channel.active === true));
 	assert.equal(app.activateAllChannels(), false);
+});
+
+// v0.16.24: an inactive channel stays unselectable, while its row keeps the non-selection
+// interactions — drag reorder (moveChannel), the expansion toggle and the eye button.
+test("inactive channels stay unselectable but remain movable and toggleable", () => {
+	const model = modelWithChannels();
+	model.channels[1].active = false;
+	const app = makeApp(model);
+	assert.equal(app.selectChannel(1), false, "selecting an inactive channel is refused");
+	assert.equal(model.editor.currentChannel, 0);
+	assert.equal(app.selectChannel(0), true, "an active channel still selects");
+	// The drag gesture goes through moveChannel, which must not care about the active flag.
+	app.moveChannel(1, -1);
+	assert.deepEqual(
+		model.channels.map(channel => channel.name),
+		["Echo", "Lead"],
+	);
+	// The eye button toggles the inactive channel back on without selecting it.
+	app.toggleChannel(1);
+	assert.equal(model.channels[0].active, true);
+	assert.equal(model.editor.currentChannel, 0, "toggling does not select the channel");
+});
+
+test("the channel row gates selection but not reorder or its buttons", async () => {
+	const source = await readSource("js/ui/panel-lists.js");
+	// Selection stays behind the active guard...
+	assert.match(
+		source,
+		/if \(channel\.active !== false\) \{\s*\n\s*this\.onSelect\(channel\.id\);/,
+		"the row click handler must keep inactive channels unselectable",
+	);
+	// ...while reordering and the expansion button are registered unconditionally.
+	assert.match(source, /bindItemReorder\(item, index, \(from, to\) => \{/);
+	assert.match(source, /makeExpansionButton\(\s*\n\s*document,/);
 });
