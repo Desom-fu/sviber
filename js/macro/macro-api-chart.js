@@ -104,6 +104,20 @@ function constructClip(ctx, self, events, name, token) {
 
 function createChartFacade(ctx) {
 	return {
+		get metadata() {
+			const metadata = ctx.state.metadata || {};
+			return Object.freeze({
+				title: metadata.title ?? "",
+				artist: metadata.artist ?? "",
+				charter: metadata.charter ?? "",
+				difficulty_name: metadata.difficultyName ?? "",
+				difficulty: metadata.difficulty ?? "",
+				difficulty_color: metadata.difficultyColor ?? "",
+				difficulty_sup: metadata.difficultySup ?? "",
+				music: ctx.state.music ?? "",
+				image: ctx.state.image ?? "",
+			});
+		},
 		get currentTime() {
 			return beatTuple(ctx.state.editor.currentTime);
 		},

@@ -43,6 +43,17 @@ export const DURATION_TYPES = new Set([
 	"comment",
 ]);
 export const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText", "comment"]);
+export const BACKGROUND_EVENT_TYPES = new Set([
+	"bgNote",
+	"bigText",
+	"grid",
+	"hexagon",
+	"checkerboard",
+	"diamondGrid",
+	"pentagon",
+	"turntable",
+	"hexagram",
+]);
 export const TIP_POINTABLE_TYPES = new Set(["tap", "hold", "drag", "flick"]);
 export const TIP_POINT_FIELDS = [
 	"tipPointSpawnType",
@@ -104,11 +115,11 @@ export class Event {
 		return this.type !== "group" && api(this).rawOf(this).channel != null;
 	}
 
-	get haveDuration() {
+	get perdurant() {
 		return DURATION_TYPES.has(this.type);
 	}
 
-	get haveText() {
+	get textable() {
 		return TEXT_TYPES.has(this.type);
 	}
 
@@ -118,6 +129,46 @@ export class Event {
 
 	get group() {
 		return this.type === "group";
+	}
+
+	get background() {
+		return BACKGROUND_EVENT_TYPES.has(this.type);
+	}
+
+	get locked() {
+		return Boolean(alive(this).locked);
+	}
+
+	set locked(value) {
+		alive(this).locked = Boolean(value);
+	}
+
+	lock() {
+		this.locked = true;
+		return this;
+	}
+
+	unlock() {
+		this.locked = false;
+		return this;
+	}
+
+	get active() {
+		return alive(this).active !== false;
+	}
+
+	set active(value) {
+		alive(this).active = Boolean(value);
+	}
+
+	activate() {
+		this.active = true;
+		return this;
+	}
+
+	deactivate() {
+		this.active = false;
+		return this;
 	}
 
 	assertMovable() {
@@ -198,6 +249,14 @@ export class Event {
 
 	set tipPoint(value) {
 		assignEventTipPoint(api(this), this, value);
+	}
+
+	get tp() {
+		return this.tipPoint;
+	}
+
+	set tp(value) {
+		this.tipPoint = value;
 	}
 
 	delete() {
@@ -618,7 +677,7 @@ function assertGroupField(self, message) {
 }
 
 function assertHasText(self) {
-	if (!self.haveText) {
+	if (!self.textable) {
 		throw new Error(`${self.type} events do not have text`);
 	}
 }

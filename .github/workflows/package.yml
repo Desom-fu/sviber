@@ -87,14 +87,21 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential pkg-config python3-dev libgl1-mesa-dev libglu1-mesa-dev libxi-dev libxext-dev
-      - name: Rebuild gl and canvas native modules
+      # Runtime natives (gl, canvas) are rebuilt against the NW.js Node ABI. Development
+      # natives such as sharp stay on the host Node from `npm ci`.
+      - name: Rebuild gl and canvas native modules against NW.js Node
         if: >-
           (startsWith(matrix.osName, 'windows') && matrix.arch == 'x64') ||
           (startsWith(matrix.osName, 'linux') && matrix.arch == 'x64') ||
           startsWith(matrix.osName, 'macos')
+        shell: bash
         run: |
+          NW_VERSION=$(node -p "require('./node_modules/nw/package.json').version")
           cd build/nw
-          npm rebuild gl canvas --update-binary --foreground-scripts
+          npm_config_runtime=node-webkit \
+            npm_config_target="$NW_VERSION" \
+            npm_config_disturl=https://npmmirror.com/mirrors/nwjs \
+            npm rebuild gl canvas --update-binary --foreground-scripts
       - name: Archive Windows app as ZIP
         if: startsWith(matrix.osName, 'windows')
         shell: pwsh

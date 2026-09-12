@@ -125,7 +125,9 @@ js 中，实时托管通过 HTTP 提供内存中的 <code>sviber.ssc</code>，�
 选区会随鼠标移动实时更新，松开鼠标时提交。滚动视图不能直接编辑事件的时间或位置。</p>				<!---->
 <h3 id="zh-panels">属性、通道、吸附器与历史</h3>				<!---->
 <p>属性显示所选事件的公共属性，没有选择时会显示灰色提示。通道下拉菜单显示通道名称而不是编号。选中 group 时只显示由最早后代推导的只读时间和可编辑颜色，<!---->
-不显示事件类型或通道字段。属性输入框获得焦点时按 <kbd>Esc</kbd> 会取消焦点并恢复原值。通道可以启用、复制、重排、重命名（仅右侧通道面板提供）、编辑或删除；<!---->
+不显示事件类型或通道字段。属性输入框获得焦点时按 <kbd>Esc</kbd> 会取消焦点并恢复原值。<!---->
+正在编辑的属性若因改选事件或切换面板而消失，会提交该编辑。<!---->
+通道可以启用、复制、重排、重命名（仅右侧通道面板提供）、编辑或删除；<!---->
 停用通道会取消其中事件的选择，也会阻止预览和声音。列表项也可拖放排序。展开按钮使用 <code>more.svg</code>。<!---->
 通道和吸附器条目的主行只保留启用/停用与展开按钮；展开后在条目内显示第二行操作（复制、上移/下移、重命名、删除、<!---->
 在时间轴中隐藏/显示通道、在其上方/下方创建通道）。片段条目保留粘贴按钮，其他操作也在展开的第二行中显示。展开状态会随通道、吸附器和片段保存。<!---->
@@ -134,7 +136,7 @@ js 中，实时托管通过 HTTP 提供内存中的 <code>sviber.ssc</code>，�
 删除吸附器会分离事件但保留解析后位置。双击行会打开编辑窗。历史面板没有标题。历史最多保存 1000 条修改，并分别标记手动保存和自动保存；撤回也会恢复编辑前的时间吸附模式、<!---->
 当前拍数/时间和时间轴可见范围；切换界面语言时，包括分组/解组在内的已有历史标签会立即重新翻译。</p>				<!---->
 <h3 id="zh-checks">检查面板</h3>				<!---->
-<p>检查面板与滚动视图共用左侧空间，其标签页会在违规数非零时以红色实时显示数量。它实时列出谱面检查违规，无时间的项排在前面，有时间的按时间排序。<!---->
+<p>检查面板与滚动视图共用左侧空间，其标签页会在违规数非零时以红色实时显示数量。它实时列出谱面检查违规，无时间的项排在前面，有时间的按时间排序。所有检查忽略停用事件和停用通道。<!---->
 点击一项会跳到问题处（事件或属性表单）。双击会打开“编辑 &gt; 检查...”，并聚焦对应检查。悬停时在提示栏显示详情。“检查...”可启用或禁用每项检查并编辑参数；<!---->
 禁用的检查会灰显其参数。所有检查默认启用。</p>				<!---->
 <ul>					<li><b>标题、艺术家或谱师为空</b>：标题、艺术家和谱师都必须填写。点击打开编辑谱面属性。</li>					<!---->
@@ -356,6 +358,14 @@ Esc 或再次使用该命令退出。</td><!---->
 <tr><td>小节线</td><!---->
 <td>R</td><!---->
 <td>添加或移除小节线；吸附和拍线以最近小节线为基准。</td><!---->
+</tr><!---->
+<tr><td>细分 1、1/2、1/3、1/4、1/6、1/8</td><!---->
+<td>1 / 2 / 3 / 4 / 6 / 8</td><!---->
+<td>更改量化与拍线间距。5、7、9 也会设为 1/5、1/7、1/9，但不出现在菜单里。</td><!---->
+</tr><!---->
+<tr><td>其他细分...</td><!---->
+<td><kbd>0</kbd></td><!---->
+<td>输入正整数分母。</td><!---->
 </tr><!---->
 <tr><td>复制定时信息</td><!---->
 <td>—</td><!---->
@@ -614,17 +624,17 @@ Esc 或再次使用该命令退出。</td><!---->
 <td>Ctrl+. / Ctrl+,</td><!---->
 <td>精确移动三秒，停止时吸附到拍线。</td><!---->
 </tr><!---->
+<tr><td>跳转到...</td><!---->
+<td>G</td><!---->
+<td>输入拍数，或点击书签按钮填入该书签时间。若当前时间在可见范围内，可见范围跟随使游标不在时间轴上跳动。</td><!---->
+</tr><!---->
 <tr><td>设置/清除 A-B 循环</td><!---->
 <td>L</td><!---->
 <td>依次设置一个标记、第二个不同标记，或清除两个；播放时禁用。</td><!---->
 </tr><!---->
-<tr><td>细分 1、1/2、1/3、1/4、1/6、1/8</td><!---->
-<td>1 / 2 / 3 / 4 / 6 / 8</td><!---->
-<td>改变量化和拍线间距。5、7、9 也可设为 1/5、1/7、1/9，尽管菜单未列出。</td><!---->
-</tr><!---->
-<tr><td>其他细分...</td><!---->
-<td>0</td><!---->
-<td>输入正整数分母。</td><!---->
+<tr><td>书签...</td><!---->
+<td>Shift+B</td><!---->
+<td>在当前时间创建或编辑书签。允许空名称。删除按钮会去掉该书签。</td><!---->
 </tr><!---->
 <tr><td>速度减/加 0.1</td><!---->
 <td>[ / ]</td><!---->
@@ -637,6 +647,11 @@ Esc 或再次使用该命令退出。</td><!---->
 <tr><td>其他速度...</td><!---->
 <td>Ctrl+0</td><!---->
 <td>输入不小于 0.1 的播放倍率。</td><!---->
+</tr><!---->
+<tr><td>频谱图...</td><!---->
+<td>—</td><!---->
+<td>用频谱图替换时间轴波形。默认关闭、高强度为白、5 ms 高斯窗、0–5000 Hz、50 dB 动态范围。颜色为 <!---->
+<code>1 + intensity_dB / dynamic_range</code>，相对可见范围内的峰值。</td><!---->
 </tr><!---->
 <tr><td>放大/缩小</td><!---->
 <td>Ctrl+= / Ctrl+-</td><!---->
@@ -877,13 +892,18 @@ les)</code>、<!---->
 <td>Ruby 返回 <code>:bg_note</code> 等符号，JS 返回 <code>"bgNote"</code>。类型转换保留可用字段并清除目标类型不允许的字段。</td><!---->
 </tr>					<!---->
 <tr><td><code>movable</code>/<code>movable?</code>、<code>haveTime</code>/<code>have_time?</code>、<!---->
-<code>haveChannel</code>/<code>have_channel?</code>、<code>haveDuration</code><!---->
-/<code>have_duration?</code>、<code>haveText</code>/<code>have_text?</code>、<!---->
-<code>tipPointable</code>/<code>tip_pointable?</code>、<code>group</code>/<code>group?</code></td><!---->
+<code>haveChannel</code>/<code>have_channel?</code>、<code>perdurant</code><!---->
+/<code>perdurant?</code>、<code>textable</code>/<code>textable?</code>、<!---->
+<code>tipPointable</code>/<code>tip_pointable?</code>、<code>group</code>/<code>group?</code>、<!---->
+<code>background</code>/<code>background?</code></td><!---->
 <td>查询当前事件类型具备的能力。</td><!---->
 </tr>					<!---->
+<tr><td><code>locked</code>/<code>lock</code>/<code>unlock</code>、<code>active</code>/<!---->
+<code>activate</code>/<code>deactivate</code>、<code>tp</code></td><!---->
+<td>锁定、启停，以及 <code>tip_point</code> 的别名。</td><!---->
+</tr>					<!---->
 <tr><td><code>location</code>、<code>text</code>、<code>anchor</code>、<code>tipPoint</code><!---->
-/<code>tip_point</code>、<code>angle</code>、<code>time</code>、<code>channel</code>、<!---->
+/<code>tip_point</code>/<code>tp</code>、<code>angle</code>、<code>time</code>、<code>channel</code>、<!---->
 <code>events</code>、<code>color</code></td><!---->
 <td>只能用于相应类型。移动 group 会平移全部后代；设置 anchor 不移动后代。Group 的时间是最早后代时间，写入时间会平移所有后代。</td><!---->
 </tr>					<!---->
@@ -955,6 +975,12 @@ py([phrase]);transform(copies, matrix =&gt; matrix.translate(10, 0).rotate("righ
 (l(0, 80), Rational(1, 2))  b Rational(1, 2)  h l(40, 0), Rational(1, 2), "hold"endcopies = <!---->
 copy([phrase])transform(copies) { translate(10, 0).rotate(:right) }puts "created #{copies.le<!---->
 ngth} copy"</code></pre>				<!---->
+<h4 id="zh-example-macros">示例宏（Ruby）</h4>				<!---->
+<pre><code>title = Chart.metadata.title
+note = t(Location.new(0, 0), title)
+note.tp = TipPoint.chain(distance: 100, angle: :up, time_beats: 1)
+note.lock
+note.deactivate unless note.perdurant?</code></pre>				<!---->
 <p>删除 BPM 变化、bar line、通道、吸附器、事件或 Clip 后，其 wrapper 立即失效，后续任何操作都会抛错。放置/变换不会检查谱面边界。宏抛错或生成无效谱面时，<!---->
 sviber 只在宏控制台报告，不应用任何结果；JS console 与 Ruby 标准输出/错误都会转发到该控制台。</p>				<!---->
 <h2 id="zh-data">数据与偏好</h2>				<!---->
@@ -962,7 +988,8 @@ sviber 只在宏控制台报告，不应用任何结果；JS console 与 Ruby �
 <p>可编辑的 <code>editor</code> 状态保存时间吸附、细分、当前时间/通道、可见范围、通道滚动位置、播放速度、<!---->
 按难度保存的 <code>allowOutOfBound</code>、分组/背景事件/游标显示开关、<code>mainFieldPanX</code>、<!---->
 <code>mainFieldPanY</code>、<code>mainFieldZoom</code>、<code>lockVisibleRange</code>、<!---->
-<code>playSe</code>、<code>playBgNoteSe</code>、<code>showChartBoundary</code>、<!---->
+<code>playSe</code>、<code>playBgNoteSe</code>、<code>showChartBoundary</code>、<code>bookmarks</code>、<!---->
+<code>spectrogram</code>，事件另有 <code>active</code>。所有检查忽略停用事件和停用通道。<!---->
 <code>seekBackAfterPlaying</code>、<code>metronome</code>、<code>readOnly</code> <!---->
 以及零到两个有理数 <code>abLoopMarks</code>；<code>timing</code> 对象在 BPM 变化之外还保存 <code>barLines</code>。<!---->
 有理数输入由整数 + 分子/分母组成；离开整个输入组后才校验，要求分母为正、分数最简且分子小于分母。</p>				<!---->

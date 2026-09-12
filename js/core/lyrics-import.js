@@ -8,7 +8,7 @@
 
 // Strips punctuation-only noise? No — keep texts verbatim; only trim the edges.
 function cleanText(text) {
-	return String(text ?? "").replace(/\s+/g, " ").trim();
+	return String(text ?? "").replace(/^[\s\u00a0]+|[\s\u00a0]+$/g, "");
 }
 
 function stripBracketTags(text) {

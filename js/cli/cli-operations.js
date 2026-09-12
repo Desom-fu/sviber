@@ -172,6 +172,14 @@ export async function runCli(argv, io) {
 		io.print(versionText(packageJson.version));
 		return 0;
 	}
+	if (args.mcp) {
+		const { startMcpStdio } = await import("../mcp/mcp-server.js");
+		startMcpStdio({
+			stdin: io.stdin || process.stdin,
+			stdout: io.stdout || process.stdout,
+		});
+		return null;
+	}
 	if (args.unknown.length) {
 		io.printError(`Unknown option: ${args.unknown[0]}`);
 		io.print(helpText());

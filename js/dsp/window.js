@@ -14,6 +14,13 @@ function blackman(index, length) {
 	return 0.42 - 0.5 * Math.cos(phase) + 0.08 * Math.cos(2 * phase);
 }
 
+function gaussian(index, length) {
+	const center = (length - 1) / 2;
+	const sigma = Math.max(center / 3, 1e-9);
+	const x = (index - center) / sigma;
+	return Math.exp(-0.5 * x * x);
+}
+
 export function createWindow(length, type = "hann") {
 	const size = Math.max(1, Math.floor(length));
 	const window = new Float64Array(size);
@@ -24,6 +31,8 @@ export function createWindow(length, type = "hann") {
 			window[index] = hamming(index, size);
 		} else if (type === "blackman") {
 			window[index] = blackman(index, size);
+		} else if (type === "gaussian") {
+			window[index] = gaussian(index, size);
 		} else {
 			window[index] = hann(index, size);
 		}

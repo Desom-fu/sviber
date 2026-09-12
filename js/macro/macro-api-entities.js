@@ -11,6 +11,7 @@ import {
 	normalizeColor,
 	snapPointPosition,
 } from "./macro-api-math.js";
+import { writeTipPointSwitch } from "../core/tip-point-track.js";
 
 const { ctxOf, attach, extend } = createBinder();
 
@@ -114,6 +115,10 @@ export class Channel {
 		return alive(this, "Channel").active !== false;
 	}
 
+	set active(value) {
+		alive(this, "Channel").active = Boolean(value);
+	}
+
 	activate() {
 		alive(this, "Channel").active = true;
 		return this;
@@ -180,6 +185,11 @@ export class Channel {
 	static getById(id) {
 		const ctx = api(this);
 		return ctx.wrapChannel(ctx.find("channels", id));
+	}
+
+	static tipPointSwitch(time, map) {
+		applyChannelTipPointSwitch(api(this), time, map);
+		return this;
 	}
 }
 
@@ -368,6 +378,32 @@ function createChannelRecord(ctx, name = "Channel", overrides = {}) {
 	const item = { id: ctx.nextId("channels"), name: String(name), active: true, ...clone(overrides) };
 	ctx.state.channels.push(item);
 	return item;
+}
+
+function lookupSwitchTarget(map, channelRaw, resolveId) {
+	if (map == null) {
+		return channelRaw.id;
+	}
+	if (typeof map.get === "function" && typeof map.entries === "function") {
+		for (const [key, value] of map.entries()) {
+			if (resolveId(key) === channelRaw.id) {
+				return resolveId(value);
+			}
+		}
+		const byId = map.get(channelRaw.id);
+		if (byId !== undefined) {
+			return resolveId(byId);
+		}
+	}
+	if (Object.hasOwn(map, channelRaw.id)) {
+		return resolveId(map[channelRaw.id]);
+	}
+	return channelRaw.id;
+}
+
+function applyChannelTipPointSwitch(ctx, time, map) {
+	const images = ctx.state.channels.map(channel => lookupSwitchTarget(map, channel, ctx.resolveId));
+	writeTipPointSwitch(ctx.state.channels, time, images);
 }
 
 function createSnappeeRecord(ctx, type, overrides = {}) {

@@ -30,6 +30,7 @@ import {
 	setControlHidden,
 } from "./panel-controls.js";
 import { MIXED, clearElement, commonValue } from "./ui-shared.js";
+import { flushInspectorEdits } from "../core/inspector-submit.js";
 
 import { ZERO_DURATION_TYPES } from "../render/timeline-helpers.js";
 import { makeSnappeePreview } from "./panel-lists.js";
@@ -535,6 +536,14 @@ export class InspectorPanel {
 	}
 
 	render(model, context = {}) {
+		if (!this._flushing) {
+			this._flushing = true;
+			try {
+				flushInspectorEdits(this.element);
+			} finally {
+				this._flushing = false;
+			}
+		}
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clearElement(this.element);

@@ -7,6 +7,8 @@
 import { Rational } from "./rational.js";
 import { DEFAULT_EDITOR, DEFAULT_METADATA, POSITIVE_DURATION_TYPES } from "./chart-vocabulary.js";
 import { normalizeTipPointSwitches } from "./tip-point-track.js";
+import { normalizeSpectrogram } from "./spectrogram.js";
+import { normalizeBookmarks } from "./bookmarks.js";
 
 export function clone(value) {
 	if (typeof globalThis.structuredClone === "function") {
@@ -185,6 +187,8 @@ export function normalizeEditor(editor, channels) {
 		mainFieldPanX: finiteNumber(source.mainFieldPanX, 0),
 		mainFieldPanY: finiteNumber(source.mainFieldPanY, 0),
 		mainFieldZoom: Math.max(0.1, Math.min(16, finiteNumber(source.mainFieldZoom, 1))),
+		spectrogram: normalizeSpectrogram(source.spectrogram ?? DEFAULT_EDITOR.spectrogram),
+		bookmarks: normalizeBookmarks(source.bookmarks),
 	};
 }
 

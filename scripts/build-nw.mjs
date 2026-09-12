@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { chmod, cp, mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { spawn } from "node:child_process";
@@ -13,6 +13,7 @@ import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
 import { bundleMacroSandbox } from "./macro-sandbox-bundle.cjs";
 import { builderApplicationOptions, PACKAGED_WINDOW_ICON } from "./nw-build-config.mjs";
+import { nativeRebuildSpec, shouldIncludePackagedFile } from "./nw-runtime-natives.mjs";
 
 const { bundleAudioDecoder: bundleAudioDecoderFile } = decoderBundler;
 
@@ -397,6 +398,9 @@ async function copyProductionDependencies(applicationDirectory) {
 				if (relative === "node_modules" || relative.startsWith(`node_modules${path.sep}`)) {
 					return false;
 				}
+				if (PACKAGE_ONLY && !shouldIncludePackagedFile(entry, { runtimeFree: true })) {
+					return false;
+				}
 				if (packageName === "@ruby/4.0-wasm-wasi") {
 					const normalized = relative.split(path.sep).join("/");
 					return normalized !== "dist/ruby.debug+stdlib.wasm" && normalized !== "dist/ruby.wasm";
@@ -532,13 +536,13 @@ async function copyApplication() {
 	// native dependencies hard-crash inside NW.js, so rendering runs in a child Node process.
 	// Copying the very Node that runs this build (and that installed node_modules) keeps the
 	// native module ABI consistent with the bundled runtime.
-	const runtimeDirectory = path.join(applicationDirectory, "runtime");
-	await mkdir(runtimeDirectory, { recursive: true });
-	await cp(process.execPath, path.join(runtimeDirectory, path.basename(process.execPath)));
 	if (PACKAGE_ONLY) {
-		// The runtime-free .nw package carries no FFmpeg: the host supplies it via PATH or
-		// the full builds bundle it below.
+		// Runtime-free .nw omits the host Node binary, native .node modules, and FFmpeg so
+		// the archive stays platform-independent. Rendering and MCP need a full desktop build.
 	} else {
+		const runtimeDirectory = path.join(applicationDirectory, "runtime");
+		await mkdir(runtimeDirectory, { recursive: true });
+		await cp(process.execPath, path.join(runtimeDirectory, path.basename(process.execPath)));
 		await bundleFfmpeg(applicationDirectory);
 	}
 	await bundleAudioDecoderFile(path.join(applicationDirectory, "js", "audio", "audio-decode.bundle.js"), {
@@ -656,7 +660,9 @@ if (!existsSync(path.join(sviberDirectory, "node_modules"))) {
 // gl is ABI-locked (unlike the NAPI-based canvas), so verify it loads under this build's
 // Node and fail with actionable advice instead of shipping a worker that cannot start.
 try {
-	createRequire(path.join(sviberDirectory, "package.json"))("gl");
+	if (!PACKAGE_ONLY) {
+		createRequire(path.join(sviberDirectory, "package.json"))("gl");
+	}
 } catch (error) {
 	console.error(`
 The gl native module cannot load under Node ${process.version} (ABI ${process.versions.modules}).
@@ -677,5 +683,22 @@ await downloadFonts();
 await createNwPackage();
 if (!PACKAGE_ONLY) {
 	await runBuilder();
+	await writeMcpLauncher();
 	console.log(`NW.js build written to ${outputDirectory}`);
+}
+
+async function writeMcpLauncher() {
+	const nodeName = TARGET_PLATFORM === "win" ? "node.exe" : "node";
+	const runtimeNode = path.posix.join("sviber", "runtime", nodeName);
+	const script = path.posix.join("sviber", "js", "mcp", "mcp-main.mjs");
+	if (TARGET_PLATFORM === "win") {
+		const body = `@echo off\r\n"%~dp0${runtimeNode.replace(/\//g, "\\")}" "%~dp0${script.replace(/\//g, "\\")}" %*\r\n`;
+		await writeFile(path.join(outputDirectory, "sviber-mcp.cmd"), body);
+		return;
+	}
+	const dir = `DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)`;
+	const body = `#!/bin/sh\n${dir}\nexec "$DIR/${runtimeNode}" "$DIR/${script}" "$@"\n`;
+	const destination = path.join(outputDirectory, "sviber-mcp");
+	await writeFile(destination, body);
+	await chmod(destination, 0o755);
 }

@@ -17,6 +17,9 @@ import { withLyricsImport } from "./app-lyrics-import.js";
 import { withRender } from "./app-render.js";
 import { withFileDrop } from "./app-file-drop.js";
 import { withReadmeEditor } from "./app-readme-editor.js";
+import { withSpectrogram } from "./app-spectrogram.js";
+import { withBookmarks } from "./app-bookmarks.js";
+import { withMcpInstance } from "./app-mcp-instance.js";
 
 export { loadPreferences, storePreferences } from "./app-helpers.js";
 
@@ -29,7 +32,8 @@ const CoreWithV24 = withReadmeEditor(
 const CoreWithV25 = withRender(
 	withLyricsImport(withQuantization(CoreWithV24)),
 );
-const ComposedSviberApp = CoreWithV25;
+const CoreWithV26 = withMcpInstance(withSpectrogram(withBookmarks(CoreWithV25)));
+const ComposedSviberApp = CoreWithV26;
 class SviberApp extends ComposedSviberApp {}
 
 const app = new SviberApp();

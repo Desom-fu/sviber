@@ -324,7 +324,9 @@ The scroll view never edits event positions or times.</p>				<!---->
 when nothing is selected. Its channel dropdown lists channel names rather than numbers. <!---->
 For a group it shows the read-only time derived from the earliest descendant and an <!---->
 editable color, but no event type or channel field. <kbd>Esc</kbd> <!---->
-in a focused inspector field unfocuses it and restores the value. Channels can be activated, <!---->
+in a focused inspector field unfocuses it and restores the value. An edited inspector field <!---->
+that disappears (another event is selected, or another panel is shown) submits the edit. <!---->
+Channels can be activated, <!---->
 duplicated, reordered, renamed from the right-side Channels panel, edited, or deleted; <!---->
 deactivating a channel deselects its events and prevents their preview and sound. <!---->
 Items can also be reordered by dragging them in the list. <!---->
@@ -352,6 +354,7 @@ are translated again immediately when the interface language changes.</p>				<!-
 <h3 id="en-checks">Checks panel</h3>				<!---->
 <p>The Checks panel shares the left space with the scroll view. <!---->
 It lists live chart-check violations, untimed items first, then timed items in time order. <!---->
+All checks ignore inactive events and inactive channels. <!---->
 Its tab shows the current number of violations in red whenever it is not zero, <!---->
 updated in real time. Click an item to go to the problem (an event or a properties form). <!---->
 Double-click opens <b>Edit &gt; Checks...</b> with that check focused. <!---->
@@ -583,7 +586,9 @@ including nested group references.</td><!---->
 </tr><!---->
 <tr><td>Select by filter...</td><!---->
 <td>Ctrl+F</td><!---->
-<td>Choose event types and properties to select.</td><!---->
+<td>Filter by type, time, text (optional case-sensitive or regex), duration, simultaneous <!---->
+events, channel (inactive channels cannot be chosen), and tip-point spawn type. <!---->
+Choose whether to select only the matches, add them to the selection, or remove them.</td><!---->
 </tr><!---->
 <tr><td>Delete</td><!---->
 <td>Delete</td><!---->
@@ -635,6 +640,15 @@ the form has a delete button next to confirm and cancel.</td><!---->
 <td>R</td><!---->
 <td>Add or remove a bar line. <!---->
 Beat snapping and bar-relative beat lines use the latest bar line.</td><!---->
+</tr><!---->
+<tr><td>Subdivision 1, 1/2, 1/3, 1/4, 1/6, 1/8</td><!---->
+<td>1 / 2 / 3 / 4 / 6 / 8</td><!---->
+<td>Change quantization and beat-line spacing. Keys 5, 7, and 9 also set 1/5, 1/7, <!---->
+and 1/9 even though they are not in the menu.</td><!---->
+</tr><!---->
+<tr><td>Other subdivisions...</td><!---->
+<td><kbd>0</kbd></td><!---->
+<td>Enter a positive integer denominator.</td><!---->
 </tr><!---->
 <tr><td>Copy timing information</td><!---->
 <td>—</td><!---->
@@ -925,18 +939,18 @@ and the constant-tone metronome can still play.</td><!---->
 <td>Ctrl+. / Ctrl+,</td><!---->
 <td>Seek exactly three seconds, snapping when stopped.</td><!---->
 </tr><!---->
+<tr><td>Seek to...</td><!---->
+<td>G</td><!---->
+<td>Enter a beat, or click a bookmark button to fill that time. If the playhead is in the <!---->
+visible range, the range follows so the playhead does not jump on screen.</td><!---->
+</tr><!---->
 <tr><td>Set/clear A-B loop marks</td><!---->
 <td>L</td><!---->
 <td>Set one mark, set a distinct second mark, or clear both; disabled during playback.</td><!---->
 </tr><!---->
-<tr><td>Subdivision 1, 1/2, 1/3, 1/4, 1/6, 1/8</td><!---->
-<td>1 / 2 / 3 / 4 / 6 / 8</td><!---->
-<td>Change quantization and beat-line spacing. Keys 5, 7, and 9 also set 1/5, 1/7, <!---->
-and 1/9 even though they are not in the menu.</td><!---->
-</tr><!---->
-<tr><td>Other subdivisions...</td><!---->
-<td><kbd>0</kbd></td><!---->
-<td>Enter a positive integer denominator.</td><!---->
+<tr><td>Bookmark...</td><!---->
+<td>Shift+B</td><!---->
+<td>Create or edit a bookmark at the current time. An empty name is allowed. Delete removes it.</td><!---->
 </tr><!---->
 <tr><td>Subtract / Add speed by 0.1</td><!---->
 <td>[ / ]</td><!---->
@@ -950,6 +964,12 @@ and 1/9 even though they are not in the menu.</td><!---->
 <tr><td>Other speeds...</td><!---->
 <td>Ctrl+0</td><!---->
 <td>Enter a playback rate of at least 0.1.</td><!---->
+</tr><!---->
+<tr><td>Spectrogram...</td><!---->
+<td>—</td><!---->
+<td>Replace the timeline waveform with a spectrogram. Defaults: hidden, white as high <!---->
+intensity, 5 ms Gaussian window, 0–5000 Hz, 50 dB dynamic range. Colour is <!---->
+<code>1 + intensity_dB / dynamic_range</code> relative to the visible-range peak.</td><!---->
 </tr><!---->
 <tr><td>Zoom in / out</td><!---->
 <td>Ctrl+= / Ctrl+-</td><!---->
@@ -1186,7 +1206,8 @@ Colors accept a hexadecimal integer or CSS color and are normalized.</p>				<!--
 </thead><!---->
 <tbody>					<tr><td><code>Chart</code></td><!---->
 <td><code>Chart</code></td><!---->
-<td><code>currentTime</code>/<code>current_time</code> (read/write), <code>channels</code>, <!---->
+<td><code>metadata</code> (immutable title/artist/charter/difficulty fields plus music and image), <!---->
+<code>currentTime</code>/<code>current_time</code> (read/write), <code>channels</code>, <!---->
 <code>currentChannel</code>/<code>current_channel</code>, <code>snappees</code>, <!---->
 <code>selectedSnappee</code>/<code>selected_snappee</code>, <code>clips</code>, <!---->
 <code>events</code>, <code>selectedEvents</code>/<code>selected_events</code>, <code>offset</code> <!---->
@@ -1258,10 +1279,10 @@ seconds conflict with beats, and assigning one mode clears the other.</td><!----
 <tr><td><code>Channel</code></td><!---->
 <td><code>new Channel({name,color})</code>/<code>Channel.new(name:,color:)</code>; <!---->
 <code>get</code> (1-based number or name), <code>getById</code>/<code>get_by_id</code>, <!---->
-<code>current</code>, <code>list</code></td><!---->
+<code>current</code>, <code>list</code>, <code>tipPointSwitch</code>/<code>tip_point_switch</code></td><!---->
 <td><code>moveUp</code>/<code>move_up</code>, <code>moveDown</code>/<code>move_down</code>, <!---->
 read/write name and color, read <code>id</code>, <code>activate</code>, <code>deactivate</code>, <!---->
-<code>active</code>/<code>active?</code>, <code>current</code>/<code>current?</code>, <!---->
+<code>active</code>/<code>active?</code>/<code>active=</code>, <code>current</code>/<code>current?</code>, <!---->
 <code>select</code>, <code>delete</code>, and top-level non-group <code>events</code>. <!---->
 Serialize with JS <code>toJSON</code> or Ruby <code>to_h</code>/<code>to_json</code>.</td><!---->
 </tr>					<!---->
@@ -1302,13 +1323,19 @@ and <code>Group</code>. <code>Event.list</code> matches <code>Chart.events</code
 Conversion preserves usable fields and removes fields invalid for the destination type.</td><!---->
 </tr>					<!---->
 <tr><td><code>movable</code>/<code>movable?</code>, <code>haveTime</code>/<code>have_time?</code>, <!---->
-<code>haveChannel</code>/<code>have_channel?</code>, <code>haveDuration</code><!---->
-/<code>have_duration?</code>, <code>haveText</code>/<code>have_text?</code>, <!---->
-<code>tipPointable</code>/<code>tip_pointable?</code>, <code>group</code>/<code>group?</code></td><!---->
+<code>haveChannel</code>/<code>have_channel?</code>, <code>perdurant</code><!---->
+/<code>perdurant?</code>, <code>textable</code>/<code>textable?</code>, <!---->
+<code>tipPointable</code>/<code>tip_pointable?</code>, <code>group</code>/<code>group?</code>, <!---->
+<code>background</code>/<code>background?</code></td><!---->
 <td>Capability queries for the current event type.</td><!---->
 </tr>					<!---->
+<tr><td><code>locked</code>/<code>lock</code>/<code>unlock</code>, <code>active</code>/<!---->
+<code>activate</code>/<code>deactivate</code></td><!---->
+<td>Lock and active flags. Work on events other than group for time assignment, <!---->
+and on groups as a whole for lock/active.</td><!---->
+</tr>					<!---->
 <tr><td><code>location</code>, <code>text</code>, <code>anchor</code>, <code>tipPoint</code><!---->
-/<code>tip_point</code>, <code>angle</code>, <code>time</code>, <code>channel</code>, <!---->
+/<code>tip_point</code>/<code>tp</code>, <code>angle</code>, <code>time</code>, <code>channel</code>, <!---->
 <code>events</code>, <code>color</code></td><!---->
 <td>Each is valid only for the event types described by its capability. <!---->
 Moving a group translates every descendant; assigning its anchor does not. <!---->
@@ -1393,6 +1420,14 @@ copies = copy([phrase]);transform(copies, matrix =&gt; matrix.translate(10, 0).r
 note.tip_point = tpc(l(0, 80), Rational(1, 2))  b Rational(1, 2)  h l(40, 0), Rational(1, 2)<!---->
 , "hold"endcopies = copy([phrase])transform(copies) { translate(10, 0).rotate(:right) }puts <!---->
 "created #{copies.length} copy"</code></pre>				<!---->
+<h4 id="en-example-macros">Example macros (Ruby)</h4>				<!---->
+<pre><code># Place a locked tap on the current channel using Chart metadata in the text.
+title = Chart.metadata.title
+note = t(Location.new(0, 0), title)
+note.tp = TipPoint.chain(distance: 100, angle: :up, time_beats: 1)
+note.lock
+note.deactivate unless note.perdurant?
+Channel.tip_point_switch(0, { Channel.current =&gt; Channel.current })</code></pre>				<!---->
 <p>Deleting a BPM change, bar line, channel, snappee, event, <!---->
 or clip invalidates that wrapper; any later operation on it raises an error. <!---->
 Positions are not constrained to the chart boundary. <!---->
@@ -1407,8 +1442,10 @@ per-difficulty <code>allowOutOfBound</code>, <!---->
 grouping/background/tip-point/rulers display toggles, <code>mainFieldPanX</code>, <!---->
 <code>mainFieldPanY</code>, <code>mainFieldZoom</code>, <code>lockVisibleRange</code>, <!---->
 <code>playSe</code>, <code>playBgNoteSe</code>, <code>showChartBoundary</code>, <!---->
-<code>seekBackAfterPlaying</code>, <code>metronome</code>, <code>readOnly</code>, and zero, <!---->
-one, or two rational <code>abLoopMarks</code>. The <code>timing</code> <!---->
+<code>seekBackAfterPlaying</code>, <code>metronome</code>, <code>readOnly</code>, <code>bookmarks</code>, <!---->
+<code>spectrogram</code> (<code>show</code>, <code>blackAsHigh</code>, <code>windowWidth</code> in seconds, <!---->
+<code>windowShape</code>, <code>frequencyRange</code>, <code>dynamicRange</code>), and zero, <!---->
+one, or two rational <code>abLoopMarks</code>. Events store <code>active</code>. The <code>timing</code> <!---->
 object stores <code>barLines</code> alongside BPM changes. <!---->
 Rational inputs use integer + numerator/denominator controls. <!---->
 Validation waits until focus leaves the complete group. A positive denominator is required; <!---->

@@ -6,6 +6,8 @@ import { i18n } from "../ui/i18n.js";
 import { EVENT_TYPES } from "../core/chart-model.js";
 import { Rational } from "../core/rational.js";
 import { eventTime, eventUsesChannel } from "../core/grouping.js";
+import { TIP_SPAWN_TYPES } from "../core/chart-vocabulary.js";
+import { activeFilterChannels, matchEventFilter } from "../core/select-filter.js";
 import { eventTypeLabel } from "./app-helpers.js";
 
 function typeCheckboxes(prefix, disabledWhen) {
@@ -18,7 +20,18 @@ function typeCheckboxes(prefix, disabledWhen) {
 	}));
 }
 
-function selectionFilterFields() {
+function spawnTypeCheckboxes() {
+	return [...TIP_SPAWN_TYPES].map(type => ({
+		id: `spawn_${type}`,
+		type: "checkbox",
+		labelKey: `field.tipPointSpawn.${type}`,
+		default: true,
+		disabled: values => !values.enableSpawnType,
+	}));
+}
+
+function selectionFilterFields(channels) {
+	const active = activeFilterChannels(channels);
 	return [
 		{ id: "enableTypes", type: "checkbox", labelKey: "field.types" },
 		...typeCheckboxes("type", "enableTypes"),
@@ -27,6 +40,18 @@ function selectionFilterFields() {
 		{ id: "timeEnd", type: "rational", labelKey: "field.duration", disabled: values => !values.enableTime },
 		{ id: "enableText", type: "checkbox", labelKey: "field.text" },
 		{ id: "text", type: "text", labelKey: "field.text", disabled: values => !values.enableText },
+		{
+			id: "textCaseSensitive",
+			type: "checkbox",
+			labelKey: "field.textCaseSensitive",
+			disabled: values => !values.enableText,
+		},
+		{
+			id: "textRegex",
+			type: "checkbox",
+			labelKey: "field.textRegex",
+			disabled: values => !values.enableText,
+		},
 		{ id: "enableDuration", type: "checkbox", labelKey: "field.durationRange" },
 		{ id: "durationStart", type: "rational", labelKey: "field.time", disabled: values => !values.enableDuration },
 		{
@@ -37,6 +62,29 @@ function selectionFilterFields() {
 		},
 		{ id: "enableSimultaneous", type: "checkbox", labelKey: "field.hasSimultaneous" },
 		...typeCheckboxes("simultaneous", "enableSimultaneous"),
+		{ id: "enableChannel", type: "checkbox", labelKey: "field.filterChannel" },
+		{
+			id: "channel",
+			type: "select",
+			labelKey: "field.channel",
+			disabled: values => !values.enableChannel,
+			options: active.map(channel => ({
+				value: String(channel.id),
+				label: String(channel.name || `Channel ${channel.id}`),
+			})),
+		},
+		{ id: "enableSpawnType", type: "checkbox", labelKey: "field.tipPointSpawnType" },
+		...spawnTypeCheckboxes(),
+		{
+			id: "selectionMode",
+			type: "radio",
+			labelKey: "field.filterMode",
+			options: [
+				{ value: "select", labelKey: "field.filterMode.select" },
+				{ value: "add", labelKey: "field.filterMode.add" },
+				{ value: "remove", labelKey: "field.filterMode.remove" },
+			],
+		},
 	];
 }
 
@@ -48,6 +96,8 @@ class ChartDialogsTrait {
 				enableTypes: true,
 				enableText: false,
 				text: "",
+				textCaseSensitive: false,
+				textRegex: false,
 				enableTime: false,
 				timeStart: [0, 0, 1],
 				timeEnd: [9999, 0, 1],
@@ -55,15 +105,17 @@ class ChartDialogsTrait {
 				durationStart: [0, 0, 1],
 				durationEnd: [9999, 0, 1],
 				enableSimultaneous: false,
+				enableChannel: false,
+				channel: String(activeFilterChannels(this.model.channels)[0]?.id ?? 0),
+				enableSpawnType: false,
+				selectionMode: "select",
 			},
-			fields: selectionFilterFields(),
+			fields: selectionFilterFields(this.model.channels),
 		});
 		if (!values) {
 			return;
 		}
-		const activeChannels = new Set(
-			this.model.channels.filter(channel => channel.active !== false).map(channel => channel.id),
-		);
+		const activeChannels = new Set(activeFilterChannels(this.model.channels).map(channel => channel.id));
 		const candidates = this.model.allEvents().filter(event => eventUsesChannel(event, activeChannels));
 		const simultaneousCounts = new Map();
 		if (values.enableSimultaneous) {
@@ -75,46 +127,19 @@ class ChartDialogsTrait {
 				simultaneousCounts.set(key, (simultaneousCounts.get(key) || 0) + 1);
 			}
 		}
+		const filterValues = {
+			...values,
+			caseSensitive: values.textCaseSensitive,
+			regex: values.textRegex,
+		};
 		const ids = candidates
-			.filter(event => {
-				if (values.enableTypes && !values[`type_${event.type}`]) {
-					return false;
-				}
-				if (values.enableTime) {
-					const beat = Rational.from(eventTime(event));
-					if (beat.compare(values.timeStart) < 0 || beat.compare(values.timeEnd) > 0) {
-						return false;
-					}
-				}
-				if (
-					values.enableText &&
-					!String(event.text || "")
-						.toLocaleLowerCase()
-						.includes(String(values.text).toLocaleLowerCase())
-				) {
-					return false;
-				}
-				if (values.enableDuration) {
-					if (!event.duration) {
-						return false;
-					}
-					const duration = Rational.from(event.duration);
-					if (duration.compare(values.durationStart) < 0 || duration.compare(values.durationEnd) > 0) {
-						return false;
-					}
-				}
-				if (values.enableSimultaneous) {
-					const key = Rational.from(eventTime(event)).toString();
-					const matching =
-						(simultaneousCounts.get(key) || 0) - (values[`simultaneous_${event.type}`] ? 1 : 0);
-					if (matching <= 0) {
-						return false;
-					}
-				}
-				return true;
-			})
+			.filter(event => matchEventFilter(event, filterValues, { simultaneousCounts }))
 			.map(event => event.id);
-		this.selectEvents(ids, "replace");
+		let mode = "replace";
+		if (values.selectionMode === "add" || values.selectionMode === "remove") {
+			mode = values.selectionMode;
+		}
+		this.selectEvents(ids, mode);
 	}
 
 	async showSubdivisionDialog() {

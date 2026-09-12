@@ -423,7 +423,10 @@ function registerMusicCommands(app) {
 	register(app, "music.seekBackward", () => app.navigateWheel(-1, false));
 	register(app, "music.seekForward3", () => app.seekSeconds(3));
 	register(app, "music.seekBackward3", () => app.seekSeconds(-3));
+	register(app, "music.seekTo", () => void app.showSeekToDialog());
 	register(app, "music.abLoop", () => app.toggleAbLoop(), () => !app.audio.playing);
+	register(app, "music.bookmark", () => void app.showBookmarkDialog());
+	register(app, "music.spectrogram", () => void app.showSpectrogramDialog());
 	for (const value of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
 		register(app, `music.subdivision${value}`, () => app.setSubdivision(value));
 	}

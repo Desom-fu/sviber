@@ -699,17 +699,17 @@ undoはまた編集の前に捕獲される時間切り込みモード、現在�
 <td>Ctrl+. / Ctrl+,</td><!---->
 <td>止まったときに、正確に3秒、スナップします。</td><!---->
 </tr><!---->
+<tr><td>シーク...</td><!---->
+<td>G</td><!---->
+<td>拍を入力するか、ブックマークボタンでその時刻を入れます。現在時刻が見える範囲内なら、範囲が追従します。</td><!---->
+</tr><!---->
 <tr><td>セット/クリア A-Bループマーク</td><!---->
 <td>ログイン</td><!---->
 <td>1つのマークを設定し、異なるセカンドマークを設定したり、再生中に無効にしたりします。</td><!---->
 </tr><!---->
-<tr><td>分割 1, 1/2, 1/3, 1/4, 1/6, 1/8</td><!---->
-<td>1 / 2 / 3 / 4 / 6 / 8</td><!---->
-<td>量子化とビートラインの間隔を変更します。 キー5、7、9も1/5、1/7、および1/9はメニューにないにもかかわらず設定します。</td><!---->
-</tr><!---->
-<tr><td>その他のサブディビジョン...</td><!---->
-<td><kbd>0</kbd></td><!---->
-<td>正の整数デノミネーターを入力してください。</td><!---->
+<tr><td>ブックマーク...</td><!---->
+<td>Shift+B</td><!---->
+<td>現在時刻にブックマークを作成または編集します。空の名前も可。削除で消します。</td><!---->
 </tr><!---->
 <tr><td>0.1で速度を割く/加えて下さい</td><!---->
 <td>[ / ]</td><!---->
@@ -723,6 +723,10 @@ undoはまた編集の前に捕獲される時間切り込みモード、現在�
 <tr><td>その他の速度...</td><!---->
 <td>Ctrl + 0</td><!---->
 <td>再生速度を0.1以上入力してください。</td><!---->
+</tr><!---->
+<tr><td>スペクトログラム...</td><!---->
+<td>—</td><!---->
+<td>タイムラインの波形をスペクトログラムに置き換えます。既定は非表示、高強度は白、5 ms ガウス窓、0–5000 Hz、50 dB。</td><!---->
 </tr><!---->
 <tr><td>ズームイン/アウト</td><!---->
 <td>Ctrl+=/Ctrl+-</td><!---->
@@ -1009,9 +1013,9 @@ les)</code>, <!---->
 </tr>					<!---->
 <tr><td><code>movable</code>/ / / /<code>movable?</code>, <code>haveTime</code><!---->
 / / / /<code>have_time?</code>, <code>haveChannel</code>/ / / /<code>have_channel?</code>, <!---->
-<code>haveDuration</code>/ / / /<code>have_duration?</code>, <code>haveText</code><!---->
-/ / / /<code>have_text?</code>, <code>tipPointable</code>/ / / /<code>tip_pointable?</code>, <!---->
-<code>group</code>/ / / /<code>group?</code></td><!---->
+<code>perdurant</code>/ / / /<code>perdurant?</code>, <code>textable</code><!---->
+/ / / /<code>textable?</code>, <code>tipPointable</code>/ / / /<code>tip_pointable?</code>, <!---->
+<code>group</code>/ / / /<code>group?</code>, <code>background</code>/ / / /<code>background?</code></td><!---->
 <td>現行イベントタイプの機能の問い合わせ</td><!---->
 </tr>					<!---->
 <tr><td><code>location</code>, <code>text</code>, <code>anchor</code>, <code>tipPoint</code><!---->
@@ -1090,6 +1094,12 @@ py([phrase]);transform(copies, matrix =&gt; matrix.translate(10, 0).rotate("righ
 (l(0, 80), Rational(1, 2))  b Rational(1, 2)  h l(40, 0), Rational(1, 2), "hold"endcopies = <!---->
 copy([phrase])transform(copies) { translate(10, 0).rotate(:right) }puts "created #{copies.le<!---->
 ngth} copy"</code></pre>				<!---->
+<h4 id="ja-example-macros">マクロの例（Ruby）</h4>				<!---->
+<pre><code>title = Chart.metadata.title
+note = t(Location.new(0, 0), title)
+note.tp = TipPoint.chain(distance: 100, angle: :up, time_beats: 1)
+note.lock
+note.deactivate unless note.perdurant?</code></pre>				<!---->
 <p>BPMの変更、バーライン、チャンネル、スナップピー、イベント、またはクリップの削除は、そのラッパーを無効化します。 後で操作すると、エラーが発生します。 ポジションは、<!---->
 チャート境界に制約されない。 マクロが無効なチャートデータを上げたり、生成したりすると、sviber はマクロコンソールのエラーを報告し、何も適用しません。 <!---->
 JavaScript コンソールメソッドと Ruby 標準の出力/エラーは、そのコンソールに転送されます。</p>				<!---->

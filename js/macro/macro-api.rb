@@ -250,6 +250,15 @@ class Channel
     def get_by_id(id) = wrap(SviberMacroInternals.find("channel", id))
     def current = get_by_id(SviberMacroInternals.editor["currentChannel"])
     def list = SviberMacroInternals.channels.map { |raw| wrap(raw) }
+
+    def tip_point_switch(time, map)
+      images = list.map do |channel|
+        target = map[channel]
+        next channel.id if target.nil?
+        target.is_a?(Channel) ? target.id : Integer(target)
+      end
+      SviberMacroInternals.write_tip_point_switch(time, images)
+    end
   end
 
   def id = record["id"]
@@ -262,6 +271,10 @@ class Channel
     record["color"] = SviberMacroInternals.css_color(value)
   end
   def active? = record["active"] != false
+  def active = active?
+  def active=(value)
+    record["active"] = !!value
+  end
   def current? = SviberMacroInternals.editor["currentChannel"] == id
 
   def activate
@@ -364,6 +377,7 @@ module SviberMacroInternals
   MOVABLE_TYPES = %w[tap hold drag flick bgNote group].freeze
   DURATION_TYPES = %w[hold bgNote bigText grid hexagon checkerboard diamondGrid pentagon turntable hexagram comment].freeze
   TEXT_TYPES = %w[tap hold flick bgNote bigText comment].freeze
+  BACKGROUND_TYPES = %w[bgNote bigText grid hexagon checkerboard diamondGrid pentagon turntable hexagram].freeze
   TIP_POINTABLE_TYPES = %w[tap hold drag flick].freeze
   POSITION_FIELDS = %w[attached x y snappee snapPoint].freeze
   TIP_POINT_FIELDS = %w[tipPointSpawnType tipPointSpawnAbsolutePosition tipPointSpawnAttached tipPointSpawnX tipPointSpawnY tipPointSpawnSnappee tipPointSpawnSnapPoint tipPointSpawnDistance tipPointSpawnAngle tipPointSpawnTimeBeats tipPointSpawnTime].freeze
@@ -647,6 +661,21 @@ module SviberMacroInternals
     def clips = @state.fetch("clips")
     def timing = @state.fetch("timing")
     def editor = @state.fetch("editor")
+    def metadata = @state.fetch("metadata", {})
+
+    def write_tip_point_switch(time, images)
+      beat = normalize_beat(time)
+      channels.each_with_index do |channel, index|
+        remaining = Array(channel["tipPointSwitches"]).reject do |item|
+          rational_data(item["time"]) == rational_data(beat)
+        rescue StandardError
+          false
+        end
+        image = images[index]
+        remaining << { "time" => beat, "target" => image } if image.is_a?(Integer) && image != channel["id"]
+        channel["tipPointSwitches"] = remaining
+      end
+    end
 
     def all_events(items = events, result = [])
       items.each do |item|
@@ -1278,10 +1307,37 @@ class Event
   def movable? = SviberMacroInternals::MOVABLE_TYPES.include?(record["type"])
   def have_time? = record["type"] == "group" || record.key?("time")
   def have_channel? = record["type"] != "group" && record.key?("channel")
-  def have_duration? = SviberMacroInternals::DURATION_TYPES.include?(record["type"])
-  def have_text? = SviberMacroInternals::TEXT_TYPES.include?(record["type"])
+  def perdurant? = SviberMacroInternals::DURATION_TYPES.include?(record["type"])
+  def textable? = SviberMacroInternals::TEXT_TYPES.include?(record["type"])
+  def background? = SviberMacroInternals::BACKGROUND_TYPES.include?(record["type"])
   def tip_pointable? = SviberMacroInternals::TIP_POINTABLE_TYPES.include?(record["type"])
   def group? = record["type"] == "group"
+  def locked = !!record["locked"]
+  def locked=(value)
+    record["locked"] = !!value
+  end
+  def lock
+    self.locked = true
+    self
+  end
+  def unlock
+    self.locked = false
+    self
+  end
+  def locked? = locked
+  def active = record["active"] != false
+  def active=(value)
+    record["active"] = !!value
+  end
+  def activate
+    self.active = true
+    self
+  end
+  def deactivate
+    self.active = false
+    self
+  end
+  def active? = active
 
   def location
     raise RuntimeError, "#{type} events do not have a location" unless movable?
@@ -1318,12 +1374,12 @@ class Event
   end
 
   def text
-    raise RuntimeError, "#{type} events do not have text" unless have_text?
+    raise RuntimeError, "#{type} events do not have text" unless textable?
     record["text"]
   end
 
   def text=(value)
-    raise RuntimeError, "#{type} events do not have text" unless have_text?
+    raise RuntimeError, "#{type} events do not have text" unless textable?
     record["text"] = value.to_s
   end
 
@@ -1409,6 +1465,9 @@ class Event
     raw.merge!(SviberMacroInternals.tip_point_fields(value))
     value
   end
+
+  alias tp tip_point
+  alias tp= tip_point=
 
   def delete
     raw = record
@@ -1513,7 +1572,27 @@ class Clip
 end
 
 module Chart
+  Metadata = Data.define(
+    :title, :artist, :charter, :difficulty_name, :difficulty,
+    :difficulty_color, :difficulty_sup, :music, :image
+  )
+
   class << self
+    def metadata
+      source = SviberMacroInternals.metadata
+      Metadata.new(
+        title: source.fetch("title", "").to_s,
+        artist: source.fetch("artist", "").to_s,
+        charter: source.fetch("charter", "").to_s,
+        difficulty_name: source.fetch("difficultyName", "").to_s,
+        difficulty: source.fetch("difficulty", "").to_s,
+        difficulty_color: source.fetch("difficultyColor", "").to_s,
+        difficulty_sup: source.fetch("difficultySup", "").to_s,
+        music: SviberMacroInternals.state.fetch("music", "").to_s,
+        image: SviberMacroInternals.state.fetch("image", "").to_s
+      )
+    end
+
     def current_time = SviberMacroInternals.rational_data(SviberMacroInternals.editor.fetch("currentTime", [0, 0, 1]))
     def current_time=(value)
       SviberMacroInternals.editor["currentTime"] = SviberMacroInternals.beat(value)

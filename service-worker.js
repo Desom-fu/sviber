@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v0163700";
+const CACHE_VERSION = "sviber-v0170000";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -43,7 +43,21 @@ const APP_SHELL = [
 	"./js/app/app-helpers.js",
 	"./css/readme.css",
 	"./js/app/app-bulk-edit.js",
+	"./js/app/app-bookmarks.js",
 	"./js/app/app-file-drop.js",
+	"./js/app/app-mcp-instance.js",
+	"./js/app/app-spectrogram.js",
+	"./js/core/bookmarks.js",
+	"./js/core/inspector-submit.js",
+	"./js/core/render-defaults.js",
+	"./js/core/scrollbar-overlays.js",
+	"./js/core/seek-to.js",
+	"./js/core/select-filter.js",
+	"./js/core/spectrogram.js",
+	"./js/mcp/mcp-audio-snippet.js",
+	"./js/mcp/mcp-consent.js",
+	"./js/mcp/mcp-editor-handlers.js",
+	"./js/mcp/mcp-paths.js",
 	"./js/app/app-layout.js",
 	"./js/app/app-lyrics-import.js",
 	"./js/app/app-quantization.js",

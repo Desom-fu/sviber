@@ -674,7 +674,12 @@ function buildContext(model, options) {
 	);
 	const leafEvents = model
 		.allEvents({ includeGroups: false })
-		.filter(event => event.type !== "comment" && !inactiveChannels.has(event.channel));
+		.filter(
+			event =>
+				event.type !== "comment" &&
+				event.active !== false &&
+				!inactiveChannels.has(event.channel),
+		);
 	const startCache = new Map();
 	const endCache = new Map();
 	const positionCache = new Map();

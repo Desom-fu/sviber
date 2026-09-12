@@ -50,6 +50,7 @@ export function helpText() {
 		"  sviber INPUT --import OUTPUT-DIR [options]      import as a sviber project",
 		"  sviber PATH --render OUTPUT.mkv [options]       render a video (chart/level/project)",
 		"  sviber PATH --render OUTPUT.png [options]       render a cover image",
+		"  sviber --mcp                                    run the MCP server on stdio",
 		"  sviber --help                                   show this message",
 		"  sviber --version                                show version information",
 		"",
@@ -87,7 +88,7 @@ export function helpText() {
 }
 
 export function parseCliArguments(argv = []) {
-	const result = { paths: [], bpmChanges: [], help: false, version: false, unknown: [] };
+	const result = { paths: [], bpmChanges: [], help: false, version: false, mcp: false, unknown: [] };
 	for (let index = 0; index < argv.length; index += 1) {
 		const token = String(argv[index]);
 		if (token === "--help" || token === "-h") {
@@ -96,6 +97,10 @@ export function parseCliArguments(argv = []) {
 		}
 		if (token === "--version" || token === "-v") {
 			result.version = true;
+			continue;
+		}
+		if (token === "--mcp") {
+			result.mcp = true;
 			continue;
 		}
 		if (token === "--bpm-change") {
@@ -118,7 +123,7 @@ export function parseCliArguments(argv = []) {
 
 // True when the arguments ask for a headless operation, so the GUI must not launch.
 export function isHeadlessInvocation(args) {
-	const requested = [args.help, args.version, args.exportPath, args.importPath, args.renderPath];
+	const requested = [args.help, args.version, args.mcp, args.exportPath, args.importPath, args.renderPath];
 	return Boolean(requested.some(Boolean) || args.unknown.length);
 }
 

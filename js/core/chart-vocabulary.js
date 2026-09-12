@@ -128,4 +128,13 @@ export const DEFAULT_EDITOR = Object.freeze({
 	mainFieldPanX: 0,
 	mainFieldPanY: 0,
 	mainFieldZoom: 1,
+	spectrogram: Object.freeze({
+		show: false,
+		blackAsHigh: false,
+		windowWidth: 0.005,
+		windowShape: "gaussian",
+		frequencyRange: Object.freeze([0, 5000]),
+		dynamicRange: 50,
+	}),
+	bookmarks: Object.freeze([]),
 });

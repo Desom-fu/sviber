@@ -346,6 +346,7 @@ export class SviberAppCore extends CoreShell {
 		// modal closes; settle layout then paint+title so the chart is visible without input.
 		this._settleViewsAfterOpen();
 		this.startAutosave();
+		this._startMcpInstance?.();
 		if ("serviceWorker" in navigator && location.protocol.startsWith("http") && !globalThis.nw) {
 			navigator.serviceWorker
 				.register("service-worker.js")

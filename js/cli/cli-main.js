@@ -11,7 +11,16 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const CLI_OPERATION_FLAGS = new Set(["--export", "--import", "--render", "--help", "-h", "--version", "-v"]);
+const CLI_OPERATION_FLAGS = new Set([
+	"--export",
+	"--import",
+	"--render",
+	"--mcp",
+	"--help",
+	"-h",
+	"--version",
+	"-v",
+]);
 const VALUE_FLAGS = new Set([
 	"--export",
 	"--import",
@@ -119,6 +128,15 @@ async function main() {
 	}
 	const { cli, operations, io } = loadCliModules();
 	const args = cli.parseCliArguments(argv);
+	if (args.mcp) {
+		const { spawn } = require("node:child_process");
+		const script = path.join(nodeMainDirectory(), "..", "mcp", "mcp-main.mjs");
+		const child = spawn(process.execPath, [script], { stdio: "inherit" });
+		child.on("exit", code => {
+			process.exitCode = code ?? 0;
+		});
+		return;
+	}
 	if (!cli.isHeadlessInvocation(args)) {
 		if (args.input) {
 			global.sviberOpenPath = path.resolve(args.input);

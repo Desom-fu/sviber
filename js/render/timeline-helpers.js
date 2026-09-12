@@ -80,8 +80,19 @@ export function visibleTimelineChannels(project) {
 // Drop notes whose channel no longer exists so the scrollbar heatmap can follow a
 // lightweight channel deletion without waiting for a full index rebuild.
 export function scrollbarRecordsForProject(records, project) {
-	const channelIds = new Set((project?.channels || []).map(channel => channel.id));
-	return (records || []).filter(record => channelIds.has((record?.event ?? record)?.channel));
+	const channels = project?.channels || [];
+	const channelIds = new Set(channels.map(channel => channel.id));
+	const inactiveChannels = new Set(channels.filter(channel => channel.active === false).map(channel => channel.id));
+	return (records || []).filter(record => {
+		const event = record?.event ?? record;
+		if (!channelIds.has(event?.channel)) {
+			return false;
+		}
+		if (inactiveChannels.has(event.channel)) {
+			return false;
+		}
+		return event?.active !== false;
+	});
 }
 
 // Return one notes-per-second density value per scrollbar pixel. Records may be render-index

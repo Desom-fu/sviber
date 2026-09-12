@@ -753,6 +753,19 @@ textarea:focus-visible,
 	opacity: 0.48;
 }
 
+.channel-item.is-inactive .snappee-name,
+.channel-item.is-inactive .channel-index {
+	color: inherit;
+	opacity: 1;
+	text-decoration: line-through;
+}
+
+.channel-item.is-hidden .snappee-name,
+.channel-item.is-hidden .channel-index {
+	color: var(--text-muted);
+	opacity: 0.48;
+}
+
 .snappee-item.is-inactive .snappee-preview {
 	filter: grayscale(1);
 	opacity: 0.48;

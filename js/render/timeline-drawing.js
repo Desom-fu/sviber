@@ -23,6 +23,12 @@ import {
 } from "./timeline-helpers.js";
 import { abLoopMarks } from "./timeline-gestures.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
+import { renderSpectrogramGrid, spectrogramPixels } from "../core/spectrogram.js";
+import {
+	bookmarkOverlayTimes,
+	selectedEventOverlayTimes,
+} from "../core/scrollbar-overlays.js";
+import { eventTime } from "../core/grouping.js";
 
 // Painting of the timeline: the waveform strip, the beat and bar lines, the channel lanes
 // with their events, the tip point connectors, the BPM markers, the playhead and the two
@@ -32,6 +38,10 @@ import { visibleTimelineChannels } from "./timeline-helpers.js";
 export class TimelineDrawingTrait {
 
 	_drawWaveform(context, rectangle, editor) {
+		if (editor?.spectrogram?.show) {
+			this._drawSpectrogram(context, rectangle, editor);
+			return;
+		}
 		context.fillStyle = "#101216";
 		context.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
 		const waveform = this.callbacks.getWaveform?.();
@@ -58,6 +68,26 @@ export class TimelineDrawingTrait {
 		}
 		context.stroke();
 		context.globalAlpha = 1;
+	}
+
+	_drawSpectrogram(context, rectangle, editor) {
+		context.fillStyle = "#101216";
+		context.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+		const waveform = this.callbacks.getWaveform?.();
+		if (!waveform?.channels?.length || typeof ImageData !== "function") {
+			return;
+		}
+		const grid = renderSpectrogramGrid({
+			channels: waveform.channels,
+			sampleRate: waveform.sampleRate,
+			timeStart: editor.visibleRangeBeginning,
+			timeEnd: editor.visibleRangeEnd,
+			width: Math.max(1, Math.floor(rectangle.width)),
+			height: Math.max(1, Math.floor(rectangle.height)),
+			settings: editor.spectrogram,
+		});
+		const image = new ImageData(spectrogramPixels(grid), grid.width, grid.height);
+		context.putImageData(image, rectangle.x, rectangle.y);
 	}
 
 	_loopSeconds(editor) {
@@ -646,6 +676,34 @@ export class TimelineDrawingTrait {
 		}
 	}
 
+	_drawSelectedEventScrollbarLines(context, rectangle, project, bounds) {
+		const toSeconds = event => this.timing.beatToSeconds(eventTime(event));
+		const marks = selectedEventOverlayTimes(flattenEvents(project.events || [], true), toSeconds);
+		for (const mark of marks) {
+			const x = this._scrollX(mark.time, rectangle, bounds);
+			context.strokeStyle = mark.color;
+			context.lineWidth = 2;
+			context.beginPath();
+			context.moveTo(x, rectangle.y + 1);
+			context.lineTo(x, rectangle.y + rectangle.height - 1);
+			context.stroke();
+		}
+	}
+
+	_drawBookmarkScrollbarLines(context, rectangle, project, bounds) {
+		const toSeconds = item => this.timing.beatToSeconds(item.time);
+		const marks = bookmarkOverlayTimes(project.editor?.bookmarks, toSeconds);
+		for (const mark of marks) {
+			const x = this._scrollX(mark.time, rectangle, bounds);
+			context.strokeStyle = mark.color;
+			context.lineWidth = 2;
+			context.beginPath();
+			context.moveTo(x, rectangle.y + 1);
+			context.lineTo(x, rectangle.y + rectangle.height - 1);
+			context.stroke();
+		}
+	}
+
 	_scrollbarHeatmapRecords(project) {
 		return scrollbarRecordsForProject(
 			this.renderIndex?.eventRecords ||
@@ -671,6 +729,20 @@ export class TimelineDrawingTrait {
 			context.fillRect(rectangle.x + index * binWidth, rectangle.y, binWidth + 1, rectangle.height);
 		});
 		this._drawSnappeeScrollbarMarks?.(context, rectangle, project, bounds);
+		this._drawSelectedEventScrollbarLines(context, rectangle, project, bounds);
+		context.strokeStyle = "#56db79";
+		context.lineWidth = 3;
+		context.beginPath();
+		context.moveTo(beginningX, rectangle.y + rectangle.height / 2);
+		context.lineTo(endingX, rectangle.y + rectangle.height / 2);
+		context.stroke();
+		for (const x of [beginningX, endingX]) {
+			context.lineWidth = 2;
+			context.beginPath();
+			context.moveTo(x, rectangle.y + 3);
+			context.lineTo(x, rectangle.y + rectangle.height - 3);
+			context.stroke();
+		}
 		const loopMarks = this._loopSeconds(project.editor);
 		if (loopMarks.length === 2) {
 			const loopBeginningX = this._scrollX(loopMarks[0], rectangle, bounds);
@@ -687,19 +759,7 @@ export class TimelineDrawingTrait {
 			context.lineTo(x, rectangle.y + rectangle.height - 1);
 			context.stroke();
 		}
-		context.strokeStyle = "#56db79";
-		context.lineWidth = 3;
-		context.beginPath();
-		context.moveTo(beginningX, rectangle.y + rectangle.height / 2);
-		context.lineTo(endingX, rectangle.y + rectangle.height / 2);
-		context.stroke();
-		for (const x of [beginningX, endingX]) {
-			context.lineWidth = 2;
-			context.beginPath();
-			context.moveTo(x, rectangle.y + 3);
-			context.lineTo(x, rectangle.y + rectangle.height - 3);
-			context.stroke();
-		}
+		this._drawBookmarkScrollbarLines(context, rectangle, project, bounds);
 		context.strokeStyle = "#ffe331";
 		context.lineWidth = 2;
 		context.beginPath();

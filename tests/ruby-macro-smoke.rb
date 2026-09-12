@@ -64,7 +64,7 @@ raise "Clip.get accepted a negative index" unless Clip.get(-1).nil?
 
 direct_child = Tap.new(location: Location.new(1, 1), channel: channel, text: "direct child")
 direct_group = Group.new(events: [direct_child])
-raise "Group.new left its child at top level" if channel.events.any? { |event| event.have_text? && event.text == "direct child" }
+raise "Group.new left its child at top level" if channel.events.any? { |event| event.textable? && event.text == "direct child" }
 raise "Group.new lost its child" unless direct_group.events.first.text == "direct child"
 
 begin

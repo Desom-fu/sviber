@@ -1,6 +1,6 @@
 {
   "name": "sviber",
-  "version": "0.16.37",
+  "version": "0.17.0",
   "private": true,
   "type": "module",
   "description": "Desktop-style chart editor for Sunniesnow",
@@ -17,6 +17,9 @@
   },
   "main": "index.html",
   "node-main": "js/cli/cli-main.js",
+  "bin": {
+    "sviber-mcp": "js/mcp/mcp-main.mjs"
+  },
   "sviber-source": true,
   "single-instance": false,
   "window": {

@@ -13,6 +13,14 @@ import {
 	removeRenderWorkDirectory,
 	replacePathExtension,
 } from "./render-output.js";
+import { uniqueChartFilename } from "../core/project.js";
+import {
+	avatarFieldHidden,
+	defaultRenderOutputPath,
+	loadRenderDefaults,
+	renderNicknameDefault,
+	saveRenderDefaults,
+} from "../core/render-defaults.js";
 
 class RenderTrait {
 	canRenderVideo() {
@@ -49,19 +57,24 @@ async function showRenderDialog(app, kind) {
 		return false;
 	}
 	const charter = String(app.model.metadata.charter || "").trim();
+	const lastRender = loadRenderDefaults();
 	const bundledFfmpeg = app.files.bundledFfmpegPath();
-	const suggested = `${app.model.metadata.title || "chart"}-${isVideo ? "video.mkv" : "cover.png"}`;
+	const chartFileName = app.files.chartFilename || uniqueChartFilename(app.model.metadata.difficultyName);
+	const suggested = defaultRenderOutputPath({
+		projectFolder: app.files.projectPath,
+		chartFileName,
+	}) || `${app.model.metadata.title || "chart"}-${isVideo ? "video.mkv" : "cover.png"}`;
 	let values;
 	try {
 		values = await app.dialogs.form({
 			titleKey: isVideo ? "command.file.renderVideo" : "command.file.renderCover",
 			values: {
-				output: "",
-				nickname: charter,
-				avatar: "online",
-				avatarOnline: "default.svg",
-				avatarUpload: "",
-				avatarGravatar: "",
+				output: app.files.projectPath ? suggested : "",
+				nickname: renderNicknameDefault(lastRender, charter),
+				avatar: lastRender.avatar || "online",
+				avatarOnline: lastRender.avatarOnline ?? "default.svg",
+				avatarUpload: lastRender.avatarUpload ?? "",
+				avatarGravatar: lastRender.avatarGravatar ?? "",
 				useBundledFfmpeg: true,
 				speed: "2",
 				width: "1920",
@@ -83,6 +96,13 @@ async function showRenderDialog(app, kind) {
 	if (!outputPath) {
 		return false;
 	}
+	saveRenderDefaults({
+		nickname: values.nickname,
+		avatar: values.avatar,
+		avatarOnline: values.avatarOnline,
+		avatarUpload: values.avatarUpload,
+		avatarGravatar: values.avatarGravatar,
+	});
 	const coverTheme = kind === "cover" ? values.coverTheme : null;
 	const recordOptions = buildRenderRecordOptions(
 		kind,
@@ -393,13 +413,13 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 			id: "avatarOnline",
 			type: "text",
 			labelKey: "field.renderAvatarOnline",
-			disabled: values => values.avatar !== "online",
+			hidden: values => avatarFieldHidden("online", values.avatar),
 		},
 		{
 			id: "avatarUpload",
 			type: "custom",
 			labelKey: "field.renderAvatarUpload",
-			disabled: values => values.avatar !== "upload",
+			hidden: values => avatarFieldHidden("upload", values.avatar),
 			// Same browse-row interaction as the output field, but opens an "open file"
 			// dialog since the uploaded avatar is an existing image on disk.
 			render: ({ document: documentRef, value, onChange }) => pathPickerRow({
@@ -414,7 +434,7 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 			id: "avatarGravatar",
 			type: "text",
 			labelKey: "field.renderAvatarGravatar",
-			disabled: values => values.avatar !== "gravatar",
+			hidden: values => avatarFieldHidden("gravatar", values.avatar),
 		},
 	];
 	// Cover renders skip the video-only controls (FFmpeg bundling, speed, fps, results
