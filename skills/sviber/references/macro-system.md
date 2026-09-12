@@ -10,7 +10,7 @@ Sources: `js/macro/macro-api.js`, `macro-api-*.js`, `macro-sandbox.js`, `macro-a
 - Any raise / invalid data → error in the macro console (or MCP `stderr`) and **nothing is applied**.
 - The sandbox has **no filesystem access**. Undocumented sandbox internals are not user-facing.
 - JS runs as an `AsyncFunction` with API globals injected as parameters. `console.log/info/warn/error` are forwarded.
-- Ruby runs in ruby.wasm inside the editor sandbox (needs `rubygems` + `base64`). MCP cannot run Ruby.
+- Ruby runs in ruby.wasm (editor iframe sandbox for F8; MCP uses the Node `@ruby/wasm-wasi` runner with the same `macro-api.rb`).
 
 ## Naming
 
@@ -151,4 +151,4 @@ Place and edit every supported event type; create/reorder/delete channels and sn
 
 ## What macros cannot do
 
-Open/save files, import/export, change editor preferences, play audio, render video or covers, talk to the network, touch the OS, access the filesystem, mutate `Chart.metadata`, run Ruby via MCP, or call undocumented sandbox internals as a stable API.
+Open/save files, import/export, change editor preferences, play audio, render video or covers, talk to the network, touch the OS, access the filesystem, mutate `Chart.metadata`, or call undocumented sandbox internals as a stable API.

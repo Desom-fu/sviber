@@ -121,7 +121,7 @@ Chart.selectedEvents.map(e => ({
 }))
 ```
 
-## Ruby equivalent (in-editor only — not MCP)
+## Ruby equivalent (also valid over MCP with `language: "ruby"`)
 
 ```ruby
 main = c("Main")
@@ -139,6 +139,12 @@ transform(copies) { translate(10, 0).rotate(:right) }
 puts "created #{copies.length} copy"
 ```
 
+MCP example:
+
+```json
+{"name":"run_snippet","arguments":{"instance":"12345","language":"ruby","code":"puts Chart.metadata.title"}}
+```
+
 ## Typical agent loop
 
 1. `list_instances`
@@ -151,7 +157,6 @@ puts "created #{copies.length} copy"
 
 ## Anti-patterns
 
-- Passing `language: "ruby"` to MCP run tools.
 - Using `Float` beats in Ruby (`1.5` invalid; use `Rational(3, 2)`).
 - Calling methods on deleted wrappers.
 - Assuming `Channel.get(0)` — channels are **1-based**; snappees are **0-based**.

@@ -161,12 +161,12 @@ async function runAndApply(app, code, language, expression) {
 		throw new Error("The chart is read-only.");
 	}
 	const lang = language === "ruby" ? "ruby" : "javascript";
-	if (lang === "ruby") {
-		throw new Error("Ruby MCP runs require a live editor sandbox");
-	}
 	const before = app.model.snapshot();
 	let result;
-	if (expression) {
+	if (lang === "ruby") {
+		const { runRubyExpression, runRubySnippet } = await import("./mcp-macro-ruby-run.js");
+		result = expression ? await runRubyExpression(before, code) : await runRubySnippet(before, code);
+	} else if (expression) {
 		result = await runJavaScriptExpression(before, code);
 	} else {
 		result = await runJavaScriptSnippet(before, code);

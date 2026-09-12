@@ -22,7 +22,7 @@ This file is the hard capability boundary. If a request is outside **Can**, do n
 
 - Discover instances and open document path.
 - List/read/create/rename/edit macros (global or project).
-- Run **JavaScript** macros, snippets, and expressions against the live editor.
+- Run **JavaScript and Ruby** macros, snippets, and expressions against the live editor.
 - Undo the last MCP-initiated modifying run.
 - Extract a music snippet between two beat times (base64 or file path).
 
@@ -39,11 +39,9 @@ This file is the hard capability boundary. If a request is outside **Can**, do n
 - Keep using a wrapper after its entity is deleted (raises).
 - Use `haveDuration` / `haveText` (do not exist).
 - Use Float beats in Ruby.
-- Run Ruby through MCP.
 
 ## Cannot (MCP-specific)
 
-- Execute Ruby macros/snippets/expressions (`Ruby MCP runs require a live editor sandbox`).
 - Edit while the chart is `readOnly`.
 - Undo more than the single last MCP modifying run via `undo_last_run`.
 - Customize the socket path (`~/.sviber/${pid}.sock` only).
@@ -65,7 +63,7 @@ This file is the hard capability boundary. If a request is outside **Can**, do n
 | Macro raises | Bad API use, deleted wrapper, invalid types | Fix code; nothing was applied. |
 | Invalid chart data rejected | Apply-time validation failed | Nothing applied; inspect fields. |
 | `The chart is read-only.` | Editor read-only | User must unlock. |
-| `Ruby MCP runs require a live editor sandbox` | MCP + Ruby | Rewrite in JS for MCP, or run in editor. |
+| `ruby.wasm binary is unavailable.` | Missing wasm/runtime | Reinstall deps or check `@ruby/4.0-wasm-wasi`. |
 | `no MCP-initiated modifying run to undo` | Flag cleared or no modify | Re-run a modifying snippet if needed. |
 | `macro not found` | Wrong name/id/filename | `list_macros` again. |
 | `project macros are unavailable` | No NW.js project | Use `scope: global`. |
@@ -75,7 +73,6 @@ This file is the hard capability boundary. If a request is outside **Can**, do n
 ## Agent policy
 
 1. Never claim a macro can save files, export, render, or hit the network.
-2. Never emit Ruby for `run_snippet` / `run_expression` / MCP `run_macro`.
-3. Prefer small reversible snippets; use `undo_last_run` promptly on mistakes.
-4. When the user wants file/export/render/prefs work, say macros cannot do it and point them to the editor UI (or stop at chart-state edits).
+2. Prefer small reversible snippets; use `undo_last_run` promptly on mistakes.
+3. When the user wants file/export/render/prefs work, say macros cannot do it and point them to the editor UI (or stop at chart-state edits).
 5. When positions look out of bounds, they may still be applied unless validation rejects them — do not assume silent clamping.

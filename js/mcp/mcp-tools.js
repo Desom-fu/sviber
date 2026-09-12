@@ -49,6 +49,7 @@ export function mcpToolDefinitions() {
 			name: { type: "string" },
 			code: { type: "string" },
 			scope: { type: "string", enum: ["global", "project"] },
+			language: { type: "string", enum: ["javascript", "ruby"] },
 		}, ["instance", "name", "code"]),
 		tool("rename_macro", "Rename a macro.", {
 			...instanceProperty,

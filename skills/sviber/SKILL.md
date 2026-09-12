@@ -5,7 +5,7 @@ description: Use sviber-mcp and the sviber macro system to assist Sunniesnow cha
 
 # sviber skill
 
-Talk to a running **sviber** chart editor through the `sviber-mcp` MCP server, then drive chart edits with the sandboxed JavaScript (or in-editor Ruby) macro API.
+Talk to a running **sviber** chart editor through the `sviber-mcp` MCP server, then drive chart edits with the sandboxed JavaScript or Ruby macro API.
 
 sviber is a browser/NW.js chart editor for [Sunniesnow](https://sunniesnow.github.io/game-unstable).
 
@@ -32,7 +32,7 @@ Covers:
 - Server entry and JSON-RPC surface
 - Socket path `~/.sviber/${pid}.sock` and consent popup
 - The exact 12 tools and their arguments
-- Run pipeline (`readOnly` gate, Ruby rejection, modify detection, undo flag)
+- Run pipeline (`readOnly` gate, JS/Ruby execution, modify detection, undo flag)
 - Practical agent loop and real error strings
 
 ### references/macro-system.md
@@ -75,7 +75,7 @@ Covers:
 - What only MCP can do
 - Hard cannot-do lists (sandbox, MCP, product limits)
 - Failure modes and recovery table
-- Agent policy (never fake Ruby MCP runs, never invent tools)
+- Agent policy (never invent tools)
 
 ### references/examples.md
 
@@ -86,7 +86,7 @@ Covers:
 - Probe expressions
 - Placement, hold sequences, groups, copy/transform
 - Tip-point switches, flick angles
-- Full in-editor Ruby example (not MCP-runnable)
+- Full Ruby example (also MCP-runnable)
 - Typical agent loop and anti-patterns
 
 ### references/terms.md
@@ -118,12 +118,11 @@ Covers:
 1. `list_instances` → `get_open` → `list_macros`.
 2. Prefer **read-only** probes first: `run_expression` for counts/selection.
 3. Use `run_snippet` only when mutating.
-4. Prefer **JavaScript** for MCP-run macros/snippets.
-5. Ruby macros can be stored/edited, but MCP run tools **reject Ruby** (`Ruby MCP runs require a live editor sandbox`).
-6. In-editor F8 still runs Ruby; tell the user that path if they need Ruby execution.
-7. Mutate with small snippets; check `stdout`, `stderr`, and `modified`.
-8. If a modifying run went wrong and `modified` was true, call `undo_last_run`.
-9. For audio alignment, use `get_music_snippet` (base64 or local path when large).
+4. Prefer **JavaScript** for simple MCP probes. **Ruby is also supported** over MCP (`run_macro` / `run_snippet` / `run_expression` accept `language: "ruby"`); it runs through the same `@ruby/wasm-wasi` + `macro-api.rb` surface as the editor sandbox. First Ruby run may take ~1s while wasm boots.
+5. In-editor F8 still runs Ruby in the iframe sandbox.
+6. Mutate with small snippets; check `stdout`, `stderr`, and `modified`.
+7. If a modifying run went wrong and `modified` was true, call `undo_last_run`.
+8. For audio alignment, use `get_music_snippet` (base64 or local path when large).
 
 ## Hard rules
 
@@ -164,7 +163,6 @@ Covers:
 - Render/export UI
 - Network
 - OS access
-- Live Ruby via MCP
 - Raw chart object access
 - Anything outside sandboxed chart state
 
@@ -197,7 +195,7 @@ Start with:
 ## Checklist before you finish a charting task
 
 1. Instance and open document confirmed.
-2. Mutations used JS (not Ruby) over MCP.
+2. Mutations used a supported language (JS or Ruby) over MCP.
 3. Each mutation was small and logged.
 4. Mistakes were undone with `undo_last_run` when applicable.
 5. No claim was made about file I/O, render, prefs, or network from macros.

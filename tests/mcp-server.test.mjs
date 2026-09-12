@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 
 import { ChartModel } from "../js/core/chart-model.js";
 import { MCP_CONSENT_WARNING } from "../js/mcp/mcp-consent.js";
@@ -10,7 +12,7 @@ import { MCP_TOOL_NAMES, callMcpTool, mcpToolsListResult } from "../js/mcp/mcp-t
 import { getOpenDocument, handleEditorMcpTool } from "../js/mcp/mcp-editor-handlers.js";
 import { encodeWavPcm16 } from "../js/mcp/mcp-audio-snippet.js";
 
-const TOOL_LOG = "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\grok-goal-430012d88547\\implementer\\mcp-tools.json";
+const TOOL_LOG = path.join(os.tmpdir(), "sviber-mcp-tools.json");
 const INSTANCE_TOOLS = MCP_TOOL_NAMES.filter(name => name !== "list_instances");
 
 function createEditorApp(options = {}) {
@@ -84,10 +86,10 @@ test("MCP JSON-RPC initialize then tools/list exposes the v26 tools", async () =
 	const init = await dispatchMcpLine(
 		JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: {} }),
 		backend,
-		"0.17.0",
+		"0.17.1",
 	);
 	assert.equal(init.result.serverInfo.name, "sviber-mcp");
-	assert.equal(init.result.serverInfo.version, "0.17.0");
+	assert.equal(init.result.serverInfo.version, "0.17.1");
 	const listed = await dispatchMcpLine(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }), backend);
 	const names = listed.result.tools.map(tool => tool.name);
 	for (const name of MCP_TOOL_NAMES) {
@@ -103,6 +105,7 @@ test("MCP JSON-RPC initialize then tools/list exposes the v26 tools", async () =
 		backend,
 	);
 	assert.match(called.result.content[0].text, /instances/);
+	await mkdir(path.dirname(TOOL_LOG), { recursive: true });
 	await writeFile(TOOL_LOG, JSON.stringify(mcpToolsListResult(), null, "\t"));
 });
 
@@ -200,10 +203,19 @@ test("handleEditorMcpTool run_macro and run_expression use the shipped macro API
 	const expression = await handleEditorMcpTool("run_expression", { code: "1+2" }, app);
 	assert.equal(expression.value, 3);
 	assert.equal(expression.modified, false);
-	await assert.rejects(
-		() => handleEditorMcpTool("run_snippet", { code: "puts 1", language: "ruby" }, app),
-		/live editor sandbox/,
-	);
+	const ruby = await handleEditorMcpTool("run_snippet", {
+		code: 't(l(1, 2), "from-ruby")\nputs "ruby-ok"',
+		language: "ruby",
+	}, app);
+	assert.equal(ruby.modified, true);
+	assert.match(ruby.stdout, /ruby-ok/);
+	assert.equal(app.model.events.at(-1).text, "from-ruby");
+	const rubyExpr = await handleEditorMcpTool("run_expression", {
+		code: "1 + 2",
+		language: "ruby",
+	}, app);
+	assert.equal(rubyExpr.value, 3);
+	assert.equal(rubyExpr.modified, false);
 });
 
 test("handleEditorMcpTool get_music_snippet writes a local path when the WAV exceeds 256KB", async () => {
