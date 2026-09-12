@@ -97,11 +97,12 @@ jobs:
         shell: bash
         run: |
           NW_VERSION=$(node -p "require('./node_modules/nw/package.json').version")
-          cd build/nw
+          APP_DIR=$(node --input-type=module -e "import { packagedNativeRebuildDirectory } from './scripts/nw-runtime-natives.mjs'; process.stdout.write(packagedNativeRebuildDirectory('build/nw'))")
+          cd "$APP_DIR"
           npm_config_runtime=node-webkit \
             npm_config_target="$NW_VERSION" \
             npm_config_disturl=https://dl.nwjs.io \
-            npm rebuild gl canvas --update-binary --foreground-scripts
+            npm rebuild gl --update-binary --foreground-scripts
       - name: Archive Windows app as ZIP
         if: startsWith(matrix.osName, 'windows')
         shell: pwsh
