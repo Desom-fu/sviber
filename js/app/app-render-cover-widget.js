@@ -10,8 +10,34 @@ import { i18n } from "../ui/i18n.js";
 const DIAMOND_HALF_WIDTH = 0.5;
 const FRAME_COLOR = 0xfbfbff;
 
+export function isDisplayableImageUrl(value) {
+	return /^(blob:|data:|https?:|file:)/i.test(String(value || ""));
+}
+
+// The stage keeps the decoded background on `app.backgroundUrl` (a blob: URL). The chart
+// only stores a filename like "cover.png", which PIXI cannot fetch — that is why the
+// diamond used to sit on a black canvas. Prefer the live blob, then a File, then a URL.
+export function resolveCoverThemeImageSource(app) {
+	if (isDisplayableImageUrl(app?.backgroundUrl)) {
+		return { url: app.backgroundUrl, revoke: false };
+	}
+	if (isDisplayableImageUrl(app?.files?.backgroundUrl)) {
+		return { url: app.files.backgroundUrl, revoke: false };
+	}
+	const file = app?.files?.imageFile;
+	if (file && typeof URL.createObjectURL === "function") {
+		return { url: URL.createObjectURL(file), revoke: true };
+	}
+	if (isDisplayableImageUrl(app?.model?.image)) {
+		return { url: app.model.image, revoke: false };
+	}
+	return { url: null, revoke: false };
+}
+
 export function createCoverThemeWidget({
 	imageUrl,
+	imageSource,
+	app,
 	documentRef = globalThis.document,
 	width = 480,
 	height = 270,
@@ -30,6 +56,10 @@ export function createCoverThemeWidget({
 
 	const state = { x: 0, y: 0, width: 1 };
 	const theme = { pixi: null, app: null, overlay: null, texture: null };
+	const source = imageSource || resolveCoverThemeImageSource(app);
+	if (!source.url && isDisplayableImageUrl(imageUrl)) {
+		source.url = imageUrl;
+	}
 
 	function layout() {
 		const { app } = theme;
@@ -66,9 +96,7 @@ export function createCoverThemeWidget({
 		fallback.remove();
 		canvasHost.append(canvas);
 		layout();
-		if (imageUrl) {
-			loadCoverThemeImage(theme.app, pixi, imageUrl, layout, theme);
-		}
+		await loadCoverThemeImage(theme, source, app, pixi, layout);
 		attachCoverThemeDragHandlers(theme.app, state, layout);
 	})().catch(() => {
 		// Keep the CSS diamond fallback so the field is never an empty label.
@@ -78,7 +106,13 @@ export function createCoverThemeWidget({
 		element,
 		ready,
 		hint,
-		destroy: () => theme.app?.destroy(true, { children: true, texture: false }),
+		destroy: () => {
+			theme.app?.destroy(true, { children: true, texture: false });
+			if (source.revoke && source.url) {
+				URL.revokeObjectURL(source.url);
+				source.revoke = false;
+			}
+		},
 		read: () => coverThemeSelection(theme.app, theme.texture, state),
 	};
 }
@@ -129,21 +163,69 @@ async function createCoverThemeApplication(pixi, width, height) {
 	return new pixi.Application({ width, height, background: 0x15181b, antialias: true });
 }
 
-function loadCoverThemeImage(app, pixi, imageUrl, layout, theme) {
-	pixi.Assets.load(imageUrl)
-		.then(texture => {
-			theme.texture = texture;
-			const sprite = new pixi.Sprite(texture);
-			const scale = Math.min(app.screen.width / texture.width, app.screen.height / texture.height);
-			sprite.scale.set(scale);
-			sprite.position.set(
-				(app.screen.width - texture.width * scale) / 2,
-				(app.screen.height - texture.height * scale) / 2,
-			);
-			app.stage.addChildAt(sprite, 0);
-			layout();
-		})
-		.catch(() => layout());
+export function coverThemeSpriteLayout(screen, texture) {
+	const width = Number(texture.width) || Number(texture.orig?.width) || 1;
+	const height = Number(texture.height) || Number(texture.orig?.height) || 1;
+	const scale = Math.min(screen.width / width, screen.height / height);
+	return {
+		scale,
+		x: (screen.width - width * scale) / 2,
+		y: (screen.height - height * scale) / 2,
+	};
+}
+
+async function loadCoverThemeImage(theme, source, app, pixi, layout) {
+	let url = source.url;
+	if (!url && app?.files?.fileForAsset && app.model?.image) {
+		try {
+			const file = await app.files.fileForAsset(app.model.image, "image");
+			if (file && typeof URL.createObjectURL === "function") {
+				url = URL.createObjectURL(file);
+				source.url = url;
+				source.revoke = true;
+			}
+		} catch {
+			url = null;
+		}
+	}
+	if (!url) {
+		return;
+	}
+	try {
+		const texture = await textureFromImageUrl(pixi, url);
+		theme.texture = texture;
+		const sprite = new pixi.Sprite(texture);
+		const placed = coverThemeSpriteLayout(theme.app.screen, texture);
+		sprite.scale.set(placed.scale);
+		sprite.position.set(placed.x, placed.y);
+		theme.app.stage.addChildAt(sprite, 0);
+	} catch (error) {
+		console.warn("Unable to load the cover theme image", error);
+	}
+	layout();
+}
+
+async function textureFromImageUrl(pixi, imageUrl) {
+	const image = await decodeCoverThemeHtmlImage(imageUrl);
+	if (typeof pixi.Texture?.from === "function") {
+		const texture = pixi.Texture.from(image);
+		if (texture) {
+			return texture;
+		}
+	}
+	if (pixi.Assets?.load) {
+		return pixi.Assets.load(imageUrl);
+	}
+	throw new Error("Unable to create a PIXI texture.");
+}
+
+function decodeCoverThemeHtmlImage(imageUrl) {
+	return new Promise((resolve, reject) => {
+		const image = new Image();
+		image.onload = () => resolve(image);
+		image.onerror = () => reject(new Error("Unable to decode the cover theme image."));
+		image.src = imageUrl;
+	});
 }
 
 function attachCoverThemeDragHandlers(app, state, layout) {

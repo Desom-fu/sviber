@@ -5,7 +5,7 @@ import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { localizedErrorMessage } from "./app-helpers.js";
 import { pickNwOpenPath, pickNwSavePath } from "../platform/platform-host.js";
-import { createCoverThemeWidget } from "./app-render-cover-widget.js";
+import { createCoverThemeWidget, resolveCoverThemeImageSource } from "./app-render-cover-widget.js";
 import { defaultVideoFfmpegOutputOptions } from "./render-encoder.js";
 import {
 	VIDEO_OUTPUT_EXTENSIONS,
@@ -400,7 +400,8 @@ function coverThemeField(app) {
 		stacked: true,
 		render: ({ document: documentRef }) => {
 			const widget = createCoverThemeWidget({
-				imageUrl: app.model.image ? app.files.backgroundUrl || app.model.image : null,
+				imageSource: resolveCoverThemeImageSource(app),
+				app,
 				documentRef,
 			});
 			app.renderCoverThemeWidget = widget;

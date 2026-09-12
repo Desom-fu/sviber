@@ -10,7 +10,10 @@ import {
 import {
 	coverThemeDiamond,
 	coverThemeSelection,
+	coverThemeSpriteLayout,
+	isDisplayableImageUrl,
 	paintCoverThemeOverlay,
+	resolveCoverThemeImageSource,
 } from "../js/app/app-render-cover-widget.js";
 
 test("video output suffixes rewrite the save path in place", () => {
@@ -71,4 +74,40 @@ test("cover theme diamond matches the game's rounded 4-gon", () => {
 		coverThemeSelection(null, { width: 100, height: 100 }, { x: 0, y: 0, width: 1 }),
 		{ x: null, y: null, width: null },
 	);
+});
+
+test("cover theme image uses the stage blob URL instead of the chart filename", () => {
+	assert.equal(isDisplayableImageUrl("cover.png"), false);
+	assert.equal(isDisplayableImageUrl("blob:nodedata:abc"), true);
+	assert.deepEqual(
+		resolveCoverThemeImageSource({
+			backgroundUrl: "blob:stage",
+			files: { backgroundUrl: "blob:files" },
+			model: { image: "cover.png" },
+		}),
+		{ url: "blob:stage", revoke: false },
+	);
+	assert.deepEqual(
+		resolveCoverThemeImageSource({
+			files: { backgroundUrl: "blob:files" },
+			model: { image: "cover.png" },
+		}),
+		{ url: "blob:files", revoke: false },
+	);
+	assert.equal(
+		resolveCoverThemeImageSource({ model: { image: "cover.png" }, files: {} }).url,
+		null,
+		"a bare filename is not a displayable image URL",
+	);
+	const file = new File(["x"], "cover.png", { type: "image/png" });
+	const fromFile = resolveCoverThemeImageSource({
+		files: { imageFile: file },
+		model: { image: "cover.png" },
+	});
+	assert.match(fromFile.url, /^blob:/);
+	assert.equal(fromFile.revoke, true);
+	URL.revokeObjectURL(fromFile.url);
+	const placed = coverThemeSpriteLayout({ width: 480, height: 270 }, { width: 1920, height: 1080 });
+	assert.equal(placed.scale, 270 / 1080);
+	assert.equal(placed.x, (480 - 1920 * placed.scale) / 2);
 });
