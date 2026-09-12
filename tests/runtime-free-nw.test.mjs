@@ -46,10 +46,8 @@ test("build script and Nix/CI encode the dual-Node split and runtime-free exclus
 	assert.match(build, /PACKAGE_ONLY/);
 	assert.match(build, /writeMcpLauncher/);
 	assert.match(workflow, /npm_config_runtime=node-webkit/);
-	assert.match(workflow, /NWJS_HEADERS_DISTURL/);
-	assert.match(workflow, /nwjsHeadersTarball/);
-	assert.match(workflow, /npm_config_disturl="\$DISTURL"/);
-	assert.match(workflow, /npm_config_tarball="\$TARBALL"/);
+	assert.match(workflow, new RegExp(`npm_config_disturl=${NWJS_HEADERS_DISTURL.replaceAll(".", "\\.")}`));
+	assert.doesNotMatch(workflow, /npm_config_tarball/);
 	assert.doesNotMatch(workflow, /npmmirror\.com\/mirrors\/nwjs/);
 	assert.match(nix, /SVIBER_NW_PACKAGE_ONLY/);
 	assert.match(nix, /Host-Node native rebuilds/);

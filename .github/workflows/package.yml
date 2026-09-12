@@ -97,13 +97,10 @@ jobs:
         shell: bash
         run: |
           NW_VERSION=$(node -p "require('./node_modules/nw/package.json').version")
-          DISTURL=$(node --input-type=module -e "import { NWJS_HEADERS_DISTURL } from './scripts/nw-runtime-natives.mjs'; process.stdout.write(NWJS_HEADERS_DISTURL)")
-          TARBALL=$(node --input-type=module -e "import { nwjsHeadersTarball } from './scripts/nw-runtime-natives.mjs'; process.stdout.write(nwjsHeadersTarball(process.argv[1]))" "$NW_VERSION")
           cd build/nw
           npm_config_runtime=node-webkit \
             npm_config_target="$NW_VERSION" \
-            npm_config_disturl="$DISTURL" \
-            npm_config_tarball="$TARBALL" \
+            npm_config_disturl=https://dl.nwjs.io \
             npm rebuild gl canvas --update-binary --foreground-scripts
       - name: Archive Windows app as ZIP
         if: startsWith(matrix.osName, 'windows')
