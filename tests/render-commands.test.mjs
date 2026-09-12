@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+	abortRenderSessions,
+	bindRenderProcessGuard,
 	buildRenderRecordOptions,
+	connectRenderSessionAbort,
 	parseRenderWorkerEvent,
 	renderErrorDetails,
 	renderProgressState,
@@ -180,4 +183,45 @@ test("render worker protocol lines parse into events", () => {
 	assert.equal(parseRenderWorkerEvent(""), null);
 	assert.equal(parseRenderWorkerEvent("   "), null);
 	assert.equal(parseRenderWorkerEvent("not json"), null);
+});
+
+test("stop before the worker starts is honored when abort is connected", () => {
+	const session = { canceled: true, abort: null };
+	let killed = 0;
+	connectRenderSessionAbort(session, () => {
+		killed += 1;
+	});
+	assert.equal(killed, 1);
+});
+
+test("stop after the worker is connected kills immediately", () => {
+	const session = { canceled: false, abort: null };
+	let killed = 0;
+	connectRenderSessionAbort(session, () => {
+		killed += 1;
+	});
+	session.abort();
+	assert.equal(session.canceled, true);
+	assert.equal(killed, 1);
+});
+
+test("abortRenderSessions stops every live video and cover job", () => {
+	const sessions = new Map([
+		["video", { canceled: false, abort() { this.killed = true; } }],
+		["cover", { canceled: false, abort() { this.killed = true; } }],
+	]);
+	abortRenderSessions(sessions);
+	assert.equal(sessions.get("video").canceled, true);
+	assert.equal(sessions.get("video").killed, true);
+	assert.equal(sessions.get("cover").killed, true);
+});
+
+test("bindRenderProcessGuard listens for pagehide and unload", () => {
+	const types = [];
+	bindRenderProcessGuard({
+		addEventListener(type) {
+			types.push(type);
+		},
+	});
+	assert.deepEqual(types.sort(), ["pagehide", "unload"]);
 });

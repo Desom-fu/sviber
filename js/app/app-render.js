@@ -51,25 +51,31 @@ async function showRenderDialog(app, kind) {
 	const charter = String(app.model.metadata.charter || "").trim();
 	const bundledFfmpeg = app.files.bundledFfmpegPath();
 	const suggested = `${app.model.metadata.title || "chart"}-${isVideo ? "video.mkv" : "cover.png"}`;
-	const values = await app.dialogs.form({
-		titleKey: isVideo ? "command.file.renderVideo" : "command.file.renderCover",
-		values: {
-			output: "",
-			nickname: charter,
-			avatar: "online",
-			avatarOnline: "default.svg",
-			avatarUpload: "",
-			avatarGravatar: "",
-			useBundledFfmpeg: true,
-			speed: "2",
-			width: "1920",
-			height: "1080",
-			fps: "60",
-			resultsDuration: "1",
-			waitForMusic: true,
-		},
-		fields: formFields(app, kind, bundledFfmpeg, suggested),
-	});
+	let values;
+	try {
+		values = await app.dialogs.form({
+			titleKey: isVideo ? "command.file.renderVideo" : "command.file.renderCover",
+			values: {
+				output: "",
+				nickname: charter,
+				avatar: "online",
+				avatarOnline: "default.svg",
+				avatarUpload: "",
+				avatarGravatar: "",
+				useBundledFfmpeg: true,
+				speed: "2",
+				width: "1920",
+				height: "1080",
+				fps: "60",
+				resultsDuration: "1",
+				waitForMusic: true,
+			},
+			fields: formFields(app, kind, bundledFfmpeg, suggested),
+		});
+	} catch (error) {
+		console.warn("Render dialog failed", error);
+		return false;
+	}
 	if (!values) {
 		return false;
 	}
@@ -77,7 +83,7 @@ async function showRenderDialog(app, kind) {
 	if (!outputPath) {
 		return false;
 	}
-	const coverTheme = kind === "cover" ? app.renderCoverThemeWidget?.read() : null;
+	const coverTheme = kind === "cover" ? values.coverTheme : null;
 	const recordOptions = buildRenderRecordOptions(
 		kind,
 		values.output,
@@ -129,6 +135,7 @@ function paintRenderSession(session) {
 // final status (v0.16.14 issues #1 and #3 — the status line always resolves instead of
 // staying on the last stage text like "combining").
 function startRenderJob(app, session) {
+	bindRenderProcessGuard();
 	return runRenderJob(app, session.kind, session.recordOptions, next => {
 		if (next.logLine && next.logLine !== session.lastLogLine) {
 			session.lastLogLine = next.logLine;
@@ -137,7 +144,7 @@ function startRenderJob(app, session) {
 		}
 		Object.assign(session.state, next);
 		paintRenderSession(session);
-	})
+	}, session)
 		.catch(error => {
 			session.lastError = error;
 			if (!session.canceled) {
@@ -174,6 +181,44 @@ function startRenderJob(app, session) {
 		});
 }
 
+export function connectRenderSessionAbort(session, kill) {
+	session.abort = (options = {}) => {
+		session.canceled = true;
+		kill(options);
+	};
+	if (session.canceled) {
+		kill({ wait: true });
+	}
+	return session;
+}
+
+export function abortRenderSessions(sessions = renderSessions, options = {}) {
+	for (const session of sessions.values()) {
+		session.canceled = true;
+		try {
+			session.abort?.(options);
+		} catch {
+			/* the worker may already be gone */
+		}
+	}
+}
+
+export function abortAllRenderSessions() {
+	abortRenderSessions(renderSessions, { wait: true });
+}
+
+let renderProcessGuardBound = false;
+
+export function bindRenderProcessGuard(target = globalThis) {
+	if (renderProcessGuardBound) {
+		return;
+	}
+	renderProcessGuardBound = true;
+	const abort = () => abortAllRenderSessions();
+	target.addEventListener?.("pagehide", abort);
+	target.addEventListener?.("unload", abort);
+}
+
 // Opens the progress dialog bound to a session, reattachable at any time. "关闭" never
 // cancels the render — the job keeps running and the dialog can be reopened through the
 // command; the stop button is what terminates the worker (v0.16.14 issue #2).
@@ -206,11 +251,19 @@ async function openRenderProgressDialog(app, session) {
 			{
 				id: "stop",
 				labelKey: "dialog.renderStop",
+				validate: false,
 				onClick: () => {
 					// Flag first so a stop clicked before the worker even spawned is
 					// honored when it spawns (runRenderWorker checks this).
 					session.canceled = true;
 					session.abort?.();
+					if (!session.finished) {
+						session.state = {
+							...session.state,
+							text: i18n.t("status.renderStopping"),
+						};
+						paintRenderSession(session);
+					}
 					// Stay open: the state machine paints the canceled status when the
 					// worker has terminated.
 					return false;
@@ -618,22 +671,20 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 // v0.16.20: on POSIX the worker is spawned detached (its own process group), so the
 // group-wide signal reaches the FFmpeg grandchild too — the programmatic equivalent of
 // the CLI's Ctrl+C, which delivers INT to every process attached to the terminal.
-function killRenderProcess(child) {
+function killRenderProcess(child, { wait = false } = {}) {
 	if (!child?.pid) {
 		return;
 	}
 	if (process.platform === "win32") {
 		const childProcess = nw.require("node:child_process");
-		// Wait for the tree to die. The worker used to process.exit() as soon as it
-		// flushed `{done:true}`, which orphaned FFmpeg/PIXI children before this
-		// taskkill could see them — leftover RAM after a cover render then OOMs the
-		// video encoder. spawnSync keeps the PID alive in the tree until /t /f finishes.
+		const args = ["/pid", String(child.pid), "/t", "/f"];
+		const options = { stdio: "ignore", windowsHide: true };
 		try {
-			childProcess.spawnSync("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], {
-				stdio: "ignore",
-				windowsHide: true,
-				timeout: 15000,
-			});
+			if (wait) {
+				childProcess.spawnSync("taskkill.exe", args, { ...options, timeout: 15000 });
+			} else {
+				childProcess.spawn("taskkill.exe", args, options);
+			}
 		} catch {
 			child.kill();
 		}
@@ -681,14 +732,7 @@ async function runRenderWorker(app, kind, requestPath, onProgress, session = {})
 			stdio: ["ignore", "pipe", "pipe"],
 			env: spawnEnv,
 		});
-		session.abort = () => {
-			session.canceled = true;
-			killRenderProcess(child);
-		};
-		if (session.canceled) {
-			// Stop was clicked before the worker spawned; terminate it right away.
-			killRenderProcess(child);
-		}
+		connectRenderSessionAbort(session, options => killRenderProcess(child, options));
 		let buffer = "";
 		let stderrTail = "";
 		let done = false;

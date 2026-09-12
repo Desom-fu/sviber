@@ -1102,6 +1102,7 @@
   "status.renderCombining": "動画と音声を結合しています...",
   "status.renderFailed": "レンダリングに失敗しました",
   "status.renderSucceeded": "レンダリングが完了しました：{output}",
+  "status.renderStopping": "レンダリングを停止しています...",
   "status.renderCanceled": "レンダリングを停止しました。",
   "dialog.renderStop": "レンダリングを停止",
   "field.renderNew": "新規レンダリング",

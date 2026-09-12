@@ -73,6 +73,7 @@ export function createCoverThemeWidget({
 			theme.overlay.clear();
 		}
 		paintCoverThemeOverlay(theme.overlay, app.screen, coverThemeDiamond(app.screen, state));
+		theme.app.render?.();
 	}
 
 	canvasHost.addEventListener("wheel", event => {
@@ -107,7 +108,7 @@ export function createCoverThemeWidget({
 		ready,
 		hint,
 		destroy: () => {
-			theme.app?.destroy(true, { children: true, texture: false });
+			destroyCoverThemeApp(theme);
 			if (source.revoke && source.url) {
 				URL.revokeObjectURL(source.url);
 				source.revoke = false;
@@ -149,18 +150,44 @@ export function coverThemeSelection(app, texture, state) {
 }
 
 async function createCoverThemeApplication(pixi, width, height) {
+	const options = {
+		width,
+		height,
+		background: 0x15181b,
+		antialias: true,
+		autoStart: false,
+		preference: "canvas",
+	};
 	const app = new pixi.Application();
 	if (typeof app.init === "function") {
-		await app.init({
-			width,
-			height,
-			background: 0x15181b,
-			antialias: true,
-			autoStart: true,
-		});
-		return app;
+		try {
+			await app.init(options);
+			return app;
+		} catch {
+			const fallback = new pixi.Application();
+			await fallback.init({ width, height, background: 0x15181b, antialias: true, autoStart: false });
+			return fallback;
+		}
 	}
-	return new pixi.Application({ width, height, background: 0x15181b, antialias: true });
+	return new pixi.Application(options);
+}
+
+export function destroyCoverThemeApp(theme) {
+	const app = theme?.app;
+	theme.app = null;
+	if (!app) {
+		return;
+	}
+	try {
+		app.ticker?.stop();
+	} catch {
+		/* already stopped */
+	}
+	try {
+		app.destroy(true, { children: true, texture: false });
+	} catch {
+		// PIXI v8 WebGL destroy can throw and take the NW.js window with it.
+	}
 }
 
 export function coverThemeSpriteLayout(screen, texture) {

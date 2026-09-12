@@ -1102,6 +1102,7 @@
   "status.renderCombining": "正在合成影片與音訊...",
   "status.renderFailed": "渲染失敗",
   "status.renderSucceeded": "渲染完成：{output}",
+  "status.renderStopping": "正在停止渲染...",
   "status.renderCanceled": "已停止渲染。",
   "dialog.renderStop": "停止渲染",
   "field.renderNew": "新建渲染",

@@ -11,6 +11,7 @@ import {
 	coverThemeDiamond,
 	coverThemeSelection,
 	coverThemeSpriteLayout,
+	destroyCoverThemeApp,
 	isDisplayableImageUrl,
 	paintCoverThemeOverlay,
 	resolveCoverThemeImageSource,
@@ -110,4 +111,16 @@ test("cover theme image uses the stage blob URL instead of the chart filename", 
 	const placed = coverThemeSpriteLayout({ width: 480, height: 270 }, { width: 1920, height: 1080 });
 	assert.equal(placed.scale, 270 / 1080);
 	assert.equal(placed.x, (480 - 1920 * placed.scale) / 2);
+});
+
+test("destroyCoverThemeApp swallows PIXI destroy failures so the dialog can close", () => {
+	assert.doesNotThrow(() => destroyCoverThemeApp({ app: null }));
+	const theme = {
+		app: {
+			ticker: { stop() { throw new Error("ticker"); } },
+			destroy() { throw new Error("destroy"); },
+		},
+	};
+	assert.doesNotThrow(() => destroyCoverThemeApp(theme));
+	assert.equal(theme.app, null);
 });

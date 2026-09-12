@@ -1102,6 +1102,7 @@
   "status.renderCombining": "Combining video and audio...",
   "status.renderFailed": "Rendering failed",
   "status.renderSucceeded": "Rendering finished: {output}",
+  "status.renderStopping": "Stopping render...",
   "status.renderCanceled": "Rendering stopped.",
   "dialog.renderStop": "Stop rendering",
   "field.renderNew": "New rendering",
