@@ -169,6 +169,7 @@ export class ChartRenderIndex {
 		this.timelineTipGuideIndex = new IntervalIndex(this.allTipGuides);
 		this.tipGuides = this.allTipGuides.filter(guide => this.activeChannelIds.has(guide.events[0]?.channel));
 		this.tipGuideIndex = new IntervalIndex(this.tipGuides);
+		this.timelineTipRevision += 1;
 	}
 
 	// Simultaneous taps: the pairs that get a double line, plus the per beat lookups that

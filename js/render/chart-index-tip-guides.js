@@ -19,6 +19,12 @@ import { hasTipPointSwitches } from "../core/tip-point-track.js";
 export class ChartIndexTipGuidesTrait {
 
 	_rebuildTipGuideIndexes() {
+		if (hasTipPointSwitches(this.project)) {
+			// Per-channel splicing ignores T(C) permutations. Playback rebuilds the whole
+			// index, so a stale live preview only showed the crossed tracks after Play.
+			this._buildTipGuideIndexes(this.project, this.timing);
+			return;
+		}
 		this.allTipGuides = this.project.channels.flatMap(item => this.tipGuidesByChannel.get(item.id) || []);
 		this.allTipGuides.forEach((guide, sequence) => {
 			guide.sequence = sequence;
@@ -31,7 +37,7 @@ export class ChartIndexTipGuidesTrait {
 
 	_refreshTipGuides(channelId, rebuildIndexes = true) {
 		if (hasTipPointSwitches(this.project)) {
-			this._buildTipGuideIndexes(this.project, this.timing);
+			this._rebuildTipGuideIndexes();
 			return;
 		}
 		const channel = this.project.channels.find(candidate => candidate.id === channelId);
@@ -215,6 +221,10 @@ export class ChartIndexTipGuidesTrait {
 	}
 
 	_appendTipGuideEvent(record) {
+		if (hasTipPointSwitches(this.project)) {
+			this._rebuildTipGuideIndexes();
+			return;
+		}
 		const records = this.noteEventRecordsByChannel.get(record.event.channel);
 		if (!records) {
 			return;

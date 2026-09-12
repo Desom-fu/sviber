@@ -10,6 +10,7 @@ import {
 import { refreshDoubleTapTime } from "./double-tap-index.js";
 import { IntervalIndex } from "./interval-index.js";
 import { stackedEventLaneOffset } from "./timeline-helpers.js";
+import { hasTipPointSwitches } from "../core/tip-point-track.js";
 
 function active(index, event) {
 	if (event.type === "group") {
@@ -157,6 +158,10 @@ function rebuildNoteChannels(index) {
 }
 
 function rebuildTipGuides(index, changedChannels) {
+	if (hasTipPointSwitches(index.project)) {
+		index._buildTipGuideIndexes(index.project, index.timing);
+		return;
+	}
 	index.tipGuidesByChannel = new Map(
 		index.project.channels.map(channel => [channel.id, guidesAfterRemoval(index, channel.id, changedChannels)]),
 	);

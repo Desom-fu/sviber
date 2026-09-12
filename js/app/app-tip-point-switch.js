@@ -90,13 +90,17 @@ class TipPointSwitchTrait {
 		if (!result || result.button === "cancel") {
 			return;
 		}
-		this.commit(i18n.t("history.tipPointSwitch"), model => {
-			if (result.button === "delete") {
-				clearTipPointSwitch(model.channels, time);
-				return;
-			}
-			writeTipPointSwitch(model.channels, time, images);
-		});
+		this.commit(
+			i18n.t("history.tipPointSwitch"),
+			model => {
+				if (result.button === "delete") {
+					clearTipPointSwitch(model.channels, time);
+					return;
+				}
+				writeTipPointSwitch(model.channels, time, images);
+			},
+			{ rebuildIndex: true },
+		);
 	}
 }
 

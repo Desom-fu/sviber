@@ -13,6 +13,7 @@ import {
 } from "../js/core/tip-point-track.js";
 import { inheritedTipPointSource } from "../js/core/tip-point.js";
 import { buildTipPointGuides } from "../js/render/stage-helpers.js";
+import { ChartRenderIndex } from "../js/render/chart-index.js";
 import { TimingMap } from "../js/core/timing.js";
 
 test("tipPointSwitches persist only when the permutation image differs", () => {
@@ -34,6 +35,40 @@ test("a tip point track follows channel permutations across switches", () => {
 	const guides = buildTipPointGuides(model, new TimingMap(model.timing));
 	assert.equal(guides.length, 1);
 	assert.equal(guides[0].events.length, 2);
+});
+
+test("incremental note edits keep crossed tip-point tracks without waiting for playback", () => {
+	const model = ChartModel.createDefault({
+		channels: [{ id: 0 }, { id: 1 }],
+		events: [
+			{ id: 1, type: "tap", time: [0, 0, 1], channel: 0, x: 0, y: 0, tipPointSpawnType: "chain" },
+			{ id: 2, type: "tap", time: [2, 0, 1], channel: 0, x: 10, y: 0, tipPointSpawnType: "inherit" },
+			{ id: 3, type: "tap", time: [6, 0, 1], channel: 1, x: 20, y: 10, tipPointSpawnType: "inherit" },
+		],
+		nextIds: { event: 4, channel: 2 },
+	});
+	writeTipPointSwitch(model.channels, [4, 0, 1], [1, 0]);
+	const index = new ChartRenderIndex(model, model.timing);
+	const before = index.tipGuides.find(guide => guide.events.some(event => event.id === 1));
+	assert.deepEqual(
+		before.events.map(event => event.id),
+		[1, 2, 3],
+	);
+	const revision = index.timelineTipRevision;
+	const created = model.addEvent("tap", {
+		time: [8, 0, 1],
+		channel: 1,
+		x: 30,
+		y: 10,
+		tipPointSpawnType: "inherit",
+	});
+	assert.equal(index.appendRootEvent(created), true);
+	assert.ok(index.timelineTipRevision > revision);
+	const after = index.tipGuides.find(guide => guide.events.some(event => event.id === 1));
+	assert.deepEqual(
+		after.events.map(event => event.id),
+		[1, 2, 3, created.id],
+	);
 });
 
 test("writing an identity permutation deletes the switch", () => {
