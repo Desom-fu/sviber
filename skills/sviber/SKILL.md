@@ -1,66 +1,184 @@
 ---
 name: sviber
-description: Use sviber-mcp and the sviber macro system to assist Sunniesnow charting.
+description: Use sviber-mcp and the sviber macro system to assist Sunniesnow charting. Trigger when the user mentions sviber, sviber-mcp, Sunniesnow charting, chart macros, placing/transforming notes in a running sviber editor, tip points, snappees, or bilingual/Japanese charting terminology. Do not use for Lyrica-only charts, unrelated DAW work, or when no sviber editor instance is available.
 ---
 
 # sviber skill
 
-Talk to a running **sviber** chart editor through the `sviber-mcp` MCP server. The editor is a desktop-style Sunniesnow chart maker. Charts are a strict subset of the Sunniesnow format: taps, holds, drags, flicks (one angle), bg notes, big text, background patterns, comments, and groups.
+Talk to a running **sviber** chart editor through the `sviber-mcp` MCP server, then drive chart edits with the sandboxed JavaScript (or in-editor Ruby) macro API.
 
-## Connect
+sviber is a browser/NW.js chart editor for [Sunniesnow](https://sunniesnow.github.io/game-unstable).
 
-1. Start one or more sviber editor windows.
-2. Run `sviber-mcp` (same Node runtime as the NW.js app). It speaks MCP JSON-RPC on stdio (`initialize`, then `tools/list` / `tools/call`). Stdout is protocol-only.
-3. Each editor listens at `~/.sviber/${pid}.sock` (this path cannot be customized). The first connection shows an allow/deny popup. Allowing makes **undoable** chart edits from outside the editor possible.
-4. Every tool except `list_instances` needs an `instance` (the pid).
+Charts are a strict subset of the Sunniesnow format:
 
-## Tools
+- Notes: tap, hold, drag, flick (one angle)
+- Background: bg notes, big text, background patterns
+- Structure: comments, groups
+- Timing: offset, initial BPM, BPM changes, bar lines
+- Geometry: channels, snappees (meshes/curves), tip points
 
-- `list_instances` — running editors
-- `get_open` — chart vs project and the local path
-- `list_macros` / `read_macro` / `create_macro` / `rename_macro` / `edit_macro`
-- `run_macro` / `run_snippet` — stdout and stderr
-- `run_expression` — JSON return value
-- `undo_last_run` — only if the last MCP-initiated run actually modified the chart
-- `get_music_snippet` — audio between two beat times, as base64 or a local path when large
+Coordinates use the Sunniesnow chart system (playfield about `x ∈ [-100, 100]`, `y ∈ [-50, 50]`).
 
-## Macro system
+## What each reference file is for
 
-Macros are JavaScript or Ruby. They run in a sandbox against a copy of the chart. A successful run is one undoable history step inside the editor; MCP-initiated runs can also be undone with `undo_last_run` when they changed the chart.
+Read only what the current step needs.
 
-Ruby is snake_case (`current_time`, `perdurant?`). JavaScript is camelCase (`currentTime`, `perdurant`). Beats in Ruby are `Integer` or `Rational` only.
+### references/mcp-tools.md
 
-### Chart
+Read **before any `sviber-mcp` tool call**.
 
-`Chart.metadata` is an immutable `Data`/`frozen` object: `title`, `artist`, `charter`, `difficulty_name`, `difficulty`, `difficulty_color`, `difficulty_sup`, `music`, `image`. Also `current_time`, `channels`, `current_channel`, events, snappees, clips, offset, BPM, bar lines.
+Covers:
 
-### Channels
+- Server entry and JSON-RPC surface
+- Socket path `~/.sviber/${pid}.sock` and consent popup
+- The exact 12 tools and their arguments
+- Run pipeline (`readOnly` gate, Ruby rejection, modify detection, undo flag)
+- Practical agent loop and real error strings
 
-`Channel.tip_point_switch(time, map)` where `map[channel]` is the image channel. `#active` / `#active=` plus `activate` / `deactivate` / `active?`.
+### references/macro-system.md
 
-### Events
+Read **before writing or editing a macro**.
 
-Capabilities: `movable?`, `have_time?`, `have_channel?`, `perdurant?`, `textable?`, `tip_pointable?`, `group?`, `background?`. There is **no** `#have_duration?` or `#have_text?` (and no JS `haveDuration` / `haveText`).
+Covers:
 
-Lock: `locked`, `locked=`, `lock`, `unlock`, `locked?`. Active: `active`, `active=`, `activate`, `deactivate`, `active?`. `#tp` / `#tp=` alias `#tip_point`. Time assignment is for events other than `group`; groups translate descendants.
+- JavaScript vs Ruby sandbox model
+- camelCase / snake_case mapping
+- Beat, angle, and color value rules
+- Chart, Location, TipPoint, Vector2D, AffineMatrix2D
+- BpmChange, BarLine, Channel, Snappee
+- Event classes, capability predicates, flags, fields
+- Clips, top-level helpers (`b`, `t`, `h`, `d`, `f`, `g`, `copy`, `transform`, …)
+- Id allocation, deleted-wrapper lifetime, apply-time validation
 
-### What macros can do
+### references/mechanics.md
 
-Place and edit events, channels, snappees, clips, BPM/bar lines, tip points, groups, transforms. Print to the macro console.
+Read **before reasoning about Sunniesnow or sviber behavior**.
 
-### What macros cannot do
+Covers:
 
-Open/save files, change editor preferences, play audio, render video/cover, talk to the network, or touch the OS. After a wrapper is deleted, using it raises. Positions are not clamped to the chart boundary; invalid results are rejected and nothing is applied.
+- Document model and default Playfield grid
+- Full event-type capability table
+- Active vs inactive vs hidden (channel and event)
+- Snappee attach/detach rules
+- Tip-point spawn types, tracks, and switches
+- Group translate vs anchor
+- Checks ignore rules
+- What is Sunniesnow-facing vs editor-only state
 
-## Sunniesnow / sviber mechanics (short)
+### references/capabilities.md
 
-- Coordinates are the Sunniesnow chart system (see `doc/chart.md` on the website).
-- Tip-point tracks follow switches; spawn types are inherit / chain / drop / none.
-- Inactive channels and inactive events are drafts: they stay on the timeline but leave the stage, heatmap, checks, and (for channels) filters.
-- Hidden channels collapse out of the timeline only.
-- Perdurant events have duration tails; background events are patterns plus bg notes and big text.
+Read **when unsure whether a request is possible**.
 
-## Term notes
+Covers:
+
+- What macros can do
+- What only MCP can do
+- Hard cannot-do lists (sandbox, MCP, product limits)
+- Failure modes and recovery table
+- Agent policy (never fake Ruby MCP runs, never invent tools)
+
+### references/examples.md
+
+Read **when drafting concrete code**.
+
+Covers:
+
+- Probe expressions
+- Placement, hold sequences, groups, copy/transform
+- Tip-point switches, flick angles
+- Full in-editor Ruby example (not MCP-runnable)
+- Typical agent loop and anti-patterns
+
+### references/terms.md
+
+Read **when translating or matching UI language**.
+
+Covers:
+
+- EN / 简体中文 / 日本語 tables for core nouns, workspace, channels, events, tip points, macros
+- Capability-query glosses
+- Direction-name table
+- JS↔Ruby API name cheat sheet
+- Known bad ja UI strings and how to say them correctly
+
+## Connect (always do this first)
+
+1. Confirm one or more sviber editor windows are running.
+2. Start `sviber-mcp` (same Node runtime as the packaged NW.js app; `package.json` bin maps it to `js/mcp/mcp-main.mjs`).
+3. It speaks MCP JSON-RPC on stdio: `initialize`, then `tools/list` / `tools/call`.
+4. **Stdout is protocol-only.** Logs belong on stderr.
+5. Each editor listens at `~/.sviber/${pid}.sock` (not customizable).
+6. The first connection shows an allow/deny popup.
+7. Allowing makes **undoable** chart edits from outside the editor possible.
+8. Call `list_instances`, pick an `instance` (the pid), then `get_open`.
+9. Every tool except `list_instances` requires `instance`.
+
+## Preferred workflow
+
+1. `list_instances` → `get_open` → `list_macros`.
+2. Prefer **read-only** probes first: `run_expression` for counts/selection.
+3. Use `run_snippet` only when mutating.
+4. Prefer **JavaScript** for MCP-run macros/snippets.
+5. Ruby macros can be stored/edited, but MCP run tools **reject Ruby** (`Ruby MCP runs require a live editor sandbox`).
+6. In-editor F8 still runs Ruby; tell the user that path if they need Ruby execution.
+7. Mutate with small snippets; check `stdout`, `stderr`, and `modified`.
+8. If a modifying run went wrong and `modified` was true, call `undo_last_run`.
+9. For audio alignment, use `get_music_snippet` (base64 or local path when large).
+
+## Hard rules
+
+- Macros run on a **copy** of the chart.
+- A successful run becomes **one undoable history step**.
+- Raises or invalid chart data → error reported, **nothing applied**.
+- Wrapper objects die after `delete`; later use raises (`has been deleted`).
+- There is **no** `#haveDuration?` / `haveDuration` and **no** `#haveText?` / `haveText`.
+- Use `perdurant` and `textable` instead.
+- JS beats: number, `[numerator, denominator]`, or `[whole, numerator, denominator]`.
+- Ruby beats: **Integer or Rational only** (no Float).
+- JS is camelCase; Ruby is snake_case.
+- Examples: `currentTime` / `current_time`, `tipPoint` / `tip_point`, `bgNote` / `bg_note`.
+- Macros cannot open/save files, change preferences, play audio, render video/cover, use the network, or touch the OS.
+- The sandbox has no filesystem access.
+- Do not invent MCP tools beyond the 12 in `js/mcp/mcp-tools.js`.
+- Do not invent undocumented sandbox globals.
+
+## Quick capability map
+
+### Can place/edit via macros
+
+- Events of every supported type
+- Channels
+- Snappees
+- Clips
+- BPM changes and bar lines
+- Tip points and tip-point switches
+- Groups
+- Affine transforms
+- Selection-aware copies at current time/channel
+
+### Cannot via macros/MCP
+
+- File open/save/export
+- Editor preferences
+- Audio playback
+- Render/export UI
+- Network
+- OS access
+- Live Ruby via MCP
+- Raw chart object access
+- Anything outside sandboxed chart state
+
+## Channel index footguns
+
+- `Channel.get(n)` is **1-based** (or by name).
+- `Snappee.get(n)` is **0-based** (or by name).
+- Do not mix them.
+
+## Term notes (summary)
+
+Full EN / 中文 / 日本語 tables live in [references/terms.md](references/terms.md).
+
+Start with:
 
 | English | 中文 | 日本語 |
 | --- | --- | --- |
@@ -69,13 +187,18 @@ Open/save files, change editor preferences, play audio, render video/cover, talk
 | Event | 事件 | イベント |
 | Snappee | 吸附器 | スナッピー |
 | Tip point | 提示点 / 游标 | チップポイント |
-| Bookmark | 书签 | ブックマーク |
-| Spectrogram | 频谱图 | スペクトログラム |
-| Subdivision | 细分 | 細分 |
 | Macro | 宏 | マクロ |
 | Perdurant | 有持续时长 | 持続あり |
-| Textable | 可带文本 | テキスト可 |
 | Background pattern | 背景图案 | 背景パターン |
 | Inactive | 停用 | 無効 |
 | Hidden | 隐藏 | 非表示 |
 | Charter | 谱师 | 譜面作者 |
+
+## Checklist before you finish a charting task
+
+1. Instance and open document confirmed.
+2. Mutations used JS (not Ruby) over MCP.
+3. Each mutation was small and logged.
+4. Mistakes were undone with `undo_last_run` when applicable.
+5. No claim was made about file I/O, render, prefs, or network from macros.
+6. User-facing terms match [references/terms.md](references/terms.md) when translating.
