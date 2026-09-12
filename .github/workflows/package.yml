@@ -65,44 +65,29 @@ jobs:
       # canvas falls back to a source build when its prebuild download times out, and
       # that build requires the Cairo/Pango stack through pkg-config, which macOS
       # runners do not ship.
-      - name: Install native build prerequisites (macOS)
-        if: startsWith(matrix.osName, 'macos')
-        run: brew install pkg-config cairo pango giflib libjpeg librsvg
       - run: npm ci
       - name: Resolve release version
         shell: bash
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+      # gl/canvas run in the bundled host Node render worker (v0.16.10), so they keep the
+      # npm ci ABI. Rebuilding them against NW.js Node makes the worker fail to load gl.
+      # Retry the NW.js download: getter sometimes caches an empty tarball (SHA256 e3b0c442).
       - name: Build targeted NW.js app
         env:
           SVIBER_NW_PLATFORM: ${{ matrix.nwPlatform }}
           SVIBER_NW_ARCH: ${{ matrix.arch }}
-        run: npm run build
-      # PROMPT-v25: sunniesnow-record needs gl and canvas. When the runner architecture
-      # matches the target, rebuild them from source inside the packaged node_modules so
-      # the release ships compiled native modules instead of prebuilt binaries. Cross
-      # builds (windows aarch64, linux aarch64) keep the prebuilt binaries because the
-      # runner cannot execute the target toolchain.
-      - name: Install native build prerequisites (Linux)
-        if: startsWith(matrix.osName, 'linux') && matrix.arch == 'x64'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config python3-dev libgl1-mesa-dev libglu1-mesa-dev libxi-dev libxext-dev
-      # Runtime natives (gl, canvas) are rebuilt against the NW.js Node ABI. Development
-      # natives such as sharp stay on the host Node from `npm ci`.
-      - name: Rebuild gl and canvas native modules against NW.js Node
-        if: >-
-          (startsWith(matrix.osName, 'windows') && matrix.arch == 'x64') ||
-          (startsWith(matrix.osName, 'linux') && matrix.arch == 'x64') ||
-          startsWith(matrix.osName, 'macos')
         shell: bash
         run: |
-          NW_VERSION=$(node -p "require('./node_modules/nw/package.json').version")
-          APP_DIR=$(node --input-type=module -e "import { packagedNativeRebuildDirectory } from './scripts/nw-runtime-natives.mjs'; process.stdout.write(packagedNativeRebuildDirectory('build/nw'))")
-          cd "$APP_DIR"
-          npm_config_runtime=node-webkit \
-            npm_config_target="$NW_VERSION" \
-            npm_config_disturl=https://dl.nwjs.io \
-            npm rebuild gl --update-binary --foreground-scripts
+          for attempt in 1 2 3; do
+            if npm run build; then
+              exit 0
+            fi
+            echo "NW.js build failed on attempt ${attempt}; clearing getter cache"
+            rm -rf node_modules/nw/nwjs* || true
+            find node_modules/nw -name '*.tar.gz' -delete || true
+            sleep 5
+          done
+          exit 1
       - name: Archive Windows app as ZIP
         if: startsWith(matrix.osName, 'windows')
         shell: pwsh

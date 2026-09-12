@@ -45,8 +45,8 @@ stdenv.mkDerivation {
   '';
 
   # The Nix package ships the runtime-free `.nw` (no gl/canvas `.node` files, no FFmpeg)
-  # and wraps system `nwjs`. Host-Node native rebuilds (sharp) happen during `npm ci`;
-  # runtime natives would be rebuilt against NW.js Node only in the full desktop CI jobs.
+  # and wraps system `nwjs`. Host-Node native rebuilds (sharp, gl, canvas) happen during
+  # `npm ci`; desktop builds keep that ABI because rendering runs in a bundled Node worker.
   env = {
     SVIBER_NW_PACKAGE_ONLY = "1";
   }

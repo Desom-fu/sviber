@@ -29,16 +29,16 @@ test("runtime-free .nw omits native modules and FFmpeg", () => {
 	assert.match("bin/ffmpeg", FFMPEG_NAME_PATTERN);
 });
 
-test("runtime natives rebuild against NW.js Node; dev natives stay on host Node", () => {
+test("runtime natives stay on host Node for the bundled render worker", () => {
 	const runtime = nativeRebuildSpec({ kind: "runtime", nwVersion: "0.114.2", hostNodeVersion: "22.13.0" });
-	assert.equal(runtime.runtime, "node-webkit");
-	assert.equal(runtime.target, "0.114.2");
+	assert.equal(runtime.runtime, "node");
+	assert.equal(runtime.target, "22.13.0");
 	assert.equal(runtime.disturl, NWJS_HEADERS_DISTURL);
 	assert.equal(runtime.tarball, nwjsHeadersTarball("0.114.2"));
 	assert.equal(runtime.tarball, "https://dl.nwjs.io/v0.114.2/node-v0.114.2.tar.gz");
 	assert.deepEqual(runtime.packages, ["gl", "canvas"]);
-	assert.deepEqual(runtime.abiRebuildPackages, ["gl"]);
-	assert.deepEqual(ABI_REBUILD_PACKAGES, ["gl"]);
+	assert.deepEqual(runtime.abiRebuildPackages, []);
+	assert.deepEqual(ABI_REBUILD_PACKAGES, []);
 	const host = nativeRebuildSpec({ kind: "development", nwVersion: "0.114.2", hostNodeVersion: "22.13.0" });
 	assert.equal(host.runtime, "node");
 	assert.equal(host.target, "22.13.0");
@@ -53,12 +53,10 @@ test("build script and Nix/CI encode the dual-Node split and runtime-free exclus
 	assert.match(build, /shouldIncludePackagedFile/);
 	assert.match(build, /PACKAGE_ONLY/);
 	assert.match(build, /writeMcpLauncher/);
-	assert.match(workflow, /npm_config_runtime=node-webkit/);
-	assert.match(workflow, /packagedNativeRebuildDirectory/);
-	assert.match(workflow, /npm rebuild gl --update-binary/);
-	assert.doesNotMatch(workflow, /npm rebuild gl canvas/);
-	assert.match(workflow, new RegExp(`npm_config_disturl=${NWJS_HEADERS_DISTURL.replaceAll(".", "\\.")}`));
-	assert.doesNotMatch(workflow, /npm_config_tarball/);
+	assert.match(workflow, /bundled host Node render worker/);
+	assert.match(workflow, /clearing getter cache/);
+	assert.doesNotMatch(workflow, /npm_config_runtime=node-webkit/);
+	assert.doesNotMatch(workflow, /npm rebuild gl/);
 	assert.doesNotMatch(workflow, /npmmirror\.com\/mirrors\/nwjs/);
 	assert.match(nix, /SVIBER_NW_PACKAGE_ONLY/);
 	assert.match(nix, /Host-Node native rebuilds/);

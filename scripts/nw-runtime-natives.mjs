@@ -6,9 +6,9 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 
 export const RUNTIME_NATIVE_PACKAGES = Object.freeze(["gl", "canvas"]);
-// canvas@3 is N-API. Rebuilding it with runtime=node-webkit makes prebuild-install treat
-// the NW.js version as an N-API version and fall back to a source build.
-export const ABI_REBUILD_PACKAGES = Object.freeze(["gl"]);
+// These run in the bundled host Node worker, not inside NW.js. Do not rebuild against
+// the NW.js ABI or the packaged render worker cannot load gl.
+export const ABI_REBUILD_PACKAGES = Object.freeze([]);
 export const NATIVE_BINARY_PATTERN = /\.node$/i;
 export const FFMPEG_NAME_PATTERN = /(?:^|[/\\])ffmpeg(?:\.exe)?$/i;
 // Official NW.js header tarball host. npmmirror's nwjs tree 404s node-v*.tar.gz for 0.114.2.
@@ -56,8 +56,8 @@ export function nativeRebuildSpec({ kind, nwVersion, hostNodeVersion }) {
 		return {
 			packages: [...RUNTIME_NATIVE_PACKAGES],
 			abiRebuildPackages: [...ABI_REBUILD_PACKAGES],
-			runtime: "node-webkit",
-			target: String(nwVersion || ""),
+			runtime: "node",
+			target: String(hostNodeVersion || process.versions.node || ""),
 			disturl: NWJS_HEADERS_DISTURL,
 			tarball: nwjsHeadersTarball(nwVersion),
 		};
