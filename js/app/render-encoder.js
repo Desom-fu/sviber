@@ -20,11 +20,7 @@ export function applyVideoEncoderDefaults(options, cpuCount) {
 
 export function videoEncoderFailure(error) {
 	const detail = error?.message ? String(error.message) : String(error ?? "unknown error");
-	const wrapped = new Error(
-		`FFmpeg 视频编码失败: ${detail}`
-		+ "（内存不足时会出现；刚渲染完封面再渲视频时更容易触发）。"
-		+ ` FFmpeg video encoding failed: ${detail}.`,
-	);
+	const wrapped = new Error(`FFmpeg 视频编码失败: ${detail}. FFmpeg video encoding failed: ${detail}.`);
 	wrapped.cause = error;
 	if (typeof error?.stderr === "string") {
 		wrapped.stderr = error.stderr;
