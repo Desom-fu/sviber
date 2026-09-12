@@ -5,6 +5,13 @@
 export const RUNTIME_NATIVE_PACKAGES = Object.freeze(["gl", "canvas"]);
 export const NATIVE_BINARY_PATTERN = /\.node$/i;
 export const FFMPEG_NAME_PATTERN = /(?:^|[/\\])ffmpeg(?:\.exe)?$/i;
+// Official NW.js header tarball host. npmmirror's nwjs tree 404s node-v*.tar.gz for 0.114.2.
+export const NWJS_HEADERS_DISTURL = "https://dl.nwjs.io";
+
+export function nwjsHeadersTarball(nwVersion) {
+	const version = String(nwVersion || "").replace(/^v/i, "");
+	return `${NWJS_HEADERS_DISTURL}/v${version}/node-v${version}.tar.gz`;
+}
 
 export function shouldIncludePackagedFile(pathname, { runtimeFree = false } = {}) {
 	if (!runtimeFree) {
@@ -29,6 +36,8 @@ export function nativeRebuildSpec({ kind, nwVersion, hostNodeVersion }) {
 			packages: [...RUNTIME_NATIVE_PACKAGES],
 			runtime: "node-webkit",
 			target: String(nwVersion || ""),
+			disturl: NWJS_HEADERS_DISTURL,
+			tarball: nwjsHeadersTarball(nwVersion),
 		};
 	}
 	return {

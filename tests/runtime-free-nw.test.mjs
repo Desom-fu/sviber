@@ -5,7 +5,9 @@ import test from "node:test";
 import {
 	FFMPEG_NAME_PATTERN,
 	NATIVE_BINARY_PATTERN,
+	NWJS_HEADERS_DISTURL,
 	nativeRebuildSpec,
+	nwjsHeadersTarball,
 	shouldIncludePackagedFile,
 } from "../scripts/nw-runtime-natives.mjs";
 
@@ -25,6 +27,9 @@ test("runtime natives rebuild against NW.js Node; dev natives stay on host Node"
 	const runtime = nativeRebuildSpec({ kind: "runtime", nwVersion: "0.114.2", hostNodeVersion: "22.13.0" });
 	assert.equal(runtime.runtime, "node-webkit");
 	assert.equal(runtime.target, "0.114.2");
+	assert.equal(runtime.disturl, NWJS_HEADERS_DISTURL);
+	assert.equal(runtime.tarball, nwjsHeadersTarball("0.114.2"));
+	assert.equal(runtime.tarball, "https://dl.nwjs.io/v0.114.2/node-v0.114.2.tar.gz");
 	assert.deepEqual(runtime.packages, ["gl", "canvas"]);
 	const host = nativeRebuildSpec({ kind: "development", nwVersion: "0.114.2", hostNodeVersion: "22.13.0" });
 	assert.equal(host.runtime, "node");
@@ -41,6 +46,11 @@ test("build script and Nix/CI encode the dual-Node split and runtime-free exclus
 	assert.match(build, /PACKAGE_ONLY/);
 	assert.match(build, /writeMcpLauncher/);
 	assert.match(workflow, /npm_config_runtime=node-webkit/);
+	assert.match(workflow, /NWJS_HEADERS_DISTURL/);
+	assert.match(workflow, /nwjsHeadersTarball/);
+	assert.match(workflow, /npm_config_disturl="\$DISTURL"/);
+	assert.match(workflow, /npm_config_tarball="\$TARBALL"/);
+	assert.doesNotMatch(workflow, /npmmirror\.com\/mirrors\/nwjs/);
 	assert.match(nix, /SVIBER_NW_PACKAGE_ONLY/);
 	assert.match(nix, /Host-Node native rebuilds/);
 });
