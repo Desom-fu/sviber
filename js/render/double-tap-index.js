@@ -4,14 +4,14 @@ function pairOrder(left, right) {
 
 export function refreshDoubleTapTime(index, key, createPair) {
 	const oldPairs = index.doubleTapPairsByTime.get(key) || [];
-	for (const pair of oldPairs) {
-		index.doubleTapIndex.remove(pair);
-		index.doubleTapIds.delete(pair.event1.id);
-		index.doubleTapIds.delete(pair.event2.id);
-		const pairIndex = index.doubleTapPairs.indexOf(pair);
-		if (pairIndex >= 0) {
-			index.doubleTapPairs.splice(pairIndex, 1);
+	if (oldPairs.length) {
+		const removed = new Set(oldPairs);
+		for (const pair of oldPairs) {
+			index.doubleTapIndex.remove(pair);
+			index.doubleTapIds.delete(pair.event1.id);
+			index.doubleTapIds.delete(pair.event2.id);
 		}
+		index.doubleTapPairs = index.doubleTapPairs.filter(pair => !removed.has(pair));
 	}
 	const taps = index.tapEventsByTime.get(key) || [];
 	const nextPairs = [];

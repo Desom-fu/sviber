@@ -418,6 +418,11 @@ function historyViewsEqual(left, right) {
 	return true;
 }
 
+// Patch/view entries store no snapshot. Resolve walks from the last materialized state, so
+// a long placement session would otherwise clone the base and replay every patch on undo
+// (and on any `current` read). Checkpoint the live cursor every so often to bound that walk.
+const HISTORY_CHECKPOINT_INTERVAL = 32;
+
 /** A bounded snapshot history with Photoshop-style arbitrary cursor jumps. */
 export class History {
 	constructor(initialState, options = {}) {
@@ -506,6 +511,20 @@ export class History {
 		this._cursor -= overflow;
 	}
 
+	_patchesSinceSnapshot() {
+		let baseIndex = this._cursor;
+		while (baseIndex >= 0 && this._entries[baseIndex].state == null) {
+			baseIndex -= 1;
+		}
+		return this._cursor - Math.max(0, baseIndex);
+	}
+
+	_checkpointIfNeeded() {
+		if (this._patchesSinceSnapshot() >= HISTORY_CHECKPOINT_INTERVAL) {
+			this._materializeInPlace(this._cursor);
+		}
+	}
+
 	record(state, label = "Edit", metadata = null, options = {}) {
 		const snapshot = options.owned ? state : this.clone(state);
 		if (!options.force) {
@@ -541,6 +560,7 @@ export class History {
 		});
 		this._cursor = this._entries.length - 1;
 		this._trim();
+		this._checkpointIfNeeded();
 		return true;
 	}
 
@@ -562,6 +582,7 @@ export class History {
 		});
 		this._cursor = this._entries.length - 1;
 		this._trim();
+		this._checkpointIfNeeded();
 		return true;
 	}
 

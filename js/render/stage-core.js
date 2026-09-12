@@ -87,6 +87,7 @@ export class StageViewCore {
 		this.creationPreview = null;
 		this.curvePreview = null;
 		this.drag = null;
+		this._dragListening = false;
 		this.pointerMoved = false;
 		this.backgroundImage = null;
 		this.backgroundCache = document.createElement("canvas");
@@ -137,6 +138,7 @@ export class StageViewCore {
 				this._flushPointerMove();
 				this._pointerUp(event);
 			} finally {
+				this._endPointerGesture();
 				try {
 					this.surface.canvas.releasePointerCapture?.(event.pointerId);
 				} catch {

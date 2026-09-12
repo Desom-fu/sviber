@@ -543,8 +543,40 @@ function notesDrawOrder(context, records) {
 	);
 }
 
+function overlappingNotesKind(left, right, simultaneous, invisibleOnly) {
+	if (!invisibleOnly) {
+		return "any";
+	}
+	if (left.event.type === "hold" && right.event.type === "hold") {
+		return "hold";
+	}
+	if (
+		left.event.type === "flick" &&
+		right.event.type === "flick" &&
+		angularDistance(Number(left.event.angle), Number(right.event.angle)) <= CHECK_EPSILON
+	) {
+		return "flick";
+	}
+	const pair = new Set([left.event.type, right.event.type]);
+	if (pair.has("hold") && pair.has("tap") && left.event.type === "tap") {
+		return "tap-under-hold";
+	}
+	if (pair.has("flick") && pair.has("tap") && left.event.type === "tap") {
+		return "tap-under-flick";
+	}
+	if (
+		left.event.type === "tap" &&
+		right.event.type === "tap" &&
+		simultaneous.filter(record => record.event.type === "tap").length >= 3
+	) {
+		return "tap-stack";
+	}
+	return null;
+}
+
 // Simultaneous note bodies can completely cover one another. The broad mode reports every
-// coincident non-drag pair; invisibleOnly narrows it to the overlap cases documented by v23.
+// coincident non-drag cluster once; invisibleOnly narrows it to the overlap cases documented
+// by v23, still one report per (position, kind) so stacking N taps cannot emit O(N²) rows.
 function checkSimultaneousOverlappingNotes(context, violations) {
 	const settings = context.settings.simultaneousOverlappingNotes;
 	const records = context.leafEvents
@@ -574,6 +606,7 @@ function checkSimultaneousOverlappingNotes(context, violations) {
 			continue;
 		}
 		const ordered = notesDrawOrder(context, simultaneous);
+		const clusters = new Map();
 		for (let leftIndex = 0; leftIndex < ordered.length; leftIndex += 1) {
 			for (let rightIndex = leftIndex + 1; rightIndex < ordered.length; rightIndex += 1) {
 				const left = ordered[leftIndex];
@@ -581,28 +614,31 @@ function checkSimultaneousOverlappingNotes(context, violations) {
 				if (!samePosition(left, right)) {
 					continue;
 				}
-				let invisible = true;
-				if (settings.invisibleOnly) {
-					const pair = new Set([left.event.type, right.event.type]);
-					invisible =
-						(left.event.type === "hold" && right.event.type === "hold") ||
-						(left.event.type === "flick" && right.event.type === "flick" &&
-							angularDistance(Number(left.event.angle), Number(right.event.angle)) <= CHECK_EPSILON) ||
-						(pair.has("hold") && pair.has("tap") && left.event.type === "tap") ||
-						(pair.has("flick") && pair.has("tap") && left.event.type === "tap") ||
-						(left.event.type === "tap" && right.event.type === "tap" &&
-							simultaneous.filter(record => record.event.type === "tap").length >= 3);
-				}
-				if (!invisible) {
+				const kind = overlappingNotesKind(left, right, simultaneous, settings.invisibleOnly);
+				if (!kind) {
 					continue;
 				}
-				violations.push(
-					violation("simultaneousOverlappingNotes", {
-						time: left.start,
-						eventIds: [left.event.id, right.event.id],
-					}),
-				);
+				const key = `${left.position.x.toFixed(4)}:${left.position.y.toFixed(4)}:${kind}`;
+				let cluster = clusters.get(key);
+				if (!cluster) {
+					cluster = { time: left.start, ids: [] };
+					clusters.set(key, cluster);
+				}
+				if (!cluster.ids.includes(left.event.id)) {
+					cluster.ids.push(left.event.id);
+				}
+				if (!cluster.ids.includes(right.event.id)) {
+					cluster.ids.push(right.event.id);
+				}
 			}
+		}
+		for (const cluster of clusters.values()) {
+			violations.push(
+				violation("simultaneousOverlappingNotes", {
+					time: cluster.time,
+					eventIds: cluster.ids,
+				}),
+			);
 		}
 		index += simultaneous.length;
 	}

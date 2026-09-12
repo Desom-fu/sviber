@@ -167,6 +167,91 @@ test("a Shift drag applies without the minimum drag distance", () => {
 	assert.equal(previews, 1);
 });
 
+test("a plain event drag does not preview until the pointer has moved 3px", () => {
+	const InteractionApp = withStageInteractions(class {});
+	const stage = new InteractionApp();
+	const note = { id: 1, type: "tap", selected: true, channel: 0 };
+	stage.surface = { toLocal: () => ({ x: 1, y: 0 }) };
+	stage.drag = {
+		type: "event",
+		start: { x: 0, y: 0 },
+		hit: { event: note, position: { x: 0, y: 0 } },
+	};
+	stage.pointerMoved = false;
+	stage.state = { editor: {}, snappees: [], channels: [{ id: 0, active: true }], events: [note] };
+	let previews = 0;
+	stage.callbacks = { onPreviewPosition: () => (previews += 1) };
+	stage._pointerMove({});
+	assert.equal(stage.pointerMoved, false);
+	assert.equal(previews, 0);
+});
+
+test("pressing an unselected note defers the selection until the drag listeners are attached", () => {
+	const InteractionApp = withStageInteractions(class {});
+	const stage = new InteractionApp();
+	const note = { id: 4, type: "tap", selected: false, channel: 0 };
+	const selections = [];
+	const listeners = [];
+	stage.renderIndex = {
+		selectionTarget: event => event,
+		isEventSelected: event => Boolean(event.selected),
+	};
+	stage.callbacks = { onSelectEvents: (ids, mode) => selections.push([ids, mode, stage._dragListening]) };
+	const previousDocument = globalThis.document;
+	globalThis.document = {
+		addEventListener(type) {
+			listeners.push(type);
+		},
+		removeEventListener() {},
+	};
+	try {
+		const drag = stage._eventPressDrag(
+			{ ctrlKey: false, altKey: false },
+			{ point: { x: 0, y: 0 }, project: { events: [note] } },
+			{ type: "event", event: note, position: { x: 0, y: 0 } },
+		);
+		assert.deepEqual(selections, []);
+		assert.deepEqual(drag.pressSelection, { ids: [4], mode: "replace" });
+		stage._startPointerDrag(drag);
+		assert.equal(stage._dragListening, true);
+		assert.ok(listeners.includes("pointerup"));
+		assert.ok(listeners.includes("pointercancel"));
+		assert.deepEqual(selections, [[[4], "replace", true]]);
+	} finally {
+		globalThis.document = previousDocument;
+	}
+});
+
+test("ending a pointer gesture twice does not leave document listeners behind", () => {
+	const InteractionApp = withStageInteractions(class {});
+	const stage = new InteractionApp();
+	const remaining = new Set();
+	const previousDocument = globalThis.document;
+	globalThis.document = {
+		addEventListener(type, handler) {
+			remaining.add(`${type}:${handler === stage.boundMove ? "move" : "up"}`);
+		},
+		removeEventListener(type, handler) {
+			remaining.delete(`${type}:${handler === stage.boundMove ? "move" : "up"}`);
+		},
+	};
+	try {
+		stage.boundMove = () => {};
+		stage.boundUp = () => {};
+		stage.requestRender = () => {};
+		stage.callbacks = { onEndPreview: () => {} };
+		stage._listenForDrag();
+		stage.drag = { type: "event", start: { x: 0, y: 0 } };
+		stage._endPointerGesture();
+		stage._endPointerGesture();
+		assert.equal(stage.drag, null);
+		assert.equal(stage._dragListening, false);
+		assert.equal(remaining.size, 0);
+	} finally {
+		globalThis.document = previousDocument;
+	}
+});
+
 test("simultaneous notes stack by channel order with the lower channel on top", () => {
 	const stage = Object.create(StageView.prototype);
 	stage.renderIndex = { channelOrder: new Map([[0, 0], [1, 1]]) };

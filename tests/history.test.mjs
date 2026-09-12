@@ -145,6 +145,35 @@ test("History append patches retain sequential note creation without full snapsh
 	assert.equal(history.current.nextIds.event, 3);
 });
 
+test("History checkpoints a long patch chain so resolve does not replay every placement", () => {
+	const base = {
+		events: [],
+		snappees: [],
+		channels: [{ id: 0 }],
+		editor: { currentTime: [0, 0, 1], currentChannel: 0 },
+		nextIds: { event: 0 },
+	};
+	const history = new History(base);
+	for (let id = 0; id < 40; id += 1) {
+		const event = { id, type: "tap", time: [id, 0, 1], channel: 0, x: 0, y: 0, selected: true };
+		history.recordPatch(
+			{
+				kind: "appendRootEvent",
+				event,
+				nextEventId: id + 1,
+				view: captureHistoryView({ ...base, events: [event] }, { selectedEventIds: [id] }),
+			},
+			"Create tap",
+		);
+	}
+	assert.equal(
+		history._entries.filter(entry => entry.state != null).length >= 2,
+		true,
+	);
+	assert.equal(history.current.events.length, 40);
+	assert.equal(history.current.events.at(-1).id, 39);
+});
+
 test("History channel patches insert channels without a full snapshot", () => {
 	const base = {
 		events: [],

@@ -64,6 +64,7 @@ export class TimelineView {
 		this.eventCenters = [];
 		this.channelOffset = 0;
 		this.drag = null;
+		this._dragListening = false;
 		this.selectionBox = null;
 		this.pointerMoved = false;
 		this.renderAnimationFrame = 0;
@@ -97,8 +98,12 @@ export class TimelineView {
 		document.addEventListener("keyup", this.ctrlAltListener, true);
 		this.boundMove = event => this._queuePointerMove(event);
 		this.boundUp = event => {
-			this._flushPointerMove();
-			this._pointerUp(event);
+			try {
+				this._flushPointerMove();
+				this._pointerUp(event);
+			} finally {
+				this._endPointerGesture();
+			}
 		};
 		this.surface.ready.then(() => {
 			this.surface.canvas.addEventListener("pointerdown", event => this._pointerDown(event));

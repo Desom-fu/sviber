@@ -118,6 +118,11 @@ const POINTER_MOVE_HANDLERS = {
 // The release counterparts of the move handlers: they commit the gesture instead of only
 // previewing it. Free transform matrix drags reuse the preview handler, because the last
 // previewed matrix is what the editor commits when the gizmo is closed.
+// Body drags wait for the 3px threshold so a click does not snapshot-and-preview a
+// multi-selection (which, with a nearby unselected note, is the gesture that used to
+// leave document pointer listeners hanging after a press-time selection commit).
+const POINTER_MOVE_REQUIRES_THRESHOLD = new Set(["event", "group-anchor", "snappee-move"]);
+
 const POINTER_UP_HANDLERS = {
 	progress: "_commitProgress",
 	"viewport-pan": "_commitPan",
@@ -265,9 +270,25 @@ export class StagePointerTrait {
 	// Every drag listens on the document rather than the canvas so that it keeps tracking
 	// once the pointer leaves the main field.
 	_listenForDrag() {
+		if (this._dragListening) {
+			return;
+		}
+		this._dragListening = true;
 		document.addEventListener("pointermove", this.boundMove);
 		document.addEventListener("pointerup", this.boundUp, { once: true });
 		document.addEventListener("pointercancel", this.boundUp, { once: true });
+	}
+
+	_startPointerDrag(drag) {
+		if (!drag) {
+			return;
+		}
+		this.drag = drag;
+		this._listenForDrag();
+		const press = drag.pressSelection;
+		if (press) {
+			this.callbacks.onSelectEvents?.(press.ids, press.mode);
+		}
 	}
 
 	// Everything a press needs to know about the state of the editor, resolved once so that
@@ -301,8 +322,7 @@ export class StagePointerTrait {
 		this.pointerMoved = false;
 		const context = this._pointerContext(event);
 		if (event.ctrlKey && this.spaceHeld) {
-			this.drag = viewportPanDrag(context);
-			this._listenForDrag();
+			this._startPointerDrag(viewportPanDrag(context));
 			return;
 		}
 		if (this._handleCreationPress(context)) {
@@ -320,10 +340,7 @@ export class StagePointerTrait {
 		if (this._handleProgressPress(context, hit)) {
 			return;
 		}
-		this.drag = this._selectionDrag(event, context, hit);
-		if (this.drag) {
-			this._listenForDrag();
-		}
+		this._startPointerDrag(this._selectionDrag(event, context, hit));
 	}
 
 	// While a creation tool is armed a press places the previewed event instead of selecting.
@@ -501,12 +518,13 @@ export class StagePointerTrait {
 			this.callbacks.onSelectEvents?.([target.event.id], "remove");
 			return null;
 		}
-		if (!selected) {
-			this.callbacks.onSelectEvents?.([target.event.id], selectionMode);
-		}
+		const pressSelection = selected ? null : { ids: [target.event.id], mode: selectionMode };
 		// v19: a locked event behaves as if it were not selected, so a press may select it
 		// but never starts a move drag.
 		if (target.event.locked) {
+			if (pressSelection) {
+				this.callbacks.onSelectEvents?.(pressSelection.ids, pressSelection.mode);
+			}
 			return null;
 		}
 		return {
@@ -515,6 +533,7 @@ export class StagePointerTrait {
 			start: context.point,
 			startChart: target.position,
 			collapseSelectionOnClick: selectionMode === "remove",
+			pressSelection,
 		};
 	}
 
@@ -623,6 +642,13 @@ export class StagePointerTrait {
 		// selection follows the mouse immediately instead of waiting for a 3 px threshold.
 		if (this.drag.noThreshold || Math.hypot(point.x - this.drag.start.x, point.y - this.drag.start.y) > 3) {
 			this.pointerMoved = true;
+		}
+		if (
+			!this.pointerMoved &&
+			!this.drag.noThreshold &&
+			POINTER_MOVE_REQUIRES_THRESHOLD.has(this.drag.type)
+		) {
+			return;
 		}
 		const context = this._pointerContextFor(event);
 		const handler = POINTER_MOVE_HANDLERS[this.drag.type];
@@ -838,12 +864,22 @@ export class StagePointerTrait {
 	}
 
 	_endPointerGesture() {
-		this.callbacks.onEndPreview?.();
+		const hadDrag = Boolean(this.drag);
+		const listening = this._dragListening;
 		this.selectionBox = null;
 		this.drag = null;
-		document.removeEventListener("pointermove", this.boundMove);
-		document.removeEventListener("pointerup", this.boundUp);
-		document.removeEventListener("pointercancel", this.boundUp);
+		if (listening) {
+			this._dragListening = false;
+			document.removeEventListener("pointermove", this.boundMove);
+			document.removeEventListener("pointerup", this.boundUp);
+			document.removeEventListener("pointercancel", this.boundUp);
+		}
+		if (!hadDrag && !listening) {
+			return;
+		}
+		if (hadDrag) {
+			this.callbacks.onEndPreview?.();
+		}
 		this.requestRender();
 	}
 

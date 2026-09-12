@@ -77,6 +77,12 @@ export function compareNoteRecords(left, right) {
 		left.sequence - right.sequence
 	);
 }
+
+// Incremental add/remove go into a pending list and an invalid set instead of rebuilding the
+// tree. Compact once either side grows past this so a long edit session cannot leave query()
+// scanning a session-length pending list or retaining every discarded double-tap pair.
+export const INTERVAL_INDEX_COMPACT_THRESHOLD = 64;
+
 export class IntervalIndex {
 	constructor(records, startField = "rangeStart", endField = "rangeEnd") {
 		this.startField = startField;
@@ -86,6 +92,14 @@ export class IntervalIndex {
 		);
 		this.pendingRecords = [];
 		this.invalidRecords = new Set();
+		this._rebuildTree();
+	}
+
+	_compare(left, right) {
+		return left[this.startField] - right[this.startField] || (left.sequence ?? 0) - (right.sequence ?? 0);
+	}
+
+	_rebuildTree() {
 		this.size = 1;
 		while (this.size < this.records.length) {
 			this.size *= 2;
@@ -93,10 +107,33 @@ export class IntervalIndex {
 		this.maximumEnds = new Float64Array(this.size * 2);
 		this.maximumEnds.fill(-Infinity);
 		for (let index = 0; index < this.records.length; index += 1) {
-			this.maximumEnds[this.size + index] = this.records[index][endField];
+			this.maximumEnds[this.size + index] = this.records[index][this.endField];
 		}
 		for (let index = this.size - 1; index > 0; index -= 1) {
 			this.maximumEnds[index] = Math.max(this.maximumEnds[index * 2], this.maximumEnds[index * 2 + 1]);
+		}
+	}
+
+	compact() {
+		if (!this.pendingRecords.length && !this.invalidRecords.size) {
+			return this;
+		}
+		let kept = this.records;
+		if (this.invalidRecords.size) {
+			kept = this.records.filter(record => !this.invalidRecords.has(record));
+		}
+		const pending = this.pendingRecords.filter(record => !this.invalidRecords.has(record));
+		pending.sort((left, right) => this._compare(left, right));
+		this.records = pending.length ? mergeSorted(kept, pending, (left, right) => this._compare(left, right)) : kept;
+		this.pendingRecords = [];
+		this.invalidRecords = new Set();
+		this._rebuildTree();
+		return this;
+	}
+
+	_maybeCompact() {
+		if (this.pendingRecords.length + this.invalidRecords.size >= INTERVAL_INDEX_COMPACT_THRESHOLD) {
+			this.compact();
 		}
 	}
 
@@ -128,6 +165,7 @@ export class IntervalIndex {
 	add(record) {
 		this.invalidRecords.delete(record);
 		this.pendingRecords.push(record);
+		this._maybeCompact();
 		return record;
 	}
 
@@ -153,8 +191,13 @@ export class IntervalIndex {
 	}
 
 	remove(record) {
+		const pendingIndex = this.pendingRecords.indexOf(record);
+		if (pendingIndex >= 0) {
+			this.pendingRecords.splice(pendingIndex, 1);
+			return true;
+		}
 		this.invalidRecords.add(record);
-		this.pendingRecords = this.pendingRecords.filter(candidate => candidate !== record);
+		this._maybeCompact();
 		return true;
 	}
 

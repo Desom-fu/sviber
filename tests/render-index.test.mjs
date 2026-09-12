@@ -98,6 +98,24 @@ test("render index incrementally appends a created root note", () => {
 	assert.equal(index.eventLaneOffsets.get(2), 3.5);
 });
 
+test("incremental appends compact interval indexes instead of leaking discarded pairs", () => {
+	const model = ChartModel.createDefault({
+		snappees: [],
+		events: [],
+		nextIds: { event: 1 },
+	});
+	const index = new ChartRenderIndex(model, model.timing);
+	for (let id = 1; id <= 80; id += 1) {
+		const created = model.addEvent("tap", { time: [1, 0, 1], channel: 0, x: 0, y: 0 });
+		assert.equal(index.appendRootEvent(created), true);
+	}
+	assert.ok(index.doubleTapIndex.pendingRecords.length < 64);
+	assert.equal(index.doubleTapIndex.invalidRecords.size, 0);
+	assert.ok(index.movableIndex.pendingRecords.length < 64);
+	assert.equal(index.doubleTapPairs.length, 79);
+	assert.equal(index.visibleMovableRecords(index.eventRecords[0].start).length, 80);
+});
+
 test("incremental selection expands groups without directly selecting descendants", () => {
 	const model = ChartModel.createDefault({
 		events: [

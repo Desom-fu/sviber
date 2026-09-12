@@ -45,6 +45,13 @@ test("invisibleOnly recognizes documented hold, flick, and covered tap overlaps"
 	assert.equal(violations(model, true).length, 3);
 });
 
+test("stacked taps at one position report a single overlapping cluster", () => {
+	const model = modelWithNotes(Array.from({ length: 20 }, () => ({ type: "tap" })));
+	const result = violations(model, false);
+	assert.equal(result.length, 1);
+	assert.equal(result[0].eventIds.length, 20);
+});
+
 test("simultaneous overlapping notes does not merge distinct nearby beat times", () => {
 	const model = ChartModel.createDefault();
 	model.addEvent("tap", { time: [1, 0, 1], x: 0, y: 0 });

@@ -73,9 +73,25 @@ export class TimelinePointerTrait {
 	}
 
 	_listenForDrag() {
+		if (this._dragListening) {
+			return;
+		}
+		this._dragListening = true;
 		document.addEventListener("pointermove", this.boundMove);
 		document.addEventListener("pointerup", this.boundUp, { once: true });
 		document.addEventListener("pointercancel", this.boundUp, { once: true });
+	}
+
+	_startPointerDrag(drag) {
+		if (!drag) {
+			return;
+		}
+		this.drag = drag;
+		this._listenForDrag();
+		const press = drag.pressSelection;
+		if (press) {
+			this.callbacks.onSelectEvents?.(press.ids, press.mode);
+		}
 	}
 
 	_activeChannelIds(project) {
@@ -100,23 +116,19 @@ export class TimelinePointerTrait {
 		this.pointerMoved = false;
 		const playing = Boolean(this.callbacks.isPlaying?.());
 		if (event.ctrlKey && this.spaceHeld) {
-			this.drag = {
+			this._startPointerDrag({
 				type: "viewport-pan",
 				start: point,
 				beginning: project.editor.visibleRangeBeginning,
 				ending: project.editor.visibleRangeEnd,
 				width: this.surface.width,
-			};
-			this._listenForDrag();
+			});
 			return;
 		}
 		if (playing && hit?.type === "bpm") {
 			return;
 		}
-		this.drag = this._timelineDrag(event, { point, hit, project, layout, playing });
-		if (this.drag) {
-			this._listenForDrag();
-		}
+		this._startPointerDrag(this._timelineDrag(event, { point, hit, project, layout, playing }));
 	}
 
 	// Decides what a press on the timeline starts to drag, or returns null when the press only
@@ -189,12 +201,13 @@ export class TimelinePointerTrait {
 			this.callbacks.onSelectEvents?.([selectionEvent.id], "remove");
 			return null;
 		}
-		if (!selected) {
-			this.callbacks.onSelectEvents?.([selectionEvent.id], selectionMode);
-		}
+		const pressSelection = selected ? null : { ids: [selectionEvent.id], mode: selectionMode };
 		// v20: a locked event behaves as if it were not selected, so a press may select it
 		// but never starts a time drag.
 		if (selectionEvent.locked) {
+			if (pressSelection) {
+				this.callbacks.onSelectEvents?.(pressSelection.ids, pressSelection.mode);
+			}
 			return null;
 		}
 		const selectedEvents = this._selectedLeafEvents(project);
@@ -210,6 +223,7 @@ export class TimelinePointerTrait {
 			copy: event.ctrlKey,
 			absoluteBeatSnap: simultaneous,
 			collapseSelectionOnClick: selectionMode === "remove",
+			pressSelection,
 		};
 	}
 
@@ -679,12 +693,22 @@ export class TimelinePointerTrait {
 	}
 
 	_endPointerGesture() {
-		this.callbacks.onEndPreview?.();
+		const hadDrag = Boolean(this.drag);
+		const listening = this._dragListening;
 		this.selectionBox = null;
 		this.drag = null;
-		document.removeEventListener("pointermove", this.boundMove);
-		document.removeEventListener("pointerup", this.boundUp);
-		document.removeEventListener("pointercancel", this.boundUp);
+		if (listening) {
+			this._dragListening = false;
+			document.removeEventListener("pointermove", this.boundMove);
+			document.removeEventListener("pointerup", this.boundUp);
+			document.removeEventListener("pointercancel", this.boundUp);
+		}
+		if (!hadDrag && !listening) {
+			return;
+		}
+		if (hadDrag) {
+			this.callbacks.onEndPreview?.();
+		}
 		this.requestRender();
 	}
 

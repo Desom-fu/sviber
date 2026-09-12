@@ -32,6 +32,7 @@ export class HistoryPanel {
 		this.onGoTo = options.onGoTo || (() => {});
 		this.cleanup = [];
 		this.language = null;
+		this._scrollIntoViewFrame = 0;
 	}
 
 	#entries(history) {
@@ -103,7 +104,21 @@ export class HistoryPanel {
 				current = button;
 			}
 		}
-		current?.scrollIntoView({ block: "nearest" });
+		if (this._scrollIntoViewFrame) {
+			cancelAnimationFrame(this._scrollIntoViewFrame);
+			this._scrollIntoViewFrame = 0;
+		}
+		if (!current) {
+			return;
+		}
+		// Defer so a press-time selection commit cannot scroll this list during pointerdown
+		// (that layout pass is what cancelled the canvas pointer and left a stuck drag).
+		this._scrollIntoViewFrame = requestAnimationFrame(() => {
+			this._scrollIntoViewFrame = 0;
+			if (current.isConnected) {
+				current.scrollIntoView({ block: "nearest" });
+			}
+		});
 	}
 
 	// How many leading buttons still describe the same entries, and so can be kept as they are.
