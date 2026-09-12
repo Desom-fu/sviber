@@ -1014,6 +1014,11 @@ textarea:focus-visible,
 	min-width: 0;
 }
 
+.render-output-format {
+	flex: 0 0 5.5em;
+	width: 5.5em;
+}
+
 .render-progress {
 	display: grid;
 	gap: 6px;
@@ -1042,13 +1047,36 @@ textarea:focus-visible,
 .cover-theme-widget {
 	display: grid;
 	gap: 6px;
+	width: 100%;
 }
 
 .cover-theme-widget-canvas {
-	max-width: 100%;
+	position: relative;
+	width: 100%;
+	min-height: 200px;
 	line-height: 0;
+	overflow: hidden;
+	background: #15181b;
+	border: 1px solid var(--border);
 }
 
 .cover-theme-widget-canvas canvas {
+	display: block;
 	max-width: 100%;
+	height: auto;
+}
+
+.cover-theme-widget-fallback {
+	width: 38%;
+	aspect-ratio: 1;
+	margin: 14% auto;
+	border: 2px solid #fbfbff;
+	border-radius: 12%;
+	transform: rotate(45deg);
+}
+
+.cover-theme-widget-hint {
+	color: var(--text-muted);
+	font-size: 11px;
+	line-height: 1.4;
 }

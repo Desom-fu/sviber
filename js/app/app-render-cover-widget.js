@@ -1,15 +1,14 @@
 // PixiJS widget for choosing the cover theme image area (PROMPT-v25 "Render cover...").
 //
-// The canvas shows the loaded image as a sprite the user can move by dragging and zoom by
-// scrolling. A diamond-shaped area marks the part of the image that ends up as the cover
-// theme image; everything outside the diamond is darkened.
-//
-// PIXI ships as a classic-script global injected by js/boot/vendor-loader.js (there is no
-// import map in this app), so it must be consumed via globalThis.PIXI after
-// sviberDependenciesReady resolves — never via a bare "pixi.js" module specifier.
+// The canvas shows the loaded image; a rounded diamond (the same 4-gon Sunniesnow's
+// CoverThemeImage uses) marks the crop. Drag pans the diamond, wheel zooms it.
+// PIXI v8 must be init()'d before `app.canvas` exists — constructing Application with
+// options is a v7 API and left this widget blank.
+
+import { i18n } from "../ui/i18n.js";
 
 const DIAMOND_HALF_WIDTH = 0.5;
-const DARK = { color: 0x000000, alpha: 0.55 };
+const FRAME_COLOR = 0xfbfbff;
 
 export function createCoverThemeWidget({
 	imageUrl,
@@ -21,57 +20,31 @@ export function createCoverThemeWidget({
 	element.className = "cover-theme-widget";
 	const canvasHost = documentRef.createElement("div");
 	canvasHost.className = "cover-theme-widget-canvas";
-	element.append(canvasHost);
+	const fallback = documentRef.createElement("div");
+	fallback.className = "cover-theme-widget-fallback";
+	canvasHost.append(fallback);
+	const hint = documentRef.createElement("div");
+	hint.className = "cover-theme-widget-hint";
+	hint.textContent = i18n.t("field.renderCoverThemeHint");
+	element.append(canvasHost, hint);
 
 	const state = { x: 0, y: 0, width: 1 };
 	const theme = { pixi: null, app: null, overlay: null, texture: null };
 
-	function drawDiamondOverlay(app) {
-		const centerX = app.screen.width / 2 + state.x * app.screen.width * 0.25;
-		const centerY = app.screen.height / 2 + state.y * app.screen.height * 0.25;
-		const half = (DIAMOND_HALF_WIDTH * state.width * app.screen.width) / 2;
-		const topY = centerY - half;
-		const bottomY = centerY + half;
-		const leftX = centerX - half;
-		const rightX = centerX + half;
-		// Darken everything outside the diamond with four rectangles, then stroke the diamond.
-		const overlay = theme.overlay;
-		overlay.rect(0, 0, app.screen.width, Math.max(0, topY));
-		overlay.fill(DARK);
-		overlay.rect(
-			0,
-			Math.min(bottomY, app.screen.height),
-			app.screen.width,
-			Math.max(0, app.screen.height - bottomY),
-		);
-		overlay.fill(DARK);
-		overlay.rect(0, Math.max(0, topY), Math.max(0, leftX), Math.max(0, bottomY - topY));
-		overlay.fill(DARK);
-		overlay.rect(rightX, Math.max(0, topY), Math.max(0, app.screen.width - rightX), Math.max(0, bottomY - topY));
-		overlay.fill(DARK);
-		overlay
-			.moveTo(centerX, topY)
-			.lineTo(rightX, centerY)
-			.lineTo(centerX, bottomY)
-			.lineTo(leftX, centerY)
-			.closePath();
-		overlay.stroke({ color: 0xffe331, width: 2 });
-	}
-
 	function layout() {
 		const { app } = theme;
-		if (!app) {
+		if (!app?.stage || !theme.pixi) {
 			return;
 		}
-		if (theme.overlay) {
-			theme.overlay.destroy();
+		if (!theme.overlay) {
+			theme.overlay = new theme.pixi.Graphics();
+			app.stage.addChild(theme.overlay);
+		} else {
+			theme.overlay.clear();
 		}
-		theme.overlay = new theme.pixi.Graphics();
-		drawDiamondOverlay(app);
-		app.stage.addChild(theme.overlay);
+		paintCoverThemeOverlay(theme.overlay, app.screen, coverThemeDiamond(app.screen, state));
 	}
 
-	// Zoom works on the host element before and after the Pixi canvas exists.
 	canvasHost.addEventListener("wheel", event => {
 		event.preventDefault();
 		state.width = clampRatio(state.width * (event.deltaY > 0 ? 0.92 : 1.08), 0.2, 2);
@@ -81,52 +54,81 @@ export function createCoverThemeWidget({
 	const ready = (async () => {
 		await globalThis.sviberDependenciesReady;
 		const pixi = globalThis.PIXI;
-		if (!pixi) {
+		if (!pixi?.Application) {
 			throw new Error("PIXI is unavailable.");
 		}
 		theme.pixi = pixi;
-		theme.app = new pixi.Application({ width, height, background: 0x15181b, antialias: true });
-		canvasHost.append(theme.app.canvas);
+		theme.app = await createCoverThemeApplication(pixi, width, height);
+		const canvas = theme.app.canvas || theme.app.view;
+		if (!canvas) {
+			throw new Error("PIXI canvas is unavailable.");
+		}
+		fallback.remove();
+		canvasHost.append(canvas);
 		layout();
 		if (imageUrl) {
 			loadCoverThemeImage(theme.app, pixi, imageUrl, layout, theme);
 		}
 		attachCoverThemeDragHandlers(theme.app, state, layout);
-	})();
+	})().catch(() => {
+		// Keep the CSS diamond fallback so the field is never an empty label.
+	});
 
 	return {
 		element,
 		ready,
+		hint,
 		destroy: () => theme.app?.destroy(true, { children: true, texture: false }),
-		// sunniesnow-record's CoverThemeImage expects image-space pixels — see
-		// coverThemeSelection for the conversion; without a loaded image there is nothing
-		// to pick, so return nulls (the renderer then centers the image).
 		read: () => coverThemeSelection(theme.app, theme.texture, state),
 	};
 }
 
-// Converts the widget's screen-space diamond into the values sunniesnow-record's
-// CoverThemeImage expects: (x, y) is the image point that lands on the cover diamond's
-// center (its sprite anchor), and width is the image-space span of the diamond
-// (cover scale = coverDiamondWidth / width).
-function coverThemeSelection(app, texture, state) {
-	if (!app || !texture) {
+export function coverThemeDiamond(screen, state) {
+	const centerX = screen.width / 2 + state.x * screen.width * 0.25;
+	const centerY = screen.height / 2 + state.y * screen.height * 0.25;
+	const radius = (DIAMOND_HALF_WIDTH * state.width * screen.width) / 2;
+	return { centerX, centerY, radius, corner: Math.max(1, radius / 10) };
+}
+
+export function paintCoverThemeOverlay(overlay, screen, diamond) {
+	overlay.rect(0, 0, screen.width, screen.height);
+	overlay.fill({ color: 0x000000, alpha: 0.55 });
+	overlay.roundPoly(diamond.centerX, diamond.centerY, diamond.radius, 4, diamond.corner);
+	overlay.cut();
+	overlay.roundPoly(diamond.centerX, diamond.centerY, diamond.radius, 4, diamond.corner);
+	overlay.stroke({ color: FRAME_COLOR, width: Math.max(2, diamond.radius / 20) });
+}
+
+export function coverThemeSelection(app, texture, state) {
+	if (!app?.screen || !texture) {
 		return { x: null, y: null, width: null };
 	}
-	const centerX = app.screen.width / 2 + state.x * app.screen.width * 0.25;
-	const centerY = app.screen.height / 2 + state.y * app.screen.height * 0.25;
-	const half = (DIAMOND_HALF_WIDTH * state.width * app.screen.width) / 2;
+	const diamond = coverThemeDiamond(app.screen, state);
 	const scale = Math.min(app.screen.width / texture.width, app.screen.height / texture.height);
 	const offsetX = (app.screen.width - texture.width * scale) / 2;
 	const offsetY = (app.screen.height - texture.height * scale) / 2;
 	return {
-		x: (centerX - offsetX) / scale,
-		y: (centerY - offsetY) / scale,
-		width: (half * 2) / scale,
+		x: (diamond.centerX - offsetX) / scale,
+		y: (diamond.centerY - offsetY) / scale,
+		width: (diamond.radius * 2) / scale,
 	};
 }
 
-// Load the cover image as a background sprite; keep the empty diamond layout on failure.
+async function createCoverThemeApplication(pixi, width, height) {
+	const app = new pixi.Application();
+	if (typeof app.init === "function") {
+		await app.init({
+			width,
+			height,
+			background: 0x15181b,
+			antialias: true,
+			autoStart: true,
+		});
+		return app;
+	}
+	return new pixi.Application({ width, height, background: 0x15181b, antialias: true });
+}
+
 function loadCoverThemeImage(app, pixi, imageUrl, layout, theme) {
 	pixi.Assets.load(imageUrl)
 		.then(texture => {

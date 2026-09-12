@@ -1092,6 +1092,8 @@
   "field.renderResultsDuration": "結算時長（秒）",
   "field.renderWaitForMusic": "等待音樂播完",
   "field.renderCoverTheme": "封面主題圖區域",
+  "field.renderCoverThemeHint": "拖曳平移，滾輪縮放。菱形框與遊戲封面的主題圖一致。",
+  "field.renderOutputFormat": "影片格式",
   "status.renderStarting": "正在準備渲染...",
   "status.renderLoading": "載入中... 模組 {current}/{total}",
   "status.renderLoadingModule": "載入中... 模組 {current}/{total}：{module}",

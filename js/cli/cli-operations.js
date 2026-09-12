@@ -22,6 +22,7 @@ import {
 	applyVideoEncoderDefaults,
 	installRecordEncoderGuards,
 } from "../app/render-encoder.js";
+import { removeRenderWorkDirectory } from "../app/render-output.js";
 
 const CHART_ORDER_EPSILON = 1e-9;
 
@@ -275,7 +276,7 @@ async function runRender(io, args, input) {
 	try {
 		await runner.run(options);
 	} finally {
-		fs.rmSync(tempDir, { recursive: true, force: true });
+		await removeRenderWorkDirectory(fs, tempDir);
 	}
 	return `Rendered ${output}`;
 }

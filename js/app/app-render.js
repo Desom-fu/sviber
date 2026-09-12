@@ -7,6 +7,12 @@ import { localizedErrorMessage } from "./app-helpers.js";
 import { pickNwOpenPath, pickNwSavePath } from "../platform/platform-host.js";
 import { createCoverThemeWidget } from "./app-render-cover-widget.js";
 import { defaultVideoFfmpegOutputOptions } from "./render-encoder.js";
+import {
+	VIDEO_OUTPUT_EXTENSIONS,
+	extensionOfPath,
+	removeRenderWorkDirectory,
+	replacePathExtension,
+} from "./render-output.js";
 
 class RenderTrait {
 	canRenderVideo() {
@@ -224,25 +230,78 @@ async function openRenderProgressDialog(app, session) {
 // Builds the shared browse-row control for path fields: a read-only text input
 // showing the chosen native path plus a browse button that opens a native dialog
 // via `pick`, and reports the result back through the custom-field onChange.
-function pathPickerRow({ documentRef, value, onChange, id, pick }) {
+function pathPickerRow({ documentRef, value, onChange, id, pick, suggestedName, extensions }) {
 	const row = documentRef.createElement("div");
 	row.className = "render-output-row";
 	const input = documentRef.createElement("input");
 	input.type = "text";
 	input.readOnly = true;
 	input.value = String(value ?? "");
+	const formatSelect = extensions?.length ? createOutputFormatSelect(documentRef, extensions, input.value) : null;
+	if (formatSelect) {
+		formatSelect.addEventListener("change", () => {
+			if (input.value) {
+				input.value = replacePathExtension(input.value, formatSelect.value);
+			}
+			onChange?.({ id, value: input.value });
+		});
+	}
 	const browse = documentRef.createElement("button");
 	browse.type = "button";
 	browse.textContent = i18n.t("field.renderBrowse");
 	browse.addEventListener("click", async () => {
-		const picked = await pick();
-		if (picked) {
-			input.value = picked;
-			onChange?.({ id, value: picked });
+		const format = formatSelect?.value;
+		const fallback = format || extensionOfPath(suggestedName, "png");
+		const name = replacePathExtension(input.value || suggestedName || "", fallback);
+		let picked;
+		if (pick) {
+			picked = await pick(name, format);
+		} else {
+			picked = await pickNwSavePath(name, format ? `.${format}` : ".png");
 		}
+		if (!picked) {
+			return;
+		}
+		const pickedExtension = extensionOfPath(picked, format || "png");
+		if (format && extensions && !extensions.includes(pickedExtension)) {
+			input.value = replacePathExtension(picked, format);
+		} else {
+			input.value = picked;
+		}
+		if (formatSelect) {
+			formatSelect.value = extensionOfPath(input.value, formatSelect.value);
+		}
+		onChange?.({ id, value: input.value });
 	});
-	row.append(input, browse);
-	return { element: row, read: () => input.value };
+	if (formatSelect) {
+		row.append(input, formatSelect, browse);
+	} else {
+		row.append(input, browse);
+	}
+	return {
+		element: row,
+		read: () => {
+			if (!input.value) {
+				return input.value;
+			}
+			return formatSelect ? replacePathExtension(input.value, formatSelect.value) : input.value;
+		},
+	};
+}
+
+function createOutputFormatSelect(documentRef, extensions, pathname) {
+	const select = documentRef.createElement("select");
+	select.className = "render-output-format";
+	select.setAttribute("aria-label", i18n.t("field.renderOutputFormat"));
+	const current = extensionOfPath(pathname, extensions[0]);
+	for (const extension of extensions) {
+		const option = documentRef.createElement("option");
+		option.value = extension;
+		option.textContent = extension.toUpperCase();
+		select.append(option);
+	}
+	select.value = extensions.includes(current) ? current : extensions[0];
+	return select;
 }
 
 function formFields(app, kind, bundledFfmpeg, suggested) {
@@ -260,7 +319,8 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 				value,
 				onChange,
 				id: "output",
-				pick: () => pickNwSavePath(suggested, isVideo ? ".mkv,.mp4,.webm" : ".png"),
+				suggestedName: suggested,
+				extensions: isVideo ? VIDEO_OUTPUT_EXTENSIONS : null,
 			}),
 		},
 		{ id: "nickname", type: "text", labelKey: "field.renderNickname" },
@@ -327,21 +387,30 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 	fields.push(
 		{ id: "width", type: "integer", labelKey: "field.renderWidth", min: 1, step: 1 },
 		{ id: "height", type: "integer", labelKey: "field.renderHeight", min: 1, step: 1 },
+		coverThemeField(app),
 	);
-	fields.push({
+	return fields;
+}
+
+function coverThemeField(app) {
+	return {
 		id: "coverTheme",
 		type: "custom",
 		labelKey: "field.renderCoverTheme",
+		stacked: true,
 		render: ({ document: documentRef }) => {
 			const widget = createCoverThemeWidget({
 				imageUrl: app.model.image ? app.files.backgroundUrl || app.model.image : null,
 				documentRef,
 			});
 			app.renderCoverThemeWidget = widget;
-			return { element: widget.element, read: () => app.renderCoverThemeWidget?.read() };
+			return {
+				element: widget.element,
+				read: () => app.renderCoverThemeWidget?.read(),
+				destroy: () => widget.destroy?.(),
+			};
 		},
-	});
-	return fields;
+	};
 }
 
 // Pure option mapping (exported for tests): dialog values -> sunniesnow-record settings.
@@ -530,7 +599,10 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 		}));
 		await runRenderWorker(app, kind, path.join(workDirectory, "request.json"), onProgress, session);
 	} finally {
-		fs.rmSync(workDirectory, { recursive: true, force: true });
+		const removed = await removeRenderWorkDirectory(fs, workDirectory);
+		if (!removed) {
+			console.warn("Render temp directory could not be removed:", workDirectory);
+		}
 	}
 }
 

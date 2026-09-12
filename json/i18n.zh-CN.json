@@ -1092,6 +1092,8 @@
   "field.renderResultsDuration": "结算时长（秒）",
   "field.renderWaitForMusic": "等待音乐播完",
   "field.renderCoverTheme": "封面主题图区域",
+  "field.renderCoverThemeHint": "拖动平移，滚轮缩放。菱形框与游戏封面的主题图一致。",
+  "field.renderOutputFormat": "视频格式",
   "status.renderStarting": "正在准备渲染...",
   "status.renderLoading": "加载中... 模块 {current}/{total}",
   "status.renderLoadingModule": "加载中... 模块 {current}/{total}：{module}",

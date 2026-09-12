@@ -1092,6 +1092,8 @@
   "field.renderResultsDuration": "Results duration (s)",
   "field.renderWaitForMusic": "Wait for music to finish",
   "field.renderCoverTheme": "Cover theme image area",
+  "field.renderCoverThemeHint": "Drag to pan, scroll to zoom. The diamond matches the cover theme image.",
+  "field.renderOutputFormat": "Video format",
   "status.renderStarting": "Preparing rendering...",
   "status.renderLoading": "Loading... module {current}/{total}",
   "status.renderLoadingModule": "Loading... module {current}/{total}: {module}",
