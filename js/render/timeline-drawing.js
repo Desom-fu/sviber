@@ -24,6 +24,7 @@ import {
 import { abLoopMarks } from "./timeline-gestures.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
 import { renderSpectrogramGrid, spectrogramPixels } from "../core/spectrogram.js";
+import { blitSpectrogram } from "./spectrogram-blit.js";
 import {
 	bookmarkOverlayTimes,
 	selectedEventOverlayTimes,
@@ -87,7 +88,7 @@ export class TimelineDrawingTrait {
 			settings: editor.spectrogram,
 		});
 		const image = new ImageData(spectrogramPixels(grid), grid.width, grid.height);
-		context.putImageData(image, rectangle.x, rectangle.y);
+		blitSpectrogram(context, rectangle, image);
 	}
 
 	_loopSeconds(editor) {

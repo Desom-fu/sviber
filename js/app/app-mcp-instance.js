@@ -2,8 +2,8 @@
 
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
-import { instanceSocketPath, sviberDirectory } from "../mcp/mcp-paths.js";
-import { handleEditorMcpTool, musicSnippetFromChannels } from "../mcp/mcp-editor-handlers.js";
+import { handleEditorMcpTool } from "../mcp/mcp-editor-handlers.js";
+import { instanceSocketPath, socketPathFromName, sviberDirectory } from "../mcp/mcp-paths.js";
 
 function nwNode(name) {
 	try {
@@ -64,6 +64,18 @@ class McpInstanceTrait {
 		}
 	}
 
+	writeMusicSnippetFile(bytes) {
+		const fs = this._mcpFs || nwNode("fs");
+		if (!fs?.writeFileSync) {
+			throw new Error("large music snippets require a local file writer");
+		}
+		const directory = sviberDirectory();
+		fs.mkdirSync(directory, { recursive: true });
+		const pathname = socketPathFromName(directory, `snippet-${Date.now()}.wav`);
+		fs.writeFileSync(pathname, bytes);
+		return pathname;
+	}
+
 	async _acceptMcpConnection(socket) {
 		const allowed = await this._confirmMcpConsent();
 		if (!allowed) {
@@ -116,35 +128,11 @@ class McpInstanceTrait {
 			return;
 		}
 		try {
-			const result = await this._dispatchMcpTool(message.method, message.arguments || {});
+			const result = await handleEditorMcpTool(message.method, message.arguments || {}, this);
 			socket.write(`${JSON.stringify({ result })}\n`);
 		} catch (error) {
 			socket.write(`${JSON.stringify({ error: error.message })}\n`);
 		}
-	}
-
-	async _dispatchMcpTool(name, args) {
-		if (name === "get_open" || name === "list_macros") {
-			return handleEditorMcpTool(name, args, this);
-		}
-		if (name === "get_music_snippet") {
-			return this._mcpMusicSnippet(args);
-		}
-		if (typeof this.handleMcpTool === "function") {
-			return this.handleMcpTool(name, args);
-		}
-		throw new Error(`unsupported tool: ${name}`);
-	}
-
-	_mcpMusicSnippet(args) {
-		const timing = this.timing();
-		const start = timing.beatToSeconds(args.start);
-		const end = timing.beatToSeconds(args.end);
-		const waveform = this.audio?.waveform;
-		if (!waveform) {
-			throw new Error("no music loaded");
-		}
-		return musicSnippetFromChannels(waveform.channels, waveform.sampleRate, start, end);
 	}
 }
 

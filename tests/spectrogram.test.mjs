@@ -10,6 +10,8 @@ import {
 } from "../js/core/spectrogram.js";
 import { createWindow } from "../js/dsp/window.js";
 import { COMMAND_DEFINITIONS, MENU_DEFINITION } from "../js/app/commands.js";
+import { blitSpectrogram } from "../js/render/spectrogram-blit.js";
+import { readFile } from "node:fs/promises";
 
 test("spectrogram defaults match PROMPT-v26", () => {
 	const settings = normalizeSpectrogram({});
@@ -107,4 +109,49 @@ test("Music menu contains Spectrogram and Timing contains subdivisions", () => {
 	assert.ok(!music.items.some(item => item.command === "music.subdivision1"));
 	assert.ok(timing.items.some(item => item.command === "music.subdivision1"));
 	assert.ok(timing.items.some(item => item.command === "music.subdivisionOther"));
+});
+
+test("blitSpectrogram uses drawImage so dpr setTransform scales the CSS destination", () => {
+	const destinationPuts = [];
+	const draws = [];
+	const sourcePuts = [];
+	const context = {
+		putImageData(...args) {
+			destinationPuts.push(args);
+		},
+		drawImage(...args) {
+			draws.push(args);
+		},
+	};
+	const image = { data: new Uint8ClampedArray(8 * 4 * 4), width: 8, height: 4 };
+	const rectangle = { x: 0, y: 12, width: 200, height: 80 };
+	const painted = blitSpectrogram(context, rectangle, image, {
+		createCanvas: (width, height) => ({
+			width,
+			height,
+			getContext: () => ({
+				putImageData(data, x, y) {
+					sourcePuts.push({ width, height, x, y, bytes: data?.data?.length ?? data?.length });
+				},
+			}),
+		}),
+	});
+	assert.equal(destinationPuts.length, 0);
+	assert.equal(draws.length, 1);
+	assert.equal(draws[0][1], rectangle.x);
+	assert.equal(draws[0][2], rectangle.y);
+	assert.equal(draws[0][3], rectangle.width);
+	assert.equal(draws[0][4], rectangle.height);
+	assert.equal(sourcePuts.length, 1);
+	assert.equal(sourcePuts[0].width, 8);
+	assert.equal(sourcePuts[0].height, 4);
+	assert.deepEqual(painted, rectangle);
+});
+
+test("timeline spectrogram paint goes through blitSpectrogram, not destination putImageData", async () => {
+	const drawing = await readFile(new URL("../js/render/timeline-drawing.js", import.meta.url), "utf8");
+	const surface = await readFile(new URL("../js/render/pixi-surface.js", import.meta.url), "utf8");
+	assert.match(drawing, /blitSpectrogram\(context, rectangle, image\)/);
+	assert.doesNotMatch(drawing, /putImageData/);
+	assert.match(surface, /setTransform\(dpr, 0, 0, dpr, 0, 0\)/);
 });

@@ -8,7 +8,7 @@
 
 | # | 类型 | 差异条目 | 实现情况 |
 |---|---|---|---|
-| 1 | 新增 | 波形区可改为频谱图（链到 Spectrogram 设置） | 已实现。`editor.spectrogram.show` 为真时 `_drawSpectrogram` 替换波形 |
+| 1 | 新增 | 波形区可改为频谱图（链到 Spectrogram 设置） | 已实现。`editor.spectrogram.show` 为真时 `_drawSpectrogram` 替换波形；`blitSpectrogram` 用 `drawImage` 绘制，避免 `putImageData` 忽略 dpr `setTransform` |
 | 2 | 修改 | 滚动条热力图忽略停用通道与停用事件 | `scrollbarRecordsForProject` 过滤 `channel.active === false` 与 `event.active === false` |
 | 3 | 新增 | 选中事件亮红（未锁）/品红（已锁）竖线；位于热力图之上、可见范围之下 | `selectedEventLineColor` + `_drawSelectedEventScrollbarLines` |
 | 4 | 新增 | A-B 标记绘制顺序：可见范围之上、当前时间之下 | `_drawScrollbar` 先画绿条再画 A-B |
@@ -52,7 +52,7 @@
 | 42 | 新增 | JSON `event.active` | v25 已有；本版 round-trip 测试钉死 |
 | 43 | 新增 | 无运行时 `.nw` 不含原生模块与 FFmpeg | `shouldIncludePackagedFile`；`PACKAGE_ONLY` 不拷 Node/FFmpeg/.node |
 | 44 | 新增 | 运行时原生模块按 NW.js Node 重建，开发依赖按宿主 Node；Nix 同样 | `nativeRebuildSpec`；`package.yml` `npm_config_runtime=node-webkit`；`default.nix` 注释 |
-| 45 | 新增 | MCP 可执行文件、套接字、同意警告、工具列表 | `js/mcp/*`、`sviber-mcp`、`~/.sviber/${pid}.sock` |
+| 45 | 新增 | MCP 可执行文件、套接字、同意警告、工具列表 | `js/mcp/*`（编辑器侧 `handleEditorMcpTool` 覆盖全部实例工具）、`sviber-mcp`、`~/.sviber/${pid}.sock` |
 | 46 | 新增 | `skills/sviber/SKILL.md` | 宏系统、能/不能做的事、EN/ZH/JA 术语 |
 
 ## 主要实现说明
@@ -62,6 +62,7 @@
 - 设置存在谱面 `editor.spectrogram`。对话框以毫秒输入窗宽，落盘为秒。
 - STFT 复用 `js/dsp/fft.js` 与 `createWindow(..., "gaussian")`。时间列数 = 像素宽，频率行数 = 像素高；窗长由设置决定，FFT 尺寸随高度零填充。
 - 可见范围内峰值记为 0 dB，颜色 `spectrogramColor`。
+- `PixiCanvasSurface.render` 对绘制回调做 `setTransform(dpr, …)`，坐标是 CSS 像素。`putImageData` 忽略该变换，会在 dpr=2 时把 CSS 尺寸的频谱画进设备像素角上。`js/render/spectrogram-blit.js` 的 `blitSpectrogram` 先把 `ImageData` 放到离屏 canvas，再用 `drawImage` 画到 CSS 矩形，让 dpr 变换生效。`tests/spectrogram.test.mjs` 断言目标 context 只收到 `drawImage`、收不到 `putImageData`。
 
 ### 滚动条叠层
 
@@ -73,11 +74,19 @@
 
 ### MCP
 
-stdio JSON-RPC 与编辑器 Unix 套接字分离。测试注入 backend 即可握手。打包桌面版写 `sviber-mcp` / `sviber-mcp.cmd`，使用捆绑的 `runtime/node`。
+stdio JSON-RPC 与编辑器 Unix 套接字分离。stdio 进程通过 `~/.sviber/${pid}.sock` 把实例工具转给编辑器；编辑器 `_handleMcpSocketLine` 一律调用 `handleEditorMcpTool`（`js/mcp/mcp-editor-handlers.js`），覆盖 `get_open` / `list_macros` / `read_macro` / `create_macro` / `rename_macro` / `edit_macro` / `run_macro` / `run_snippet` / `run_expression` / `undo_last_run` / `get_music_snippet`。
+
+- 全局宏读写 `sviber.macros`（测试可注入 `app.macroStorage`）；工程宏走 `app.files.{list,read,write,rename}ProjectText`。
+- JS 宏运行走 shipped `createSviberMacroApi`（与 sandbox 同一套 globals）。Ruby 在无 live sandbox 时抛错。
+- 只有 MCP 发起且确实改了谱面核心字段时才允许 `undo_last_run`（内部 `app.undo()`）。
+- 音乐片段 ≤256KB 返回 base64 WAV；更大则调用 `app.writeMusicSnippetFile`（默认写 `~/.sviber/snippet-${Date.now()}.wav`）并返回 `{ encoding: "path", path }`。
+- `tests/mcp-server.test.mjs` 直接调用 `handleEditorMcpTool`（不把 mock `callInstance` 当作工具已实现的证据）；stdio `tools/call` 的 backend 也转给同一 handler。
+
+打包桌面版写 `sviber-mcp` / `sviber-mcp.cmd`，使用捆绑的 `runtime/node`。
 
 ## 测试与验证结果
 
-- `npm test`（ESLint `--max-warnings 0` + `node --test tests/*.test.mjs`）两次均为 **716 通过 / 0 失败**。
+- `npm test`（ESLint `--max-warnings 0` + `node --test tests/*.test.mjs`）两次均为 **724 通过 / 0 失败**（含 MCP 实例工具与频谱 dpr blit 补测）。
 - 按功能命名的新测试文件：
   - `tests/spectrogram.test.mjs`
   - `tests/scrollbar-overlays.test.mjs`

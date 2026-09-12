@@ -1,77 +1,62 @@
-// Instance-side MCP tool handlers. Tests drive these with a fake app object.
+// Instance-side MCP tool handlers. Tests and the editor socket both call handleEditorMcpTool.
 
-import { listRunnableMacros } from "../app/app-macro-bridge.js";
-import { encodeWavPcm16 } from "./mcp-audio-snippet.js";
+import { describeMacro, listGlobalMacros, listProjectMacros, storageOf } from "./mcp-macro-store.js";
+import { getOpenDocument } from "./mcp-open-snippet.js";
+import {
+	findMacro,
+	handleCreateMacro,
+	handleEditMacro,
+	handleMusicSnippet,
+	handleRenameMacro,
+	handleRunExpression,
+	handleRunMacro,
+	handleRunSnippet,
+	handleUndoLastRun,
+} from "./mcp-editor-tools.js";
 
-export function getOpenDocument(app) {
-	const projectPath = String(app?.files?.projectPath || "");
-	const chartPath = String(app?.files?.chartPath || "");
-	if (projectPath) {
-		return { kind: "project", path: projectPath };
+export { getOpenDocument, musicSnippetFromChannels } from "./mcp-open-snippet.js";
+
+const HANDLERS = {
+	get_open: (_args, app) => getOpenDocument(app),
+	list_macros: handleListMacros,
+	read_macro: handleReadMacro,
+	create_macro: handleCreateMacro,
+	rename_macro: handleRenameMacro,
+	edit_macro: handleEditMacro,
+	run_macro: handleRunMacro,
+	run_snippet: handleRunSnippet,
+	run_expression: handleRunExpression,
+	undo_last_run: handleUndoLastRun,
+	get_music_snippet: handleMusicSnippet,
+};
+
+export async function handleEditorMcpTool(name, args, app) {
+	const handler = HANDLERS[name];
+	if (!handler) {
+		throw new Error(`unsupported tool: ${name}`);
 	}
-	if (chartPath) {
-		return { kind: "chart", path: chartPath };
-	}
-	return { kind: "none", path: "" };
+	return handler(args || {}, app);
 }
 
-function describeMacro(item) {
+async function handleListMacros(_args, app) {
+	const project = await listProjectMacros(app);
 	return {
-		id: item.id,
-		name: item.name,
-		scope: item.scope,
-		language: item.language,
-		filename: item.filename || item.label || item.name,
+		global: listGlobalMacros(storageOf(app)).map(describeMacro),
+		project: project.map(describeMacro),
 	};
 }
 
-export async function handleEditorMcpTool(name, args, app) {
-	if (name === "get_open") {
-		return getOpenDocument(app);
+async function handleReadMacro(args, app) {
+	const found = await findMacro(app, args.name);
+	if (!found) {
+		throw new Error(`macro not found: ${args.name}`);
 	}
-	if (name === "list_macros") {
-		const lists = await listRunnableMacros(app);
-		return {
-			global: (lists.global || []).map(describeMacro),
-			project: (lists.project || []).map(describeMacro),
-		};
-	}
-	if (typeof app.handleMcpTool === "function") {
-		return app.handleMcpTool(name, args);
-	}
-	throw new Error(`unsupported tool: ${name}`);
-}
-
-export function musicSnippetFromChannels(channels, sampleRate, startSeconds, endSeconds, options = {}) {
-	const rate = Number(sampleRate) || 44100;
-	const start = Math.max(0, Math.floor((Number(startSeconds) || 0) * rate));
-	const end = Math.max(start + 1, Math.floor((Number(endSeconds) || 0) * rate));
-	const length = channels?.[0]?.length || 0;
-	const from = Math.min(start, length);
-	const to = Math.min(end, length);
-	const mono = new Float32Array(Math.max(0, to - from));
-	for (let index = 0; index < mono.length; index += 1) {
-		let sum = 0;
-		for (const channel of channels || []) {
-			sum += channel[from + index] || 0;
+	let code = found.content;
+	if (found.scope === "project") {
+		code = await app.files.readProjectText(found.filename);
+		if (code == null) {
+			throw new Error(`macro not found: ${args.name}`);
 		}
-		mono[index] = sum / Math.max(1, channels.length);
 	}
-	const wav = encodeWavPcm16(mono, rate);
-	const maxInline = options.maxInline ?? 256 * 1024;
-	if (wav.length <= maxInline || typeof options.writeFile !== "function") {
-		return { encoding: "base64", data: bytesToBase64(wav) };
-	}
-	return { encoding: "path", path: options.writeFile(wav) };
-}
-
-function bytesToBase64(bytes) {
-	if (typeof Buffer === "function") {
-		return Buffer.from(bytes).toString("base64");
-	}
-	let binary = "";
-	for (const byte of bytes) {
-		binary += String.fromCharCode(byte);
-	}
-	return globalThis.btoa(binary);
+	return { ...describeMacro(found), code: String(code ?? "") };
 }
