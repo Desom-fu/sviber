@@ -20,6 +20,7 @@ import {
 import packageJson from "../../package.json" with { type: "json" };
 import {
 	applyVideoEncoderDefaults,
+	installAtomicVideoOutput,
 	installRecordEncoderGuards,
 } from "../app/render-encoder.js";
 import { removeRenderWorkDirectory } from "../app/render-output.js";
@@ -270,6 +271,9 @@ async function runRender(io, args, input) {
 	if (isVideo) {
 		applyVideoEncoderDefaults(options, os.cpus().length);
 		installRecordEncoderGuards(SunniesnowRecord.Record);
+		// Mux into a sibling temp file and swap it in only once FFmpeg succeeded, so an
+		// interrupted CLI render cannot truncate an existing file at the output path.
+		installAtomicVideoOutput(SunniesnowRecord.Record, fs, { pid: process.pid });
 	}
 	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sviber-render-"));
 	options.tempDir = tempDir;

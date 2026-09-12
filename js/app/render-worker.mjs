@@ -17,6 +17,7 @@ import path from "node:path";
 
 import {
 	applyVideoEncoderDefaults,
+	installAtomicVideoOutput,
 	installRecordEncoderGuards,
 } from "./render-encoder.js";
 
@@ -168,6 +169,9 @@ async function runRequestedRender() {
 	if (request.kind === "video") {
 		applyVideoEncoderDefaults(options, os.cpus().length);
 		installRecordEncoderGuards(SunniesnowRecord.Record);
+		// Keep the user's existing file at the output path intact until the muxed video is
+		// complete: an interrupted render must not truncate it (see render-encoder.js).
+		installAtomicVideoOutput(SunniesnowRecord.Record, fs, { pid: process.pid });
 	}
 	// CoverGen.run takes no progress callback; only the video renderer reports progress.
 	await runner.run(options, request.kind === "video" ? progress => send({ progress }) : undefined);

@@ -95,3 +95,64 @@ function throwIfVideoEncoderFailed(record) {
 		throw videoEncoderFailure(new Error("FFmpeg video encoder closed unexpectedly."));
 	}
 }
+
+// FFmpeg muxes straight into the path the user picked, with -y, and a Matroska output is
+// opened with O_TRUNC: the file that was already there is destroyed the moment the mux starts,
+// not when it finishes. A stop or a crash inside that window — it is short, which is why it
+// looks intermittent — leaves a truncated file and loses the original. Sunniesnow-record has
+// no staging of its own (record.mjs runFfmpeg passes the output path straight through), so
+// the guard below muxes into a sibling temp name and only moves it onto the target after
+// FFmpeg exited cleanly. The sibling lives in the target's own directory, so the rename stays
+// on one volume and is therefore atomic. The stem keeps the original extension because that
+// is what tells FFmpeg which container to write.
+export function partialOutputPath(outputPath, pid) {
+	const text = String(outputPath ?? "");
+	const separator = Math.max(text.lastIndexOf("/"), text.lastIndexOf("\\"));
+	const directory = separator >= 0 ? text.slice(0, separator + 1) : "";
+	const name = text.slice(separator + 1);
+	const dot = name.lastIndexOf(".");
+	// A leading dot belongs to the name ("/.hidden"), it does not introduce an extension.
+	const hasExtension = dot > 0;
+	const extension = hasExtension ? name.slice(dot) : "";
+	const stem = hasExtension ? name.slice(0, dot) : name;
+	return `${directory}${stem}.sviber-partial-${pid}${extension}`;
+}
+
+export function installAtomicVideoOutput(Record, fsModule, options = {}) {
+	if (Record.__sviberAtomicOutput) {
+		return Record;
+	}
+	Record.__sviberAtomicOutput = true;
+	const originalRunFfmpeg = Record.prototype.runFfmpeg;
+	Record.prototype.runFfmpeg = async function runFfmpegAtomically() {
+		const target = this.output;
+		if (!target) {
+			return originalRunFfmpeg.call(this);
+		}
+		const partial = partialOutputPath(target, options.pid ?? 0);
+		this.output = partial;
+		try {
+			await originalRunFfmpeg.call(this);
+		} catch (error) {
+			await fsModule.promises.rm(partial, { force: true }).catch(() => {});
+			throw error;
+		} finally {
+			this.output = target;
+		}
+		try {
+			await fsModule.promises.rename(partial, target);
+		} catch (error) {
+			// The video itself is fine — only the swap onto the target failed (a sync client
+			// or a player holding it, a read-only target, ...). Keep the render, name it.
+			const failure = new Error(
+				`视频已渲染完成，但无法覆盖目标文件（可能被占用或只读），结果保存在：${partial}。`
+					+ " The video was rendered, but the target file did not get replaced."
+					+ ` The result is at: ${partial}`,
+			);
+			failure.cause = error;
+			failure.partialPath = partial;
+			throw failure;
+		}
+	};
+	return Record;
+}
