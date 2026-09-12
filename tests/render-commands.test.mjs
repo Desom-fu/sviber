@@ -85,6 +85,12 @@ test("video options map dialog values onto sunniesnow-record settings", () => {
 	assert.equal(options.avatar, "gravatar");
 	assert.equal(options.avatarGravatar, "me@example.com");
 	assert.equal(options.avatarOnline, undefined, "unused avatar sources are dropped");
+	assert.match(
+		options.ffmpegOutputOptions,
+		/-pix_fmt yuv420p/,
+		"RGBA must not be encoded as yuv444p High 4:4:4, which OOMs x264",
+	);
+	assert.match(options.ffmpegOutputOptions, /-threads \d+/);
 });
 
 test("cover options carry the theme area and drop FFmpeg settings", () => {
@@ -109,6 +115,7 @@ test("cover options carry the theme area and drop FFmpeg settings", () => {
 		[-0.25, 0.5, 1.5],
 	);
 	assert.equal(options.ffmpeg, undefined, "covers never need FFmpeg");
+	assert.equal(options.ffmpegOutputOptions, undefined, "covers do not spawn a video encoder");
 	assert.equal(options.nickname, "Poet");
 });
 

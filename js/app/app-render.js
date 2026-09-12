@@ -6,6 +6,7 @@ import { i18n } from "../ui/i18n.js";
 import { localizedErrorMessage } from "./app-helpers.js";
 import { pickNwOpenPath, pickNwSavePath } from "../platform/platform-host.js";
 import { createCoverThemeWidget } from "./app-render-cover-widget.js";
+import { defaultVideoFfmpegOutputOptions } from "./render-encoder.js";
 
 class RenderTrait {
 	canRenderVideo() {
@@ -364,6 +365,9 @@ export function buildRenderRecordOptions(kind, outputPath, values, bundledFfmpeg
 			waitForMusic: Boolean(values.waitForMusic),
 			assetsDir: bundledFontsDir || undefined,
 			ffmpeg: values.useBundledFfmpeg && bundledFfmpeg ? bundledFfmpeg : "ffmpeg",
+			// RGBA → yuv444p High 4:4:4 with one x264 thread per CPU is what OOMs as
+			// `x264 malloc failed` after a cover render; force 4:2:0 and cap threads.
+			ffmpegOutputOptions: defaultVideoFfmpegOutputOptions(),
 		};
 	}
 	return {
@@ -519,6 +523,9 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 				quiet: true,
 				suppressWarnings: true,
 				...recordOptions,
+				// Isolate FFmpeg's video.mkv from other cover/video jobs that would
+				// otherwise all write %TEMP%/video.mkv (and leak it there).
+				tempDir: workDirectory,
 			},
 		}));
 		await runRenderWorker(app, kind, path.join(workDirectory, "request.json"), onProgress, session);
@@ -539,21 +546,29 @@ async function runRenderJob(app, kind, recordOptions, onProgress, session = {}) 
 // group-wide signal reaches the FFmpeg grandchild too — the programmatic equivalent of
 // the CLI's Ctrl+C, which delivers INT to every process attached to the terminal.
 function killRenderProcess(child) {
+	if (!child?.pid) {
+		return;
+	}
 	if (process.platform === "win32") {
 		const childProcess = nw.require("node:child_process");
-		childProcess.spawn("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], {
-			stdio: "ignore",
-			windowsHide: true,
-		});
-	} else {
-		if (child.pid) {
-			try {
-				process.kill(-child.pid, "SIGTERM");
-				return;
-			} catch {
-				// The group is already gone; fall through to the direct kill.
-			}
+		// Wait for the tree to die. The worker used to process.exit() as soon as it
+		// flushed `{done:true}`, which orphaned FFmpeg/PIXI children before this
+		// taskkill could see them — leftover RAM after a cover render then OOMs the
+		// video encoder. spawnSync keeps the PID alive in the tree until /t /f finishes.
+		try {
+			childProcess.spawnSync("taskkill.exe", ["/pid", String(child.pid), "/t", "/f"], {
+				stdio: "ignore",
+				windowsHide: true,
+				timeout: 15000,
+			});
+		} catch {
+			child.kill();
 		}
+		return;
+	}
+	try {
+		process.kill(-child.pid, "SIGTERM");
+	} catch {
 		child.kill("SIGTERM");
 	}
 }

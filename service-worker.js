@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v0163000";
+const CACHE_VERSION = "sviber-v0163100";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -50,6 +50,7 @@ const APP_SHELL = [
 	"./js/app/app-readme-editor.js",
 	"./js/app/app-render-cover-widget.js",
 	"./js/app/app-render.js",
+	"./js/app/render-encoder.js",
 	"./js/app/app-tip-point-switch.js",
 	"./js/core/bulk-edit-texts.js",
 	"./js/core/selected-event-markers.js",

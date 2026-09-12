@@ -18,6 +18,10 @@ import {
 	versionText,
 } from "./cli.js";
 import packageJson from "../../package.json" with { type: "json" };
+import {
+	applyVideoEncoderDefaults,
+	installRecordEncoderGuards,
+} from "../app/render-encoder.js";
 
 const CHART_ORDER_EPSILON = 1e-9;
 
@@ -259,7 +263,20 @@ async function runRender(io, args, input) {
 		options.ffmpeg = args.renderFfmpeg;
 	}
 	const runner = isVideo ? SunniesnowRecord.Record : SunniesnowRecord.CoverGen;
-	await runner.run(options);
+	const fs = await import("node:fs");
+	const os = await import("node:os");
+	const path = await import("node:path");
+	if (isVideo) {
+		applyVideoEncoderDefaults(options, os.cpus().length);
+		installRecordEncoderGuards(SunniesnowRecord.Record);
+	}
+	const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "sviber-render-"));
+	options.tempDir = tempDir;
+	try {
+		await runner.run(options);
+	} finally {
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	}
 	return `Rendered ${output}`;
 }
 

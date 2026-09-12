@@ -10,9 +10,15 @@
 //   {"log": "..."}                     — game log line (warnings, errors, loader text)
 //   {"done": true}                     — rendering finished, output written
 //   {"error": "...", "details": "..."} — fatal error; the process then exits non-zero
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+
+import {
+	applyVideoEncoderDefaults,
+	installRecordEncoderGuards,
+} from "./render-encoder.js";
 
 const request = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const send = payload => process.stdout.write(`${JSON.stringify(payload)}\n`);
@@ -83,13 +89,58 @@ const terminate = Sunniesnow.Game.prototype.terminate;
 Sunniesnow.Game.prototype.terminate = function (...args) {
 	// Flush the error line before exiting: writes to a pipe are asynchronous, so
 	// process.exit() immediately after send() could drop the report.
-	process.stdout.write(`${JSON.stringify({
+	finishWorker({
 		error: "Rendering aborted: the game terminated (see log for the reason).",
 		details: recentLogs.join("\n"),
-	})}\n`, () => process.exit(1));
+	}, 1);
 };
 
-try {
+// Give the parent time to taskkill /t (Windows) or signal the process group (POSIX)
+// while this PID is still the tree root. Immediate process.exit() orphans FFmpeg
+// and the PIXI/GL process after a cover render, which is what then OOMs video.
+let workerFinished = false;
+
+function finishWorker(payload, code) {
+	if (workerFinished) {
+		return;
+	}
+	workerFinished = true;
+	process.stdout.write(`${JSON.stringify(payload)}\n`, () => scheduleWorkerExit(code));
+}
+
+function scheduleWorkerExit(code) {
+	setTimeout(() => {
+		if (process.platform === "win32") {
+			spawn("taskkill.exe", ["/pid", String(process.pid), "/t", "/f"], {
+				detached: true,
+				stdio: "ignore",
+				windowsHide: true,
+			}).unref();
+		}
+		process.exit(code);
+	}, 3000);
+}
+
+await runRequest();
+
+async function runRequest() {
+	try {
+		await runRequestedRender();
+		// v0.16.16: the PIXI ticker keeps the event loop alive after Record/CoverGen
+		// finish. Report done and let the parent tree-kill this process (with a delayed
+		// self-exit fallback) so FFmpeg grandchildren are not orphaned.
+		finishWorker({ done: true }, 0);
+	} catch (error) {
+		finishWorker({
+			error: String(error?.message ?? error),
+			details: error?.stack ? String(error.stack) : "",
+			stderr: typeof error?.stderr === "string" ? error.stderr : undefined,
+			stdout: Array.isArray(error?.stdout) ? error.stdout : undefined,
+		}, 1);
+	}
+}
+
+async function runRequestedRender() {
 	// Video rendering hard-requires headless WebGL (Record.screenshot reads frames via
 	// gl.readPixels), but machines without usable OpenGL — VMs, remote-desktop sessions,
 	// missing GPU drivers — silently fall back to the Canvas renderer and then crash
@@ -103,32 +154,21 @@ try {
 			glContext = (await import("gl")).default?.(16, 16, {preserveDrawingBuffer: true}) ?? null;
 		} catch {}
 		if (!glContext) {
-			const message = "此电脑的 OpenGL 环境不可用，无法渲染视频。视频渲染需要 OpenGL 2.1+"
+			throw new Error(
+				"此电脑的 OpenGL 环境不可用，无法渲染视频。视频渲染需要 OpenGL 2.1+"
 				+ "（虚拟机、远程桌面会话或缺少显卡驱动时会出现；请更新显卡驱动或在有 GPU 的环境运行）。"
-				+ "OpenGL is unavailable on this machine, so video rendering cannot run.";
-			process.stdout.write(`${JSON.stringify({
-				error: message,
-				details: recentLogs.join("\n"),
-			})}\n`, () => process.exit(1));
+				+ "OpenGL is unavailable on this machine, so video rendering cannot run.",
+			);
 		}
 	}
 	const runner = request.kind === "video" ? SunniesnowRecord.Record : SunniesnowRecord.CoverGen;
 	// Record and CoverGen convert string option values through toBlob, which reads file
 	// paths from disk — so the level archive is handed over as a plain path.
 	const options = { ...request.options, levelFileUpload: request.levelFile };
+	if (request.kind === "video") {
+		applyVideoEncoderDefaults(options, os.cpus().length);
+		installRecordEncoderGuards(SunniesnowRecord.Record);
+	}
 	// CoverGen.run takes no progress callback; only the video renderer reports progress.
 	await runner.run(options, request.kind === "video" ? progress => send({ progress }) : undefined);
-	// v0.16.16: exit explicitly after the done report is flushed. The PIXI ticker keeps
-	// the event loop alive after Record/CoverGen finish, and without this the worker
-	// never exits, so the app never sees the process close and the dialog stays stuck
-	// on the last progress state even though the output file was already written.
-	process.stdout.write(`${JSON.stringify({ done: true })}\n`, () => process.exit(0));
-} catch (error) {
-	send({
-		error: String(error?.message ?? error),
-		details: error?.stack ? String(error.stack) : "",
-		stderr: typeof error?.stderr === "string" ? error.stderr : undefined,
-		stdout: Array.isArray(error?.stdout) ? error.stdout : undefined,
-	});
-	process.exitCode = 1;
 }
