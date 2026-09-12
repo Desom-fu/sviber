@@ -8,13 +8,16 @@ import { captureHistoryView } from "../core/history.js";
 import { SNAPPEE_COLORS, deepClone, eventTypeLabel, pointAllowed } from "./app-helpers.js";
 
 class CurveDraftTrait {
+	// Selecting a snappee is exclusive, and a null id clears the list — the snappee panel uses
+	// that to toggle the already selected row off.
 	selectSnappee(id) {
 		if (this.model.editor.readOnly) {
 			return false;
 		}
+		const target = id ?? null;
 		let changed = false;
 		for (const snappee of this.model.snappees) {
-			const selected = snappee.id === id && snappee.active !== false;
+			const selected = target !== null && snappee.id === target && snappee.active !== false;
 			if (snappee.selected !== selected) {
 				snappee.selected = selected;
 				changed = true;

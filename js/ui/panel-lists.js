@@ -387,13 +387,20 @@ export class SnappeesPanel {
 				this.onMove(moved.id, to - from);
 			}
 		}, readOnly);
+		// Unlike the channel and clip lists, a snappee row toggles: clicking the selected
+		// snappee again clears the selection, which is how the snapper is dismissed from the
+		// panel. Channels and clips keep the plain select-only behaviour (see ChannelsPanel).
 		item.addEventListener("click", () => {
 			if (!readOnly && snappee.active !== false) {
-				this.onSelect(snappee.id);
+				this.onSelect(snappee.selected ? null : snappee.id);
 			}
 		});
 		item.addEventListener("dblclick", event => {
 			if (!readOnly && !isInteractiveEventTarget(event)) {
+				// A double click fires its two clicks first and the second one clears the
+				// selection, so the row being edited is selected again to keep edit-on-
+				// double-click landing on a selected snappee, as it always did.
+				this.onSelect(snappee.id);
 				this.onEdit(snappee.id);
 			}
 		});

@@ -4,6 +4,7 @@ import test from "node:test";
 import { EVENT_EDITING_MODULES, STAGE_INTERACTION_MODULES, readSources } from "./module-source.mjs";
 import { withChartTools } from "../js/app/app-chart-tools.js";
 import { withEventEditing } from "../js/app/app-event-editing.js";
+import { withCurveDraft } from "../js/app/app-curve-draft.js";
 import { withFreeTransform } from "../js/app/app-free-transform.js";
 import { withHistoryCommands } from "../js/app/app-history-commands.js";
 import { CommandRegistry } from "../js/app/commands.js";
@@ -50,8 +51,56 @@ test("snaps dragged pen handles and orients snappee previews like the stage", as
 		/moveChannel[\s\S]*?channelOnly: true[\s\S]*?scheduleDirty: false/,
 	);
 	assert.match(lists, /syncFlags\(model, context = \{\}\)/);
+	// v0.16.35: only the snappee row toggles — clicking the selected snappee clears it — while
+	// the channel row below keeps the plain select-only handler.
+	assert.match(lists, /this\.onSelect\(snappee\.selected \? null : snappee\.id\)/);
+	assert.match(tools, /const target = id \?\? null;/);
+	assert.match(tools, /const selected = target !== null && snappee\.id === target/);
 	// The history panel now lives in js/panel-history.js, re-exported from js/panels.js.
 	assert.match(await readFile(new URL("../js/ui/panel-history.js", import.meta.url), "utf8"), /dataset\.historyId/);
+});
+
+test("snappee selection is exclusive and a null id clears the list", () => {
+	const curve = (id, name, extra = {}) => ({
+		id,
+		type: "bezierCurve",
+		name,
+		active: true,
+		selected: false,
+		transformation: [1, 0, 0, 1, 0, 0],
+		controlPoints: [
+			{ x: -10, y: 0 },
+			{ x: 10, y: 0 },
+		],
+		segments: 4,
+		closed: false,
+		...extra,
+	});
+	const model = new ChartModel({
+		channels: [{ id: 0, name: "Main", active: true }],
+		snappees: [curve(1, "A", { selected: true }), curve(2, "B"), curve(3, "Muted", { active: false })],
+	});
+	const App = withCurveDraft(class {});
+	const app = new App();
+	app.model = model;
+	// Clicking the already selected snappee passes null, which clears the whole list.
+	assert.equal(app.selectSnappee(null), true);
+	assert.deepEqual(
+		model.snappees.map(item => item.selected),
+		[false, false, false],
+	);
+	// Clicking another row moves the selection instead of adding to it...
+	assert.equal(app.selectSnappee(2), true);
+	assert.deepEqual(
+		model.snappees.map(item => item.selected),
+		[false, true, false],
+	);
+	// ...and an inactive snappee stays unselectable.
+	app.selectSnappee(3);
+	assert.deepEqual(
+		model.snappees.map(item => item.selected),
+		[false, false, false],
+	);
 });
 
 test("selected pen snappees support flips, translation, and free-transform bounds", () => {
