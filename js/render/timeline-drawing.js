@@ -19,6 +19,7 @@ import {
 	timelineTipCheckpointSignature,
 	scrollbarNoteDensity,
 	scrollbarHeatmapColors,
+	scrollbarRecordsForProject,
 } from "./timeline-helpers.js";
 import { abLoopMarks } from "./timeline-gestures.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
@@ -645,18 +646,25 @@ export class TimelineDrawingTrait {
 		}
 	}
 
+	_scrollbarHeatmapRecords(project) {
+		return scrollbarRecordsForProject(
+			this.renderIndex?.eventRecords ||
+				flattenEvents(project.events || [], false).map(event => ({
+					event,
+					start: this.timing.beatToSeconds(event.time),
+				})),
+			project,
+		);
+	}
+
 	_drawScrollbar(context, rectangle, project, current) {
 		const bounds = this._timeBounds(project);
 		const beginningX = this._scrollX(project.editor.visibleRangeBeginning, rectangle, bounds);
 		const endingX = this._scrollX(project.editor.visibleRangeEnd, rectangle, bounds);
 		const currentX = this._scrollX(current, rectangle, bounds);
-		const records =
-			this.renderIndex?.eventRecords ||
-			flattenEvents(project.events || [], false).map(event => ({
-				event,
-				start: this.timing.beatToSeconds(event.time),
-			}));
-		const colors = scrollbarHeatmapColors(scrollbarNoteDensity(records, bounds, rectangle.width));
+		const colors = scrollbarHeatmapColors(
+			scrollbarNoteDensity(this._scrollbarHeatmapRecords(project), bounds, rectangle.width),
+		);
 		const binWidth = rectangle.width / Math.max(1, colors.length);
 		colors.forEach((color, index) => {
 			context.fillStyle = color;

@@ -43,12 +43,26 @@ function guidesAfterRemoval(index, channelId, changedChannels) {
 // Removing events touches so many derived arrays that they are rebuilt from the surviving
 // records rather than spliced; the expensive part, the tip point guides, is still rebuilt per
 // channel and only for the channels a note actually left.
+function removedEventIds(events) {
+	const ids = new Set();
+	for (const event of events || []) {
+		const id = event?.id ?? event;
+		if (id != null) {
+			ids.add(id);
+		}
+	}
+	return ids;
+}
+
 export function removeEventsFromIndex(index, removedEvents) {
 	if (index.eventSource !== index.project.events || !Array.isArray(removedEvents) || !removedEvents.length) {
 		return false;
 	}
-	const removed = new Set(removedEvents);
-	const removedRecords = index.eventRecords.filter(record => removed.has(record.event));
+	const removed = removedEventIds(removedEvents);
+	if (!removed.size) {
+		return false;
+	}
+	const removedRecords = index.eventRecords.filter(record => removed.has(record.event.id));
 	if (!removedRecords.length) {
 		return false;
 	}
@@ -75,10 +89,10 @@ export function removeEventsFromIndex(index, removedEvents) {
 
 // The event tree and the lookup tables that address an event directly.
 function dropRemovedEvents(index, removed) {
-	index.flatEvents = index.flatEvents.filter(event => !removed.has(event));
-	index.leafEvents = index.leafEvents.filter(event => !removed.has(event));
+	index.flatEvents = index.flatEvents.filter(event => !removed.has(event.id));
+	index.leafEvents = index.leafEvents.filter(event => !removed.has(event.id));
 	index.activeLeafEvents = index.leafEvents.filter(event => index.activeChannelIds.has(event.channel));
-	index.eventRecords = index.eventRecords.filter(record => !removed.has(record.event));
+	index.eventRecords = index.eventRecords.filter(record => !removed.has(record.event.id));
 	index.eventRecordMap = new Map(index.eventRecords.map(record => [record.event, record]));
 	index.eventById = new Map(index.eventRecords.map(record => [record.event.id, record.event]));
 	index.ancestorsById = new Map();
@@ -247,7 +261,10 @@ function rebuildDoubleTaps(index, changedDoubleTapTimes) {
 }
 
 export function removeChannelFromIndex(index, channelId, removedEvents) {
-	removeEventsFromIndex(index, removedEvents || []);
+	const leftover = index.eventRecords
+		.filter(record => record.event?.channel === channelId)
+		.map(record => record.event);
+	removeEventsFromIndex(index, [...(removedEvents || []), ...leftover]);
 	index.tipGuidesByChannel.delete(channelId);
 	index.noteEventRecordsByChannel.delete(channelId);
 	index.allTipGuides = index.project.channels.flatMap(channel => index.tipGuidesByChannel.get(channel.id) || []);
