@@ -500,6 +500,82 @@ test("a request waits for an open pairing dialog instead of failing", async () =
 	}
 });
 
+	// PROMPT-v26: several MCP servers may run at the same time and each one is connected to all
+	// sviber instances, so a second server gets its own prompt and its own pairing beside the
+	// first — neither announcement overwrites the other (per-run client identities).
+	test("a second server is offered its own pairing beside the first", async () => {
+		const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-two-"));
+		const fs = await import("node:fs");
+		const net = await import("node:net");
+		const previousNw = globalThis.nw;
+		globalThis.nw = {
+			require: name => {
+				if (name === "fs") {
+					return fs;
+				}
+				if (name === "net") {
+					return net;
+				}
+				if (name === "os") {
+					return { homedir: () => home };
+				}
+				return null;
+			},
+		};
+		registerPairingRecord({ fs, home, id: "first-client", name: "sviber-mcp", pid: process.pid });
+		const app = new (withMcpInstance(class {}))();
+		const dialogs = [];
+		let answer = null;
+		app.dialogs = {
+			active: false,
+			open: async options => {
+				dialogs.push(options);
+				app.dialogs.active = true;
+				const result = await new Promise(resolve => {
+					answer = resolve;
+				});
+				app.dialogs.active = false;
+				return result;
+			},
+		};
+		app.toast = {
+			show: () => {},
+		};
+		app._mcpFs = fs;
+		app._startMcpPairing(fs);
+		try {
+			const deadline = Date.now() + 5000;
+			while (dialogs.length === 0 && Date.now() < deadline) {
+				await new Promise(resolve => setTimeout(resolve, 25));
+			}
+			assert.equal(dialogs.length, 1);
+			answer({ button: "allow" });
+			await new Promise(resolve => setTimeout(resolve, 100));
+			assert.deepEqual(app._mcpPairedServerPids.get("first-client"), process.pid);
+			// The second server announces beside the first and pairs on its own.
+			registerPairingRecord({ fs, home, id: "second-client", name: "sviber-mcp", pid: process.pid });
+			const secondOffer = app._offerMcpPairing();
+			const secondDeadline = Date.now() + 5000;
+			while (dialogs.length < 2 && Date.now() < secondDeadline) {
+				await new Promise(resolve => setTimeout(resolve, 25));
+			}
+			assert.equal(dialogs.length, 2, "the second server gets its own prompt");
+			answer({ button: "allow" });
+			await secondOffer;
+			assert.deepEqual(app._mcpPairedServerPids.get("second-client"), process.pid);
+			assert.ok(app._mcpDecidedClients.has("first-client"), "the first pairing still holds");
+			const records = readPairingRecords({ fs, home });
+			assert.equal(records.length, 2);
+			for (const record of records) {
+				assert.deepEqual(record.pairedWith, [{ pid: process.pid, chart: "" }]);
+			}
+		} finally {
+			app._stopMcpInstance();
+			globalThis.nw = previousNw;
+			rmSync(home, { recursive: true, force: true });
+		}
+	});
+
 test("consent warning tells the user allowing makes undoable external edits possible", () => {
 	assert.match(MCP_CONSENT_WARNING, /undoable modifications/);
 	assert.match(MCP_CONSENT_WARNING, /outside the editor/);
