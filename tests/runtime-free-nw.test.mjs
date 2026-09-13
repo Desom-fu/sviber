@@ -9,10 +9,13 @@ import path from "node:path";
 import {
 	ABI_REBUILD_PACKAGES,
 	FFMPEG_NAME_PATTERN,
+	mcpLauncherScript,
 	NATIVE_BINARY_PATTERN,
 	NWJS_HEADERS_DISTURL,
 	nativeRebuildSpec,
 	nwjsHeadersTarball,
+	packagedApplicationDirectory,
+	packagedApplicationPrefix,
 	packagedNativeRebuildDirectory,
 	shouldIncludePackagedFile,
 } from "../scripts/nw-runtime-natives.mjs";
@@ -53,6 +56,7 @@ test("build script and Nix/CI encode the dual-Node split and runtime-free exclus
 	assert.match(build, /shouldIncludePackagedFile/);
 	assert.match(build, /PACKAGE_ONLY/);
 	assert.match(build, /writeMcpLauncher/);
+	assert.match(build, /mcpLauncherScript/);
 	assert.match(workflow, /bundled host Node render worker/);
 	assert.match(workflow, /clearing getter cache/);
 	assert.doesNotMatch(workflow, /npm_config_runtime=node-webkit/);
@@ -60,6 +64,36 @@ test("build script and Nix/CI encode the dual-Node split and runtime-free exclus
 	assert.doesNotMatch(workflow, /npmmirror\.com\/mirrors\/nwjs/);
 	assert.match(nix, /SVIBER_NW_PACKAGE_ONLY/);
 	assert.match(nix, /Host-Node native rebuilds/);
+});
+
+test("packaged MCP launcher reaches into the packaged app, not the output root", () => {
+	const root = mkdtempSync(path.join(tmpdir(), "sviber-mcp-"));
+	try {
+		const windows = path.join(root, "package.nw", "sviber");
+		mkdirSync(path.join(windows, "runtime"), { recursive: true });
+		writeFileSync(path.join(windows, "runtime", "node.exe"), "");
+		assert.equal(packagedApplicationDirectory(root, "node.exe"), windows);
+		assert.equal(packagedApplicationPrefix(root, "node.exe"), "package.nw/sviber");
+		const cmd = mcpLauncherScript(root, { platform: "win", nodeName: "node.exe" });
+		assert.equal(cmd.name, "sviber-mcp.cmd");
+		assert.match(cmd.body, /"%~dp0package\.nw\\sviber\\runtime\\node\.exe" "%~dp0package\.nw\\sviber\\js\\mcp\\mcp-main\.mjs" %\*/);
+		writeFileSync(path.join(windows, "runtime", "node"), "");
+		const shell = mcpLauncherScript(root, { platform: "linux", nodeName: "node" });
+		assert.equal(shell.name, "sviber-mcp");
+		assert.match(shell.body, /^#!\/bin\/sh\n/);
+		assert.match(shell.body, /exec "\$DIR\/package\.nw\/sviber\/runtime\/node" "\$DIR\/package\.nw\/sviber\/js\/mcp\/mcp-main\.mjs" "\$@"\n$/);
+		rmSync(path.join(root, "package.nw"), { recursive: true, force: true });
+		const macos = path.join(root, "sviber.app", "Contents", "Resources", "app.nw", "sviber");
+		mkdirSync(path.join(macos, "runtime"), { recursive: true });
+		writeFileSync(path.join(macos, "runtime", "node"), "");
+		assert.equal(packagedApplicationPrefix(root, "node"), "sviber.app/Contents/Resources/app.nw/sviber");
+		assert.match(
+			mcpLauncherScript(root, { platform: "osx", nodeName: "node" }).body,
+			/exec "\$DIR\/sviber\.app\/Contents\/Resources\/app\.nw\/sviber\/runtime\/node"/,
+		);
+	} finally {
+		rmSync(root, { recursive: true, force: true });
+	}
 });
 
 test("packaged native rebuild targets package.nw or the macOS app bundle", () => {

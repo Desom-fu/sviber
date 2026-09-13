@@ -34,6 +34,54 @@ export function packagedNativeRebuildDirectory(outputDirectory) {
 	throw new Error("packaged gl native module not found under the NW.js output");
 }
 
+// The NW.js output root holds the runtime binaries next to the packaged app, so launchers
+// written to that root must reach INTO the packaged app: `package.nw` on Windows/Linux or
+// the `.app` bundle on macOS. Resolving this instead of hardcoding a prefix keeps the MCP
+// launcher (and anything else startable) from pointing at a directory that does not exist.
+export const PACKAGED_APPLICATION_CANDIDATES = Object.freeze([
+	["package.nw", "sviber"],
+	["sviber.app", "Contents", "Resources", "app.nw", "sviber"],
+	["sviber"],
+]);
+
+export function packagedApplicationDirectory(outputDirectory, nodeName = "node") {
+	const root = String(outputDirectory || "");
+	for (const segments of PACKAGED_APPLICATION_CANDIDATES) {
+		const directory = path.join(root, ...segments);
+		if (existsSync(path.join(directory, "runtime", nodeName))) {
+			return directory;
+		}
+	}
+	throw new Error("packaged application directory not found under the NW.js output");
+}
+
+// Relative path (POSIX separators) from the launcher's directory to the packaged app.
+export function packagedApplicationPrefix(outputDirectory, nodeName = "node") {
+	return path
+		.relative(String(outputDirectory || ""), packagedApplicationDirectory(outputDirectory, nodeName))
+		.split(path.sep)
+		.join("/");
+}
+
+export function mcpLauncherScript(outputDirectory, { platform, nodeName }) {
+	const prefix = packagedApplicationPrefix(outputDirectory, nodeName);
+	const runtimeNode = path.posix.join(prefix, "runtime", nodeName);
+	const script = path.posix.join(prefix, "js", "mcp", "mcp-main.mjs");
+	if (platform === "win") {
+		const windowsRuntime = runtimeNode.replace(/\//g, "\\");
+		const windowsScript = script.replace(/\//g, "\\");
+		return {
+			name: "sviber-mcp.cmd",
+			body: `@echo off\r\n"%~dp0${windowsRuntime}" "%~dp0${windowsScript}" %*\r\n`,
+		};
+	}
+	const dir = `DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)`;
+	return {
+		name: "sviber-mcp",
+		body: `#!/bin/sh\n${dir}\nexec "$DIR/${runtimeNode}" "$DIR/${script}" "$@"\n`,
+	};
+}
+
 export function shouldIncludePackagedFile(pathname, { runtimeFree = false } = {}) {
 	if (!runtimeFree) {
 		return true;

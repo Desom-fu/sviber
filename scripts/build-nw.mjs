@@ -13,7 +13,7 @@ import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
 import { bundleMacroSandbox } from "./macro-sandbox-bundle.cjs";
 import { builderApplicationOptions, PACKAGED_WINDOW_ICON } from "./nw-build-config.mjs";
-import { nativeRebuildSpec, shouldIncludePackagedFile } from "./nw-runtime-natives.mjs";
+import { mcpLauncherScript, nativeRebuildSpec, shouldIncludePackagedFile } from "./nw-runtime-natives.mjs";
 
 const { bundleAudioDecoder: bundleAudioDecoderFile } = decoderBundler;
 
@@ -689,16 +689,10 @@ if (!PACKAGE_ONLY) {
 
 async function writeMcpLauncher() {
 	const nodeName = TARGET_PLATFORM === "win" ? "node.exe" : "node";
-	const runtimeNode = path.posix.join("sviber", "runtime", nodeName);
-	const script = path.posix.join("sviber", "js", "mcp", "mcp-main.mjs");
-	if (TARGET_PLATFORM === "win") {
-		const body = `@echo off\r\n"%~dp0${runtimeNode.replace(/\//g, "\\")}" "%~dp0${script.replace(/\//g, "\\")}" %*\r\n`;
-		await writeFile(path.join(outputDirectory, "sviber-mcp.cmd"), body);
-		return;
+	const launcher = mcpLauncherScript(outputDirectory, { platform: TARGET_PLATFORM, nodeName });
+	const destination = path.join(outputDirectory, launcher.name);
+	await writeFile(destination, launcher.body);
+	if (TARGET_PLATFORM !== "win") {
+		await chmod(destination, 0o755);
 	}
-	const dir = `DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)`;
-	const body = `#!/bin/sh\n${dir}\nexec "$DIR/${runtimeNode}" "$DIR/${script}" "$@"\n`;
-	const destination = path.join(outputDirectory, "sviber-mcp");
-	await writeFile(destination, body);
-	await chmod(destination, 0o755);
 }
