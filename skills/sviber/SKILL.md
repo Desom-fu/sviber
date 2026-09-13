@@ -108,7 +108,7 @@ Covers:
 3. It speaks MCP JSON-RPC on stdio: `initialize`, then `tools/list` / `tools/call`.
 4. **Stdout is protocol-only.** Logs belong on stderr.
 5. One endpoint per editor, not customizable: `~/.sviber/${pid}.sock` on POSIX; on Windows a named pipe `\\.\pipe\sviber-<pid>` plus an empty `<pid>.sock` marker (Node's Windows local domain is pipes-only, so binding the `.sock` path itself fails with EACCES).
-6. The first request to an editor shows an allow/deny popup; the editor caches the decision per MCP server process, so later tool calls do not ask again.
+6. Pairing is per run and per editor instance: the MCP server announces itself in `~/.sviber/pairing` the moment it starts, the editor offers allow/deny as soon as it sees that (at its own startup, or live through a directory watcher), and the decision lives in that editor window only — restarting either side asks again, and `list_instances` reports `pairedWith`.
 7. Allowing makes **undoable** chart edits from outside the editor possible.
 8. Call `list_instances`, pick an `instance` (the pid), then `get_open`.
 9. Every tool except `list_instances` requires `instance`.

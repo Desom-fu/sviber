@@ -2,8 +2,9 @@
 
 import fs from "node:fs";
 import net from "node:net";
-import { randomUUID } from "node:crypto";
+import { resolveMcpClientIdentity } from "./mcp-client-identity.js";
 import { instancePidFromName } from "./mcp-instance-directory.js";
+import { readPairingRecords } from "./mcp-pairing.js";
 import { instanceTransport, socketPathFromName, sviberDirectory } from "./mcp-paths.js";
 
 // Discovery always lists `<pid>.sock`: POSIX publishes the socket itself, win32 publishes an
@@ -60,25 +61,42 @@ function sendSocketRequest(socketPath, payload, timeoutMs = 15000) {
 }
 
 // A request opens a fresh connection, so the editor cannot recognize the caller from the
-// socket alone. Every request therefore carries one stable `client` id per MCP server
-// process: that is what the editor remembers when the user allows or denies the connection,
-// which keeps the consent popup to once per server instead of once per tool call.
+// socket alone. Every request therefore carries the server's stable `client` id and its
+// display name: the id is what the editor pairs once, the name is what the pairing prompt shows.
 export function createSocketBackend(home, options = {}) {
-	const client = String(options.clientId || randomUUID());
+	const identity = resolveMcpClientIdentity({
+		fs,
+		home,
+		env: options.env,
+		clientId: options.clientId,
+		clientName: options.clientName,
+	});
 	return {
+		clientId: identity.id,
+		clientName: identity.name,
 		listInstances() {
+			// `pairedWith` is how the MCP side tells which editor instance a client is talking to.
+			const records = readPairingRecords({ fs, home });
 			return {
 				instances: listInstanceSocketPaths(home).map(item => ({
 					id: String(item.pid),
 					pid: item.pid,
 					path: instanceTransport(item.pid, { home }).path,
+					pairedWith: records
+						.filter(record => record.pairedWith.some(entry => entry.pid === item.pid))
+						.map(record => ({ id: record.id, name: record.name })),
 				})),
 			};
 		},
 		callInstance(instance, name, args) {
 			const pid = Number(instance);
 			const socketPath = instanceTransport(pid, { home }).path;
-			return sendSocketRequest(socketPath, { method: name, arguments: args || {}, client });
+			return sendSocketRequest(socketPath, {
+				method: name,
+				arguments: args || {},
+				client: identity.id,
+				clientName: identity.name,
+			});
 		},
 	};
 }

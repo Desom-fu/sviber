@@ -150,6 +150,8 @@
   "dialog.spectrogram": "スペクトログラム",
   "dialog.mcpConsent": "MCP接続を許可",
   "dialog.mcpConsentWarning": "この接続を許可すると、エディタの外から譜面を取り消せない形で変更できるようになります。",
+  "dialog.mcpPairingPending": "ペアリング待ち：{clients}",
+  "dialog.mcpPairingInstance": "sviber インスタンス：{instance}",
   "dialog.mcpAllow": "許可",
   "dialog.mcpDeny": "拒否",
   "dialog.subdivision": "ビートの細分",

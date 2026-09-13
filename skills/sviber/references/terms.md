@@ -82,10 +82,10 @@ Prefer these mappings when talking to the user or reading the UI. UI strings com
 | --- | --- | --- | --- |
 | Event | 事件 | イベント | |
 | Note | 音符 | ノーツ | tap/hold/drag/flick family. |
-| Tap | Tap | タップ | UI keeps English in zh. |
-| Hold | Hold | ホルド | |
-| Drag | Drag | ドラッグ | |
-| Flick | Flick | フリック | ja UI file has スイッチを入れる (bad MT); use フリック. |
+| Tap | Tap / 点击 | タップ | UI keeps English in zh. |
+| Hold | Hold / 长按 | ホルド | |
+| Drag | Drag / 锁链 | ドラッグ | |
+| Flick | Flick / 滑动 | フリック | ja UI file has スイッチを入れる (bad MT); use フリック. |
 | Bg note / background note | 墨点 | 背景ノート | en UI: "Bg note"; ja UI: 背景メモ. |
 | Big text | 大字 | 大きなテキスト | |
 | Grid | 网格 | グリッド | |

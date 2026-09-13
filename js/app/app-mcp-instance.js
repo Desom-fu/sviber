@@ -1,12 +1,35 @@
-// Editor-side MCP instance endpoint: a Unix socket at ~/.sviber/${pid}.sock, or on Windows a
-// named pipe plus an empty `<pid>.sock` marker (Node's local domain is pipes-only there).
-// Connecting still asks for allow/deny consent in a popup.
+// Editor-side MCP instance endpoint and pairing.
+//
+// The endpoint is a Unix socket at ~/.sviber/${pid}.sock, or on Windows a named pipe plus an
+// empty `<pid>.sock` marker (Node's local domain is pipes-only there).
+//
+// Pairing is deliberately NOT tied to the first tool call: an MCP server announces itself in
+// ~/.sviber/pairing while it runs, and this editor offers to pair as soon as it sees that
+// announcement (at startup, or through a directory watcher while it runs). A pairing is per
+// editor instance and per run: it lives in this window's memory, so restarting either side
+// asks again, and `list_instances` reports which instance a client is paired with.
 
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { handleEditorMcpTool } from "../mcp/mcp-editor-handlers.js";
-import { pruneStaleInstanceEndpoints } from "../mcp/mcp-instance-directory.js";
-import { instanceSocketPath, instanceTransport, socketPathFromName, sviberDirectory } from "../mcp/mcp-paths.js";
+import { pruneStaleInstanceEndpoints, processIsAlive } from "../mcp/mcp-instance-directory.js";
+import {
+	markPairedEditor,
+	pairingRecordLabel,
+	pendingPairingRecords,
+	prunePairingRecords,
+	readPairingRecords,
+} from "../mcp/mcp-pairing.js";
+import {
+	instanceSocketPath,
+	instanceTransport,
+	pairingDirectory,
+	socketPathFromName,
+	sviberDirectory,
+} from "../mcp/mcp-paths.js";
+
+const PAIRING_RETRY_MS = 1500;
+const PAIRING_DEBOUNCE_MS = 150;
 
 function nwNode(name) {
 	try {
@@ -64,6 +87,7 @@ class McpInstanceTrait {
 		globalThis.addEventListener?.("pagehide", cleanup);
 		globalThis.addEventListener?.("unload", cleanup);
 		globalThis.process?.on?.("exit", cleanup);
+		this._startMcpPairing(fs);
 	}
 
 	_stopMcpInstance() {
@@ -80,6 +104,14 @@ class McpInstanceTrait {
 				/* gone */
 			}
 		}
+		clearTimeout(this._mcpPairingTimer);
+		this._mcpPairingTimer = null;
+		try {
+			this._mcpPairingWatcher?.close?.();
+		} catch {
+			/* already closed */
+		}
+		this._mcpPairingWatcher = null;
 	}
 
 	writeMusicSnippetFile(bytes) {
@@ -92,6 +124,155 @@ class McpInstanceTrait {
 		const pathname = socketPathFromName(directory, `snippet-${Date.now()}.wav`);
 		fs.writeFileSync(pathname, bytes);
 		return pathname;
+	}
+
+	// Pairing is per run and per editor instance: decisions live in this window's memory only,
+	// so closing the editor (or the MCP server) and starting it again asks again. A refusal is
+	// remembered for this run too, so a rejected client does not re-prompt on every tool call.
+	_startMcpPairing(fs) {
+		this._mcpFs = fs;
+		this._mcpDecidedClients = new Set();
+		this._mcpDeniedClients = new Set();
+		try {
+			fs.mkdirSync(pairingDirectory(), { recursive: true });
+		} catch (error) {
+			console.warn("MCP pairing directory failed", error);
+		}
+		try {
+			prunePairingRecords({ fs, isAlive: processIsAlive });
+		} catch (error) {
+			console.warn("MCP pairing cleanup failed", error);
+		}
+		try {
+			this._mcpPairingWatcher = fs.watch(pairingDirectory(), () => this._queueMcpPairing());
+			this._mcpPairingWatcher?.on?.("error", error => console.warn("MCP pairing watcher failed", error));
+		} catch (error) {
+			console.warn("MCP pairing watcher failed", error);
+		}
+		void this._offerMcpPairing();
+	}
+
+	_mcpInstanceLabel() {
+		const title = String(this.model?.metadata?.title || "").trim();
+		const pid = globalThis.process?.pid;
+		return title ? `#${pid} — ${title}` : `#${pid}`;
+	}
+
+	_queueMcpPairing(delay = PAIRING_DEBOUNCE_MS) {
+		clearTimeout(this._mcpPairingTimer);
+		this._mcpPairingTimer = setTimeout(() => void this._offerMcpPairing(), delay);
+	}
+
+	_mcpPendingPairingRecords() {
+		if (!this._mcpFs) {
+			return [];
+		}
+		return pendingPairingRecords({
+			records: readPairingRecords({ fs: this._mcpFs }),
+			decidedIds: this._mcpDecidedClients ? [...this._mcpDecidedClients] : [],
+		});
+	}
+
+	async _offerMcpPairing() {
+		if (!this._mcpFs || this._mcpPairingBusy) {
+			return;
+		}
+		const records = this._mcpPendingPairingRecords();
+		if (!records.length) {
+			return;
+		}
+		// Another dialog is up (or the user is mid-edit): ask again shortly instead of failing.
+		if (this.dialogs?.active) {
+			this._queueMcpPairing(PAIRING_RETRY_MS);
+			return;
+		}
+		this._mcpPairingBusy = true;
+		let allowed = false;
+		try {
+			allowed = await this._confirmMcpPairing(records);
+		} catch (error) {
+			console.warn("MCP pairing prompt failed", error);
+			this._queueMcpPairing(PAIRING_RETRY_MS);
+			return;
+		} finally {
+			this._mcpPairingBusy = false;
+		}
+		const pid = globalThis.process?.pid;
+		for (const record of records) {
+			this._mcpDecidedClients.add(record.id);
+			if (!allowed) {
+				this._mcpDeniedClients.add(record.id);
+				continue;
+			}
+			try {
+				const chart = String(this.model?.metadata?.title || "");
+				markPairedEditor({ fs: this._mcpFs, clientId: record.id, pid, chart });
+			} catch (error) {
+				console.warn("MCP pairing mark failed", error);
+			}
+		}
+	}
+
+	async _confirmMcpPairing(records) {
+		const names = records.map(record => pairingRecordLabel(record)).join("、");
+		const result = await this.dialogs.open({
+			titleKey: "dialog.mcpConsent",
+			fields: [
+				{
+					id: "warning",
+					type: "custom",
+					hideLabel: true,
+					render: ({ document: documentRef }) => {
+						const element = documentRef.createElement("div");
+						const warning = documentRef.createElement("p");
+						warning.textContent = i18n.t("dialog.mcpConsentWarning");
+						element.append(warning);
+						const pending = documentRef.createElement("p");
+						pending.textContent = i18n.t("dialog.mcpPairingPending", { clients: names });
+						element.append(pending);
+						const instance = documentRef.createElement("p");
+						const instanceText = this._mcpInstanceLabel();
+						instance.textContent = i18n.t("dialog.mcpPairingInstance", { instance: instanceText });
+						element.append(instance);
+						return { element, read: () => true };
+					},
+				},
+			],
+			buttons: [
+				{ id: "allow", labelKey: "dialog.mcpAllow", primary: true, value: true },
+				{ id: "deny", labelKey: "dialog.mcpDeny", cancel: true, value: false, validate: false },
+			],
+		});
+		return Boolean(result?.button === "allow" || result === true);
+	}
+
+	// Paired in this run → silent. A client that never announced itself (older build, or a
+	// one-shot process that exited before its announcement was seen) is asked here for this run.
+	async _mcpClientAllowed(client, clientName) {
+		const key = String(client || "");
+		if (key && this._mcpDecidedClients?.has(key) && !this._mcpDeniedClients?.has(key)) {
+			return true;
+		}
+		if (key && this._mcpDeniedClients?.has(key)) {
+			return false;
+		}
+		const record = { id: key || "unnamed", name: String(clientName || "") };
+		const allowed = await this._confirmMcpPairing([record]);
+		this._mcpDecidedClients.add(record.id);
+		if (!allowed) {
+			this._mcpDeniedClients.add(record.id);
+			return false;
+		}
+		if (key) {
+			try {
+				const chart = String(this.model?.metadata?.title || "");
+				const pid = globalThis.process?.pid;
+				markPairedEditor({ fs: this._mcpFs, clientId: key, pid, chart });
+			} catch (error) {
+				console.warn("MCP pairing mark failed", error);
+			}
+		}
+		return true;
 	}
 
 	async _acceptMcpConnection(socket) {
@@ -108,45 +289,6 @@ class McpInstanceTrait {
 		});
 	}
 
-	// One consent decision per MCP server process (PROMPT-v26: the popup belongs to "a MCP
-	// server wants to connect", not to every tool call). A decision lives as long as this
-	// editor window; restart the MCP server to be asked again.
-	async _confirmMcpClient(client) {
-		const key = String(client || "");
-		const decisions = (this._mcpClientConsent ||= new Map());
-		if (key && decisions.has(key)) {
-			return decisions.get(key);
-		}
-		const allowed = await this._confirmMcpConsent();
-		if (key) {
-			decisions.set(key, allowed);
-		}
-		return allowed;
-	}
-
-	async _confirmMcpConsent() {
-		const result = await this.dialogs.open({
-			titleKey: "dialog.mcpConsent",
-			fields: [
-				{
-					id: "warning",
-					type: "custom",
-					hideLabel: true,
-					render: ({ document: documentRef }) => {
-						const element = documentRef.createElement("p");
-						element.textContent = i18n.t("dialog.mcpConsentWarning");
-						return { element, read: () => true };
-					},
-				},
-			],
-			buttons: [
-				{ id: "allow", labelKey: "dialog.mcpAllow", primary: true, value: true },
-				{ id: "deny", labelKey: "dialog.mcpDeny", cancel: true, value: false, validate: false },
-			],
-		});
-		return Boolean(result?.button === "allow" || result === true);
-	}
-
 	async _handleMcpSocketLine(socket, line) {
 		let message;
 		try {
@@ -155,7 +297,14 @@ class McpInstanceTrait {
 			socket.write(`${JSON.stringify({ error: error.message })}\n`);
 			return;
 		}
-		if (!(await this._confirmMcpClient(message.client))) {
+		let allowed = false;
+		try {
+			allowed = await this._mcpClientAllowed(message.client, message.clientName);
+		} catch (error) {
+			socket.write(`${JSON.stringify({ error: `pairing failed: ${error.message}` })}\n`);
+			return;
+		}
+		if (!allowed) {
 			socket.write(`${JSON.stringify({ error: "denied" })}\n`);
 			return;
 		}

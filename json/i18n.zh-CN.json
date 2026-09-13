@@ -150,6 +150,8 @@
   "dialog.spectrogram": "频谱图",
   "dialog.mcpConsent": "允许 MCP 连接",
   "dialog.mcpConsentWarning": "允许此连接后，编辑器外部可以对谱面做出无法撤销的修改。",
+  "dialog.mcpPairingPending": "待配对：{clients}",
+  "dialog.mcpPairingInstance": "sviber 实例：{instance}",
   "dialog.mcpAllow": "允许",
   "dialog.mcpDeny": "拒绝",
   "dialog.subdivision": "拍细分",

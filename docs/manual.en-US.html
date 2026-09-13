@@ -1442,11 +1442,18 @@ Node runtime bundled with the NW.js app, so a client only needs a command pointi
 there is no URL and no port. Several MCP servers can run at once, and each sees every editor instance.</p>				<!---->
 <p>Every editor instance listens on one endpoint: <code>~/.sviber/&lt;pid&gt;.sock</code> on Unix, or the <!---->
 named pipe <code>\\.\pipe\sviber-&lt;pid&gt;</code> plus an empty <code>&lt;pid&gt;.sock</code> marker file on <!---->
-Windows (the Windows local domain only supports named pipes). The path cannot be customized. <!---->
-The first request an MCP server makes to an instance opens an allow/deny dialog warning that allowing <!---->
-it makes undoable chart edits from outside the editor possible. The decision is remembered per MCP <!---->
-server process, so later calls do not ask again; restart that server to be asked again. Both <!---->
-directions carry one JSON object per line, stdout is protocol-only and logs go to stderr.</p>				<!---->
+Windows (the Windows local domain only supports named pipes). The path cannot be customized.</p>				<!---->
+<p>Pairing happens at startup rather than on the first call: as soon as an MCP server starts it <!---->
+writes its client identity to <code>~/.sviber/pairing/&lt;client&gt;.json</code> (the identity itself is kept in <!---->
+<code>~/.sviber/mcp-client-id</code>, override with <code>SVIBER_MCP_CLIENT_ID</code>); an editor scans <!---->
+that directory at startup and watches it live, so an unpaired server pops an allow/deny dialog that <!---->
+names both the client and the sviber instance it would drive, warning that allowing it makes undoable <!---->
+chart edits from outside the editor possible. A pairing is remembered as this run on this editor <!---->
+instance: while both sides stay open nothing asks again, closing either side and starting it asks <!---->
+again, and two editor instances pair separately. <code>list_instances</code> reports <code>pairedWith</code>, <!---->
+which says which editor instance a client is paired with. A client that never announced itself still <!---->
+gets one prompt. Both directions carry one JSON object per line, stdout is protocol-only, and every <!---->
+tool call leaves one operation line on stderr so the client's log shows what was done.</p>				<!---->
 <p>Available tools: list instances; get what is open and its local path; list global and project <!---->
 macros; read, create, rename and edit a macro; run a macro, a code snippet or a code expression <!---->
 (which returns JSON); undo the last MCP-initiated run that actually modified the chart; get the music <!---->

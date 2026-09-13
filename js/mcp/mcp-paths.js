@@ -67,6 +67,32 @@ export function socketPathFromName(directory, name) {
 	return joinHomePath(directory, name);
 }
 
+// Pairing state lives beside the instance endpoints: `pairing/<client>.json` is the announcement
+// an MCP server writes while it runs, and each editor instance writes which of its instances
+// paired with that client back into the same file.
+export const PAIRING_DIR_NAME = "pairing";
+export const MCP_CLIENT_ID_FILENAME = "mcp-client-id";
+
+export function pairingDirectory(home) {
+	return joinHomePath(sviberDirectory(home), PAIRING_DIR_NAME);
+}
+
+export function mcpClientIdPath(home) {
+	return joinHomePath(sviberDirectory(home), MCP_CLIENT_ID_FILENAME);
+}
+
+// Client ids become file names, so keep them inside a conservative alphabet.
+export function safeMcpClientId(value) {
+	const cleaned = String(value || "")
+		.replace(/[^A-Za-z0-9._-]+/g, "_")
+		.slice(0, 64);
+	return cleaned || "unnamed";
+}
+
+export function pairingRecordPath(clientId, home) {
+	return joinHomePath(pairingDirectory(home), `${safeMcpClientId(clientId)}.json`);
+}
+
 // Where an instance actually listens and where the MCP server connects.
 // `path` is the bind/connect target; `markerPath` is the empty file that makes the
 // instance discoverable through the `<pid>.sock` directory listing (win32 only).

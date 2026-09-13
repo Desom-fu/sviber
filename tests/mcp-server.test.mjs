@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { mkdtempSync, mkdirSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readFileSync } from "node:fs";
+import { readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
+import { EventEmitter } from "node:events";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -9,10 +11,18 @@ import path from "node:path";
 import { ChartModel } from "../js/core/chart-model.js";
 import { withMcpInstance } from "../js/app/app-mcp-instance.js";
 import { MCP_CONSENT_WARNING } from "../js/mcp/mcp-consent.js";
+import { resolveMcpClientIdentity } from "../js/mcp/mcp-client-identity.js";
 import { instancePidFromName, processIsAlive, pruneStaleInstanceEndpoints } from "../js/mcp/mcp-instance-directory.js";
-import { instanceSocketPath, instanceTransport, sviberDirectory } from "../js/mcp/mcp-paths.js";
+import {
+	markPairedEditor,
+	pairingRecordLabel,
+	pendingPairingRecords,
+	readPairingRecords,
+	registerPairingRecord,
+} from "../js/mcp/mcp-pairing.js";
+import { instanceSocketPath, instanceTransport, pairingRecordPath, sviberDirectory } from "../js/mcp/mcp-paths.js";
 import { createSocketBackend } from "../js/mcp/mcp-socket-backend.js";
-import { dispatchMcpLine } from "../js/mcp/mcp-server.js";
+import { dispatchMcpLine, startMcpStdio } from "../js/mcp/mcp-server.js";
 import { MCP_TOOL_NAMES, callMcpTool, mcpToolsListResult } from "../js/mcp/mcp-tools.js";
 import { getOpenDocument, handleEditorMcpTool } from "../js/mcp/mcp-editor-handlers.js";
 import { encodeWavPcm16 } from "../js/mcp/mcp-audio-snippet.js";
@@ -222,6 +232,157 @@ test("a starting editor prunes instance entries whose process is gone", () => {
 	}
 });
 
+test("pairing announcements record which editor instance paired", () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-pairing-"));
+	const nodeFs = { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync };
+	try {
+		const registered = registerPairingRecord({
+			fs: nodeFs,
+			home,
+			id: "client one",
+			name: "sviber-mcp",
+			pid: process.pid,
+		});
+		assert.equal(registered, pairingRecordPath("client one", home));
+		let records = readPairingRecords({ fs: nodeFs, home });
+		assert.equal(records.length, 1);
+		// The id becomes a file name, so unsafe characters are folded away.
+		assert.equal(records[0].id, "client one");
+		assert.ok(existsSync(pairingRecordPath("client one", home)));
+		assert.deepEqual(records[0].pairedWith, []);
+		assert.deepEqual(pendingPairingRecords({ records }).map(item => item.id), ["client one"]);
+		// Marking the same instance twice stays one entry: a pairing is per editor instance.
+		markPairedEditor({ fs: nodeFs, home, clientId: "client one", pid: 63280, chart: "NIGHTMARE † CITY" });
+		markPairedEditor({ fs: nodeFs, home, clientId: "client one", pid: 63280, chart: "NIGHTMARE † CITY" });
+		records = readPairingRecords({ fs: nodeFs, home });
+		assert.deepEqual(records[0].pairedWith, [{ pid: 63280, chart: "NIGHTMARE † CITY" }]);
+		// Answered clients are not offered again in the same run.
+		assert.deepEqual(pendingPairingRecords({ records, decidedIds: ["client one"] }), []);
+		// A second editor instance pairs on its own and is recorded beside the first.
+		markPairedEditor({ fs: nodeFs, home, clientId: "client one", pid: 63281, chart: "other chart" });
+		records = readPairingRecords({ fs: nodeFs, home });
+		assert.deepEqual(
+			records[0].pairedWith.map(entry => entry.pid),
+			[63280, 63281],
+		);
+		assert.equal(records[0].pairedWith[0].chart, "NIGHTMARE † CITY");
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("list_instances shows which editor instance a client paired with", () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-listed-"));
+	const nodeFs = { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync };
+	try {
+		const backend = createSocketBackend(home, { clientId: "client one", clientName: "sviber-mcp" });
+		mkdirSync(sviberDirectory(home), { recursive: true });
+		writeFileSync(path.join(sviberDirectory(home), "63280.sock"), "");
+		const instances = () => backend.listInstances().instances;
+		assert.equal(instances().length, 1);
+		assert.deepEqual(instances()[0].pairedWith, []);
+		registerPairingRecord({ fs: nodeFs, home, id: "client one", name: "sviber-mcp", pid: process.pid });
+		markPairedEditor({ fs: nodeFs, home, clientId: "client one", pid: 63280, chart: "NIGHTMARE † CITY" });
+		const listed = instances()[0];
+		assert.equal(listed.pid, 63280);
+		assert.deepEqual(listed.pairedWith, [{ id: "client one", name: "sviber-mcp" }]);
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("the MCP client identity is stable across runs and overridable", () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-identity-"));
+	const nodeFs = { readFileSync, writeFileSync, mkdirSync };
+	try {
+		const first = resolveMcpClientIdentity({ fs: nodeFs, home, env: {} });
+		const second = resolveMcpClientIdentity({ fs: nodeFs, home, env: {} });
+		assert.equal(first.id, second.id, "the id is read back from ~/.sviber/mcp-client-id");
+		assert.equal(first.name, "sviber-mcp");
+		const fromEnv = resolveMcpClientIdentity({ fs: nodeFs, home, env: { SVIBER_MCP_CLIENT_ID: "given" } });
+		assert.equal(fromEnv.id, "given");
+		assert.equal(resolveMcpClientIdentity({ fs: nodeFs, home, env: {}, clientName: "agent" }).name, "agent");
+		assert.equal(resolveMcpClientIdentity({ fs: nodeFs, home, env: {}, clientId: "explicit" }).id, "explicit");
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("starting the stdio server announces itself for pairing", async () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-announce-"));
+	const stdin = new EventEmitter();
+	stdin.setEncoding = () => {};
+	const stdout = { write: () => true };
+	try {
+		const started = startMcpStdio({ home, stdin, stdout, clientId: "stdio-announcer", clientName: "sviber-mcp" });
+		const { backend } = started;
+		assert.equal(backend.clientId, "stdio-announcer");
+		const records = readPairingRecords({ fs: { readFileSync, readdirSync }, home });
+		assert.deepEqual(
+			records.map(record => ({ id: record.id, name: record.name, pid: record.pid })),
+			[{ id: "stdio-announcer", name: "sviber-mcp", pid: process.pid }],
+		);
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("a starting editor offers to pair an announcing server before any request", async () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-announced-"));
+	const fs = await import("node:fs");
+	const net = await import("node:net");
+	const previousNw = globalThis.nw;
+	globalThis.nw = {
+		require: name => {
+			if (name === "fs") {
+				return fs;
+			}
+			if (name === "net") {
+				return net;
+			}
+			if (name === "os") {
+				return { homedir: () => home };
+			}
+			return null;
+		},
+	};
+	// The server announced itself before the editor started, so no tool call is involved.
+	// Pairing only needs the directory half, not the socket: the pipe name is derived from this
+	// process and another test in the same run already bound it.
+	registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: process.pid });
+	const app = new (withMcpInstance(class {}))();
+	const dialogs = [];
+	app.dialogs = {
+		open: async options => {
+			dialogs.push(options);
+			return { button: "allow" };
+		},
+	};
+	app._mcpFs = fs;
+	app._startMcpPairing(fs);
+	try {
+		const deadline = Date.now() + 5000;
+		let pairedWith = [];
+		while (pairedWith.length === 0 && Date.now() < deadline) {
+			pairedWith = readPairingRecords({ fs, home })[0]?.pairedWith || [];
+			if (pairedWith.length === 0) {
+				await new Promise(resolve => setTimeout(resolve, 25));
+			}
+		}
+		assert.equal(dialogs.length, 1, "pairing is offered at startup, without any request");
+		// The pairing is per run and per editor instance: recorded on the announcement, not on disk.
+		assert.deepEqual(pairedWith, [{ pid: process.pid, chart: "" }]);
+		assert.ok(app._mcpDecidedClients.has("announced-client"));
+		// Once paired, the editor stops offering the same client in this run.
+		await app._offerMcpPairing();
+		assert.equal(dialogs.length, 1);
+	} finally {
+		app._stopMcpInstance();
+		globalThis.nw = previousNw;
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
 test("consent warning tells the user allowing makes undoable external edits possible", () => {
 	assert.match(MCP_CONSENT_WARNING, /undoable modifications/);
 	assert.match(MCP_CONSENT_WARNING, /outside the editor/);
@@ -285,10 +446,15 @@ test("editor socket dispatches every instance tool through handleEditorMcpTool",
 	assert.match(source, /instanceTransport\(pid\)/);
 	assert.match(source, /server\.listen\(transport\.path\)/);
 	assert.match(source, /writeFileSync\(transport\.markerPath/);
-	// Consent belongs to the MCP server, not to each tool call: decisions are cached per
-	// `message.client` id and the popup only appears for an unknown client.
-	assert.match(source, /_confirmMcpClient\(message\.client\)/);
-	assert.match(source, /decisions\.has\(key\)/);
+	// Pairing is offered from the announcement (startup scan or directory watcher), and a
+	// request only prompts for a client that never announced itself.
+	assert.match(source, /_offerMcpPairing\(\)/);
+	assert.match(source, /fs\.watch\(pairingDirectory\(\)/);
+	assert.match(source, /_mcpClientAllowed\(message\.client, message\.clientName\)/);
+	// The old per-window allowance store is gone: pairing is per run, not persisted.
+	assert.doesNotMatch(source, /_mcpPairedClients|paired\.json/);
+	assert.match(source, /dialog\.mcpPairingPending/);
+	assert.match(source, /dialog\.mcpPairingInstance/);
 	const app = createEditorApp();
 	for (const name of INSTANCE_TOOLS) {
 		try {

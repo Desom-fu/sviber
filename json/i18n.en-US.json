@@ -150,6 +150,8 @@
   "dialog.spectrogram": "Spectrogram",
   "dialog.mcpConsent": "Allow MCP connection",
   "dialog.mcpConsentWarning": "Allowing this connection makes it possible to make undoable modifications to the chart from outside the editor.",
+  "dialog.mcpPairingPending": "Waiting to pair: {clients}",
+  "dialog.mcpPairingInstance": "sviber instance: {instance}",
   "dialog.mcpAllow": "Allow",
   "dialog.mcpDeny": "Deny",
   "dialog.subdivision": "Beat subdivision",
