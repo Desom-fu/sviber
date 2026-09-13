@@ -1434,6 +1434,24 @@ Positions are not constrained to the chart boundary. <!---->
 When a macro raises or produces invalid chart data, <!---->
 sviber reports the error in the macro console and applies nothing. <!---->
 JavaScript console methods and Ruby standard output/error are forwarded to that console.</p>				<!---->
+<h3 id="en-mcp">MCP server</h3>				<!---->
+<p>The desktop build ships a <code>sviber-mcp</code> executable (on Windows <code>sviber-mcp.cmd</code>, <!---->
+next to the main program). It implements a model context protocol (MCP) server so an AI assistant <!---->
+can read and edit the open chart through the same macro system the editor itself uses. It runs on the <!---->
+Node runtime bundled with the NW.js app, so a client only needs a command pointing at that file: <!---->
+there is no URL and no port. Several MCP servers can run at once, and each sees every editor instance.</p>				<!---->
+<p>Every editor instance listens on one endpoint: <code>~/.sviber/&lt;pid&gt;.sock</code> on Unix, or the <!---->
+named pipe <code>\\.\pipe\sviber-&lt;pid&gt;</code> plus an empty <code>&lt;pid&gt;.sock</code> marker file on <!---->
+Windows (the Windows local domain only supports named pipes). The path cannot be customized. <!---->
+The first request an MCP server makes to an instance opens an allow/deny dialog warning that allowing <!---->
+it makes undoable chart edits from outside the editor possible. The decision is remembered per MCP <!---->
+server process, so later calls do not ask again; restart that server to be asked again. Both <!---->
+directions carry one JSON object per line, stdout is protocol-only and logs go to stderr.</p>				<!---->
+<p>Available tools: list instances; get what is open and its local path; list global and project <!---->
+macros; read, create, rename and edit a macro; run a macro, a code snippet or a code expression <!---->
+(which returns JSON); undo the last MCP-initiated run that actually modified the chart; get the music <!---->
+between two beat times (base64 when the snippet is small, a local file path when it is large). <!---->
+Every tool except the instance list takes an instance (the editor process id).</p>				<!---->
 <h2 id="en-data">Data and Preferences</h2>				<!---->
 <h3 id="en-editor-data">Editor fields</h3>				<!---->
 <p>The editable <code>editor</code> state stores time snapping, subdivision, <!---->

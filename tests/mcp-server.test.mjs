@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
 import { ChartModel } from "../js/core/chart-model.js";
+import { withMcpInstance } from "../js/app/app-mcp-instance.js";
 import { MCP_CONSENT_WARNING } from "../js/mcp/mcp-consent.js";
-import { instanceSocketPath, sviberDirectory } from "../js/mcp/mcp-paths.js";
+import { instanceSocketPath, instanceTransport, sviberDirectory } from "../js/mcp/mcp-paths.js";
+import { createSocketBackend } from "../js/mcp/mcp-socket-backend.js";
 import { dispatchMcpLine } from "../js/mcp/mcp-server.js";
 import { MCP_TOOL_NAMES, callMcpTool, mcpToolsListResult } from "../js/mcp/mcp-tools.js";
 import { getOpenDocument, handleEditorMcpTool } from "../js/mcp/mcp-editor-handlers.js";
@@ -73,6 +77,119 @@ test("socket path is ~/.sviber/${pid}.sock and is not customizable", () => {
 	assert.equal(instanceSocketPath(7, "C:\\Users\\me"), "C:\\Users\\me\\.sviber\\7.sock");
 });
 
+test("win32 instances bind a named pipe and keep <pid>.sock as the discovery marker", () => {
+	// Node implements the Windows local domain with named pipes only: binding a filesystem
+	// path there fails with EACCES, which used to leave every Windows instance invisible.
+	const windows = instanceTransport(4242, { platform: "win32", home: "C:\\Users\\me" });
+	assert.equal(windows.kind, "pipe");
+	assert.equal(windows.path, "\\\\.\\pipe\\sviber-4242");
+	assert.equal(windows.markerPath, "C:\\Users\\me\\.sviber\\4242.sock");
+	const linux = instanceTransport(4242, { platform: "linux", home: "/home/chart" });
+	assert.equal(linux.kind, "socket");
+	assert.equal(linux.path, "/home/chart/.sviber/4242.sock");
+	assert.equal(linux.markerPath, null);
+});
+
+test("an instance endpoint really accepts a connection on this platform", async () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-home-"));
+	const pid = 424242;
+	const transport = instanceTransport(pid, { home });
+	mkdirSync(sviberDirectory(home), { recursive: true });
+	if (transport.markerPath) {
+		writeFileSync(transport.markerPath, "");
+	}
+	const received = [];
+	const server = net.createServer(socket => {
+		socket.on("data", chunk => {
+			for (const line of String(chunk).split("\n").filter(Boolean)) {
+				received.push(JSON.parse(line));
+				socket.write(`${JSON.stringify({ result: { ok: true, pid } })}\n`);
+			}
+		});
+	});
+	await new Promise((resolve, reject) => {
+		server.on("error", reject);
+		server.listen(transport.path, resolve);
+	});
+	try {
+		const backend = createSocketBackend(home);
+		const listed = backend.listInstances().instances;
+		assert.deepEqual(
+			listed.map(item => ({ pid: item.pid, path: item.path })),
+			[{ pid, path: transport.path }],
+		);
+		assert.deepEqual(await backend.callInstance(String(pid), "list_macros", {}), { ok: true, pid });
+		await backend.callInstance(String(pid), "get_open", {});
+		assert.equal(received.length, 2);
+		assert.equal(received[0].method, "list_macros");
+		// One stable client id per MCP server process is what keeps the consent popup to
+		// once per server rather than once per tool call.
+		assert.equal(typeof received[0].client, "string");
+		assert.ok(received[0].client.length > 0);
+		assert.equal(received[1].client, received[0].client);
+		const named = createSocketBackend(home, { clientId: "agent-7" });
+		await named.callInstance(String(pid), "get_open", {});
+		assert.equal(received[2].client, "agent-7");
+	} finally {
+		await new Promise(resolve => server.close(resolve));
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("the editor publishes a discoverable instance and asks for consent once", async () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-editor-"));
+	const fs = await import("node:fs");
+	const net = await import("node:net");
+	const previousNw = globalThis.nw;
+	// The trait only needs nw.require to hand back real modules plus a home to place the
+	// endpoint in, so this exercises the shipped editor code instead of a copy of it.
+	globalThis.nw = {
+		require: name => {
+			if (name === "fs") {
+				return fs;
+			}
+			if (name === "net") {
+				return net;
+			}
+			if (name === "os") {
+				return { homedir: () => home };
+			}
+			return null;
+		},
+	};
+	const app = new (withMcpInstance(class {}))();
+	let prompts = 0;
+	app.dialogs = {
+		open: async () => {
+			prompts += 1;
+			return { button: "allow" };
+		},
+	};
+	app._startMcpInstance();
+	try {
+		const transport = instanceTransport(process.pid, { home });
+		const published = transport.markerPath || transport.path;
+		const deadline = Date.now() + 5000;
+		while (!fs.existsSync(published) && Date.now() < deadline) {
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		assert.ok(fs.existsSync(published), `instance endpoint was not published at ${published}`);
+		const backend = createSocketBackend(home);
+		assert.deepEqual(backend.listInstances().instances.map(item => item.pid), [process.pid]);
+		// A real request over the real endpoint reaching the real editor handler.
+		const opened = { kind: "none", path: "" };
+		assert.deepEqual(await backend.callInstance(String(process.pid), "get_open", {}), opened);
+		assert.deepEqual(await backend.callInstance(String(process.pid), "get_open", {}), opened);
+		assert.equal(prompts, 1, "consent is asked once per MCP server, not once per call");
+		app._stopMcpInstance();
+		assert.equal(fs.existsSync(published), false, "stopping the editor unpublishes the endpoint");
+	} finally {
+		app._stopMcpInstance();
+		globalThis.nw = previousNw;
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
 test("consent warning tells the user allowing makes undoable external edits possible", () => {
 	assert.match(MCP_CONSENT_WARNING, /undoable modifications/);
 	assert.match(MCP_CONSENT_WARNING, /outside the editor/);
@@ -131,6 +248,15 @@ test("editor socket dispatches every instance tool through handleEditorMcpTool",
 	assert.match(source, /handleEditorMcpTool\(message\.method, message\.arguments \|\| \{\}, this\)/);
 	assert.doesNotMatch(source, /handleMcpTool/);
 	assert.match(source, /writeMusicSnippetFile/);
+	// The endpoint must come from instanceTransport: binding the raw `.sock` path directly
+	// fails on Windows, which is what left every packaged instance invisible to MCP.
+	assert.match(source, /instanceTransport\(pid\)/);
+	assert.match(source, /server\.listen\(transport\.path\)/);
+	assert.match(source, /writeFileSync\(transport\.markerPath/);
+	// Consent belongs to the MCP server, not to each tool call: decisions are cached per
+	// `message.client` id and the popup only appears for an unknown client.
+	assert.match(source, /_confirmMcpClient\(message\.client\)/);
+	assert.match(source, /decisions\.has\(key\)/);
 	const app = createEditorApp();
 	for (const name of INSTANCE_TOOLS) {
 		try {

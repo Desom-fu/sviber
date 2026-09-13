@@ -6,8 +6,8 @@ Source of truth: `js/mcp/mcp-tools.js`, `js/mcp/mcp-editor-handlers.js`, `js/mcp
 
 - Entry: `package.json` → `"sviber-mcp": "js/mcp/mcp-main.mjs"` → `startMcpStdio()`.
 - Protocol: newline-delimited JSON-RPC 2.0 on stdin/stdout. Methods: `initialize`, `initialized` / `notifications/initialized`, `tools/list`, `tools/call`, `ping`. Unknown methods → `-32601`. Tool errors → `-32000` with the error message. **Stdout is protocol-only**; logs go to stderr.
-- Backend: Unix/TCP-style socket per editor at `~/.sviber/${pid}.sock` (`SVIBER_DIR_NAME = ".sviber"`, path not customizable).
-- First connection: editor shows a consent popup. Warning text: *Allowing this connection makes it possible to make undoable modifications to the chart from outside the editor.*
+- Backend: one endpoint per editor, not customizable. POSIX uses a Unix socket at `~/.sviber/${pid}.sock`. Windows uses a named pipe `\\.\pipe\sviber-<pid>` plus an empty `<pid>.sock` marker file, because Node's Windows local domain is pipes-only — `listen()`/`connect()` on a filesystem socket path returns `EACCES` there. `SVIBER_DIR_NAME = ".sviber"`. Instances are discovered by listing `<pid>.sock` in that directory.
+- Consent: the first **request** to an editor shows an allow/deny popup. Each server process sends one stable `client` id with every request, and the editor caches the decision per window, so the user is asked once per server, not once per tool call. Warning text: *Allowing this connection makes it possible to make undoable modifications to the chart from outside the editor.* A denial is cached too — restart the MCP server to be asked again.
 - `instance` argument is the editor **pid** as a string. Required on every tool except `list_instances`.
 
 ## Tool catalogue (exactly 12)

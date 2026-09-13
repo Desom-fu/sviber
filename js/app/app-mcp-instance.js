@@ -1,9 +1,11 @@
-// Editor-side MCP instance socket at ~/.sviber/${pid}.sock with an allow/deny consent popup.
+// Editor-side MCP instance endpoint: a Unix socket at ~/.sviber/${pid}.sock, or on Windows a
+// named pipe plus an empty `<pid>.sock` marker (Node's local domain is pipes-only there).
+// Connecting still asks for allow/deny consent in a popup.
 
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { handleEditorMcpTool } from "../mcp/mcp-editor-handlers.js";
-import { instanceSocketPath, socketPathFromName, sviberDirectory } from "../mcp/mcp-paths.js";
+import { instanceSocketPath, instanceTransport, socketPathFromName, sviberDirectory } from "../mcp/mcp-paths.js";
 
 function nwNode(name) {
 	try {
@@ -25,10 +27,12 @@ class McpInstanceTrait {
 			return;
 		}
 		const socketPath = instanceSocketPath(pid);
+		const transport = instanceTransport(pid);
 		try {
 			fs.mkdirSync(sviberDirectory(), { recursive: true });
 			try {
-				fs.unlinkSync(socketPath);
+				// POSIX leaves the socket file behind; win32 leaves the marker file behind.
+				fs.unlinkSync(transport.markerPath || socketPath);
 			} catch {
 				/* leftover socket */
 			}
@@ -38,9 +42,21 @@ class McpInstanceTrait {
 		}
 		const server = net.createServer(socket => void this._acceptMcpConnection(socket));
 		server.on("error", error => console.warn("MCP instance socket failed", error));
-		server.listen(socketPath);
+		// win32 binds a named pipe, so the `<pid>.sock` marker has to be written once the
+		// pipe actually exists; otherwise the directory listing would advertise a dead instance.
+		server.on("listening", () => {
+			if (!transport.markerPath) {
+				return;
+			}
+			try {
+				fs.writeFileSync(transport.markerPath, "");
+			} catch (error) {
+				console.warn("MCP instance marker failed", error);
+			}
+		});
+		server.listen(transport.path);
 		this._mcpServer = server;
-		this._mcpSocketPath = socketPath;
+		this._mcpSocketPath = transport.markerPath || socketPath;
 		this._mcpFs = fs;
 		const cleanup = () => this._stopMcpInstance();
 		globalThis.addEventListener?.("pagehide", cleanup);
@@ -77,23 +93,33 @@ class McpInstanceTrait {
 	}
 
 	async _acceptMcpConnection(socket) {
-		const allowed = await this._confirmMcpConsent();
-		if (!allowed) {
-			socket.end(`${JSON.stringify({ error: "denied" })}\n`);
-			socket.destroy();
-			return;
-		}
 		let buffer = "";
 		socket.on("data", chunk => {
 			buffer += chunk;
-			const index = buffer.indexOf("\n");
-			if (index < 0) {
-				return;
+			let index = buffer.indexOf("\n");
+			while (index >= 0) {
+				const line = buffer.slice(0, index);
+				buffer = buffer.slice(index + 1);
+				index = buffer.indexOf("\n");
+				void this._handleMcpSocketLine(socket, line);
 			}
-			const line = buffer.slice(0, index);
-			buffer = buffer.slice(index + 1);
-			void this._handleMcpSocketLine(socket, line);
 		});
+	}
+
+	// One consent decision per MCP server process (PROMPT-v26: the popup belongs to "a MCP
+	// server wants to connect", not to every tool call). A decision lives as long as this
+	// editor window; restart the MCP server to be asked again.
+	async _confirmMcpClient(client) {
+		const key = String(client || "");
+		const decisions = (this._mcpClientConsent ||= new Map());
+		if (key && decisions.has(key)) {
+			return decisions.get(key);
+		}
+		const allowed = await this._confirmMcpConsent();
+		if (key) {
+			decisions.set(key, allowed);
+		}
+		return allowed;
 	}
 
 	async _confirmMcpConsent() {
@@ -125,6 +151,10 @@ class McpInstanceTrait {
 			message = JSON.parse(line);
 		} catch (error) {
 			socket.write(`${JSON.stringify({ error: error.message })}\n`);
+			return;
+		}
+		if (!(await this._confirmMcpClient(message.client))) {
+			socket.write(`${JSON.stringify({ error: "denied" })}\n`);
 			return;
 		}
 		try {

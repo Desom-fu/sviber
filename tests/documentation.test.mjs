@@ -92,6 +92,16 @@ test("manual documents only the prompt macro surface in both languages", async (
 	assert.match(chineseArticle, /任意位置/);
 });
 
+test("every manual documents the MCP server", async () => {
+	for (const language of ["en-US", "zh-CN", "zh-TW", "ja-JP"]) {
+		const source = await readFile(new URL(`../docs/manual.${language}.html`, import.meta.url), "utf8");
+		assert.match(source, /id="(?:en|zh|ja)-mcp"/, `${language} manual has an MCP section`);
+		assert.match(source, /sviber-mcp/, `${language} manual names the MCP executable`);
+		assert.match(source, /~\/\.sviber\//, `${language} manual documents the instance endpoint`);
+		assert.match(source, /undoable|無法復原|无法撤销|取り消せない/, `${language} manual repeats the consent warning`);
+	}
+});
+
 test("help documents Lyrica, rulers, HUD pause, Channel move, and shortcut 0", async () => {
 	const [en, zh, help, core, shortcuts, notes, macros] = await Promise.all([
 		readFile(new URL("../json/i18n.en-US.json", import.meta.url), "utf8"),

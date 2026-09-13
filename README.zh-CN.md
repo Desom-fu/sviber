@@ -35,6 +35,8 @@ npm run build
 
 首次构建需要联网下载 NW.js 和固定版本的字体资源。Windows 下运行 `build/nw/sviber.exe`。分发时必须保留完整的 `build/nw` 目录，不要删除 `build/nw/package.nw/sviber/node_modules`，也不要删除可执行文件旁的运行库文件。生成的构建产物和图标已被 Git 忽略。
 
+构建还会把 `sviber-mcp`（Windows 上是 `sviber-mcp.cmd`）写到可执行文件旁：它是让 AI 助手驱动运行中编辑器的 stdio MCP 服务器，配置时把客户端命令指向该文件即可，不需要 URL 或端口。详见帮助手册的“MCP 服务器”一节。
+
 ## 使用 Nix 安装
 
 在启用 flakes 的 x86_64 Linux 上运行：

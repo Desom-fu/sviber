@@ -35,6 +35,8 @@ npm run build
 
 The first build needs network access to obtain NW.js and the pinned font assets. On Windows, launch `build/nw/sviber.exe`. Distribute the complete `build/nw` directory; do not remove `build/nw/package.nw/sviber/node_modules` or any runtime file next to the executable. Generated build output and icons are ignored by Git.
 
+The build also writes `sviber-mcp` (`sviber-mcp.cmd` on Windows) next to the executable. It is the stdio MCP server an AI agent uses to drive a running editor: point your MCP client at that file, there is no URL or port. See "MCP server" in the help manual.
+
 ## Install with Nix
 
 On x86_64 Linux with flakes enabled:

@@ -107,8 +107,8 @@ Covers:
 2. Start `sviber-mcp` (same Node runtime as the packaged NW.js app; `package.json` bin maps it to `js/mcp/mcp-main.mjs`).
 3. It speaks MCP JSON-RPC on stdio: `initialize`, then `tools/list` / `tools/call`.
 4. **Stdout is protocol-only.** Logs belong on stderr.
-5. Each editor listens at `~/.sviber/${pid}.sock` (not customizable).
-6. The first connection shows an allow/deny popup.
+5. One endpoint per editor, not customizable: `~/.sviber/${pid}.sock` on POSIX; on Windows a named pipe `\\.\pipe\sviber-<pid>` plus an empty `<pid>.sock` marker (Node's Windows local domain is pipes-only, so binding the `.sock` path itself fails with EACCES).
+6. The first request to an editor shows an allow/deny popup; the editor caches the decision per MCP server process, so later tool calls do not ask again.
 7. Allowing makes **undoable** chart edits from outside the editor possible.
 8. Call `list_instances`, pick an `instance` (the pid), then `get_open`.
 9. Every tool except `list_instances` requires `instance`.
