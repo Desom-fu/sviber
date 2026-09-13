@@ -55,6 +55,17 @@ test("NW.js build creates a real macOS ICNS with iconutil", async () => {
 	assert.match(source, /builderApplicationOptions\(TARGET_PLATFORM, sourcePackage\)/);
 });
 
+test("FFmpeg bundling honors SVIBER_SKIP_FFMPEG before touching the network", async () => {
+	const source = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
+	assert.match(source, /const SKIP_FFMPEG = \/\^\(1\|true\|yes\)\$\/i\.test/);
+	const bundling = source.slice(
+		source.indexOf("async function bundleFfmpeg"),
+		source.indexOf("async function findFfmpegBinary"),
+	);
+	assert.match(bundling, /if \(SKIP_FFMPEG\)/, "the flag must be checked before any download");
+	assert.match(bundling, /skipping FFmpeg bundling/);
+});
+
 test("NW.js builds pass an explicit target platform and architecture", async () => {
 	const source = await readFile(new URL("../scripts/build-nw.mjs", import.meta.url), "utf8");
 	assert.match(source, /SVIBER_NW_PLATFORM/);

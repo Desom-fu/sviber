@@ -276,6 +276,10 @@ async function downloadAsset(asset, destination) {
 // executable under `bin/` inside the packaged app. Cancel with SVIBER_SKIP_FFMPEG=1; a
 // custom archive can be supplied with SVIBER_FFMPEG_URL.
 async function bundleFfmpeg(applicationDirectory) {
+	if (SKIP_FFMPEG) {
+		console.log("SVIBER_SKIP_FFMPEG is set; skipping FFmpeg bundling, rendering will use FFmpeg from PATH.");
+		return;
+	}
 	const key = `${TARGET_PLATFORM}-${TARGET_ARCH}`;
 	const url = FFMPEG_URL_OVERRIDE || FFMPEG_SOURCES[key];
 	if (!url) {
