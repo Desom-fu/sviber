@@ -1452,8 +1452,9 @@ chart edits from outside the editor possible. A pairing is remembered as this ru
 instance: while both sides stay open nothing asks again, closing either side and starting it asks <!---->
 again, and two editor instances pair separately. <code>list_instances</code> reports <code>pairedWith</code>, <!---->
 which says which editor instance a client is paired with. A client that never announced itself still <!---->
-gets one prompt. Both directions carry one JSON object per line, stdout is protocol-only, and every <!---->
-tool call leaves one operation line on stderr so the client's log shows what was done.</p>				<!---->
+gets one prompt. Pairing and break-ups both show a toast in the editor; the MCP side is just as <!---->
+visible — stderr carries <code>paired with editor #pid</code> plus one operation line per tool call. <!---->
+Both directions carry one JSON object per line and stdout is protocol-only.</p>				<!---->
 <p>Available tools: list instances; get what is open and its local path; list global and project <!---->
 macros; read, create, rename and edit a macro; run a macro, a code snippet or a code expression <!---->
 (which returns JSON); undo the last MCP-initiated run that actually modified the chart; get the music <!---->

@@ -348,6 +348,8 @@
   "validation.minItems": "請至少添加 {count} 項。",
   "toast.saved": "譜面已保存。",
   "toast.projectSaved": "工程已保存。",
+  "toast.mcpPaired": "MCP 配對成功：{clients}",
+  "toast.mcpPairingLost": "MCP 配對已斷開：{clients}",
   "toast.projectSaveFailed": "無法保存工程：{message}",
   "toast.projectOpened": "工程已打開。",
   "toast.projectOpenFailed": "無法打開工程：{message}",

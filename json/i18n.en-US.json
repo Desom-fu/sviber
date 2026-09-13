@@ -348,6 +348,8 @@
   "validation.minItems": "Add at least {count} item(s).",
   "toast.saved": "Chart saved.",
   "toast.projectSaved": "Project saved.",
+  "toast.mcpPaired": "MCP paired: {clients}",
+  "toast.mcpPairingLost": "MCP pairing lost: {clients}",
   "toast.projectSaveFailed": "Could not save the project: {message}",
   "toast.projectOpened": "Project opened.",
   "toast.projectOpenFailed": "Could not open the project: {message}",

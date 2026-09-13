@@ -13,6 +13,7 @@ import {
 } from "./mcp-protocol.js";
 import { callMcpTool, mcpToolsListResult, toolCallContent } from "./mcp-tools.js";
 import { registerPairingRecord, removePairingRecord } from "./mcp-pairing.js";
+import { pairingDirectory } from "./mcp-paths.js";
 import { createSocketBackend } from "./mcp-socket-backend.js";
 
 function packageVersion() {
@@ -67,24 +68,50 @@ export async function dispatchMcpLine(line, backend, version) {
 	return handleMcpRequest(message, backend, version);
 }
 
-// Announce the server in the pairing directory as soon as it starts, and withdraw the
-// announcement when it stops. Editors watch that directory (or scan it at startup), so the user
-// pairs once, up front, instead of being asked while a tool call is waiting on the answer.
-function announcePairing(backend, home) {
+function announcePairing(backend, home, stderr) {
 	if (!backend?.clientId) {
-		return;
+		return () => {};
 	}
-	const registered = registerPairingRecord({
+	const recordPath = registerPairingRecord({
 		fs,
 		home,
 		id: backend.clientId,
 		name: backend.clientName || "",
 		pid: process.pid,
 	});
-	if (!registered) {
-		return;
+	if (!recordPath) {
+		return () => {};
 	}
-	const withdraw = () => removePairingRecord({ fs, home, id: backend.clientId });
+	const reported = new Set();
+	let closeWatcher = () => {};
+	try {
+		const watcher = fs.watch(pairingDirectory(home), () => {
+			let record = null;
+			try {
+				record = JSON.parse(fs.readFileSync(recordPath, "utf8"));
+			} catch {
+				return;
+			}
+			for (const entry of Array.isArray(record.pairedWith) ? record.pairedWith : []) {
+				if (reported.has(entry.pid)) {
+					continue;
+				}
+				reported.add(entry.pid);
+				const chart = entry.chart ? ` — ${entry.chart}` : "";
+				stderr.write(`sviber-mcp paired with editor #${entry.pid}${chart}\n`);
+			}
+		});
+		watcher.on?.("error", () => {});
+		closeWatcher = () => watcher.close();
+	} catch {
+		/* pairing still works, the log just stays quieter */
+	}
+	// The watcher must go with us: without this the process would outlive its client and keep
+	// holding the announcement, which looks like a server that never closed.
+	const withdraw = () => {
+		closeWatcher();
+		removePairingRecord({ fs, home, id: backend.clientId });
+	};
 	process.once("exit", withdraw);
 	for (const signal of ["SIGINT", "SIGTERM"]) {
 		process.once(signal, () => {
@@ -92,6 +119,7 @@ function announcePairing(backend, home) {
 			process.exit(0);
 		});
 	}
+	return withdraw;
 }
 
 export function startMcpStdio(options = {}) {
@@ -100,11 +128,18 @@ export function startMcpStdio(options = {}) {
 	const stderr = options.stderr || process.stderr;
 	const backend = options.backend || createSocketBackend(options.home, options);
 	const version = options.version || packageVersion();
-	if (!options.backend) {
-		announcePairing(backend, options.home);
-	}
+	const withdrawPairing = options.backend ? () => {} : announcePairing(backend, options.home, stderr);
+	const stop = () => withdrawPairing();
 	let buffer = "";
 	input.setEncoding?.("utf8");
+	// When the client goes away, so do we: drop the pairing announcement and the watcher, or the
+	// process would linger as a server that no client can reach.
+	for (const event of ["end", "close"]) {
+		input.on?.(event, () => {
+			stop();
+			process.exit(0);
+		});
+	}
 	input.on("data", chunk => {
 		buffer += chunk;
 		const lines = buffer.split(/\r?\n/);
@@ -131,5 +166,5 @@ export function startMcpStdio(options = {}) {
 			})();
 		}
 	});
-	return { backend };
+	return { backend, stop };
 }

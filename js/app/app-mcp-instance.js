@@ -126,13 +126,11 @@ class McpInstanceTrait {
 		return pathname;
 	}
 
-	// Pairing is per run and per editor instance: decisions live in this window's memory only,
-	// so closing the editor (or the MCP server) and starting it again asks again. A refusal is
-	// remembered for this run too, so a rejected client does not re-prompt on every tool call.
 	_startMcpPairing(fs) {
 		this._mcpFs = fs;
 		this._mcpDecidedClients = new Set();
 		this._mcpDeniedClients = new Set();
+		this._mcpAnnouncedClients = new Map();
 		try {
 			fs.mkdirSync(pairingDirectory(), { recursive: true });
 		} catch (error) {
@@ -163,22 +161,49 @@ class McpInstanceTrait {
 		this._mcpPairingTimer = setTimeout(() => void this._offerMcpPairing(), delay);
 	}
 
-	_mcpPendingPairingRecords() {
+	// Re-reads the announcements and reconciles this window's decisions with them: an
+	// announcement that disappears means that MCP server closed, so its pairing is broken and
+	// the next time it appears the editor asks again.
+	_syncMcpPairing() {
 		if (!this._mcpFs) {
-			return [];
+			return { records: [], pending: [], lost: [] };
 		}
-		return pendingPairingRecords({
-			records: readPairingRecords({ fs: this._mcpFs }),
+		const records = readPairingRecords({ fs: this._mcpFs });
+		const announced = (this._mcpAnnouncedClients ||= new Map());
+		for (const record of records) {
+			if (!announced.has(record.id)) {
+				announced.set(record.id, record.name);
+			}
+		}
+		const lost = [];
+		for (const id of [...(this._mcpDecidedClients || [])]) {
+			if (announced.has(id) && !records.some(record => record.id === id)) {
+				this._mcpDecidedClients.delete(id);
+				this._mcpDeniedClients?.delete(id);
+				lost.push({ id, name: announced.get(id) || "" });
+			}
+		}
+		const pending = pendingPairingRecords({
+			records,
 			decidedIds: this._mcpDecidedClients ? [...this._mcpDecidedClients] : [],
 		});
+		return { records, pending, lost };
+	}
+
+	_mcpPendingPairingRecords() {
+		return this._syncMcpPairing().pending;
 	}
 
 	async _offerMcpPairing() {
 		if (!this._mcpFs || this._mcpPairingBusy) {
 			return;
 		}
-		const records = this._mcpPendingPairingRecords();
-		if (!records.length) {
+		const { pending, lost } = this._syncMcpPairing();
+		const labels = records => records.map(record => pairingRecordLabel(record)).join("、");
+		if (lost.length) {
+			this.toast?.show?.("toast.mcpPairingLost", { clients: labels(lost) });
+		}
+		if (!pending.length) {
 			return;
 		}
 		// Another dialog is up (or the user is mid-edit): ask again shortly instead of failing.
@@ -189,7 +214,7 @@ class McpInstanceTrait {
 		this._mcpPairingBusy = true;
 		let allowed = false;
 		try {
-			allowed = await this._confirmMcpPairing(records);
+			allowed = await this._confirmMcpPairing(pending);
 		} catch (error) {
 			console.warn("MCP pairing prompt failed", error);
 			this._queueMcpPairing(PAIRING_RETRY_MS);
@@ -198,7 +223,7 @@ class McpInstanceTrait {
 			this._mcpPairingBusy = false;
 		}
 		const pid = globalThis.process?.pid;
-		for (const record of records) {
+		for (const record of pending) {
 			this._mcpDecidedClients.add(record.id);
 			if (!allowed) {
 				this._mcpDeniedClients.add(record.id);
@@ -210,6 +235,7 @@ class McpInstanceTrait {
 			} catch (error) {
 				console.warn("MCP pairing mark failed", error);
 			}
+			this.toast?.show?.("toast.mcpPaired", { clients: labels([record]) });
 		}
 	}
 
@@ -250,6 +276,7 @@ class McpInstanceTrait {
 	// one-shot process that exited before its announcement was seen) is asked here for this run.
 	async _mcpClientAllowed(client, clientName) {
 		const key = String(client || "");
+		this._syncMcpPairing();
 		if (key && this._mcpDecidedClients?.has(key) && !this._mcpDeniedClients?.has(key)) {
 			return true;
 		}
@@ -271,6 +298,7 @@ class McpInstanceTrait {
 			} catch (error) {
 				console.warn("MCP pairing mark failed", error);
 			}
+			this.toast?.show?.("toast.mcpPaired", { clients: pairingRecordLabel(record) });
 		}
 		return true;
 	}

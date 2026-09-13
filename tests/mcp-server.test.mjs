@@ -19,6 +19,7 @@ import {
 	pendingPairingRecords,
 	readPairingRecords,
 	registerPairingRecord,
+	removePairingRecord,
 } from "../js/mcp/mcp-pairing.js";
 import { instanceSocketPath, instanceTransport, pairingRecordPath, sviberDirectory } from "../js/mcp/mcp-paths.js";
 import { createSocketBackend } from "../js/mcp/mcp-socket-backend.js";
@@ -308,21 +309,26 @@ test("the MCP client identity is stable across runs and overridable", () => {
 	}
 });
 
-test("starting the stdio server announces itself for pairing", async () => {
+test("starting the stdio server announces itself and stops cleanly", async () => {
 	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-announce-"));
 	const stdin = new EventEmitter();
 	stdin.setEncoding = () => {};
 	const stdout = { write: () => true };
+	let started;
 	try {
-		const started = startMcpStdio({ home, stdin, stdout, clientId: "stdio-announcer", clientName: "sviber-mcp" });
-		const { backend } = started;
-		assert.equal(backend.clientId, "stdio-announcer");
+		started = startMcpStdio({ home, stdin, stdout, clientId: "stdio-announcer", clientName: "sviber-mcp" });
+		assert.equal(started.backend.clientId, "stdio-announcer");
 		const records = readPairingRecords({ fs: { readFileSync, readdirSync }, home });
 		assert.deepEqual(
 			records.map(record => ({ id: record.id, name: record.name, pid: record.pid })),
 			[{ id: "stdio-announcer", name: "sviber-mcp", pid: process.pid }],
 		);
+		// Stopping withdraws the announcement and releases the directory watcher, which is what
+		// used to keep the server process alive after its client went away.
+		started.stop();
+		assert.equal(existsSync(pairingRecordPath("stdio-announcer", home)), false, "announcement withdrawn");
 	} finally {
+		started?.stop();
 		rmSync(home, { recursive: true, force: true });
 	}
 });
@@ -352,11 +358,15 @@ test("a starting editor offers to pair an announcing server before any request",
 	registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: process.pid });
 	const app = new (withMcpInstance(class {}))();
 	const dialogs = [];
+	const toasts = [];
 	app.dialogs = {
 		open: async options => {
 			dialogs.push(options);
 			return { button: "allow" };
 		},
+	};
+	app.toast = {
+		show: (key, params) => toasts.push([key, params]),
 	};
 	app._mcpFs = fs;
 	app._startMcpPairing(fs);
@@ -373,9 +383,22 @@ test("a starting editor offers to pair an announcing server before any request",
 		// The pairing is per run and per editor instance: recorded on the announcement, not on disk.
 		assert.deepEqual(pairedWith, [{ pid: process.pid, chart: "" }]);
 		assert.ok(app._mcpDecidedClients.has("announced-client"));
+		assert.deepEqual(toasts[0], ["toast.mcpPaired", { clients: "sviber-mcp (announced-client)" }]);
 		// Once paired, the editor stops offering the same client in this run.
 		await app._offerMcpPairing();
 		assert.equal(dialogs.length, 1);
+		// The MCP server closes: its announcement disappears, so the pairing is broken and the
+		// editor tells the user instead of silently keeping a dead pairing.
+		removePairingRecord({ fs, home, id: "announced-client" });
+		await app._offerMcpPairing();
+		assert.equal(app._mcpDecidedClients.has("announced-client"), false, "a closed server unpairs");
+		const lostLabel = "sviber-mcp (announced-client)";
+		assert.deepEqual(toasts[toasts.length - 1], ["toast.mcpPairingLost", { clients: lostLabel }]);
+		// ...and when the server opens again, the editor pairs once more.
+		registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: process.pid });
+		await app._offerMcpPairing();
+		assert.equal(dialogs.length, 2, "a reopened server is offered again");
+		assert.equal(toasts.filter(([key]) => key === "toast.mcpPaired").length, 2);
 	} finally {
 		app._stopMcpInstance();
 		globalThis.nw = previousNw;
@@ -455,6 +478,9 @@ test("editor socket dispatches every instance tool through handleEditorMcpTool",
 	assert.doesNotMatch(source, /_mcpPairedClients|paired\.json/);
 	assert.match(source, /dialog\.mcpPairingPending/);
 	assert.match(source, /dialog\.mcpPairingInstance/);
+	// Pairing and break-ups are visible: toasts in the editor, pairing in the server log.
+	assert.match(source, /toast\.mcpPaired/);
+	assert.match(source, /toast\.mcpPairingLost/);
 	const app = createEditorApp();
 	for (const name of INSTANCE_TOOLS) {
 		try {

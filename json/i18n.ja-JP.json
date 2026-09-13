@@ -348,6 +348,8 @@
   "validation.minItems": "少なくとも{count}個のアイテムを追加してください。",
   "toast.saved": "チャートを保存しました。",
   "toast.projectSaved": "プロジェクトを保存します。",
+  "toast.mcpPaired": "MCP ペアリング完了：{clients}",
+  "toast.mcpPairingLost": "MCP ペアリング解除：{clients}",
   "toast.projectSaveFailed": "プロジェクトを保存できませんでした： {message}",
   "toast.projectOpened": "プロジェクトが開いていません",
   "toast.projectOpenFailed": "プロジェクトを開けませんでした： {message}",
