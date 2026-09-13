@@ -337,6 +337,21 @@ test("a starting editor offers to pair an announcing server before any request",
 	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-announced-"));
 	const fs = await import("node:fs");
 	const net = await import("node:net");
+	const { spawn } = await import("node:child_process");
+	// Stand-in MCP servers: live processes, so pid liveness can be tested for real.
+	const servers = [];
+	const startServer = () => {
+		const server = spawn(process.execPath, ["-e", "setInterval(() => {}, 60000)"], { stdio: "ignore" });
+		servers.push(server);
+		return server;
+	};
+	const isDead = async pid => {
+		const deadline = Date.now() + 5000;
+		while (processIsAlive(pid) && Date.now() < deadline) {
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		return !processIsAlive(pid);
+	};
 	const previousNw = globalThis.nw;
 	globalThis.nw = {
 		require: name => {
@@ -355,7 +370,8 @@ test("a starting editor offers to pair an announcing server before any request",
 	// The server announced itself before the editor started, so no tool call is involved.
 	// Pairing only needs the directory half, not the socket: the pipe name is derived from this
 	// process and another test in the same run already bound it.
-	registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: process.pid });
+	const server = startServer();
+	registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: server.pid });
 	const app = new (withMcpInstance(class {}))();
 	const dialogs = [];
 	const toasts = [];
@@ -383,6 +399,7 @@ test("a starting editor offers to pair an announcing server before any request",
 		// The pairing is per run and per editor instance: recorded on the announcement, not on disk.
 		assert.deepEqual(pairedWith, [{ pid: process.pid, chart: "" }]);
 		assert.ok(app._mcpDecidedClients.has("announced-client"));
+		assert.deepEqual(app._mcpPairedServerPids.get("announced-client"), server.pid);
 		assert.deepEqual(toasts[0], ["toast.mcpPaired", { clients: "sviber-mcp (announced-client)" }]);
 		// Once paired, the editor stops offering the same client in this run.
 		await app._offerMcpPairing();
@@ -394,12 +411,25 @@ test("a starting editor offers to pair an announcing server before any request",
 		assert.equal(app._mcpDecidedClients.has("announced-client"), false, "a closed server unpairs");
 		const lostLabel = "sviber-mcp (announced-client)";
 		assert.deepEqual(toasts[toasts.length - 1], ["toast.mcpPairingLost", { clients: lostLabel }]);
-		// ...and when the server opens again, the editor pairs once more.
-		registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: process.pid });
+		// ...and when the server opens again — same client id, new process — the editor pairs once
+		// more instead of recognizing the id.
+		const restarted = startServer();
+		registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: restarted.pid });
 		await app._offerMcpPairing();
 		assert.equal(dialogs.length, 2, "a reopened server is offered again");
+		assert.deepEqual(app._mcpPairedServerPids.get("announced-client"), restarted.pid);
 		assert.equal(toasts.filter(([key]) => key === "toast.mcpPaired").length, 2);
+		// A server that dies hard cannot withdraw its announcement: the dead pid is what breaks it.
+		restarted.kill();
+		assert.ok(await isDead(restarted.pid), "the stand-in server exited");
+		registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: restarted.pid });
+		await app._offerMcpPairing();
+		assert.equal(app._mcpDecidedClients.has("announced-client"), false, "a dead server pid unpairs");
+		assert.equal(toasts[toasts.length - 1][0], "toast.mcpPairingLost");
 	} finally {
+		for (const process_ of servers.splice(0)) {
+			process_.kill();
+		}
 		app._stopMcpInstance();
 		globalThis.nw = previousNw;
 		rmSync(home, { recursive: true, force: true });

@@ -30,6 +30,7 @@ import {
 
 const PAIRING_RETRY_MS = 1500;
 const PAIRING_DEBOUNCE_MS = 150;
+const PAIRING_POLL_MS = 5000;
 
 function nwNode(name) {
 	try {
@@ -106,6 +107,8 @@ class McpInstanceTrait {
 		}
 		clearTimeout(this._mcpPairingTimer);
 		this._mcpPairingTimer = null;
+		clearInterval(this._mcpPairingPoll);
+		this._mcpPairingPoll = null;
 		try {
 			this._mcpPairingWatcher?.close?.();
 		} catch {
@@ -131,15 +134,11 @@ class McpInstanceTrait {
 		this._mcpDecidedClients = new Set();
 		this._mcpDeniedClients = new Set();
 		this._mcpAnnouncedClients = new Map();
+		this._mcpPairedServerPids = new Map();
 		try {
 			fs.mkdirSync(pairingDirectory(), { recursive: true });
 		} catch (error) {
 			console.warn("MCP pairing directory failed", error);
-		}
-		try {
-			prunePairingRecords({ fs, isAlive: processIsAlive });
-		} catch (error) {
-			console.warn("MCP pairing cleanup failed", error);
 		}
 		try {
 			this._mcpPairingWatcher = fs.watch(pairingDirectory(), () => this._queueMcpPairing());
@@ -147,6 +146,9 @@ class McpInstanceTrait {
 		} catch (error) {
 			console.warn("MCP pairing watcher failed", error);
 		}
+		// The watcher catches graceful changes; the poll also catches a server that died hard and
+		// left its announcement behind, so a broken pairing never lingers silently.
+		this._mcpPairingPoll = setInterval(() => void this._offerMcpPairing(), PAIRING_POLL_MS);
 		void this._offerMcpPairing();
 	}
 
@@ -161,12 +163,18 @@ class McpInstanceTrait {
 		this._mcpPairingTimer = setTimeout(() => void this._offerMcpPairing(), delay);
 	}
 
-	// Re-reads the announcements and reconciles this window's decisions with them: an
-	// announcement that disappears means that MCP server closed, so its pairing is broken and
-	// the next time it appears the editor asks again.
+	// Re-reads the announcements and reconciles this window's decisions with them. A pairing is
+	// with one server process, so it breaks when the announcement is gone OR when the same client
+	// id re-announces from a different pid (server restarted), OR when that pid is dead (server
+	// died hard and could not withdraw its announcement).
 	_syncMcpPairing() {
 		if (!this._mcpFs) {
 			return { records: [], pending: [], lost: [] };
+		}
+		try {
+			prunePairingRecords({ fs: this._mcpFs, isAlive: processIsAlive });
+		} catch (error) {
+			console.warn("MCP pairing cleanup failed", error);
 		}
 		const records = readPairingRecords({ fs: this._mcpFs });
 		const announced = (this._mcpAnnouncedClients ||= new Map());
@@ -177,7 +185,17 @@ class McpInstanceTrait {
 		}
 		const lost = [];
 		for (const id of [...(this._mcpDecidedClients || [])]) {
-			if (announced.has(id) && !records.some(record => record.id === id)) {
+			const record = records.find(item => item.id === id);
+			const pairedPid = this._mcpPairedServerPids?.get(id);
+			let broken = false;
+			if (pairedPid === undefined) {
+				// A fallback pairing for a client that never announced itself: there is no server
+				// process to go away, so it lasts for this window's lifetime.
+				broken = false;
+			} else if (!record || record.pid !== pairedPid || !processIsAlive(record.pid)) {
+				broken = true;
+			}
+			if (broken) {
 				this._mcpDecidedClients.delete(id);
 				this._mcpDeniedClients?.delete(id);
 				lost.push({ id, name: announced.get(id) || "" });
@@ -228,6 +246,11 @@ class McpInstanceTrait {
 			if (!allowed) {
 				this._mcpDeniedClients.add(record.id);
 				continue;
+			}
+			// The pairing belongs to this server process: if the same client id comes back from
+			// another pid, that is a new server and the editor pairs again.
+			if (record.pid) {
+				this._mcpPairedServerPids.set(record.id, record.pid);
 			}
 			try {
 				const chart = String(this.model?.metadata?.title || "");
