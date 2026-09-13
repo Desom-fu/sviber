@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readdirSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -9,6 +9,7 @@ import path from "node:path";
 import { ChartModel } from "../js/core/chart-model.js";
 import { withMcpInstance } from "../js/app/app-mcp-instance.js";
 import { MCP_CONSENT_WARNING } from "../js/mcp/mcp-consent.js";
+import { instancePidFromName, processIsAlive, pruneStaleInstanceEndpoints } from "../js/mcp/mcp-instance-directory.js";
 import { instanceSocketPath, instanceTransport, sviberDirectory } from "../js/mcp/mcp-paths.js";
 import { createSocketBackend } from "../js/mcp/mcp-socket-backend.js";
 import { dispatchMcpLine } from "../js/mcp/mcp-server.js";
@@ -165,6 +166,10 @@ test("the editor publishes a discoverable instance and asks for consent once", a
 			return { button: "allow" };
 		},
 	};
+	// What a killed editor leaves behind: an entry for a pid that cannot exist.
+	const stalePath = path.join(sviberDirectory(home), "9007199254740991.sock");
+	mkdirSync(sviberDirectory(home), { recursive: true });
+	writeFileSync(stalePath, "");
 	app._startMcpInstance();
 	try {
 		const transport = instanceTransport(process.pid, { home });
@@ -174,6 +179,7 @@ test("the editor publishes a discoverable instance and asks for consent once", a
 			await new Promise(resolve => setTimeout(resolve, 25));
 		}
 		assert.ok(fs.existsSync(published), `instance endpoint was not published at ${published}`);
+		assert.equal(fs.existsSync(stalePath), false, "a starting editor prunes endpoints of dead processes");
 		const backend = createSocketBackend(home);
 		assert.deepEqual(backend.listInstances().instances.map(item => item.pid), [process.pid]);
 		// A real request over the real endpoint reaching the real editor handler.
@@ -186,6 +192,32 @@ test("the editor publishes a discoverable instance and asks for consent once", a
 	} finally {
 		app._stopMcpInstance();
 		globalThis.nw = previousNw;
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("a starting editor prunes instance entries whose process is gone", () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-prune-"));
+	const directory = sviberDirectory(home);
+	mkdirSync(directory, { recursive: true });
+	for (const name of ["11.sock", "22.sock", "33.sock", "not-a-pid.sock", "readme.txt"]) {
+		writeFileSync(path.join(directory, name), "");
+	}
+	try {
+		assert.equal(instancePidFromName("11.sock"), 11);
+		assert.equal(instancePidFromName("11.txt"), 0);
+		assert.equal(instancePidFromName("0.sock"), 0);
+		assert.equal(instancePidFromName("-3.sock"), 0);
+		assert.equal(processIsAlive(process.pid), true);
+		const removed = pruneStaleInstanceEndpoints({
+			fs: { readdirSync, unlinkSync },
+			directory,
+			isAlive: pid => pid === 11,
+			keepPid: 22,
+		});
+		assert.deepEqual(removed, ["33.sock"]);
+		assert.deepEqual(readdirSync(directory).sort(), ["11.sock", "22.sock", "not-a-pid.sock", "readme.txt"]);
+	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}
 });

@@ -3,6 +3,7 @@
 import fs from "node:fs";
 import net from "node:net";
 import { randomUUID } from "node:crypto";
+import { instancePidFromName } from "./mcp-instance-directory.js";
 import { instanceTransport, socketPathFromName, sviberDirectory } from "./mcp-paths.js";
 
 // Discovery always lists `<pid>.sock`: POSIX publishes the socket itself, win32 publishes an
@@ -15,13 +16,10 @@ export function listInstanceSocketPaths(home) {
 	} catch {
 		return [];
 	}
-	return entries
-		.filter(name => name.endsWith(".sock"))
-		.map(name => ({
-			pid: Number(name.slice(0, -".sock".length)),
-			path: socketPathFromName(directory, name),
-		}))
-		.filter(item => Number.isSafeInteger(item.pid) && item.pid > 0);
+	return entries.flatMap(name => {
+		const pid = instancePidFromName(name);
+		return pid > 0 ? [{ pid, path: socketPathFromName(directory, name) }] : [];
+	});
 }
 
 function sendSocketRequest(socketPath, payload, timeoutMs = 15000) {

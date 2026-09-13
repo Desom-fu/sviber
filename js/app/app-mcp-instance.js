@@ -5,6 +5,7 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { handleEditorMcpTool } from "../mcp/mcp-editor-handlers.js";
+import { pruneStaleInstanceEndpoints } from "../mcp/mcp-instance-directory.js";
 import { instanceSocketPath, instanceTransport, socketPathFromName, sviberDirectory } from "../mcp/mcp-paths.js";
 
 function nwNode(name) {
@@ -36,6 +37,7 @@ class McpInstanceTrait {
 			} catch {
 				/* leftover socket */
 			}
+			pruneStaleInstanceEndpoints({ fs, directory: sviberDirectory(), keepPid: pid });
 		} catch (error) {
 			console.warn("MCP instance directory failed", error);
 			return;

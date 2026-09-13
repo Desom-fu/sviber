@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v0170003";
+const CACHE_VERSION = "sviber-v0170004";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -58,6 +58,7 @@ const APP_SHELL = [
 	"./js/mcp/mcp-consent.js",
 	"./js/mcp/mcp-editor-handlers.js",
 	"./js/mcp/mcp-editor-tools.js",
+	"./js/mcp/mcp-instance-directory.js",
 	"./js/mcp/mcp-macro-run.js",
 	"./js/mcp/mcp-macro-store.js",
 	"./js/mcp/mcp-open-snippet.js",

@@ -2,6 +2,9 @@
 // This module stays browser-safe so the editor can compute the same path NW.js listens on.
 
 export const SVIBER_DIR_NAME = ".sviber";
+// Instances are discovered by listing these files in the shared directory: the socket itself
+// on POSIX, the empty marker next to the named pipe on win32.
+export const SVIBER_SOCKET_EXTENSION = ".sock";
 // Node implements the Windows local domain with named pipes only: `listen()`/`connect()`
 // reject a filesystem path there with EACCES ("On Windows, the local domain is implemented
 // using a named pipe. The path must refer to an entry in \\?\pipe\ or \\.\pipe\"). So the
@@ -57,7 +60,7 @@ export function sviberDirectory(home) {
 }
 
 export function instanceSocketPath(pid, home) {
-	return joinHomePath(sviberDirectory(home), `${Number(pid)}.sock`);
+	return joinHomePath(sviberDirectory(home), `${Number(pid)}${SVIBER_SOCKET_EXTENSION}`);
 }
 
 export function socketPathFromName(directory, name) {
