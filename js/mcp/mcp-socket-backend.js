@@ -23,7 +23,8 @@ export function listInstanceSocketPaths(home) {
 	});
 }
 
-function sendSocketRequest(socketPath, payload, timeoutMs = 15000) {
+// Generous enough for a user to answer a pairing prompt before the call gives up.
+function sendSocketRequest(socketPath, payload, timeoutMs = 60000) {
 	return new Promise((resolve, reject) => {
 		const client = net.connect({ path: socketPath });
 		let buffer = "";
@@ -65,8 +66,6 @@ function sendSocketRequest(socketPath, payload, timeoutMs = 15000) {
 // display name: the id is what the editor pairs once, the name is what the pairing prompt shows.
 export function createSocketBackend(home, options = {}) {
 	const identity = resolveMcpClientIdentity({
-		fs,
-		home,
 		env: options.env,
 		clientId: options.clientId,
 		clientName: options.clientName,

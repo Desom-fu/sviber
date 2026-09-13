@@ -259,14 +259,23 @@ test("pairing announcements record which editor instance paired", () => {
 		assert.deepEqual(records[0].pairedWith, [{ pid: 63280, chart: "NIGHTMARE † CITY" }]);
 		// Answered clients are not offered again in the same run.
 		assert.deepEqual(pendingPairingRecords({ records, decidedIds: ["client one"] }), []);
+		// A second server running beside the first announces under its own identity: neither
+		// announcement overwrites the other, so pairing with one never breaks the other.
+		registerPairingRecord({ fs: nodeFs, home, id: "client two", name: "sviber-mcp", pid: process.pid });
+		const both = readPairingRecords({ fs: nodeFs, home });
+		assert.equal(both.length, 2);
+		const stillPending = pendingPairingRecords({ records: both, decidedIds: ["client one"] });
+		assert.deepEqual(stillPending.map(item => item.id), ["client two"]);
+		const firstRecord = both.find(item => item.id === "client one");
+		assert.deepEqual(firstRecord.pairedWith, [{ pid: 63280, chart: "NIGHTMARE † CITY" }]);
 		// A second editor instance pairs on its own and is recorded beside the first.
 		markPairedEditor({ fs: nodeFs, home, clientId: "client one", pid: 63281, chart: "other chart" });
 		records = readPairingRecords({ fs: nodeFs, home });
 		assert.deepEqual(
-			records[0].pairedWith.map(entry => entry.pid),
+			records.find(item => item.id === "client one").pairedWith.map(entry => entry.pid),
 			[63280, 63281],
 		);
-		assert.equal(records[0].pairedWith[0].chart, "NIGHTMARE † CITY");
+		assert.equal(records.find(item => item.id === "client one").pairedWith[0].chart, "NIGHTMARE † CITY");
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}
@@ -292,21 +301,15 @@ test("list_instances shows which editor instance a client paired with", () => {
 	}
 });
 
-test("the MCP client identity is stable across runs and overridable", () => {
-	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-identity-"));
-	const nodeFs = { readFileSync, writeFileSync, mkdirSync };
-	try {
-		const first = resolveMcpClientIdentity({ fs: nodeFs, home, env: {} });
-		const second = resolveMcpClientIdentity({ fs: nodeFs, home, env: {} });
-		assert.equal(first.id, second.id, "the id is read back from ~/.sviber/mcp-client-id");
-		assert.equal(first.name, "sviber-mcp");
-		const fromEnv = resolveMcpClientIdentity({ fs: nodeFs, home, env: { SVIBER_MCP_CLIENT_ID: "given" } });
-		assert.equal(fromEnv.id, "given");
-		assert.equal(resolveMcpClientIdentity({ fs: nodeFs, home, env: {}, clientName: "agent" }).name, "agent");
-		assert.equal(resolveMcpClientIdentity({ fs: nodeFs, home, env: {}, clientId: "explicit" }).id, "explicit");
-	} finally {
-		rmSync(home, { recursive: true, force: true });
-	}
+test("each MCP server run pairs under its own identity unless one is pinned", () => {
+	const first = resolveMcpClientIdentity({ env: {} });
+	const second = resolveMcpClientIdentity({ env: {} });
+	assert.notEqual(first.id, second.id, "side-by-side servers must not share an announcement");
+	assert.equal(first.name, "sviber-mcp");
+	const fromEnv = resolveMcpClientIdentity({ env: { SVIBER_MCP_CLIENT_ID: "given" } });
+	assert.equal(fromEnv.id, "given");
+	assert.equal(resolveMcpClientIdentity({ env: {}, clientName: "agent" }).name, "agent");
+	assert.equal(resolveMcpClientIdentity({ env: {}, clientId: "explicit" }).id, "explicit");
 });
 
 test("starting the stdio server announces itself and stops cleanly", async () => {
@@ -430,6 +433,67 @@ test("a starting editor offers to pair an announcing server before any request",
 		for (const process_ of servers.splice(0)) {
 			process_.kill();
 		}
+		app._stopMcpInstance();
+		globalThis.nw = previousNw;
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("a request waits for an open pairing dialog instead of failing", async () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-wait-"));
+	const fs = await import("node:fs");
+	const net = await import("node:net");
+	const previousNw = globalThis.nw;
+	globalThis.nw = {
+		require: name => {
+			if (name === "fs") {
+				return fs;
+			}
+			if (name === "net") {
+				return net;
+			}
+			if (name === "os") {
+				return { homedir: () => home };
+			}
+			return null;
+		},
+	};
+	registerPairingRecord({ fs, home, id: "announced-client", name: "sviber-mcp", pid: process.pid });
+	const app = new (withMcpInstance(class {}))();
+	const dialogs = [];
+	let answer = null;
+	app.dialogs = {
+		active: false,
+		open: async options => {
+			dialogs.push(options);
+			app.dialogs.active = true;
+			const result = await new Promise(resolve => {
+				answer = resolve;
+			});
+			app.dialogs.active = false;
+			return result;
+		},
+	};
+	app.toast = {
+		show: () => {},
+	};
+	app._mcpFs = fs;
+	app._startMcpPairing(fs);
+	try {
+		const deadline = Date.now() + 5000;
+		while (dialogs.length === 0 && Date.now() < deadline) {
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		assert.equal(dialogs.length, 1, "the startup offer is on screen");
+		// A tool call arrives while the offer is unanswered: it must wait for the user, and it
+		// must not open a second dialog on top of the first one.
+		const pendingAllowed = app._mcpClientAllowed("announced-client", "sviber-mcp");
+		await new Promise(resolve => setTimeout(resolve, 400));
+		assert.equal(dialogs.length, 1, "no second dialog while the offer is open");
+		answer({ button: "allow" });
+		assert.equal(await pendingAllowed, true, "the call succeeds once the offer is answered");
+		assert.deepEqual(readPairingRecords({ fs, home })[0]?.pairedWith, [{ pid: process.pid, chart: "" }]);
+	} finally {
 		app._stopMcpInstance();
 		globalThis.nw = previousNw;
 		rmSync(home, { recursive: true, force: true });

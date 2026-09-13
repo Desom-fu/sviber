@@ -297,14 +297,27 @@ class McpInstanceTrait {
 
 	// Paired in this run → silent. A client that never announced itself (older build, or a
 	// one-shot process that exited before its announcement was seen) is asked here for this run.
+	// If a pairing dialog is already on screen (the startup offer), the request waits for the
+	// user to answer it instead of failing — that is the "allow the second editor" case with
+	// several instances. The server-side request timeout is what eventually bounds this wait.
 	async _mcpClientAllowed(client, clientName) {
 		const key = String(client || "");
-		this._syncMcpPairing();
+		while (this.dialogs?.active) {
+			await new Promise(resolve => setTimeout(resolve, 250));
+		}
+		const { pending } = this._syncMcpPairing();
 		if (key && this._mcpDecidedClients?.has(key) && !this._mcpDeniedClients?.has(key)) {
 			return true;
 		}
 		if (key && this._mcpDeniedClients?.has(key)) {
 			return false;
+		}
+		if (pending.some(record => record.id === key)) {
+			// The startup offer is still on screen for this client: it will decide, not us.
+			while (this.dialogs?.active) {
+				await new Promise(resolve => setTimeout(resolve, 250));
+			}
+			return Boolean(key && this._mcpDecidedClients?.has(key) && !this._mcpDeniedClients?.has(key));
 		}
 		const record = { id: key || "unnamed", name: String(clientName || "") };
 		const allowed = await this._confirmMcpPairing([record]);

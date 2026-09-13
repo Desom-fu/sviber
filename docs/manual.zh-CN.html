@@ -990,9 +990,9 @@ sviber 只在宏控制台报告，不应用任何结果；JS console 与 Ruby �
 <p>每个编辑器实例监听一个端点：Unix 上是 <code>~/.sviber/&lt;pid&gt;.sock</code>，Windows 上是命名管道 <!---->
 <code>\\.\pipe\sviber-&lt;pid&gt;</code> 加一个空的标记文件 <code>&lt;pid&gt;.sock</code>（Windows 的本地套接字只支持命名管道）。<!---->
 路径固定不可配置。</p>				<!---->
-<p>配对在启动时进行，而不是等到第一次调用：MCP 服务器一启动就把客户端身份写入 <!---->
-<code>~/.sviber/pairing/&lt;客户端&gt;.json</code>（身份本身持久保存在 <code>~/.sviber/mcp-client-id</code>，<!---->
-可用 <code>SVIBER_MCP_CLIENT_ID</code> 覆盖）；编辑器启动时扫描该目录，并用文件监听实时跟进，<!---->
+<p>配对在启动时进行，而不是等到第一次调用：每个 MCP 服务器进程一启动就用自己（每个进程一份）的身份把 <!---->
+<code>~/.sviber/pairing/&lt;客户端&gt;.json</code> 写出来，因此同时开两个 MCP 互不干扰；<!---->
+需要复用身份时可用 <code>SVIBER_MCP_CLIENT_ID</code> 固定。编辑器启动时扫描该目录，并用文件监听实时跟进，<!---->
 看到未配对的服务器就弹出允许/拒绝对话框——同时标明是哪个客户端、要驱动哪个 sviber 实例，<!---->
 并警告允许后编辑器外部可以对谱面做出无法撤销的修改。配对按“本次运行 × 编辑器实例”记忆：<!---->
 双方都开着就不再询问，关掉任一方再开就要重新配对，两个编辑器实例各自单独配对；<!---->

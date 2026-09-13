@@ -71,14 +71,9 @@ export function socketPathFromName(directory, name) {
 // an MCP server writes while it runs, and each editor instance writes which of its instances
 // paired with that client back into the same file.
 export const PAIRING_DIR_NAME = "pairing";
-export const MCP_CLIENT_ID_FILENAME = "mcp-client-id";
 
 export function pairingDirectory(home) {
 	return joinHomePath(sviberDirectory(home), PAIRING_DIR_NAME);
-}
-
-export function mcpClientIdPath(home) {
-	return joinHomePath(sviberDirectory(home), MCP_CLIENT_ID_FILENAME);
 }
 
 // Client ids become file names, so keep them inside a conservative alphabet.
