@@ -3,14 +3,19 @@
 import fs from "node:fs";
 import net from "node:net";
 import { resolveMcpClientIdentity } from "./mcp-client-identity.js";
-import { instancePidFromName } from "./mcp-instance-directory.js";
+import { instancePidFromName, pruneStaleInstanceEndpoints, processIsAlive } from "./mcp-instance-directory.js";
 import { readPairingRecords } from "./mcp-pairing.js";
 import { instanceTransport, socketPathFromName, sviberDirectory } from "./mcp-paths.js";
 
 // Discovery always lists `<pid>.sock`: POSIX publishes the socket itself, win32 publishes an
 // empty marker file next to the named pipe (the pipe namespace cannot be enumerated).
-export function listInstanceSocketPaths(home) {
+export function listInstanceSocketPaths(home, { isAlive = processIsAlive } = {}) {
 	const directory = sviberDirectory(home);
+	// An editor killed instead of closed never runs its cleanup, so its marker stays behind
+	// and would make list_instances advertise a phantom whose endpoint accepts nothing.
+	// Sweeping dead entries at discovery time heals the directory even when no editor starts
+	// again; entries that cannot be unlinked are still filtered out of the listing.
+	pruneStaleInstanceEndpoints({ fs, directory, isAlive });
 	let entries = [];
 	try {
 		entries = fs.readdirSync(directory);
@@ -19,7 +24,7 @@ export function listInstanceSocketPaths(home) {
 	}
 	return entries.flatMap(name => {
 		const pid = instancePidFromName(name);
-		return pid > 0 ? [{ pid, path: socketPathFromName(directory, name) }] : [];
+		return pid > 0 && isAlive(pid) ? [{ pid, path: socketPathFromName(directory, name) }] : [];
 	});
 }
 
@@ -77,7 +82,7 @@ export function createSocketBackend(home, options = {}) {
 			// `pairedWith` is how the MCP side tells which editor instance a client is talking to.
 			const records = readPairingRecords({ fs, home });
 			return {
-				instances: listInstanceSocketPaths(home).map(item => ({
+				instances: listInstanceSocketPaths(home, { isAlive: options.isAlive }).map(item => ({
 					id: String(item.pid),
 					pid: item.pid,
 					path: instanceTransport(item.pid, { home }).path,

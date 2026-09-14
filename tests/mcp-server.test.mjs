@@ -124,7 +124,9 @@ test("an instance endpoint really accepts a connection on this platform", async 
 		server.listen(transport.path, resolve);
 	});
 	try {
-		const backend = createSocketBackend(home);
+		// The endpoint is real but the pid is invented: liveness is stubbed so discovery does
+		// not sweep the entry as a phantom.
+		const backend = createSocketBackend(home, { isAlive: () => true });
 		const listed = backend.listInstances().instances;
 		assert.deepEqual(
 			listed.map(item => ({ pid: item.pid, path: item.path })),
@@ -285,7 +287,11 @@ test("list_instances shows which editor instance a client paired with", () => {
 	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-listed-"));
 	const nodeFs = { readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync };
 	try {
-		const backend = createSocketBackend(home, { clientId: "client one", clientName: "sviber-mcp" });
+		const backend = createSocketBackend(home, {
+			clientId: "client one",
+			clientName: "sviber-mcp",
+			isAlive: () => true,
+		});
 		mkdirSync(sviberDirectory(home), { recursive: true });
 		writeFileSync(path.join(sviberDirectory(home), "63280.sock"), "");
 		const instances = () => backend.listInstances().instances;
@@ -296,6 +302,29 @@ test("list_instances shows which editor instance a client paired with", () => {
 		const listed = instances()[0];
 		assert.equal(listed.pid, 63280);
 		assert.deepEqual(listed.pairedWith, [{ id: "client one", name: "sviber-mcp" }]);
+	} finally {
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
+test("list_instances sweeps markers of dead editors instead of advertising phantoms", () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-ghost-"));
+	try {
+		const directory = sviberDirectory(home);
+		mkdirSync(directory, { recursive: true });
+		// What a force-killed editor leaves behind, beside a live instance's marker.
+		writeFileSync(path.join(directory, "13952.sock"), "");
+		writeFileSync(path.join(directory, "63280.sock"), "");
+		const alive = pid => pid === 63280;
+		const backend = createSocketBackend(home, { isAlive: alive });
+		assert.deepEqual(
+			backend.listInstances().instances.map(item => item.pid),
+			[63280],
+			"a dead editor's marker is not listed as an instance",
+		);
+		// The sweep deletes the dead marker at discovery time: the phantom disappears even
+		// when no editor ever starts again to run the startup prune.
+		assert.equal(existsSync(path.join(directory, "13952.sock")), false, "the phantom marker is swept");
 	} finally {
 		rmSync(home, { recursive: true, force: true });
 	}
