@@ -126,6 +126,8 @@ Covers:
 
 ## Hard rules
 
+- **One `sviber-mcp` server per conversation.** Start it once and reuse it for every tool call; never spawn a second server while the first still works. Identity is per server run, so every new process writes a new pairing announcement and re-prompts every open editor — "I only opened one MCP, why did it ask three times?" is exactly this. If a call fails to connect, run `list_instances` first and only restart the server once the old one is confirmed gone.
+- **Resolve every user term through the glossary.** Whenever the user names a domain object (中文/日本語/English), look it up in [references/terms.md](references/terms.md) **every time** before mapping it to APIs, tools, files, or UI concepts; never guess a mapping.
 - Macros run on a **copy** of the chart.
 - A successful run becomes **one undoable history step**.
 - Raises or invalid chart data → error reported, **nothing applied**.

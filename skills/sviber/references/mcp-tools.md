@@ -17,7 +17,8 @@ Source of truth: `js/mcp/mcp-tools.js`, `js/mcp/mcp-editor-handlers.js`, `js/mcp
 
 When no MCP client is configured but an editor is running, call the dispatcher directly instead
 of spawning `sviber-mcp` per call — a fresh process would get a fresh random `client` id and
-re-prompt every time:
+re-prompt every time. Keep **one** dispatcher/backend alive for the whole conversation: create it
+once and reuse it for every tool call.
 
 ```js
 const { dispatchMcpLine } = await import("<repo>/js/mcp/mcp-server.js");

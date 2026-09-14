@@ -1,5 +1,7 @@
 # Translation notes (English / 简体中文 / 日本語)
 
+**This is the glossary (术语表).** Whenever the user uses a domain term — in any language — look it up here **every time** before mapping it to APIs, tools, files, or UI concepts; do not guess or rely on a remembered mapping.
+
 Prefer these mappings when talking to the user or reading the UI. UI strings come from `json/i18n.*.json` and the help manuals; API names stay English camelCase / snake_case as in the macro API. Where the Japanese UI file has a clearly machine-mangled label, the **recommended** term is given for charting talk.
 
 ## Core nouns
