@@ -109,9 +109,8 @@ function applyOneEventProperty(model, event, property, value) {
 	event[property] = deepClone(nextValue);
 }
 
-function applySelectedPropertyMutation(model, property, value, defaults) {
-	// v19: locked events behave as if they were not selected, so the inspector skips them.
-	const chosen = model.allEvents().filter(event => event.selected && !event.locked);
+function applySelectedPropertyMutation(model, property, value, defaults, targets) {
+	const chosen = resolveChosenEvents(model, targets);
 	const channelExists = model.channels.some(
 		channel => channel.id === Number(value) && channel.active !== false,
 	);
@@ -134,15 +133,30 @@ function applySelectedPropertyMutation(model, property, value, defaults) {
 	}
 }
 
+// The events an inspector edit applies to. The inspector binds every field to the selection it
+// was rendered for and passes those event ids as `targets`: a pending edit flushed after the
+// selection moved on (typing text, then clicking another note) must land on the note it was
+// typed for, not on whatever is selected when the change fires. Without targets the current
+// selection is used, which keeps direct callers working. v19: locked events behave as if they
+// were not selected, so the inspector skips them either way.
+export function resolveChosenEvents(model, targets) {
+	if (!Array.isArray(targets) || !targets.length) {
+		return model.allEvents().filter(event => event.selected && !event.locked);
+	}
+	const ids = new Set(targets);
+	return model.allEvents().filter(event => ids.has(event.id) && !event.locked);
+}
+
 export class PropertyEditingTrait {
 
-	editSelectedProperty(property, value) {
+	editSelectedProperty(property, value, targets) {
 		const historyLabel = i18n.t("history.editEvent", { type: "" });
 		const commentProperties = new Set(["time", "channel", "duration", "endTime", "text"]);
+		const chosen = resolveChosenEvents(this.model, targets);
 		const allowReadOnly =
 			this.model.editor.readOnly &&
-			selected(this.model).length > 0 &&
-			selected(this.model).every(event => event.type === "comment") &&
+			chosen.length > 0 &&
+			chosen.every(event => event.type === "comment") &&
 			commentProperties.has(property);
 		const result = this.commit(
 			historyLabel,
@@ -151,7 +165,7 @@ export class PropertyEditingTrait {
 					lastHoldDuration: this.lastHoldDuration,
 					lastBgNoteDuration: this.lastBgNoteDuration,
 					lastFlickAngle: this.lastFlickAngle,
-				}),
+				}, targets),
 			{ allowReadOnly },
 		);
 		if (property === "duration" || property === "endTime" || property === "angle" || property === "type") {

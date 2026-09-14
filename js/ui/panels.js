@@ -549,6 +549,12 @@ export class InspectorPanel {
 		clearElement(this.element);
 		this.escapeBound ||= Boolean((this.cleanupEscape = bindEscapeRestore(this.element)));
 		const { selectedGroups, selected } = this.#selectionOf(model, context);
+		// Every field created below commits against THIS selection, even when its edit is only
+		// flushed later: the flush at the top of the next render still runs through the previous
+		// binding, so text typed for one note cannot land on another note selected since then.
+		const targets = Object.freeze(selected.map(event => event.id));
+		const forward = this.onChange;
+		this.onChange = (property, value) => forward(property, value, targets);
 		const commentsOnly = selected.length > 0 && selected.every(event => event.type === "comment");
 		const groupsOnly = selectedGroups.length > 0;
 		if (Array.isArray(context.transform)) {

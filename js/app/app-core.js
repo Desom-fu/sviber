@@ -214,7 +214,7 @@ export class SviberAppCore extends CoreShell {
 		this.inspectorPanel = new InspectorPanel({
 			i18n,
 			tooltip: this.tooltip,
-			onChange: (property, value) => this.editSelectedProperty(property, value),
+			onChange: (property, value, targets) => this.editSelectedProperty(property, value, targets),
 			onTransformChange: (index, value) => this._editTransformElement(index, value),
 		});
 		this.snappeesPanel = new SnappeesPanel({
