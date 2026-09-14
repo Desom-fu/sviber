@@ -576,6 +576,72 @@ test("a request waits for an open pairing dialog instead of failing", async () =
 		}
 	});
 
+test("two servers announced together are decided on separate dialogs", async () => {
+	const home = mkdtempSync(path.join(os.tmpdir(), "sviber-mcp-separate-"));
+	const fs = await import("node:fs");
+	const net = await import("node:net");
+	const previousNw = globalThis.nw;
+	globalThis.nw = {
+		require: name => {
+			if (name === "fs") {
+				return fs;
+			}
+			if (name === "net") {
+				return net;
+			}
+			if (name === "os") {
+				return { homedir: () => home };
+			}
+			return null;
+		},
+	};
+	// Both servers announce before the editor starts: the offer loop must ask for each of
+	// them on its own dialog instead of batching both names into one combined decision.
+	registerPairingRecord({ fs, home, id: "first-client", name: "sviber-mcp", pid: process.pid });
+	registerPairingRecord({ fs, home, id: "second-client", name: "sviber-mcp", pid: process.pid });
+	const app = new (withMcpInstance(class {}))();
+	const dialogs = [];
+	app.dialogs = {
+		open: async options => {
+			dialogs.push(options);
+			// Allow the first prompt, deny the second: the two decisions must land separately.
+			return { button: dialogs.length === 1 ? "allow" : "deny" };
+		},
+	};
+	app.toast = {
+		show: () => {},
+	};
+	app._mcpFs = fs;
+	app._startMcpPairing(fs);
+	try {
+		const deadline = Date.now() + 5000;
+		while (dialogs.length < 2 && Date.now() < deadline) {
+			await new Promise(resolve => setTimeout(resolve, 25));
+		}
+		await new Promise(resolve => setTimeout(resolve, 100));
+		assert.equal(dialogs.length, 2, "each announced server is asked on its own dialog");
+		const pairedId = ["first-client", "second-client"].find(id => app._mcpPairedServerPids.has(id));
+		const deniedId = pairedId === "first-client" ? "second-client" : "first-client";
+		assert.ok(pairedId, "the allowed prompt pairs only its own client");
+		assert.ok(app._mcpDeniedClients.has(deniedId), "the denied prompt does not leak an allow");
+		const records = readPairingRecords({ fs, home });
+		for (const record of records) {
+			if (record.id === pairedId) {
+				assert.deepEqual(record.pairedWith, [{ pid: process.pid, chart: "" }]);
+			} else {
+				assert.deepEqual(record.pairedWith, [], "the denied server stays unpaired");
+			}
+		}
+		// Both clients are decided now, so nothing prompts again in this run.
+		await app._offerMcpPairing();
+		assert.equal(dialogs.length, 2);
+	} finally {
+		app._stopMcpInstance();
+		globalThis.nw = previousNw;
+		rmSync(home, { recursive: true, force: true });
+	}
+});
+
 test("consent warning tells the user allowing makes undoable external edits possible", () => {
 	assert.match(MCP_CONSENT_WARNING, /undoable modifications/);
 	assert.match(MCP_CONSENT_WARNING, /outside the editor/);
@@ -651,6 +717,10 @@ test("editor socket dispatches every instance tool through handleEditorMcpTool",
 	// Pairing and break-ups are visible: toasts in the editor, pairing in the server log.
 	assert.match(source, /toast\.mcpPaired/);
 	assert.match(source, /toast\.mcpPairingLost/);
+	// Each pending client is decided on its own dialog: allowing one server never answers
+	// for another one announced beside it (no batched prompts).
+	assert.match(source, /_confirmMcpPairing\(\[record\]\)/);
+	assert.doesNotMatch(source, /_confirmMcpPairing\(pending\)/);
 	const app = createEditorApp();
 	for (const name of INSTANCE_TOOLS) {
 		try {

@@ -31,6 +31,9 @@ import {
 const PAIRING_RETRY_MS = 1500;
 const PAIRING_DEBOUNCE_MS = 150;
 const PAIRING_POLL_MS = 5000;
+// Matches the server-side request window: a tool call waits this long for the user to answer
+// the pairing dialog that names its client, then the request fails on its own anyway.
+const PAIRING_REQUEST_WAIT_MS = 60000;
 
 function nwNode(name) {
 	try {
@@ -216,50 +219,62 @@ class McpInstanceTrait {
 		if (!this._mcpFs || this._mcpPairingBusy) {
 			return;
 		}
-		const { pending, lost } = this._syncMcpPairing();
 		const labels = records => records.map(record => pairingRecordLabel(record)).join("、");
-		if (lost.length) {
-			this.toast?.show?.("toast.mcpPairingLost", { clients: labels(lost) });
-		}
-		if (!pending.length) {
-			return;
-		}
-		// Another dialog is up (or the user is mid-edit): ask again shortly instead of failing.
-		if (this.dialogs?.active) {
-			this._queueMcpPairing(PAIRING_RETRY_MS);
-			return;
-		}
 		this._mcpPairingBusy = true;
-		let allowed = false;
 		try {
-			allowed = await this._confirmMcpPairing(pending);
-		} catch (error) {
-			console.warn("MCP pairing prompt failed", error);
-			this._queueMcpPairing(PAIRING_RETRY_MS);
-			return;
+			for (;;) {
+				const { pending, lost } = this._syncMcpPairing();
+				if (lost.length) {
+					this.toast?.show?.("toast.mcpPairingLost", { clients: labels(lost) });
+				}
+				if (!pending.length) {
+					return;
+				}
+				// One decision per connection: every pending client is asked on its own dialog,
+				// never batched into one combined prompt, so allowing one server never answers
+				// for another one that was announced beside it.
+				const record = pending[0];
+				if (this.dialogs?.active) {
+					// Another dialog is up (or the user is mid-edit): ask again shortly instead of failing.
+					this._queueMcpPairing(PAIRING_RETRY_MS);
+					return;
+				}
+				let allowed = false;
+				try {
+					allowed = await this._confirmMcpPairing([record]);
+				} catch (error) {
+					console.warn("MCP pairing prompt failed", error);
+					this._queueMcpPairing(PAIRING_RETRY_MS);
+					return;
+				}
+				this._decideMcpPairing(record, allowed);
+			}
 		} finally {
 			this._mcpPairingBusy = false;
 		}
-		const pid = globalThis.process?.pid;
-		for (const record of pending) {
-			this._mcpDecidedClients.add(record.id);
-			if (!allowed) {
-				this._mcpDeniedClients.add(record.id);
-				continue;
-			}
-			// The pairing belongs to this server process: if the same client id comes back from
-			// another pid, that is a new server and the editor pairs again.
-			if (record.pid) {
-				this._mcpPairedServerPids.set(record.id, record.pid);
-			}
-			try {
-				const chart = String(this.model?.metadata?.title || "");
-				markPairedEditor({ fs: this._mcpFs, clientId: record.id, pid, chart });
-			} catch (error) {
-				console.warn("MCP pairing mark failed", error);
-			}
-			this.toast?.show?.("toast.mcpPaired", { clients: labels([record]) });
+	}
+
+	// Records one user decision for exactly one client: allowed pairs this editor with that
+	// server process; denied silences the offer for the rest of this run.
+	_decideMcpPairing(record, allowed) {
+		this._mcpDecidedClients.add(record.id);
+		if (!allowed) {
+			this._mcpDeniedClients.add(record.id);
+			return;
 		}
+		// The pairing belongs to this server process: if the same client id comes back from
+		// another pid, that is a new server and the editor pairs again.
+		if (record.pid) {
+			this._mcpPairedServerPids.set(record.id, record.pid);
+		}
+		try {
+			const chart = String(this.model?.metadata?.title || "");
+			const pid = globalThis.process?.pid;
+			markPairedEditor({ fs: this._mcpFs, clientId: record.id, pid, chart });
+		} catch (error) {
+			console.warn("MCP pairing mark failed", error);
+		}
+		this.toast?.show?.("toast.mcpPaired", { clients: pairingRecordLabel(record) });
 	}
 
 	async _confirmMcpPairing(records) {
@@ -313,8 +328,11 @@ class McpInstanceTrait {
 			return false;
 		}
 		if (pending.some(record => record.id === key)) {
-			// The startup offer is still on screen for this client: it will decide, not us.
-			while (this.dialogs?.active) {
+			// The offer loop asks for this client on its own dialog: wait for that decision
+			// instead of answering for it here. The wait is bounded like the server-side
+			// request window, so a client whose offer is still queued is not denied spuriously.
+			const deadline = Date.now() + PAIRING_REQUEST_WAIT_MS;
+			while (!this._mcpDecidedClients?.has(key) && Date.now() < deadline) {
 				await new Promise(resolve => setTimeout(resolve, 250));
 			}
 			return Boolean(key && this._mcpDecidedClients?.has(key) && !this._mcpDeniedClients?.has(key));
