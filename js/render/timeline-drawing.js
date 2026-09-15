@@ -678,8 +678,18 @@ export class TimelineDrawingTrait {
 	}
 
 	_drawSelectedEventScrollbarLines(context, rectangle, project, bounds) {
+		const index = this.renderIndex;
+		// Painted every frame: nothing selected means nothing to draw, and the whole chart must
+		// not be flattened per frame. `selectedEventOverlayTimes` keeps only self-selected events,
+		// so the index's wider "selected" list produces exactly the same lines.
+		if (index && !index.selectedEvents?.length) {
+			return;
+		}
 		const toSeconds = event => this.timing.beatToSeconds(eventTime(event));
-		const marks = selectedEventOverlayTimes(flattenEvents(project.events || [], true), toSeconds);
+		const marks = selectedEventOverlayTimes(
+			index?.selectedEvents || flattenEvents(project.events || [], true),
+			toSeconds,
+		);
 		for (const mark of marks) {
 			const x = this._scrollX(mark.time, rectangle, bounds);
 			context.strokeStyle = mark.color;

@@ -558,10 +558,10 @@ test("a lightweight commit refreshes the live checks panel off the interaction p
 	app.commit("break checks", model => {
 		model.addEvent("tap", { time: [1, 0, 1], x: 500, y: 0, selected: true });
 	});
-	// The commit must not re-run the checks synchronously; the scheduled refresh follows
-	// on an idle slice.
+	// The commit must not re-run the checks synchronously; the scheduled refresh waits for a
+	// quiet moment, so it follows once the edits pause.
 	assert.deepEqual(renders.at(-1), []);
-	await new Promise(resolve => setTimeout(resolve, 60));
+	await new Promise(resolve => setTimeout(resolve, 600));
 	assert.deepEqual(renders.at(-1), ["outOfBoundaryNotes"]);
 });
 

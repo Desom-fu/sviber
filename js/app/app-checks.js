@@ -14,6 +14,12 @@ function scheduleSlice(callback) {
 	}
 }
 
+// v27: a whole-chart scan is over 100 ms of rule work once a chart carries a few thousand
+// events. Pumping it right after every edit kept the main thread busy in every idle gap and
+// made editing feel sticky, so an automatic refresh waits for a quiet moment instead. The
+// panel still updates as soon as the edits pause; a forced scan stays immediate.
+const CHECKS_QUIET_MS = 350;
+
 function checksSignature(model) {
 	return JSON.stringify([
 		model.metadata,
@@ -71,9 +77,13 @@ class ChecksTrait {
 	_scheduleChecksRefresh() {
 		this.checksRefreshPending = true;
 		this.checksRefreshToken = (this.checksRefreshToken || 0) + 1;
-		if (!this.checksRunActive) {
-			this._pumpChecksRefresh();
-		}
+		clearTimeout(this.checksQuietTimer);
+		this.checksQuietTimer = setTimeout(() => {
+			this.checksQuietTimer = null;
+			if (!this.checksRunActive) {
+				this._pumpChecksRefresh();
+			}
+		}, CHECKS_QUIET_MS);
 	}
 
 	_pumpChecksRefresh() {

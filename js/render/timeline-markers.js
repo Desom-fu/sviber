@@ -50,19 +50,32 @@ export class TimelineMarkersTrait {
 	}
 
 	_drawSelectedEventMarkers(context, layout, project) {
+		const index = this.renderIndex;
+		// Painted every frame: with nothing selected there is nothing to mark, and the chart
+		// must not be flattened per frame (that alone cost a whole frame on a big chart).
+		if (index && !index.selectedEvents?.length) {
+			return;
+		}
 		const visible = this._visibleChannels(project);
 		const allVisible = visibleTimelineChannels(project);
 		const ordered = project.channels || [];
+		// Channel positions are looked up per selected event, so build the maps once instead of
+		// scanning the channel list again for every event.
+		const orderedPositions = new Map(ordered.map((channel, position) => [channel.id, position]));
+		const visiblePositions = new Map(allVisible.map((channel, position) => [channel.id, position]));
 		const beginning = Number(project.editor.visibleRangeBeginning);
 		const ending = Number(project.editor.visibleRangeEnd);
 		const markers = [];
-		for (const event of flattenEvents(project.events || [], false)) {
+		// The index also holds the descendants of a selected group; only self-selected events
+		// are marked, which is what the previous full scan kept.
+		const selectedEvents = index?.selectedEvents || flattenEvents(project.events || [], false);
+		for (const event of selectedEvents) {
 			if (!event.selected) {
 				continue;
 			}
 			const time = this.timing.beatToSeconds(event.time);
-			const originalIndex = ordered.findIndex(channel => channel.id === event.channel);
-			const visibleIndex = allVisible.findIndex(channel => channel.id === event.channel);
+			const originalIndex = orderedPositions.get(event.channel) ?? -1;
+			const visibleIndex = visiblePositions.get(event.channel) ?? -1;
 			const channelIndex = visibleIndex - this.channelOffset;
 			const hidden = ordered[originalIndex]?.hidden === true;
 			const hiddenSeparatorVisible = hidden && this._hiddenSeparatorVisible(project, originalIndex, visible);
