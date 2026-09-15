@@ -76,3 +76,16 @@ test("NW.js source launches never request the web app manifest", async () => {
 	assert.match(link, /process\?\.versions\?\.nw/);
 	assert.match(link, /link\[rel="manifest"\]/);
 });
+
+test("the status panel toggles always form two rows of nine", async () => {
+	const [html, css] = await Promise.all([
+		readFile(new URL("../index.html", import.meta.url), "utf8"),
+		readFile(new URL("../css/app.css", import.meta.url), "utf8"),
+	]);
+	// Eighteen toggles at nine per row: the block keeps its shape whatever the panel width is.
+	assert.equal((html.match(/class="status-option"/g) || []).length, 18);
+	assert.match(css, /grid-template-columns:\s*repeat\(9, minmax\(0, 1fr\)\)/);
+	// Wrapping by available width grew a third row as soon as the panel showed a scrollbar,
+	// which happens on the short timeline row of a single-channel chart.
+	assert.doesNotMatch(css, /\.status-options\s*\{[^}]*flex-wrap:\s*wrap/);
+});

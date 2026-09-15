@@ -949,14 +949,18 @@ textarea:focus-visible,
 /* Merged from css/app-v11.css (the former version-suffixed split); kept last so the
    cascade order is unchanged. */
 .status-options {
-	display: flex;
-	flex-wrap: wrap;
+	/* The toggles are 18 fixed entries: nine per row keeps them in exactly two rows whatever
+	   the panel width is. Wrapping by available width made the block grow an extra row
+	   whenever the panel showed a scrollbar, which happens as soon as the timeline row is
+	   short (one channel instead of two or three). */
+	display: grid;
+	grid-template-columns: repeat(9, minmax(0, 1fr));
 	gap: 3px;
 }
 
 .status-option {
 	justify-content: center;
-	width: 30px;
+	width: 100%;
 	height: 30px;
 	min-height: 0;
 }
@@ -975,6 +979,7 @@ textarea:focus-visible,
 .status-option img {
 	width: 26px;
 	height: 26px;
+	max-width: 100%;
 	padding: 1px;
 	border: 1px solid transparent;
 	border-radius: 2px;
