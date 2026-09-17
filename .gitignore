@@ -4,6 +4,7 @@ test-results/
 audio/audio-decode.bundle.js
 js/audio/audio-decode.bundle.js
 assets/
+.kilo/
 /auto-timing-test/
 /nw-user-data/
 /icon.ico

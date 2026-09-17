@@ -104,7 +104,15 @@ function interpolatedMagnitude(magnitude, fftSize, sampleRate, frequency) {
 	return magnitude[lower] * (1 - mix) + magnitude[lower + 1] * mix;
 }
 
-export function renderSpectrogramGrid(options = {}) {
+// Columns sit on a fixed grid anchored at time zero whose spacing is the current view's
+// column width (span / width): a panning or play-following view then re-reads the previous
+// frame's buckets almost entirely — only one or two entering columns cost fresh FFTs — and
+// at a fixed zoom every drawn column still samples exactly its own center time, so the
+// output matches the uncached renderer bit for bit. Zooming changes the spacing, which
+// simply invalidates the cache.
+export const SPECTROGRAM_COLUMN_CACHE_LIMIT = 16384;
+
+export function renderSpectrogramGridCached(options = {}) {
 	const settings = normalizeSpectrogram(options.settings);
 	const width = Math.max(1, Math.floor(Number(options.width) || 1));
 	const height = Math.max(1, Math.floor(Number(options.height) || 1));
@@ -113,6 +121,9 @@ export function renderSpectrogramGrid(options = {}) {
 	const span = Math.max(1e-9, (Number.isFinite(timeEnd) ? timeEnd : timeStart + 1) - timeStart);
 	const channels = options.channels || (options.samples ? [options.samples] : []);
 	const sampleRate = Number(options.sampleRate) || 44100;
+	const cache = options.columnCache;
+	const quantum = Math.max(1e-9, span / width);
+	const cacheLimit = Math.max(1, Number(options.columnCacheLimit) || SPECTROGRAM_COLUMN_CACHE_LIMIT);
 	const [freqMin, freqMax] = settings.frequencyRange;
 	const freqSpan = Math.max(1e-9, freqMax - freqMin);
 	const values = new Float32Array(width * height);
@@ -120,17 +131,24 @@ export function renderSpectrogramGrid(options = {}) {
 	const columns = [];
 	for (let x = 0; x < width; x += 1) {
 		const time = timeStart + ((x + 0.5) / width) * span;
-		const { magnitude, fftSize } = spectrogramMagnitudes(
-			channels,
-			sampleRate,
-			time,
-			settings,
-			height * 2,
-		);
-		columns.push({ magnitude, fftSize });
+		let column;
+		if (cache) {
+			const bucket = Math.round(time / quantum);
+			column = cache.get(bucket);
+			if (!column) {
+				column = spectrogramMagnitudes(channels, sampleRate, bucket * quantum, settings, height * 2);
+				if (cache.size >= cacheLimit) {
+					cache.delete(cache.keys().next().value);
+				}
+				cache.set(bucket, column);
+			}
+		} else {
+			column = spectrogramMagnitudes(channels, sampleRate, time, settings, height * 2);
+		}
+		columns.push(column);
 		for (let y = 0; y < height; y += 1) {
 			const frequency = freqMin + ((y + 0.5) / height) * freqSpan;
-			const mag = interpolatedMagnitude(magnitude, fftSize, sampleRate, frequency);
+			const mag = interpolatedMagnitude(column.magnitude, column.fftSize, sampleRate, frequency);
 			if (mag > peak) {
 				peak = mag;
 			}
@@ -148,6 +166,12 @@ export function renderSpectrogramGrid(options = {}) {
 		}
 	}
 	return { width, height, values, peak: peakSafe };
+}
+
+// Without a column cache this is the plain whole-grid renderer: every column is computed at
+// its own center time, exactly as it always was.
+export function renderSpectrogramGrid(options = {}) {
+	return renderSpectrogramGridCached(options);
 }
 
 export function spectrogramPixels(grid) {

@@ -23,7 +23,7 @@ import {
 } from "./timeline-helpers.js";
 import { abLoopMarks } from "./timeline-gestures.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
-import { renderSpectrogramGrid, spectrogramPixels } from "../core/spectrogram.js";
+import { renderSpectrogramGridCached, spectrogramPixels } from "../core/spectrogram.js";
 import { blitSpectrogram, createSpectrogramCanvas } from "./spectrogram-blit.js";
 import {
 	bookmarkOverlayTimes,
@@ -99,14 +99,39 @@ export class TimelineDrawingTrait {
 			context.drawImage(cached.canvas, rectangle.x, rectangle.y, rectangle.width, rectangle.height);
 			return;
 		}
-		const grid = renderSpectrogramGrid({
+		// A panning view (scrolling, zooming, play-follow) misses the whole-grid cache every
+		// frame. The per-bucket magnitude cache still lets those frames reuse their STFT
+		// columns: the buckets sit on a grid one column-width apart, so a pan re-reads the
+		// previous frame's columns and only the entering edge costs fresh FFTs, while the
+		// per-view peak normalization keeps working from the cached magnitudes. A zoom changes
+		// the column width, which simply clears the cache.
+		const width = Math.max(1, Math.floor(rectangle.width));
+		const quantum = Math.max(1e-9, (editor.visibleRangeEnd - editor.visibleRangeBeginning) / width);
+		const columnSettingsKey = [
+			waveform.sampleRate,
+			Math.max(1, Math.floor(rectangle.height)),
+			editor.spectrogram.windowWidth,
+			editor.spectrogram.windowShape,
+			quantum,
+		].join("|");
+		this._spectrogramColumns ||= new Map();
+		if (
+			this._spectrogramColumnChannels !== waveform.channels ||
+			this._spectrogramColumnSettings !== columnSettingsKey
+		) {
+			this._spectrogramColumns.clear();
+			this._spectrogramColumnChannels = waveform.channels;
+			this._spectrogramColumnSettings = columnSettingsKey;
+		}
+		const grid = renderSpectrogramGridCached({
 			channels: waveform.channels,
 			sampleRate: waveform.sampleRate,
 			timeStart: editor.visibleRangeBeginning,
 			timeEnd: editor.visibleRangeEnd,
-			width: Math.max(1, Math.floor(rectangle.width)),
+			width,
 			height: Math.max(1, Math.floor(rectangle.height)),
 			settings: editor.spectrogram,
+			columnCache: this._spectrogramColumns,
 		});
 		const image = new ImageData(spectrogramPixels(grid), grid.width, grid.height);
 		const canvas = createSpectrogramCanvas(grid.width, grid.height);
