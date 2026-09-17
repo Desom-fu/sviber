@@ -82,11 +82,17 @@ const MATRIX_LABEL_KEYS = [
 ];
 
 export class InspectorPanel {
+	// The original app wiring, which accepts (property, value, targets). Every render wraps it
+	// with that render's targets; wrapping the previous wrapper instead would silently drop all
+	// but the oldest targets, because the wrappers only accept two arguments.
+	#appOnChange;
+
 	constructor(options = {}) {
 		this.element = options.element || document.getElementById("inspector-panel");
 		this.i18n = options.i18n;
 		this.tooltip = options.tooltip;
-		this.onChange = options.onChange || (() => {});
+		this.#appOnChange = options.onChange || (() => {});
+		this.onChange = this.#appOnChange;
 		this.onTransformChange = options.onTransformChange || (() => {});
 		this.cleanup = [];
 	}
@@ -158,12 +164,13 @@ export class InspectorPanel {
 	}
 
 	#renderTypeRow(group, selected) {
+		const onChange = this.onChange;
 		const types = commonValue(selected, event => event.type);
 		const typeControl = makeSelect(
 			document,
 			EVENT_TYPE_CHOICES.map(type => ({ value: type, label: this.i18n.t(`event.${type}`) })),
 			types,
-			value => this.onChange("type", value),
+			value => onChange("type", value),
 		);
 		group.append(this.#row("field.type", typeControl));
 		return typeControl;
@@ -172,6 +179,7 @@ export class InspectorPanel {
 	// A pair of expression inputs for a chart position, disabled while the events are attached
 	// to a snappee (their position then comes from the snappee).
 	#positionPair(model, selected, locked) {
+		const onChange = this.onChange;
 		const position = commonValue(selected, event => {
 			const resolved = resolveAttachedPosition(event, model.snappees);
 			return resolved ? [resolved.x, resolved.y] : [event.x, event.y];
@@ -180,10 +188,10 @@ export class InspectorPanel {
 		pair.className = "pair-input";
 		pair.append(
 			makeExpressionControl(document, position === MIXED ? MIXED : position[0], value =>
-				this.onChange("x", value),
+				onChange("x", value),
 			),
 			makeExpressionControl(document, position === MIXED ? MIXED : position[1], value =>
-				this.onChange("y", value),
+				onChange("y", value),
 			),
 		);
 		if (locked) {
@@ -195,12 +203,13 @@ export class InspectorPanel {
 	// Groups carry only a colour and the position of the whole group, so they get their own
 	// short form instead of the per-event rows below.
 	#renderGroupProperties(group, model, selected) {
+		const onChange = this.onChange;
 		const color = commonValue(selected, event => event.color);
 		group.append(
 			this.#row(
 				"field.color",
 				makeInput(document, "color", color === MIXED ? "#ff9d3d" : color || "#ff9d3d", value =>
-					this.onChange("color", value),
+					onChange("color", value),
 				),
 			),
 		);
@@ -212,10 +221,10 @@ export class InspectorPanel {
 		positionWrapper.className = "pair-input";
 		positionWrapper.append(
 			makeExpressionControl(document, position === MIXED ? MIXED : position[0], value =>
-				this.onChange("x", value),
+				onChange("x", value),
 			),
 			makeExpressionControl(document, position === MIXED ? MIXED : position[1], value =>
-				this.onChange("y", value),
+				onChange("y", value),
 			),
 		);
 		if (selected.some(event => event.attached)) {
@@ -227,6 +236,7 @@ export class InspectorPanel {
 	// Muted channels are not offered, but the label still shows the channel's own name so the
 	// dropdown matches the channel list.
 	#renderChannelRow(group, model, selected) {
+		const onChange = this.onChange;
 		const channel = commonValue(selected, event => event.channel);
 		group.append(
 			this.#row(
@@ -241,7 +251,7 @@ export class InspectorPanel {
 							label: String(item.name || `Channel ${index + 1}`),
 						})),
 					channel,
-					value => this.onChange("channel", Number(value)),
+					value => onChange("channel", Number(value)),
 				),
 			),
 		);
@@ -265,6 +275,7 @@ export class InspectorPanel {
 	// Duration and end time are two views of the same value, so both reject an edit that would
 	// make the event end before it starts (or at the same beat, unless the type allows that).
 	#renderDurationRows(group, selected) {
+		const onChange = this.onChange;
 		group.append(
 			this.#row(
 				"field.duration",
@@ -277,7 +288,7 @@ export class InspectorPanel {
 							comparison > 0 ||
 							(comparison === 0 && selected.every(event => ZERO_DURATION_TYPES.has(event.type)))
 						) {
-							this.onChange("duration", value);
+							onChange("duration", value);
 						}
 					},
 				),
@@ -300,7 +311,7 @@ export class InspectorPanel {
 							return comparison > 0 || (comparison === 0 && ZERO_DURATION_TYPES.has(event.type));
 						});
 						if (valid) {
-							this.onChange("endTime", value);
+							onChange("endTime", value);
 						}
 					},
 				),
@@ -326,6 +337,7 @@ export class InspectorPanel {
 	// Where the tip point starts: either an absolute point (optionally snapped to a snappee) or
 	// a distance and direction away from the note, which is what the offset rows below cover.
 	#renderSpawnPositionRows(group, model, selected, state) {
+		const onChange = this.onChange;
 		const { spawnFieldsEnabled, absolute, attached, spawnSnappeeId } = state;
 		const spawnPositionControl = makeRadioControl(
 			document,
@@ -334,13 +346,13 @@ export class InspectorPanel {
 				{ value: "relative", label: this.i18n.t("field.relative") },
 			],
 			absolute === MIXED ? MIXED : absolute ? "absolute" : "relative",
-			value => this.onChange("tipPointSpawnAbsolutePosition", value === "absolute"),
+			value => onChange("tipPointSpawnAbsolutePosition", value === "absolute"),
 		);
 		setControlHidden(spawnPositionControl, !spawnFieldsEnabled);
 		group.append(this.#row("field.spawnPosition", spawnPositionControl));
 
 		const attachedControl = makeInput(document, "checkbox", attached, value =>
-			this.onChange("tipPointSpawnAttached", value),
+			onChange("tipPointSpawnAttached", value),
 		);
 		attachedControl.indeterminate = attached === MIXED;
 		setControlHidden(attachedControl, !spawnFieldsEnabled || absolute !== true || !model.snappees.length);
@@ -359,10 +371,10 @@ export class InspectorPanel {
 		absolutePair.className = "pair-input";
 		absolutePair.append(
 			makeExpressionControl(document, absolutePosition === MIXED ? MIXED : absolutePosition[0], value =>
-				this.onChange("tipPointSpawnX", value),
+				onChange("tipPointSpawnX", value),
 			),
 			makeExpressionControl(document, absolutePosition === MIXED ? MIXED : absolutePosition[1], value =>
-				this.onChange("tipPointSpawnY", value),
+				onChange("tipPointSpawnY", value),
 			),
 		);
 		absoluteWrapper.append(absolutePair);
@@ -372,6 +384,7 @@ export class InspectorPanel {
 
 	// A snap point is a pair of indices on a mesh snappee and a single index on a curve.
 	#renderSnapPointRow(group, targetSnappee, snapPoint, hidden) {
+		const onChange = this.onChange;
 		if (targetSnappee?.type.endsWith("Mesh")) {
 			const pair = Array.isArray(snapPoint) ? snapPoint : [0, 0];
 			const wrapper = document.createElement("div");
@@ -379,7 +392,7 @@ export class InspectorPanel {
 			const update = (index, value) => {
 				const next = [...pair];
 				next[index] = Math.round(value);
-				this.onChange("tipPointSpawnSnapPoint", next);
+				onChange("tipPointSpawnSnapPoint", next);
 			};
 			wrapper.append(
 				makeInput(document, "number", snapPoint === MIXED ? MIXED : pair[0], value => update(0, value), {
@@ -397,7 +410,7 @@ export class InspectorPanel {
 			document,
 			"number",
 			snapPoint,
-			value => this.onChange("tipPointSpawnSnapPoint", Math.round(value)),
+			value => onChange("tipPointSpawnSnapPoint", Math.round(value)),
 			{ step: "1" },
 		);
 		setControlHidden(control, hidden);
@@ -405,12 +418,13 @@ export class InspectorPanel {
 	}
 
 	#renderSpawnSnappeeRows(group, model, selected, state) {
+		const onChange = this.onChange;
 		const { spawnFieldsEnabled, absolute, spawnSnappeeId } = state;
 		const snappeeControl = makeSelect(
 			document,
 			model.snappees.map(snappee => ({ value: snappee.id, label: snappee.name })),
 			spawnSnappeeId,
-			value => this.onChange("tipPointSpawnSnappee", Number(value)),
+			value => onChange("tipPointSpawnSnappee", Number(value)),
 		);
 		setControlHidden(snappeeControl, !spawnFieldsEnabled || absolute !== true);
 		group.append(this.#row("field.snappee", snappeeControl));
@@ -421,18 +435,19 @@ export class InspectorPanel {
 	}
 
 	#renderSpawnOffsetRows(group, selected, state) {
+		const onChange = this.onChange;
 		const { spawnFieldsEnabled, absolute } = state;
 		const distanceControl = makeExpressionControl(
 			document,
 			commonValue(selected, event => event.tipPointSpawnDistance),
-			value => this.onChange("tipPointSpawnDistance", Math.max(0, value)),
+			value => onChange("tipPointSpawnDistance", Math.max(0, value)),
 		);
 		setControlHidden(distanceControl, !spawnFieldsEnabled || absolute !== false);
 		group.append(this.#row("field.spawnDistance", distanceControl));
 		const directionControl = makeAngleControl(
 			document,
 			commonValue(selected, event => event.tipPointSpawnAngle),
-			value => this.onChange("tipPointSpawnAngle", value),
+			value => onChange("tipPointSpawnAngle", value),
 			this.i18n,
 		);
 		setControlHidden(directionControl, !spawnFieldsEnabled || absolute !== false);
@@ -442,6 +457,7 @@ export class InspectorPanel {
 	// How long before the note the tip point appears, in seconds or in beats. Only the row
 	// matching the chosen unit is visible, and the hidden one is left blank.
 	#renderSpawnTimeRows(group, state) {
+		const onChange = this.onChange;
 		const { spawnFieldsEnabled, timeInBeats, spawnTime } = state;
 		const spawnUnitControl = makeRadioControl(
 			document,
@@ -450,27 +466,28 @@ export class InspectorPanel {
 				{ value: "beats", label: this.i18n.t("field.beats") },
 			],
 			timeInBeats === MIXED ? MIXED : timeInBeats ? "beats" : "seconds",
-			value => this.onChange("tipPointSpawnTimeBeats", value === "beats"),
+			value => onChange("tipPointSpawnTimeBeats", value === "beats"),
 		);
 		setControlHidden(spawnUnitControl, !spawnFieldsEnabled);
 		group.append(this.#row("field.spawnUnit", spawnUnitControl));
 		const secondsControl = makeExpressionControl(
 			document,
 			timeInBeats === false ? spawnTime : timeInBeats === MIXED ? MIXED : "",
-			value => this.onChange("tipPointSpawnTime", Math.max(0, value)),
+			value => onChange("tipPointSpawnTime", Math.max(0, value)),
 		);
 		setControlHidden(secondsControl, !spawnFieldsEnabled || timeInBeats !== false);
 		group.append(this.#row("field.spawnTimeSeconds", secondsControl));
 		const beatsControl = makeRationalControl(
 			document,
 			timeInBeats === true ? spawnTime : timeInBeats === MIXED ? MIXED : [0, 0, 1],
-			value => this.onChange("tipPointSpawnTime", value),
+			value => onChange("tipPointSpawnTime", value),
 		);
 		setControlHidden(beatsControl, !spawnFieldsEnabled || timeInBeats !== true);
 		group.append(this.#row("field.spawnTimeBeats", beatsControl));
 	}
 
 	#renderTipPointRows(group, model, selected) {
+		const onChange = this.onChange;
 		const modes = ["inherit", "chain", "drop", "none"].map(value => ({
 			value,
 			label: this.i18n.t(`tipPoint.${value}`),
@@ -479,7 +496,7 @@ export class InspectorPanel {
 		group.append(
 			this.#row(
 				"field.spawnType",
-				makeSelect(document, modes, state.spawnType, value => this.onChange("tipPointSpawnType", value)),
+				makeSelect(document, modes, state.spawnType, value => onChange("tipPointSpawnType", value)),
 			),
 		);
 		this.#renderSpawnPositionRows(group, model, selected, state);
@@ -493,6 +510,7 @@ export class InspectorPanel {
 	// The rows a mixed-type selection may still share, appended in a fixed order so the form
 	// keeps its shape as the selection changes.
 	#renderEventProperties(group, model, selected) {
+		const onChange = this.onChange;
 		this.#renderChannelRow(group, model, selected);
 		if (selected.every(event => MOVABLE_TYPES.has(event.type))) {
 			this.#renderPositionRow(group, model, selected);
@@ -508,7 +526,7 @@ export class InspectorPanel {
 						document,
 						"text",
 						commonValue(selected, event => event.text),
-						value => this.onChange("text", value),
+						value => onChange("text", value),
 					),
 				),
 			);
@@ -518,7 +536,7 @@ export class InspectorPanel {
 			group.append(
 				this.#row(
 					"field.direction",
-					makeAngleControl(document, radians, value => this.onChange("angle", value), this.i18n),
+					makeAngleControl(document, radians, value => onChange("angle", value), this.i18n),
 				),
 			);
 		}
@@ -552,9 +570,16 @@ export class InspectorPanel {
 		// Every field created below commits against THIS selection, even when its edit is only
 		// flushed later: the flush at the top of the next render still runs through the previous
 		// binding, so text typed for one note cannot land on another note selected since then.
+		// The wrapper delegates to the original wiring directly — wrapping the previous binding
+		// would drop these targets as soon as the next render wrapped again (the wrappers only
+		// accept two arguments), sending every later edit to a long-gone selection.
 		const targets = Object.freeze(selected.map(event => event.id));
-		const forward = this.onChange;
+		const forward = this.#appOnChange;
 		this.onChange = (property, value) => forward(property, value, targets);
+		// Field callbacks must not resolve `this.onChange` when the edit lands: capture the
+		// binding of the render that created them instead (the `const onChange` at the top of
+		// each field-building method below).
+		const commit = this.onChange;
 		const commentsOnly = selected.length > 0 && selected.every(event => event.type === "comment");
 		const groupsOnly = selectedGroups.length > 0;
 		if (Array.isArray(context.transform)) {
@@ -576,7 +601,7 @@ export class InspectorPanel {
 		}
 
 		const time = commonValue(selected, event => eventTime(event));
-		const timeControl = makeRationalControl(document, time, value => this.onChange("time", value));
+		const timeControl = makeRationalControl(document, time, value => commit("time", value));
 		if (groupsOnly) {
 			setControlDisabled(timeControl, true);
 		}

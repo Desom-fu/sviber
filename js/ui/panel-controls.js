@@ -45,13 +45,23 @@ export function makeRationalControl(documentRef, value, onChange) {
 		return input;
 	});
 	wrapper.append(controls[0], "+", controls[1], "/", controls[2]);
+	let lastEmitted = null;
 	const emit = () => {
 		const values = controls.map(input => Number(input.value));
 		if (values.every(Number.isSafeInteger) && values[2] > 0) {
+			const tuple = values.join(",");
+			if (tuple === lastEmitted) {
+				return;
+			}
+			lastEmitted = tuple;
 			onChange(Rational.from(values).toJSON());
 		}
 	};
 	for (const input of controls) {
+		// The inspector flush commits pending edits by dispatching `change` on each dirty input;
+		// the wrapper only hears `focusout`, which never fires once a re-render has detached the
+		// fields, so the rational parts must emit on change too.
+		input.addEventListener("change", emit);
 		input.addEventListener("keydown", event => {
 			if (event.key === "Enter") {
 				event.preventDefault();

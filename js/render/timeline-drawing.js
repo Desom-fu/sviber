@@ -24,7 +24,7 @@ import {
 import { abLoopMarks } from "./timeline-gestures.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
 import { renderSpectrogramGrid, spectrogramPixels } from "../core/spectrogram.js";
-import { blitSpectrogram } from "./spectrogram-blit.js";
+import { blitSpectrogram, createSpectrogramCanvas } from "./spectrogram-blit.js";
 import {
 	bookmarkOverlayTimes,
 	selectedEventOverlayTimes,
@@ -78,6 +78,27 @@ export class TimelineDrawingTrait {
 		if (!waveform?.channels?.length || typeof ImageData !== "function") {
 			return;
 		}
+		// The STFT over the whole visible range costs tens of milliseconds per frame, and the
+		// timeline re-renders on every cursor tick and selection change. The grid only depends
+		// on the audio, the visible range, the canvas size and the settings, so keep the
+		// rendered view and blit it until one of those moves.
+		const key = [
+			editor.visibleRangeBeginning,
+			editor.visibleRangeEnd,
+			Math.max(1, Math.floor(rectangle.width)),
+			Math.max(1, Math.floor(rectangle.height)),
+			editor.spectrogram.windowWidth,
+			editor.spectrogram.windowShape,
+			editor.spectrogram.frequencyRange?.[0],
+			editor.spectrogram.frequencyRange?.[1],
+			editor.spectrogram.dynamicRange,
+			editor.spectrogram.blackAsHigh ? 1 : 0,
+		].join("|");
+		const cached = this._spectrogramCache;
+		if (cached && cached.key === key && cached.channels === waveform.channels) {
+			context.drawImage(cached.canvas, rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+			return;
+		}
 		const grid = renderSpectrogramGrid({
 			channels: waveform.channels,
 			sampleRate: waveform.sampleRate,
@@ -88,7 +109,9 @@ export class TimelineDrawingTrait {
 			settings: editor.spectrogram,
 		});
 		const image = new ImageData(spectrogramPixels(grid), grid.width, grid.height);
-		blitSpectrogram(context, rectangle, image);
+		const canvas = createSpectrogramCanvas(grid.width, grid.height);
+		blitSpectrogram(context, rectangle, image, { createCanvas: () => canvas });
+		this._spectrogramCache = { key, channels: waveform.channels, canvas };
 	}
 
 	_loopSeconds(editor) {

@@ -27,7 +27,9 @@ class CurveDraftTrait {
 			return true;
 		}
 		this.snappeesPanel?.syncFlags?.(this.model, { readOnly: this.model.editor.readOnly });
-		this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
+		// The timeline scrollbar marks the selected snappee's events, so the timeline has to
+		// render too — stageOnly would leave the highlight stale until some unrelated render.
+		this.refreshInteractionPreview?.({ rebuildIndex: false });
 		this._syncCheckedCommands?.();
 		return true;
 	}

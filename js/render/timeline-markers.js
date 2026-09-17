@@ -201,7 +201,13 @@ export class TimelineMarkersTrait {
 		context.strokeStyle = snappee.color || "#00e0ad";
 		context.globalAlpha = 0.35;
 		context.lineWidth = 2;
-		for (const event of flattenEvents(project.events || [], false)) {
+		// The render index already holds the flat event list; flattening per frame would cost
+		// milliseconds on large charts (the marks are drawn on every scrollbar render).
+		let events = flattenEvents(project.events || [], false);
+		if (this.renderIndex?.eventRecords) {
+			events = this.renderIndex.eventRecords.map(record => record.event);
+		}
+		for (const event of events) {
 			if (!event.attached || event.snappee !== snappee.id) {
 				continue;
 			}

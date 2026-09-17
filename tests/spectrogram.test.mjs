@@ -151,7 +151,10 @@ test("blitSpectrogram uses drawImage so dpr setTransform scales the CSS destinat
 test("timeline spectrogram paint goes through blitSpectrogram, not destination putImageData", async () => {
 	const drawing = await readFile(new URL("../js/render/timeline-drawing.js", import.meta.url), "utf8");
 	const surface = await readFile(new URL("../js/render/pixi-surface.js", import.meta.url), "utf8");
-	assert.match(drawing, /blitSpectrogram\(context, rectangle, image\)/);
+	// The cache passes its own source canvas for the blit, but the paint still goes through
+	// blitSpectrogram so the destination drawImage honours the surface's dpr transform.
+	assert.match(drawing, /blitSpectrogram\(context, rectangle, image, \{ createCanvas: \(\) => canvas \}\)/);
+	assert.match(drawing, /context\.drawImage\(cached\.canvas, rectangle\.x, rectangle\.y, rectangle\.width, rectangle\.height\)/);
 	assert.doesNotMatch(drawing, /putImageData/);
 	assert.match(surface, /setTransform\(dpr, 0, 0, dpr, 0, 0\)/);
 });
