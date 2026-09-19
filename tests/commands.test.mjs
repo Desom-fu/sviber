@@ -188,6 +188,80 @@ test("File menu matches the PROMPT-v25 structure with render commands", () => {
 	]);
 });
 
+// PROMPT-v26 (read-only): switching charts, the project folder, the preferences, the macros
+// interface and the help menu stay usable; everything that edits or exports the chart itself
+// stays disabled.
+test("read-only mode keeps switching charts usable and chart editing disabled", () => {
+	const previousNw = globalThis.nw;
+	globalThis.nw = {};
+	try {
+		const registry = new CommandRegistry(COMMAND_DEFINITIONS);
+		const context = { model: { editor: { readOnly: true } }, readOnlyCommandAllowed: () => false };
+		const enabledWhileReadOnly = [
+			"file.newProject",
+			"file.newChart",
+			"file.openProject",
+			"file.openChart",
+			"file.openRecent",
+			"file.openAutosave",
+			"file.reloadChart",
+			"file.importFile",
+			"file.importClipboard",
+			"file.openProjectFolder",
+			"file.close",
+			"file.preferences",
+			"macros.open",
+			"help.documentation",
+			"help.about",
+			"music.playPause",
+			"music.seekTo",
+			"music.zoomIn",
+			"channel.deactivate",
+			"channel.activateAll",
+			"channel.hide",
+			"snappee.activate",
+			"snappee.deactivate",
+			"snappee.deactivateAll",
+			"edit.selectAll",
+			"edit.copy",
+			"events.comment",
+		];
+		for (const id of enabledWhileReadOnly) {
+			assert.equal(registry.isEnabled(id, context), true, `${id} stays enabled while read-only`);
+		}
+		const disabledWhileReadOnly = [
+			"file.save",
+			"file.saveAs",
+			"file.saveProject",
+			"file.saveLevel",
+			"file.exportLyrica",
+			"file.exportClipboard",
+			"file.renderVideo",
+			"file.renderCover",
+			"file.setMusic",
+			"file.setBackground",
+			"file.editLevelReadme",
+			"file.renameChart",
+			"file.chartProperties",
+			"file.deleteChart",
+			"macros.run",
+			"events.tap",
+			"events.group",
+			"edit.paste",
+			"edit.delete",
+			"snappee.attach",
+			"snappee.paste",
+			"transform.free",
+			"channel.createAbove",
+		];
+		for (const id of disabledWhileReadOnly) {
+			assert.equal(registry.isEnabled(id, context), false, `${id} stays disabled while read-only`);
+		}
+	} finally {
+		globalThis.nw = previousNw;
+	}
+});
+
 test("command definitions cover the new file, edit, timing and channel actions", () => {
 	assertCommand("file.reloadChart", { desktopOnly: true });
 	assertCommand("file.renameChart", { desktopOnly: true });

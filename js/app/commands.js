@@ -144,9 +144,11 @@ const DEFINITIONS = [
 	define("snappee.pen", "Ctrl+P", "pen", { checkable: true, blockDuringPlayback: true }),
 	define("snappee.parametricCurve", null, null, { blockDuringPlayback: true }),
 	define("snappee.preset", null, null, { blockDuringPlayback: true }),
-	define("snappee.activate", "Ctrl+Shift+D", "activate-snappee"),
-	define("snappee.deactivate", "Ctrl+D", "deactivate-snappee"),
-	define("snappee.deactivateAll", "Ctrl+Alt+D"),
+	// PROMPT-v26 (read-only): activating and deactivating snappees stays available, just like
+	// the channel activation commands above.
+	define("snappee.activate", "Ctrl+Shift+D", "activate-snappee", { allowWhenReadOnly: true }),
+	define("snappee.deactivate", "Ctrl+D", "deactivate-snappee", { allowWhenReadOnly: true }),
+	define("snappee.deactivateAll", "Ctrl+Alt+D", null, { allowWhenReadOnly: true }),
 	define("snappee.attach", "S", "attach"),
 	define("snappee.detach", "Shift+S", "detach"),
 	define("snappee.attachCurveOrder", null, null, { blockDuringPlayback: true }),
@@ -684,6 +686,27 @@ function valueOf(value, context, fallback) {
 	return value == null ? fallback : value;
 }
 
+// PROMPT-v26 (read-only): the enabled functions are selecting events, changing the current
+// time and the visible range, items in the Music menu, manipulating comments, activating and
+// deactivating channels and snappees, and those not pertaining to the chart — editor
+// preferences, switching charts (new, open, recent, auto-save, reload, import, close), the
+// project folder, and the macros interface (whose run command disables itself).
+const READ_ONLY_COMMANDS = new Set([
+	"file.newProject",
+	"file.newChart",
+	"file.openProject",
+	"file.openChart",
+	"file.openRecent",
+	"file.openAutosave",
+	"file.reloadChart",
+	"file.importFile",
+	"file.importClipboard",
+	"file.openProjectFolder",
+	"file.close",
+	"file.preferences",
+	"macros.open",
+]);
+
 function allowedWhileReadOnly(definition, context) {
 	if (definition.allowWhenReadOnly === true) {
 		return true;
@@ -695,7 +718,7 @@ function allowedWhileReadOnly(definition, context) {
 	if (id.startsWith("music.") || id.startsWith("timeline.") || id.startsWith("channel.select")) {
 		return true;
 	}
-	if (id === "file.preferences" || id === "macros.open" || id === "macros.run" || id.startsWith("help.")) {
+	if (READ_ONLY_COMMANDS.has(id) || id.startsWith("help.")) {
 		return true;
 	}
 	if (id.startsWith("edit.select") || id === "edit.copy" || id === "events.comment") {
