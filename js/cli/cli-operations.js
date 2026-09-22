@@ -24,6 +24,14 @@ import {
 	installRecordEncoderGuards,
 } from "../app/render-encoder.js";
 import { removeRenderWorkDirectory } from "../app/render-output.js";
+import {
+	bundledFfmpegCandidate,
+	defaultAvatarCandidate,
+	installRecordFetchFallback,
+	prepareAvatarOptions,
+	resolveFfmpegForRecord,
+	sviberAppRoot,
+} from "../app/render-runtime.js";
 
 const CHART_ORDER_EPSILON = 1e-9;
 
@@ -279,7 +287,24 @@ async function runRender(io, args, input) {
 	const fs = await import("node:fs");
 	const os = await import("node:os");
 	const path = await import("node:path");
+	installRecordFetchFallback(SunniesnowRecord.Utils, fs.promises);
+	const exists = target => {
+		try {
+			return Boolean(target) && fs.existsSync(target);
+		} catch {
+			return false;
+		}
+	};
+	const appRoot = sviberAppRoot();
+	Object.assign(options, prepareAvatarOptions(options, {
+		defaultAvatar: defaultAvatarCandidate(appRoot),
+		exists,
+	}));
 	if (isVideo) {
+		options.ffmpeg = resolveFfmpegForRecord(options.ffmpeg, {
+			bundled: bundledFfmpegCandidate(appRoot),
+			exists,
+		});
 		applyVideoEncoderDefaults(options, os.cpus().length);
 		installRecordEncoderGuards(SunniesnowRecord.Record);
 		// Mux into a sibling temp file and swap it in only once FFmpeg succeeded, so an

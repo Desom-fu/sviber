@@ -508,10 +508,24 @@ export function localizedErrorMessage(error) {
 	if (/Project folders (?:are unavailable|are available only)/i.test(message)) {
 		return i18n.t("error.projectFoldersUnavailable");
 	}
+	// FFmpeg's spawn ENOENT used to match the project-manifest rule below, so a missing
+	// encoder was reported as "no project.sviber". Keep that rule to real manifest text.
+	if (/ffmpeg|视频编码失败|影片編碼失敗|video encoding failed/i.test(message)) {
+		if (/ENOENT|not found|找不到/i.test(message)) {
+			return i18n.t("error.ffmpegMissing");
+		}
+		return i18n.t("error.ffmpegFailed");
+	}
+	if (/Local file not found:|Avatar file not found:/i.test(message)) {
+		return i18n.t("error.avatarFileMissing");
+	}
+	if (/Failed to fetch|fetch failed/i.test(message)) {
+		return i18n.t("error.onlineFetchFailed");
+	}
 	if (/already contains (?:project\.sviber|sviber-project\.json)/i.test(message)) {
 		return i18n.t("error.projectManifestExists");
 	}
-	if (/project\.sviber|sviber-project\.json|project manifest|ENOENT|NotFoundError/i.test(message)) {
+	if (/project\.sviber|sviber-project\.json|project manifest/i.test(message)) {
 		return i18n.t("error.projectManifestMissing");
 	}
 	if (/must contain a music file/i.test(message)) {

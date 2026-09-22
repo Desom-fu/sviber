@@ -64,6 +64,7 @@ test("FFmpeg bundling honors SVIBER_SKIP_FFMPEG before touching the network", as
 	);
 	assert.match(bundling, /if \(SKIP_FFMPEG\)/, "the flag must be checked before any download");
 	assert.match(bundling, /skipping FFmpeg bundling/);
+	assert.match(bundling, /copyFfmpegLibraries/, "shared libraries must be copied with ffmpeg.exe");
 });
 
 test("NW.js builds pass an explicit target platform and architecture", async () => {

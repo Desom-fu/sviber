@@ -20,6 +20,14 @@ import {
 	installAtomicVideoOutput,
 	installRecordEncoderGuards,
 } from "./render-encoder.js";
+import {
+	bundledFfmpegCandidate,
+	defaultAvatarCandidate,
+	installRecordFetchFallback,
+	prepareAvatarOptions,
+	resolveFfmpegForRecord,
+	sviberAppRoot,
+} from "./render-runtime.js";
 
 const request = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
 const send = payload => process.stdout.write(`${JSON.stringify(payload)}\n`);
@@ -90,8 +98,18 @@ const terminate = Sunniesnow.Game.prototype.terminate;
 Sunniesnow.Game.prototype.terminate = function (...args) {
 	// Flush the error line before exiting: writes to a pipe are asynchronous, so
 	// process.exit() immediately after send() could drop the report.
+	// The first loader failure is the cause; later "document is not defined" and
+	// chart forEach errors are what the game does after Settings already aborted.
+	const cause = recentLogs.find(entry =>
+		/Failed to load|Failed to fetch|fetch failed|Local file not found/i.test(entry),
+	);
+	const summary = cause ? cause.split(/\r?\n/)[0].slice(0, 400) : "";
+	let error = "Rendering aborted: the game terminated (see log for the reason).";
+	if (summary) {
+		error = `Rendering aborted: ${summary}`;
+	}
 	finishWorker({
-		error: "Rendering aborted: the game terminated (see log for the reason).",
+		error,
 		details: recentLogs.join("\n"),
 	}, 1);
 };
@@ -142,6 +160,29 @@ async function runRequest() {
 }
 
 async function runRequestedRender() {
+	// A Windows avatar path is a legal URL to the game (protocol "e:"), and the default
+	// avatar is downloaded from the community server. Both make Settings abort before
+	// the chart exists. Resolve them to local files, and point video at the bundled
+	// FFmpeg executable instead of the bare name "ffmpeg".
+	installRecordFetchFallback(Sunniesnow.Utils, fs.promises);
+	const exists = target => {
+		try {
+			return Boolean(target) && fs.existsSync(target);
+		} catch {
+			return false;
+		}
+	};
+	const appRoot = sviberAppRoot();
+	request.options = prepareAvatarOptions(request.options, {
+		defaultAvatar: defaultAvatarCandidate(appRoot),
+		exists,
+	});
+	if (request.kind === "video") {
+		request.options.ffmpeg = resolveFfmpegForRecord(request.options.ffmpeg, {
+			bundled: bundledFfmpegCandidate(appRoot),
+			exists,
+		});
+	}
 	// Video rendering hard-requires headless WebGL (Record.screenshot reads frames via
 	// gl.readPixels), but machines without usable OpenGL — VMs, remote-desktop sessions,
 	// missing GPU drivers — silently fall back to the Canvas renderer and then crash

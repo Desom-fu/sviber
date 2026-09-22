@@ -13,7 +13,12 @@ import sharp from "sharp";
 import decoderBundler from "./audio-decoder-bundle.cjs";
 import { bundleMacroSandbox } from "./macro-sandbox-bundle.cjs";
 import { builderApplicationOptions, PACKAGED_WINDOW_ICON } from "./nw-build-config.mjs";
-import { mcpLauncherScript, nativeRebuildSpec, shouldIncludePackagedFile } from "./nw-runtime-natives.mjs";
+import {
+	FFMPEG_LIBRARY_PATTERN,
+	mcpLauncherScript,
+	nativeRebuildSpec,
+	shouldIncludePackagedFile,
+} from "./nw-runtime-natives.mjs";
 
 const { bundleAudioDecoder: bundleAudioDecoderFile } = decoderBundler;
 
@@ -319,12 +324,27 @@ async function bundleFfmpeg(applicationDirectory) {
 		const destination = path.join(applicationDirectory, "bin", FFMPEG_BINARY_NAME);
 		await mkdir(path.dirname(destination), { recursive: true });
 		await cp(binary, destination);
-		console.log(`FFmpeg bundled at ${destination}`);
+		// The Windows (and some macOS) archives are shared builds. Copying only
+		// ffmpeg.exe makes CreateProcess fail, which Node surfaces as spawn ENOENT.
+		const libraries = await copyFfmpegLibraries(path.dirname(binary), path.dirname(destination));
+		console.log(`FFmpeg bundled at ${destination}${libraries ? ` with ${libraries} shared libraries` : ""}`);
 	} catch (error) {
 		console.warn(`FFmpeg bundling failed (${error.message}); rendering will use FFmpeg from PATH.`);
 	} finally {
 		await rm(work, { recursive: true, force: true });
 	}
+}
+
+async function copyFfmpegLibraries(sourceDirectory, destinationDirectory) {
+	let copied = 0;
+	for (const entry of await readdir(sourceDirectory, { withFileTypes: true })) {
+		if (!entry.isFile() || !FFMPEG_LIBRARY_PATTERN.test(entry.name)) {
+			continue;
+		}
+		await cp(path.join(sourceDirectory, entry.name), path.join(destinationDirectory, entry.name));
+		copied += 1;
+	}
+	return copied;
 }
 
 async function findFfmpegBinary(directory) {

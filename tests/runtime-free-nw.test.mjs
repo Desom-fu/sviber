@@ -9,6 +9,7 @@ import path from "node:path";
 import {
 	ABI_REBUILD_PACKAGES,
 	FFMPEG_NAME_PATTERN,
+	isBundledFfmpegLibrary,
 	mcpLauncherScript,
 	NATIVE_BINARY_PATTERN,
 	NWJS_HEADERS_DISTURL,
@@ -27,6 +28,9 @@ test("runtime-free .nw omits native modules and FFmpeg", () => {
 	assert.equal(shouldIncludePackagedFile(glPath, native), false);
 	assert.equal(shouldIncludePackagedFile(canvasPath, native), false);
 	assert.equal(shouldIncludePackagedFile("bin/ffmpeg.exe", native), false);
+	assert.equal(isBundledFfmpegLibrary("bin/avcodec-61.dll"), true);
+	assert.equal(shouldIncludePackagedFile("bin/avcodec-61.dll", native), false);
+	assert.equal(shouldIncludePackagedFile("bin/avcodec-61.dll", {}), true);
 	assert.equal(shouldIncludePackagedFile("js/app/app.js", { runtimeFree: true }), true);
 	assert.match("foo.node", NATIVE_BINARY_PATTERN);
 	assert.match("bin/ffmpeg", FFMPEG_NAME_PATTERN);

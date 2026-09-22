@@ -65,6 +65,16 @@ test("project manifest filenames are localized in errors", () => {
 		i18n.setLanguage("zh-TW", null);
 		assert.match(localizedErrorMessage(new Error("The selected folder already contains project.sviber.")), /project\.sviber/);
 		assert.match(localizedErrorMessage(new Error("The directory does not contain a Sviber project manifest.")), /project\.sviber/);
+		const ffmpeg = localizedErrorMessage(new Error(
+			"FFmpeg 视频编码失败: spawn ffmpeg ENOENT. FFmpeg video encoding failed: spawn ffmpeg ENOENT.",
+		));
+		assert.match(ffmpeg, /FFmpeg/);
+		assert.doesNotMatch(ffmpeg, /project\.sviber/);
+		assert.match(localizedErrorMessage(new Error("Local file not found: E:/charts/avatar.png")), /頭像|头像|avatar/i);
+		assert.match(
+			localizedErrorMessage(new Error("Rendering aborted: Failed to load Settings: TypeError: fetch failed")),
+			/頭像|头像|avatar|線上|在线|online/i,
+		);
 	} finally {
 		i18n.setLanguage(previous, null);
 	}

@@ -11,6 +11,14 @@ export const RUNTIME_NATIVE_PACKAGES = Object.freeze(["gl", "canvas"]);
 export const ABI_REBUILD_PACKAGES = Object.freeze([]);
 export const NATIVE_BINARY_PATTERN = /\.node$/i;
 export const FFMPEG_NAME_PATTERN = /(?:^|[/\\])ffmpeg(?:\.exe)?$/i;
+// BtbN's Windows zip (and some macOS zips) ship a shared ffmpeg next to DLLs/dylibs.
+// The exe does not start without those libraries; Node reports that as spawn ENOENT.
+export const FFMPEG_LIBRARY_PATTERN = /\.(?:dll|dylib|so(?:\.\d+)*)$/i;
+
+export function isBundledFfmpegLibrary(pathname) {
+	const value = String(pathname || "").replace(/\\/g, "/");
+	return /^(?:\.\/)?bin\/[^/]+$/.test(value) && FFMPEG_LIBRARY_PATTERN.test(value);
+}
 // Official NW.js header tarball host. npmmirror's nwjs tree 404s node-v*.tar.gz for 0.114.2.
 export const NWJS_HEADERS_DISTURL = "https://dl.nwjs.io";
 
@@ -94,6 +102,9 @@ export function shouldIncludePackagedFile(pathname, { runtimeFree = false } = {}
 		return false;
 	}
 	if (/(?:^|\/)bin\/ffmpeg(?:\.exe)?$/.test(value)) {
+		return false;
+	}
+	if (isBundledFfmpegLibrary(value)) {
 		return false;
 	}
 	return true;
