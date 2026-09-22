@@ -4,6 +4,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { pathToFileURL } from "node:url";
 
 import {
 	defaultAvatarCandidate,
@@ -112,7 +113,9 @@ test("a Windows path that reaches fetch is read from disk", async () => {
 			},
 		};
 		installRecordFetchFallback(utils);
-		const response = await utils.strictFetch(file);
+		// file: works on Linux and Windows. A raw /tmp path is not a URL the game
+		// would fetch; a drive letter is, which is why the missing E: path is separate.
+		const response = await utils.strictFetch(pathToFileURL(file).href);
 		assert.equal(response.headers.get("content-type"), "image/svg+xml");
 		assert.match(await response.text(), /<svg/);
 		await assert.rejects(() => utils.strictFetch("E:/no/such/avatar.png"), /Local file not found/);
