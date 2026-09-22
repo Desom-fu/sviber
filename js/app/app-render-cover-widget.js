@@ -41,6 +41,7 @@ export function createCoverThemeWidget({
 	documentRef = globalThis.document,
 	width = 480,
 	height = 270,
+	initial = null,
 } = {}) {
 	const element = documentRef.createElement("div");
 	element.className = "cover-theme-widget";
@@ -52,14 +53,43 @@ export function createCoverThemeWidget({
 	const hint = documentRef.createElement("div");
 	hint.className = "cover-theme-widget-hint";
 	hint.textContent = i18n.t("field.renderCoverThemeHint");
-	element.append(canvasHost, hint);
+	// v0.17.20: optional containment — when checked, the diamond is clamped so it stays
+	// fully inside the visible frame; unchecked keeps the old free-form behavior.
+	const containedInput = createContainmentCheckbox(documentRef, initial);
+	const containedLabel = documentRef.createElement("label");
+	containedLabel.className = "cover-theme-widget-contained-label";
+	containedLabel.append(
+		containedInput.element,
+		documentRef.createTextNode(i18n.t("field.renderCoverThemeContained")),
+	);
+	element.append(canvasHost, hint, containedLabel);
 
-	const state = { x: 0, y: 0, width: 1 };
+	const state = {
+		x: initial?.x ?? 0,
+		y: initial?.y ?? 0,
+		width: initial?.width ?? 1,
+	};
 	const theme = { pixi: null, app: null, overlay: null, texture: null };
 	const source = imageSource || resolveCoverThemeImageSource(app);
 	if (!source.url && isDisplayableImageUrl(imageUrl)) {
 		source.url = imageUrl;
 	}
+
+	// Re-clamps the view state after a drag or zoom; only active when the containment
+	// box is checked. The diamond must stay fully inside the widget canvas, so the
+	// radius (a quarter of width times the canvas width) can never exceed half the
+	// smaller canvas side — that also caps the zoom.
+	function applyContainment() {
+		if (!containedInput.checked || !theme.app?.screen) {
+			return;
+		}
+		clampCoverThemeContained(state, theme.app.screen.width, theme.app.screen.height);
+	}
+
+	containedInput.onChange(() => {
+		applyContainment();
+		layout();
+	});
 
 	function layout() {
 		const { app } = theme;
@@ -76,30 +106,21 @@ export function createCoverThemeWidget({
 		theme.app.render?.();
 	}
 
-	canvasHost.addEventListener("wheel", event => {
-		event.preventDefault();
-		state.width = clampRatio(state.width * (event.deltaY > 0 ? 0.92 : 1.08), 0.2, 2);
-		layout();
-	});
+	attachCoverThemeWheel(canvasHost, state, layout, applyContainment);
 
-	const ready = (async () => {
-		await globalThis.sviberDependenciesReady;
-		const pixi = globalThis.PIXI;
-		if (!pixi?.Application) {
-			throw new Error("PIXI is unavailable.");
-		}
-		theme.pixi = pixi;
-		theme.app = await createCoverThemeApplication(pixi, width, height);
-		const canvas = theme.app.canvas || theme.app.view;
-		if (!canvas) {
-			throw new Error("PIXI canvas is unavailable.");
-		}
-		fallback.remove();
-		canvasHost.append(canvas);
-		layout();
-		await loadCoverThemeImage(theme, source, app, pixi, layout);
-		attachCoverThemeDragHandlers(theme.app, state, layout);
-	})().catch(() => {
+	const ready = bootCoverThemeApp({
+		theme,
+		source,
+		app,
+		pixiLoader: () => globalThis.PIXI,
+		width,
+		height,
+		state,
+		canvasHost,
+		fallback,
+		layout,
+		applyContainment,
+	}).catch(() => {
 		// Keep the CSS diamond fallback so the field is never an empty label.
 	});
 
@@ -107,15 +128,25 @@ export function createCoverThemeWidget({
 		element,
 		ready,
 		hint,
-		destroy: () => {
-			destroyCoverThemeApp(theme);
-			if (source.revoke && source.url) {
-				URL.revokeObjectURL(source.url);
-				source.revoke = false;
-			}
-		},
+		destroy: () => destroyCoverThemeWidget(theme, source),
 		read: () => coverThemeSelection(theme.app, theme.texture, state),
+		// The remembered dialog state is the raw view state (plus the containment flag),
+		// not the texture-space selection that read() derives for the renderer.
+		readState: () => ({
+			x: state.x,
+			y: state.y,
+			width: state.width,
+			contained: containedInput.checked,
+		}),
 	};
+}
+
+function destroyCoverThemeWidget(theme, source) {
+	destroyCoverThemeApp(theme);
+	if (source.revoke && source.url) {
+		URL.revokeObjectURL(source.url);
+		source.revoke = false;
+	}
 }
 
 export function coverThemeDiamond(screen, state) {
@@ -123,6 +154,25 @@ export function coverThemeDiamond(screen, state) {
 	const centerY = screen.height / 2 + state.y * screen.height * 0.25;
 	const radius = (DIAMOND_HALF_WIDTH * state.width * screen.width) / 2;
 	return { centerX, centerY, radius, corner: Math.max(1, radius / 10) };
+}
+
+// Containment math: the diamond (center ± radius on both axes) must stay inside the
+// canvas. In state units the radius is width/4 * canvasWidth, so
+//   x ∈ [width - 2, 2 - width]      (from centerX ± radius within [0, canvasWidth])
+//   y ∈ [radius - H/2, H/2 - radius] / (H/4)  (same in height units)
+// Both ranges are only non-empty while radius ≤ half of the smaller canvas side, which
+// also caps the zoom (a 16:9 canvas caps width at 1.125).
+export function clampCoverThemeContained(state, screenWidth, screenHeight) {
+	const maxWidth = (2 * Math.min(screenWidth, screenHeight)) / screenWidth;
+	state.width = clampRatio(state.width, 0.2, maxWidth);
+	const radius = ((DIAMOND_HALF_WIDTH * state.width) / 2) * screenWidth;
+	const xMin = (radius - screenWidth / 2) / (screenWidth * 0.25);
+	const xMax = (screenWidth / 2 - radius) / (screenWidth * 0.25);
+	const yMin = (radius - screenHeight / 2) / (screenHeight * 0.25);
+	const yMax = (screenHeight / 2 - radius) / (screenHeight * 0.25);
+	state.x = clampRatio(state.x, xMin, xMax);
+	state.y = clampRatio(state.y, yMin, yMax);
+	return state;
 }
 
 export function paintCoverThemeOverlay(overlay, screen, diamond) {
@@ -147,6 +197,41 @@ export function coverThemeSelection(app, texture, state) {
 		y: (diamond.centerY - offsetY) / scale,
 		width: (diamond.radius * 2) / scale,
 	};
+}
+
+// Boots the PIXI application for the widget: waits for the shared dependencies, mounts
+// the canvas, applies the remembered containment, loads the theme image and attaches the
+// drag handlers. Failures are handled by the caller (the CSS diamond fallback stays).
+async function bootCoverThemeApp({
+	theme,
+	source,
+	app,
+	pixiLoader,
+	width,
+	height,
+	state,
+	canvasHost,
+	fallback,
+	layout,
+	applyContainment,
+}) {
+	await globalThis.sviberDependenciesReady;
+	const pixi = pixiLoader();
+	if (!pixi?.Application) {
+		throw new Error("PIXI is unavailable.");
+	}
+	theme.pixi = pixi;
+	theme.app = await createCoverThemeApplication(pixi, width, height);
+	const canvas = theme.app.canvas || theme.app.view;
+	if (!canvas) {
+		throw new Error("PIXI canvas is unavailable.");
+	}
+	fallback.remove();
+	canvasHost.append(canvas);
+	applyContainment();
+	layout();
+	await loadCoverThemeImage(theme, source, app, pixi, layout);
+	attachCoverThemeDragHandlers(theme.app, state, layout, applyContainment);
 }
 
 async function createCoverThemeApplication(pixi, width, height) {
@@ -255,7 +340,40 @@ function decodeCoverThemeHtmlImage(imageUrl) {
 	});
 }
 
-function attachCoverThemeDragHandlers(app, state, layout) {
+// v0.17.20 containment checkbox: remembers the "keep the diamond inside the frame"
+// preference together with the diamond view state.
+function createContainmentCheckbox(documentRef, initial) {
+	const input = documentRef.createElement("input");
+	input.type = "checkbox";
+	input.className = "cover-theme-widget-contained";
+	input.checked = Boolean(initial?.contained);
+	const listeners = new Set();
+	input.addEventListener("change", () => {
+		for (const listener of listeners) {
+			listener();
+		}
+	});
+	return {
+		element: input,
+		get checked() {
+			return input.checked;
+		},
+		onChange(listener) {
+			listeners.add(listener);
+		},
+	};
+}
+
+function attachCoverThemeWheel(canvasHost, state, layout, applyContainment) {
+	canvasHost.addEventListener("wheel", event => {
+		event.preventDefault();
+		state.width = clampRatio(state.width * (event.deltaY > 0 ? 0.92 : 1.08), 0.2, 2);
+		applyContainment?.();
+		layout();
+	});
+}
+
+function attachCoverThemeDragHandlers(app, state, layout, applyContainment) {
 	let dragging = null;
 	app.stage.eventMode = "static";
 	app.stage.hitArea = app.screen;
@@ -269,6 +387,7 @@ function attachCoverThemeDragHandlers(app, state, layout) {
 			}
 			state.x = clampRatio(dragging.originX + (event.global.x - dragging.x) / (app.screen.width * 0.25));
 			state.y = clampRatio(dragging.originY + (event.global.y - dragging.y) / (app.screen.height * 0.25));
+			applyContainment?.();
 			layout();
 		})
 		.on("pointerup", () => {

@@ -42,6 +42,7 @@ const VALUE_FLAGS = new Set([
 	"--avatar-online",
 	"--avatar-upload",
 	"--avatar-gravatar",
+	"--avatar-weavatar",
 	"--width",
 	"--height",
 	"--fps",

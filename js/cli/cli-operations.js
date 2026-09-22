@@ -250,6 +250,9 @@ async function runRender(io, args, input) {
 	if (args.avatarGravatar) {
 		options.avatarGravatar = args.avatarGravatar;
 	}
+	if (args.avatarWeavatar) {
+		options.avatarWeavatar = args.avatarWeavatar;
+	}
 	if (args.renderWidth) {
 		options.width = Number(args.renderWidth);
 	}

@@ -11,6 +11,7 @@ import {
 	renderProgressState,
 	withRender,
 } from "../js/app/app-render.js";
+import { clampCoverThemeContained } from "../js/app/app-render-cover-widget.js";
 
 function makeRenderApp({ music = "song.mp3", nw = true } = {}) {
 	const shellStub = {
@@ -120,6 +121,51 @@ test("cover options carry the theme area and drop FFmpeg settings", () => {
 	assert.equal(options.ffmpeg, undefined, "covers never need FFmpeg");
 	assert.equal(options.ffmpegOutputOptions, undefined, "covers do not spawn a video encoder");
 	assert.equal(options.nickname, "Poet");
+});
+
+test("weavatar maps like gravatar: the email only passes through for its own kind", () => {
+	const options = buildRenderRecordOptions(
+		"video",
+		"C:/out/video.mkv",
+		{
+			avatar: "weavatar",
+			avatarWeavatar: "me@example.com",
+			avatarGravatar: "other@example.com",
+			width: "1920",
+			height: "1080",
+		},
+		null,
+		null,
+		null,
+	);
+	assert.equal(options.avatar, "weavatar");
+	assert.equal(options.avatarWeavatar, "me@example.com");
+	assert.equal(options.avatarGravatar, undefined, "the unselected online source is dropped");
+	const other = buildRenderRecordOptions(
+		"cover",
+		"C:/out/cover.png",
+		{ avatar: "gravatar", avatarWeavatar: "me@example.com", width: "1920", height: "1080" },
+		null,
+		null,
+		null,
+	);
+	assert.equal(other.avatarWeavatar, undefined, "the unselected online source is dropped");
+});
+
+test("contained diamonds are clamped fully inside the canvas; free diamonds are not", () => {
+	// A 16:9 canvas caps the diamond width at 2 * 270 / 480 = 1.125.
+	const contained = clampCoverThemeContained({ x: 0.8, y: -0.9, width: 2 }, 480, 270);
+	assert.equal(contained.width, 1.125, "the zoom caps so the diamond can fit vertically");
+	assert.ok(contained.x <= 2 - contained.width && contained.x >= contained.width - 2);
+	const diamond = { centerX: 240 + contained.x * 480 * 0.25, centerY: 135 + contained.y * 270 * 0.25 };
+	const radius = (0.5 * contained.width * 480) / 2;
+	assert.ok(diamond.centerX - radius >= 0, "the diamond stays inside the left edge");
+	assert.ok(diamond.centerX + radius <= 480, "the diamond stays inside the right edge");
+	assert.ok(diamond.centerY - radius >= 0, "the diamond stays inside the top edge");
+	assert.ok(diamond.centerY + radius <= 270, "the diamond stays inside the bottom edge");
+	// A centered diamond that already fits is left alone.
+	const centered = clampCoverThemeContained({ x: 0, y: 0, width: 1 }, 480, 270);
+	assert.deepEqual([centered.x, centered.y, centered.width], [0, 0, 1]);
 });
 
 test("without bundled FFmpeg the renderer falls back to PATH", () => {

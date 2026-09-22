@@ -58,6 +58,10 @@ async function showRenderDialog(app, kind) {
 	}
 	const charter = String(app.model.metadata.charter || "").trim();
 	const lastRender = loadRenderDefaults();
+	// v0.17.20: every dialog item is remembered per kind, so reopening a dialog restores
+	// the last-used values (including the output path and the cover diamond) instead of
+	// falling back to the built-in defaults.
+	const remembered = isVideo ? lastRender.video : lastRender.cover;
 	const bundledFfmpeg = app.files.bundledFfmpegPath();
 	const chartFileName = app.files.chartFilename || uniqueChartFilename(app.model.metadata.difficultyName);
 	const suggested = defaultRenderOutputPath({
@@ -69,19 +73,22 @@ async function showRenderDialog(app, kind) {
 		values = await app.dialogs.form({
 			titleKey: isVideo ? "command.file.renderVideo" : "command.file.renderCover",
 			values: {
-				output: app.files.projectPath ? suggested : "",
+				output: remembered?.output || suggested,
 				nickname: renderNicknameDefault(lastRender, charter),
 				avatar: lastRender.avatar || "online",
 				avatarOnline: lastRender.avatarOnline ?? "default.svg",
 				avatarUpload: lastRender.avatarUpload ?? "",
 				avatarGravatar: lastRender.avatarGravatar ?? "",
-				useBundledFfmpeg: true,
-				speed: "2",
-				width: "1920",
-				height: "1080",
-				fps: "60",
-				resultsDuration: "1",
-				waitForMusic: true,
+				avatarWeavatar: lastRender.avatarWeavatar ?? "",
+				useBundledFfmpeg: remembered?.useBundledFfmpeg ?? true,
+				speed: remembered?.speed ?? "2",
+				width: remembered?.width ?? "1920",
+				height: remembered?.height ?? "1080",
+				fps: remembered?.fps ?? "60",
+				resultsDuration: remembered?.resultsDuration ?? "1",
+				waitForMusic: remembered?.waitForMusic ?? true,
+				coverTheme: null,
+				coverThemeState: remembered?.coverTheme ?? null,
 			},
 			fields: formFields(app, kind, bundledFfmpeg, suggested),
 		});
@@ -96,13 +103,13 @@ async function showRenderDialog(app, kind) {
 	if (!outputPath) {
 		return false;
 	}
-	saveRenderDefaults({
-		nickname: values.nickname,
-		avatar: values.avatar,
-		avatarOnline: values.avatarOnline,
-		avatarUpload: values.avatarUpload,
-		avatarGravatar: values.avatarGravatar,
-	});
+	saveRenderDefaults(
+		{
+			...values,
+			coverThemeState: app.renderCoverThemeWidget?.readState?.() ?? null,
+		},
+		kind,
+	);
 	const coverTheme = kind === "cover" ? values.coverTheme : null;
 	const recordOptions = buildRenderRecordOptions(
 		kind,
@@ -471,11 +478,14 @@ function coverThemeField(app) {
 		type: "custom",
 		labelKey: "field.renderCoverTheme",
 		stacked: true,
-		render: ({ document: documentRef }) => {
+		render: ({ document: documentRef, value }) => {
 			const widget = createCoverThemeWidget({
 				imageSource: resolveCoverThemeImageSource(app),
 				app,
 				documentRef,
+				// The remembered value is the widget's view state ({x, y, width, contained});
+				// read() still derives the texture-space selection for sunniesnow-record.
+				initial: value ?? null,
 			});
 			app.renderCoverThemeWidget = widget;
 			return {
@@ -495,6 +505,7 @@ export function buildRenderRecordOptions(kind, outputPath, values, bundledFfmpeg
 		avatarOnline: values.avatar === "online" ? values.avatarOnline || undefined : undefined,
 		avatarUpload: values.avatar === "upload" ? values.avatarUpload || undefined : undefined,
 		avatarGravatar: values.avatar === "gravatar" ? values.avatarGravatar || undefined : undefined,
+		avatarWeavatar: values.avatar === "weavatar" ? values.avatarWeavatar || undefined : undefined,
 		width: Math.max(1, Math.round(Number(values.width) || 1920)),
 		height: Math.max(1, Math.round(Number(values.height) || 1080)),
 		output: outputPath,
