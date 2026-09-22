@@ -132,14 +132,18 @@ function drawHexagonPattern(context, unit, style) {
 function drawPentagonPattern(context, unit, style) {
 	const thickness = unit / 20;
 	const radius = (4 * unit) / (1 + Math.cos(Math.PI / 5));
-	polygonPath(context, 0, -2 * unit + radius, radius, 5, 0);
+	// The pentagon sits with its top vertex at (0, -2*unit), so its geometric centre is
+	// (0, -2*unit + radius) — i.e. chart (0, 20*sqrt(5) - 50), not the playfield origin
+	// the centre dot used to be drawn at (the hexagon's dot sits at its own centre).
+	const centerY = -2 * unit + radius;
+	polygonPath(context, 0, centerY, radius, 5, 0);
 	context.fillStyle = style.fill;
 	context.fill();
 	context.strokeStyle = style.stroke;
 	context.lineWidth = thickness;
 	context.stroke();
 	context.beginPath();
-	context.arc(0, 0, thickness / 2, 0, Math.PI * 2);
+	context.arc(0, centerY, thickness / 2, 0, Math.PI * 2);
 	context.stroke();
 }
 
