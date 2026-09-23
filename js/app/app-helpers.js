@@ -477,8 +477,13 @@ export function constrainPastedEvent(model, event) {
 	delete event.snapPoint;
 }
 
+// Typing Easy/Normal/Hard/Master/Special fills the preset. A color chosen after that is kept
+// until the name is typed as one of those words again.
 export function difficultyColor(name, current) {
-	return DIFFICULTY_COLORS[String(name).toLowerCase()] || current || DIFFICULTY_COLORS.normal;
+	if (current) {
+		return current;
+	}
+	return DIFFICULTY_COLORS[String(name).toLowerCase()] || DIFFICULTY_COLORS.normal;
 }
 
 export function eventTypeLabel(type) {

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
 	applyPresetDifficultyColor,
+	difficultyColor,
 	isUserFieldEdit,
 	trackDialogFieldEdits,
 } from "../js/app/app-helpers.js";
@@ -89,6 +90,31 @@ test("difficulty color presets wait for a user edit of the name field", () => {
 	opened.dialogState.event = { type: "input", inputType: "insertText", target: opened.nameInput };
 	applyPresetDifficultyColor({ difficultyName: "Master" }, opened.dialogState);
 	assert.equal(opened.color.value, DIFFICULTY_COLORS.master);
+});
+
+test("a custom difficulty color sticks until the preset name is typed again", () => {
+	assert.equal(difficultyColor("Master"), DIFFICULTY_COLORS.master);
+	assert.equal(difficultyColor("special"), DIFFICULTY_COLORS.special);
+	assert.equal(difficultyColor("Mystery"), DIFFICULTY_COLORS.normal);
+	assert.equal(difficultyColor("Master", "#00aa44"), "#00aa44");
+	assert.equal(difficultyColor("Special", ""), DIFFICULTY_COLORS.special);
+
+	const opened = nameColorDialog({ type: "input", inputType: "insertText", target: null });
+	opened.dialogState.event.target = opened.nameInput;
+	applyPresetDifficultyColor({ difficultyName: "Master" }, opened.dialogState);
+	assert.equal(opened.color.value, DIFFICULTY_COLORS.master);
+
+	opened.color.value = "#00aa44";
+	opened.dialogState.event = { type: "input", inputType: "", target: opened.color };
+	applyPresetDifficultyColor({ difficultyName: "Master" }, opened.dialogState);
+	assert.equal(opened.color.value, "#00aa44");
+	assert.equal(difficultyColor("Master", opened.color.value), "#00aa44");
+
+	opened.dialogState.event = { type: "input", inputType: "insertText", target: opened.nameInput };
+	applyPresetDifficultyColor({ difficultyName: "Special" }, opened.dialogState);
+	assert.equal(opened.color.value, DIFFICULTY_COLORS.special);
+	opened.color.value = "#112233";
+	assert.equal(difficultyColor("Special", opened.color.value), "#112233");
 });
 
 test("last charter is remembered only after the user edits the charter field", () => {
