@@ -4,7 +4,7 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { Rational } from "../core/rational.js";
-import { findNearestSnapPoint, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
+import { findNearestSnapPoint, isSpecialSnapPoint, resolveAttachedPosition, sampleSnappee } from "../core/geometry.js";
 import { deepClone, groupEventLeaves, selected } from "./app-helpers.js";
 
 const MOVABLE_TYPES = new Set(["tap", "hold", "drag", "flick", "bgNote"]);
@@ -84,7 +84,7 @@ class AttachmentTrait {
 
 	_curveSnapPoints(curve) {
 		try {
-			return sampleSnappee(curve);
+			return sampleSnappee(curve).filter(point => !isSpecialSnapPoint(point.snapPoint));
 		} catch {
 			return [];
 		}

@@ -85,7 +85,7 @@ test("all default snappee types produce finite sample points", () => {
 		}
 	}
 
-	assert.equal(sampleSnappee(createSnappee("regularPolygonCurve")).length, 20);
+	assert.equal(sampleSnappee(createSnappee("regularPolygonCurve")).length, 21);
 });
 
 test("chart-boundary snappee points use only the documented tiny tolerance", () => {

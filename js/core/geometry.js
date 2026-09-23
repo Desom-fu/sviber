@@ -1,3 +1,7 @@
+import { SPECIAL_SNAP_INDEX, isSpecialSnapPoint, snappeeIndexSpec } from "./snappee-index.js";
+
+export { SPECIAL_SNAP_INDEX, isSpecialSnapPoint, snappeeIndexSpec };
+
 export const IDENTITY_TRANSFORM = Object.freeze([1, 0, 0, 1, 0, 0]);
 export const AFFINE_MATRIX_GRID = Object.freeze([0, 2, 4, 1, 3, 5]);
 export const CHART_BOUNDS = Object.freeze({ minX: -100, maxX: 100, minY: -50, maxY: 50 });
@@ -366,6 +370,7 @@ function sampleRegularPolygon(snappee) {
 			);
 		}
 	}
+	result.push(point(centerX, centerY, SPECIAL_SNAP_INDEX));
 	return result;
 }
 
@@ -498,10 +503,12 @@ function sampleCircularArc(snappee) {
 		span = clockwise ? -normalizedPositiveAngle(beginning - end) : normalizedPositiveAngle(end - beginning);
 	}
 	const count = closed ? segments : segments + 1;
-	return Array.from({ length: count }, (_, index) => {
+	const points = Array.from({ length: count }, (_, index) => {
 		const angle = beginning + (span * index) / segments;
 		return point(centerX + radius * Math.cos(angle), centerY + radius * Math.sin(angle), index);
 	});
+	points.push(point(centerX, centerY, SPECIAL_SNAP_INDEX));
+	return points;
 }
 
 function commandValue(command, key, index, fallback) {

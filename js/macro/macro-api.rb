@@ -959,18 +959,51 @@ module SviberMacroInternals
         x = evaluate_expression(item["xExpression"], i: i, j: j)
         y = evaluate_expression(item["yExpression"], i: i, j: j)
       when "regularPolygonCurve"
-        sides = [item.fetch("sides", 3).to_i, 3].max
-        segments = [item.fetch("segmentsPerSide", 1).to_i, 1].max
-        side = i.to_i / segments
-        part = (i.to_i % segments).to_f / segments
-        vertex = lambda do |number|
-          theta = item.fetch("angle", 0).to_f + number * Math::PI * 2 / sides
-          [item.fetch("centerX", 0).to_f + item.fetch("radius", 50).to_f * Math.cos(theta),
-           item.fetch("centerY", 0).to_f + item.fetch("radius", 50).to_f * Math.sin(theta)]
+        if i.to_i == -1
+          x = item.fetch("centerX", 0).to_f
+          y = item.fetch("centerY", 0).to_f
+        else
+          sides = [item.fetch("sides", 3).to_i, 3].max
+          segments = [item.fetch("segmentsPerSide", 1).to_i, 1].max
+          side = i.to_i / segments
+          part = (i.to_i % segments).to_f / segments
+          vertex = lambda do |number|
+            theta = item.fetch("angle", 0).to_f + number * Math::PI * 2 / sides
+            [item.fetch("centerX", 0).to_f + item.fetch("radius", 50).to_f * Math.cos(theta),
+             item.fetch("centerY", 0).to_f + item.fetch("radius", 50).to_f * Math.sin(theta)]
+          end
+          first, second = vertex.call(side), vertex.call((side + 1) % sides)
+          x = first[0] + (second[0] - first[0]) * part
+          y = first[1] + (second[1] - first[1]) * part
         end
-        first, second = vertex.call(side), vertex.call((side + 1) % sides)
-        x = first[0] + (second[0] - first[0]) * part
-        y = first[1] + (second[1] - first[1]) * part
+      when "circularArcCurve"
+        if i.to_i == -1
+          x = item.fetch("centerX", 0).to_f
+          y = item.fetch("centerY", 0).to_f
+        else
+          center_x = item.fetch("centerX", 0).to_f
+          center_y = item.fetch("centerY", 0).to_f
+          radius = item.fetch("radius", 50).to_f
+          beginning = item.fetch("beginningAngle", 0).to_f
+          closed = !!item["closed"]
+          clockwise = !!item["clockwise"]
+          segments = [item.fetch("segments", 1).to_i, 1].max
+          ending = if closed
+                     beginning + (clockwise ? -Math::PI * 2 : Math::PI * 2)
+                   else
+                     item.fetch("endAngle", item.fetch("endingAngle", beginning)).to_f
+                   end
+          span = if closed
+                   clockwise ? -Math::PI * 2 : Math::PI * 2
+                 elsif clockwise
+                   -positive_angle(beginning - ending)
+                 else
+                   positive_angle(ending - beginning)
+                 end
+          angle = beginning + span * i / segments
+          x = center_x + radius * Math.cos(angle)
+          y = center_y + radius * Math.sin(angle)
+        end
       when "bezierCurve"
         points = item.fetch("controlPoints", []).map { |entry| [entry["x"] || entry[0] || 0, entry["y"] || entry[1] || 0].map(&:to_f) }
         t = i / [item.fetch("segments", 1).to_f, 1].max
@@ -989,6 +1022,47 @@ module SviberMacroInternals
       end
       transform = item.fetch("transformation", [1, 0, 0, 1, 0, 0])
       Vector2D.new(transform[0] * x + transform[2] * y + transform[4], transform[1] * x + transform[3] * y + transform[5])
+    end
+
+    def positive_angle(angle)
+      result = angle % (Math::PI * 2)
+      result.negative? ? result + Math::PI * 2 : result
+    end
+
+    def positive_count(value, fallback)
+      return fallback if value.nil?
+      number = value.to_i
+      raise RangeError, "count must be a positive integer" if number < 1
+      number
+    end
+
+    def index_spec(item)
+      case item["type"]
+      when "rectangularMesh"
+        { mesh: true, i: [0, positive_count(item["horizontalTiles"], 1)], i_exclude: false,
+          j: [0, positive_count(item["verticalTiles"], 1)], j_exclude: false, special: false }
+      when "radialMesh"
+        { mesh: true, i: [0, positive_count(item["azimuthalTiles"], 1)], i_exclude: true,
+          j: [0, positive_count(item["radialTiles"], 1)], j_exclude: false, special: false }
+      when "parametricMesh"
+        { mesh: true, i: item["iRange"], i_exclude: !!item["iRangeExclusive"],
+          j: item["jRange"], j_exclude: !!item["jRangeExclusive"], special: false }
+      when "parametricCurve"
+        { mesh: false, i: item["iRange"], i_exclude: !!item["iRangeExclusive"] || !!item["closed"],
+          j: nil, j_exclude: false, special: false }
+      when "regularPolygonCurve"
+        sides = positive_count(item["sides"] || item["numberOfSides"], 3)
+        segments = positive_count(item["segmentsPerSide"], 1)
+        { mesh: false, i: [0, sides * segments], i_exclude: true, j: nil, j_exclude: false, special: true }
+      when "circularArcCurve"
+        { mesh: false, i: [0, positive_count(item["segments"], 1)], i_exclude: !!item["closed"],
+          j: nil, j_exclude: false, special: true }
+      when "bezierCurve", "penCurve"
+        { mesh: false, i: [0, positive_count(item["segments"], 1)], i_exclude: !!item["closed"],
+          j: nil, j_exclude: false, special: false }
+      else
+        raise TypeError, "Unsupported snappee type: #{item["type"]}"
+      end
     end
 
     def evaluate_expression(expression, scope)
@@ -1023,9 +1097,11 @@ module SviberMacroInternals
       when "parametricCurve"
         integer_range(item["iRange"], item["iRangeExclusive"], item["closed"])
       else
-        count = item["type"] == "regularPolygonCurve" ? item.fetch("sides", 3).to_i * item.fetch("segmentsPerSide", 1).to_i : item.fetch("segments", 16).to_i
-		count = [count, 1].max
-		item["type"] == "regularPolygonCurve" || item["closed"] ? (0...count).to_a : (0..count).to_a
+        spec = index_spec(item)
+        first, last = spec[:i]
+        points = spec[:i_exclude] ? (first...last).to_a : (first..last).to_a
+        points << -1 if spec[:special]
+        points
       end
     end
 
@@ -1170,6 +1246,10 @@ class Snappee
     record["color"] = SviberMacroInternals.css_color(value)
   end
   def active? = record["active"] != false
+  def active = active?
+  def active=(value)
+    value ? activate : deactivate
+  end
   def selected? = !!record["selected"]
 
   def activate
@@ -1194,6 +1274,37 @@ class Snappee
   def pos(*indices)
     raw = record
     SviberMacroInternals.snap_point_position(raw, SviberMacroInternals.checked_snap_point(raw, indices))
+  end
+
+  def i_range
+    spec = SviberMacroInternals.index_spec(record)
+    first, last = spec[:i]
+    spec[:i_exclude] ? (first...last) : (first..last)
+  end
+
+  def j_range
+    spec = SviberMacroInternals.index_spec(record)
+    raise RuntimeError, "j_range is only valid for meshes" unless spec[:mesh]
+    first, last = spec[:j]
+    spec[:j_exclude] ? (first...last) : (first..last)
+  end
+
+  def i_exclude_end?
+    SviberMacroInternals.index_spec(record)[:i_exclude]
+  end
+
+  def j_exclude_end?
+    spec = SviberMacroInternals.index_spec(record)
+    raise RuntimeError, "j_exclude_end? is only valid for meshes" unless spec[:mesh]
+    spec[:j_exclude]
+  end
+
+  def has_special?
+    SviberMacroInternals.index_spec(record)[:special]
+  end
+
+  def special_i
+    has_special? ? -1 : nil
   end
 
   def move_up = reorder(-1)
@@ -1232,32 +1343,135 @@ class Snappee
   end
 end
 
+module SnappeeProperties
+  def number_field(name, key)
+    define_method(name) { record[key] }
+    define_method(:"#{name}=") { |value| record[key] = Float(value) }
+  end
+
+  def integer_field(name, key)
+    define_method(name) { record[key] }
+    define_method(:"#{name}=") { |value| record[key] = Integer(value) }
+  end
+
+  def boolean_field(name, key)
+    define_method(name) { !!record[key] }
+    define_method(:"#{name}?") { !!record[key] }
+    define_method(:"#{name}=") { |value| record[key] = !!value }
+  end
+
+  def string_field(name, key)
+    define_method(name) { record[key] }
+    define_method(:"#{name}=") { |value| record[key] = value.to_s }
+  end
+
+  def angle_field(name, key)
+    define_method(name) { record[key] }
+    define_method(:"#{name}=") { |value| record[key] = SviberMacroInternals.angle(value) }
+  end
+
+  def range_field(name, key, exclusive_key)
+    define_method(:"#{name}=") do |value|
+      if value.is_a?(Range)
+        record[key] = [value.begin.to_i, value.end.to_i]
+        record[exclusive_key] = value.exclude_end? if exclusive_key
+      else
+        record[key] = [value[0].to_i, value[1].to_i]
+      end
+    end
+  end
+
+  def points_field(name, key)
+    define_method(name) { record[key] }
+    define_method(:"#{name}=") do |value|
+      record[key] = Array(value).map do |point|
+        if point.is_a?(Array)
+          { "x" => point[0].to_f, "y" => point[1].to_f }
+        elsif point.is_a?(Hash)
+          { "x" => (point["x"] || point[:x]).to_f, "y" => (point["y"] || point[:y]).to_f }
+        else
+          { "x" => point.x.to_f, "y" => point.y.to_f }
+        end
+      end
+    end
+  end
+
+  def commands_field(name, key)
+    define_method(name) { record[key] }
+    define_method(:"#{name}=") { |value| record[key] = Array(value) }
+  end
+end
+
 class RectangularMesh < Snappee
+  extend SnappeeProperties
   def self.new(*args, name: nil, color: nil) = create(:rectangular_mesh, args, name: name, color: color)
+  number_field :top_left_x, "topLeftX"
+  number_field :top_left_y, "topLeftY"
+  number_field :bottom_right_x, "bottomRightX"
+  number_field :bottom_right_y, "bottomRightY"
+  integer_field :horizontal_tiles, "horizontalTiles"
+  integer_field :vertical_tiles, "verticalTiles"
 end
 
 class RadialMesh < Snappee
+  extend SnappeeProperties
   def self.new(*args, name: nil, color: nil) = create(:radial_mesh, args, name: name, color: color)
+  number_field :center_x, "centerX"
+  number_field :center_y, "centerY"
+  number_field :radius, "radius"
+  integer_field :azimuthal_tiles, "azimuthalTiles"
+  integer_field :radial_tiles, "radialTiles"
+  angle_field :starting_angle, "startingAngle"
 end
 
 class ParametricMesh < Snappee
+  extend SnappeeProperties
   def self.new(*args, name: nil, color: nil) = create(:parametric_mesh, args, name: name, color: color)
+  range_field :i_range, "iRange", "iRangeExclusive"
+  range_field :j_range, "jRange", "jRangeExclusive"
+  boolean_field :i_range_exclusive, "iRangeExclusive"
+  boolean_field :j_range_exclusive, "jRangeExclusive"
+  string_field :x_expression, "xExpression"
+  string_field :y_expression, "yExpression"
 end
 
 class RegularPolygonCurve < Snappee
+  extend SnappeeProperties
   def self.new(*args, name: nil, color: nil) = create(:regular_polygon_curve, args, name: name, color: color)
+  number_field :center_x, "centerX"
+  number_field :center_y, "centerY"
+  number_field :radius, "radius"
+  angle_field :angle, "angle"
+  integer_field :sides, "sides"
+  integer_field :segments_per_side, "segmentsPerSide"
+  boolean_field :closed, "closed"
 end
 
 class BezierCurve < Snappee
+  extend SnappeeProperties
   def self.new(*args, name: nil, color: nil) = create(:bezier_curve, args, name: name, color: color)
+  integer_field :degree, "degree"
+  points_field :control_points, "controlPoints"
+  integer_field :segments, "segments"
+  boolean_field :closed, "closed"
 end
 
 class PenCurve < Snappee
+  extend SnappeeProperties
   def self.new(*args, name: nil, color: nil) = create(:pen_curve, args, name: name, color: color)
+  commands_field :commands, "commands"
+  integer_field :segments, "segments"
+  boolean_field :closed, "closed"
 end
 
 class ParametricCurve < Snappee
+  extend SnappeeProperties
   def self.new(*args, name: nil, color: nil) = create(:parametric_curve, args, name: name, color: color)
+  range_field :i_range, "iRange", "iRangeExclusive"
+  boolean_field :i_range_exclusive, "iRangeExclusive"
+  string_field :x_expression, "xExpression"
+  string_field :y_expression, "yExpression"
+  boolean_field :closed, "closed"
 end
 
 Snappee::CLASS_BY_TYPE.merge!(

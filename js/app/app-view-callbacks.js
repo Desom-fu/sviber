@@ -141,6 +141,8 @@ export class ViewCallbacksTrait {
 			onCreationPreview: () => this.requestStatusUpdate(),
 			onCreateEvent: (type, preview) => this.createPositionedEvent(type, preview),
 			onCurvePoint: (point, finish) => this.addCurvePoint(point, finish),
+			onPencilSamples: samples => this.appendPencilSamples(samples),
+			onPencilFinish: () => this.finishPencilStroke(),
 			onPenNodeStart: point => this.startPenNode(point),
 			onPreviewPenNode: (index, point) => this.setPenNodeDrag(index, point, false),
 			onPenNode: (index, point, dragged) =>

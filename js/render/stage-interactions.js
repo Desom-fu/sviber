@@ -1,5 +1,6 @@
 import { composeTraits } from "../core/mixin.js";
 import { StageHudTrait } from "./stage-hud.js";
+import { PencilPointer } from "./stage-pencil.js";
 import { StagePointerTrait } from "./stage-pointer.js";
 import { StageTransformDragTrait } from "./stage-transform-drag.js";
 
@@ -27,6 +28,7 @@ export const withStageInteractions = composeTraits(
 	"StageInteractionsLayer",
 	StageInteractionsTrait,
 	StageHudTrait,
+	PencilPointer,
 	StagePointerTrait,
 	StageTransformDragTrait,
 );

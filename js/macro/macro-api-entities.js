@@ -11,6 +11,7 @@ import {
 	normalizeColor,
 	snapPointPosition,
 } from "./macro-api-math.js";
+import { snappeeIndexSpec } from "../core/snappee-index.js";
 import { writeTipPointSwitch } from "../core/tip-point-track.js";
 
 const { ctxOf, attach, extend } = createBinder();
@@ -222,6 +223,14 @@ export class Snappee {
 		return alive(this, "Snappee").active !== false;
 	}
 
+	set active(value) {
+		if (value) {
+			this.activate();
+		} else {
+			this.deactivate();
+		}
+	}
+
 	activate() {
 		alive(this, "Snappee").active = true;
 		return this;
@@ -253,6 +262,38 @@ export class Snappee {
 		const raw = alive(this, "Snappee");
 		const point = snapPointPosition(raw, checkedSnapPoint(raw, args));
 		return new Vector2D(point.x, point.y);
+	}
+
+	get iRange() {
+		return [...snappeeIndexSpec(alive(this, "Snappee")).i];
+	}
+
+	get jRange() {
+		const spec = snappeeIndexSpec(alive(this, "Snappee"));
+		if (!spec.mesh) {
+			throw new Error("jRange is only valid for meshes");
+		}
+		return [...spec.j];
+	}
+
+	get iExcludeEnd() {
+		return snappeeIndexSpec(alive(this, "Snappee")).iExcludeEnd;
+	}
+
+	get jExcludeEnd() {
+		const spec = snappeeIndexSpec(alive(this, "Snappee"));
+		if (!spec.mesh) {
+			throw new Error("jExcludeEnd is only valid for meshes");
+		}
+		return spec.jExcludeEnd;
+	}
+
+	get hasSpecial() {
+		return snappeeIndexSpec(alive(this, "Snappee")).hasSpecial;
+	}
+
+	get specialI() {
+		return snappeeIndexSpec(alive(this, "Snappee")).specialI;
 	}
 
 	moveUp() {
@@ -472,8 +513,126 @@ function installSnappeeSubclasses(ctx) {
 	}
 }
 
+const SNAPPEE_PROPERTY_FIELDS = {
+	rectangularMesh: [
+		["topLeftX", "number"],
+		["topLeftY", "number"],
+		["bottomRightX", "number"],
+		["bottomRightY", "number"],
+		["horizontalTiles", "integer"],
+		["verticalTiles", "integer"],
+	],
+	radialMesh: [
+		["centerX", "number"],
+		["centerY", "number"],
+		["radius", "number"],
+		["azimuthalTiles", "integer"],
+		["radialTiles", "integer"],
+		["startingAngle", "angle"],
+	],
+	parametricMesh: [
+		["iRange", "range"],
+		["jRange", "range"],
+		["iRangeExclusive", "boolean"],
+		["jRangeExclusive", "boolean"],
+		["xExpression", "string"],
+		["yExpression", "string"],
+	],
+	regularPolygonCurve: [
+		["centerX", "number"],
+		["centerY", "number"],
+		["radius", "number"],
+		["angle", "angle"],
+		["sides", "integer"],
+		["segmentsPerSide", "integer"],
+		["closed", "boolean"],
+	],
+	bezierCurve: [
+		["degree", "integer"],
+		["controlPoints", "points"],
+		["segments", "integer"],
+		["closed", "boolean"],
+	],
+	penCurve: [
+		["commands", "commands"],
+		["segments", "integer"],
+		["closed", "boolean"],
+	],
+	parametricCurve: [
+		["iRange", "range"],
+		["iRangeExclusive", "boolean"],
+		["xExpression", "string"],
+		["yExpression", "string"],
+		["closed", "boolean"],
+	],
+};
+
+function coerceSnappeeProperty(kind, value) {
+	if (kind === "number") {
+		const number = Number(value);
+		if (!Number.isFinite(number)) {
+			throw new TypeError("property must be a finite number");
+		}
+		return number;
+	}
+	if (kind === "integer") {
+		const number = Number(value);
+		if (!Number.isSafeInteger(number)) {
+			throw new TypeError("property must be an integer");
+		}
+		return number;
+	}
+	if (kind === "boolean") {
+		return Boolean(value);
+	}
+	if (kind === "string") {
+		return String(value);
+	}
+	if (kind === "angle") {
+		return angleValue(value);
+	}
+	if (kind === "range") {
+		if (!Array.isArray(value) || value.length !== 2 || !value.every(Number.isSafeInteger)) {
+			throw new TypeError("range must contain two integers");
+		}
+		return [value[0], value[1]];
+	}
+	if (kind === "points") {
+		if (!Array.isArray(value)) {
+			throw new TypeError("control points must be an array");
+		}
+		return value.map(entry => ({
+			x: Number(entry?.x ?? entry?.[0]),
+			y: Number(entry?.y ?? entry?.[1]),
+		}));
+	}
+	if (kind === "commands") {
+		if (!Array.isArray(value)) {
+			throw new TypeError("commands must be an array");
+		}
+		return value.map(command => ({ ...command }));
+	}
+	return value;
+}
+
+function installSnappeeProperties(Class, Parent, type) {
+	for (const [name, kind] of SNAPPEE_PROPERTY_FIELDS[type] || []) {
+		const inherited = Object.getOwnPropertyDescriptor(Parent.prototype, name);
+		Object.defineProperty(Class.prototype, name, {
+			configurable: true,
+			enumerable: false,
+			get: inherited?.get || function propertyValue() {
+				return alive(this, "Snappee")[name];
+			},
+			set(value) {
+				alive(this, "Snappee")[name] = coerceSnappeeProperty(kind, value);
+			},
+		});
+	}
+}
+
 function makeSnappeeClass(Parent, type) {
-	return class extends Parent {
+	class SnappeeSubclass extends Parent {
 		constructor(...args) {
 			if (args.at(-1) === INTERNAL) {
 				args.pop();
@@ -485,7 +644,9 @@ function makeSnappeeClass(Parent, type) {
 			const options = isOptions ? args.pop() : {};
 			super(type, { ...options, ...(args.length ? subclassArgs(type, args) : {}) });
 		}
-	};
+	}
+	installSnappeeProperties(SnappeeSubclass, Parent, type);
+	return SnappeeSubclass;
 }
 
 function subclassArgs(type, args) {

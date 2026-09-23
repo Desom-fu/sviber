@@ -3,9 +3,10 @@
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
 import { Rational } from "../core/rational.js";
-import { findNearestSnapPoint, penCommandsFromNodes, sampleSnappee } from "../core/geometry.js";
+import { findNearestSnapPoint, isSpecialSnapPoint, penCommandsFromNodes, sampleSnappee } from "../core/geometry.js";
 import { captureHistoryView } from "../core/history.js";
 import { SNAPPEE_COLORS, deepClone, eventTypeLabel, pointAllowed } from "./app-helpers.js";
+import { PENCIL_SNAP_DISTANCE, buildPencilStroke } from "./pencil-stroke.js";
 
 class CurveDraftTrait {
 	// Selecting a snappee is exclusive, and a null id clears the list — the snappee panel uses
@@ -141,6 +142,94 @@ class CurveDraftTrait {
 		const snappee = this.model.snappees.find(item => item.id === id);
 		if (snappee) {
 			await this.showSnappeeDialog(snappee.type, id);
+		}
+	}
+
+	startPencil() {
+		this.exitModes();
+		this.curveDraft = {
+			type: "pencil",
+			points: [],
+			rawPoints: [],
+			startSnap: null,
+			name: this.defaultSnappeeName("penCurve"),
+			color: SNAPPEE_COLORS[this.model.snappees.length % SNAPPEE_COLORS.length],
+			closed: false,
+		};
+		this._refreshLightweight?.({ rebuildIndex: false, stageOnly: true, skipInspector: true });
+		this._syncCheckedCommands?.();
+	}
+
+	appendPencilSamples(samples = []) {
+		const draft = this.curveDraft;
+		if (draft?.type !== "pencil" || !samples.length) {
+			return;
+		}
+		if (!draft.rawPoints.length) {
+			const snap = findNearestSnapPoint(samples[0], this.model.snappees, {
+				activeOnly: true,
+				maxDistance: PENCIL_SNAP_DISTANCE,
+			});
+			draft.startSnap = snap ? { x: snap.x, y: snap.y } : null;
+		}
+		draft.rawPoints.push(
+			...samples.map(sample => ({
+				x: Number(sample.x),
+				y: Number(sample.y),
+				pressure: sample.pressure,
+				timestamp: sample.timestamp,
+			})),
+		);
+		const preview = buildPencilStroke(draft.rawPoints, { startSnap: draft.startSnap, endSnap: null });
+		draft.points = preview?.points || [];
+		draft.closed = false;
+		this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
+	}
+
+	finishPencilStroke() {
+		const draft = this.curveDraft;
+		if (draft?.type !== "pencil") {
+			return;
+		}
+		const rawPoints = draft.rawPoints || [];
+		const end = rawPoints.at(-1);
+		let endSnap = null;
+		if (end) {
+			endSnap = findNearestSnapPoint(end, this.model.snappees, {
+				activeOnly: true,
+				maxDistance: PENCIL_SNAP_DISTANCE,
+			});
+		}
+		const built = buildPencilStroke(rawPoints, {
+			startSnap: draft.startSnap,
+			endSnap: endSnap ? { x: endSnap.x, y: endSnap.y } : null,
+		});
+		if (!built) {
+			draft.points = [];
+			draft.rawPoints = [];
+			draft.startSnap = null;
+			this.refreshInteractionPreview?.({ rebuildIndex: false, stageOnly: true });
+			return;
+		}
+		const data = {
+			name: draft.name,
+			color: draft.color,
+			commands: built.commands,
+			segments: built.segments,
+			closed: built.closed,
+		};
+		this.curveDraft = null;
+		let createdId = null;
+		this.commit(i18n.t("history.createSnappee"), model => {
+			const created = model.addSnappee("penCurve", data);
+			createdId = created.id;
+			for (const snappee of model.snappees) {
+				snappee.selected = snappee.id === createdId;
+			}
+		});
+		this._syncCheckedCommands?.();
+		if (createdId != null) {
+			return this.showSnappeeDialog("penCurve", createdId, { focusField: "segments" });
 		}
 	}
 
@@ -348,6 +437,9 @@ class CurveDraftTrait {
 	}
 
 	finishCurveDraft() {
+		if (this.curveDraft?.type === "pencil") {
+			return this.finishPencilStroke();
+		}
 		const draft = this.curveDraft;
 		const pointCount =
 			draft?.type === "penCurve" ? draft.penNodes?.length || draft.points.length : draft?.points.length;
@@ -423,7 +515,9 @@ class CurveDraftTrait {
 			return;
 		}
 		this.commit(i18n.t("history.createEvent", { type: eventTypeLabel("drag") }), model => {
-			const points = sampleSnappee(snappee).filter(point => pointAllowed(model, point));
+			const points = sampleSnappee(snappee).filter(
+				point => pointAllowed(model, point) && !isSpecialSnapPoint(point.snapPoint),
+			);
 			if (!points.length) {
 				return;
 			}

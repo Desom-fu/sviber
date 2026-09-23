@@ -1,0 +1,119 @@
+diff --git a/dev-notes/PROMPT-v26.md b/dev-notes/PROMPT-v27.md
+index 4cf7ffb..a477ced 100644
+--- a/dev-notes/PROMPT-v26.md
++++ b/dev-notes/PROMPT-v27.md
+@@ -315,6 +315,10 @@ possibly being `tap`, `hold`, `drag`, `flick`, `bgNote`, `bigText`, any one of t
+ The possible events do not include BPM changes because they are not real Sunniesnow events,
+ and the BPM change events are shown in the [waveform](#waveform) instead of the channels.
+ 
++For a new chart, initially there are three channels.
++The user can create new channels, delete channels, and reorder channels.
++However, there must always be at least one channel in the chart.
++
+ At the left, for each channel, the name of the channel is shown.
+ The name is bright yellow for the current channel or is otherwise light gray.
+ The name is translucent if the channel is inactive.
+@@ -1483,6 +1487,8 @@ For example, when the user moves events from one snap point to another on a curv
+ the events can be moved indefinitely along the curve if the curve is a closed loop;
+ on the ohter hand, if the curve has open ends,
+ the events cannot be moved past the ends.
++For some curves, there is one special snap point that is not on the curve.
++For this case, events attached to this snap point does not move when the user moves events along the curve.
+ 
+ Snappees can be transformed by some tools such as [free transform](#free-transform).
+ Such transformations are not implemented by directly changing the parameters of the snappees
+@@ -1538,6 +1544,8 @@ the direction of one radius segment of the regular polygon specified as polar an
+ the number of sides $n$ of this regular polygon,
+ and the number of segments $m$ on each side.
+ There are totally $nm$ snap points on the sides of the regular polygon.
++There is also a special snap point that is not on the curve, which is the center of the polygon.
++The special snap point is numbered as `-1`.
+ 
+ A regular polygon curve is naturally a closed loop.
+ 
+@@ -1550,6 +1558,8 @@ and two boolean parameters for whether the arc is clockwise or anticlockwise
+ and whether it is a closed curve (full circle).
+ The snap points are the vertices of segments of the curve,
+ and the segments are determined by dividing the curve into $m$ segments with equal curve lengths.
++There is also a special snap point that is not on the curve, which is the center of the circle.
++The special snap point is numbered as `-1`.
+ 
+ After creating curve, open a popup form for editing its parameters.
+ The input is focused at the field for changing the number of segments.
+@@ -2017,7 +2027,7 @@ For rendering video, the customizable options are:
+ - `nickname`: Use the value the user filled in last time as default.
+   If this is the first time, use the chart's `charter` property as default.
+ - `avatar`: Use the value the user filled in last time as default.
+-- `avatarOnline`, `avatarUpload`, `avatarGravatar`:
++- `avatarOnline`, `avatarUpload`, `avatarGravatar`, `avatarWeavatar`:
+   Depending on which value is set for `avatar`, at most one input field is shown.
+   Fill in the value the user used last time.
+ - Whether to use bundled FFmpeg. This option does not appear if bundled FFmpeg is not available
+@@ -2030,7 +2040,7 @@ For rendering video, the customizable options are:
+ 
+ For rendering cover, the customizable options are:
+ 
+-- `nickname`, `avatar`, `avatarOnline`, `avatarUpload`, `avatarGravatar`, `width`, `height`:
++- `nickname`, `avatar`, `avatarOnline`, `avatarUpload`, `avatarGravatar`, `avatarWeavatar`, `width`, `height`:
+   Handle them in the same way as those in options for rendering video.
+ - `coverThemeImageX`, `coverThemeImageY`, `coverThemeImageWidth`:
+   Show a GUI widget powered by PixiJS for setting those parameters instead of having input fields.
+@@ -2829,6 +2839,7 @@ The "Snappee" menu item contains the following submenu items:
+ - B&eacute;zier curve (<kbd>Ctrl</kbd>+<kbd>B</kbd>) (`../maker/svg/icons/create-bezier-curve.svg`)
+ - Circular arc (`../maker/svg/icons/create-circular-curve.svg`)
+ - Pen (<kbd>Ctrl</kbd>+<kbd>P</kbd>) (`../maker/svg/icons/pen.svg`)
++- Pencil (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>)
+ - Parametric curve...
+ - (separator)
+ - Preset snappee...
+@@ -2961,6 +2972,23 @@ considering snapping.
+ 
+ Individual control point actions are separate items in the history panel.
+ 
++#### Pencil
++
++Enters pencil mode.
++It creates a pen curve (not a new type of curve) by free drawing one stroke with the mouse.
++The pen curve is a broken line with many control points.
++The start of the stroke can snap to a snap point, and the end of the stroke
++can snap to a snap point or the start of the stroke (in which case the curve is set as a closed loop).
++If the start or the end of the stroke snaps to something,
++an additional control point is created at the snap point before or after the actual start or end of the stroke, respectively.
++
++The raw sampling points are taken from `getCoalescedEvents()` of pointer events.
++They are then processed using [@stroke-stabilizer/core](https://github.com/usapopopooon/stroke-stabilizer)
++to get a smoother broken line, which will make up the pen curve.
++
++After the user finishes the stroke, a popup form appears to let the user edit the resultant curve.
++The popup form is the same as the one for editing a pen curve.
++
+ #### Parametric curve...
+ 
+ Similar to rectangular mesh. Input fields:
+@@ -4539,6 +4567,7 @@ it also have these methods to modify itself, and they all return `self`:
+ - `#to_json(*args)`: same as `to_h.to_json(*args)`.
+ 
+ `Snappee` class has subclasses `RectangularMesh`, `RadialMesh`, `ParametricMesh`, `RegularPolygonCurve`, `BezierCurve`, `PenCurve`, `ParametricCurve`.
++In addition to the methods listed here, each subclass has their own methods for getting and setting properties.
+ 
+ - `::new(*args, name: nil, color: nil)`: create new snappee; the signature of `args` is specified in subclasses; automatically choose name and color if not given.
+ - `::get(n)`: get a snappee; `n` can be integer (0-based) according to the order in the snappees panel (not ID number) or string for name.
+@@ -4550,10 +4579,17 @@ it also have these methods to modify itself, and they all return `self`:
+ - `#name`, `#name=`.
+ - `#color`, `#color=`.
+ - `#id`.
+-- `#activate`, `#deactivate`, `#active?`.
++- `#activate`, `#deactivate`, `#active?`, `#active`, `#active=`.
+ - `#selected?`.
+ - `#select`.
+ - `#pos(i)` or `#pos(i, j)`: get `Point2D` object.
++- `#i_range`, `#j_range`: get the range of valid indices for `#pos`.
++  `#j_range` is only valid for meshes.
++  The range does not include the special snap point, if any.
++  Return a range object in Ruby, and an array of two numbers in JavaScript.
++- `#i_exclude_end?`, `#j_exclude_end?`: whether the end of the index range is excluded.
++- `#has_special?`: whether the snappee has a special snap point. It is always false for meshes.
++- `#special_i`: the `i` index of the special snap point.
+ - `#delete`.
+ - `#duplicate(name=self.name, color=self.color)`: return a new duplicated snappee.
+ - `#to_h`: hash map with the same structure as elements in [`snappees` field](#snappees-field).

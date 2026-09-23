@@ -299,6 +299,7 @@ function registerSnappeeCommands(app) {
 	register(app, "snappee.bezierCurve", () => app.startCurveDraft("bezierCurve"));
 	register(app, "snappee.circularArc", () => app.startCurveDraft("circularArcCurve"));
 	register(app, "snappee.pen", () => app.startCurveDraft("penCurve"));
+	register(app, "snappee.pencil", () => app.startPencil());
 	register(app, "snappee.parametricCurve", () => void app.showSnappeeDialog("parametricCurve"));
 	register(app, "snappee.preset", () => void app.showPresetSnappeeDialog());
 	register(app, "snappee.activate", () => app.setSnappeesActive(true), () => app.canSetSnappeesActive());

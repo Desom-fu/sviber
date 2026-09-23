@@ -112,6 +112,7 @@ const POINTER_MOVE_HANDLERS = {
 	"draft-point": "_moveDraftPoint",
 	"pen-new": "_movePenNode",
 	"draft-pen-handle": "_movePenHandle",
+	pencil: "_movePencil",
 	box: "_moveSelectionBox",
 };
 
@@ -136,6 +137,7 @@ const POINTER_UP_HANDLERS = {
 	"draft-point": "_commitDraftPoint",
 	"pen-new": "_commitPenNode",
 	"draft-pen-handle": "_commitPenHandle",
+	pencil: "_commitPencil",
 	box: "_commitSelectionBox",
 };
 
@@ -334,7 +336,7 @@ export class StagePointerTrait {
 			return;
 		}
 		if (context.curveDraft) {
-			this._handleCurveDraftPress(context, hit);
+			this._handleCurveDraftPress(context, hit, event);
 			return;
 		}
 		if (this._handleProgressPress(context, hit)) {
@@ -359,7 +361,7 @@ export class StagePointerTrait {
 	// Presses while a snappee is being drawn either grab an existing draft handle, start a
 	// new pen node (which can be dragged straight away to shape its handles) or append a
 	// plain point.
-	_handleCurveDraftPress(context, hit) {
+	_handleCurveDraftPress(context, hit, event) {
 		if (context.playing) {
 			return;
 		}
@@ -369,6 +371,12 @@ export class StagePointerTrait {
 			maxDistance: 9 / context.mapping.scale,
 		});
 		this.curvePreview = snap ? { x: snap.x, y: snap.y } : { x: chart.x, y: chart.y };
+		if (context.curveDraft.type === "pencil") {
+			this.drag = { type: "pencil", start: context.point, noThreshold: true };
+			this._listenForDrag();
+			this.callbacks.onPencilSamples?.(this._pencilSamples(event, context.mapping));
+			return;
+		}
 		// While an arc is still collecting centre/start/end, never steal the press as a
 		// handle drag — a click near the centre must place the next point, not move it.
 		const arcPlacing =

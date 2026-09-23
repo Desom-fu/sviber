@@ -83,7 +83,7 @@ test("ChartModel deletions do not renumber surviving IDs and saved IDs round-tri
 
 	assert.deepEqual(
 		model.channels.map(({ id }) => id),
-		[0, survivingChannel.id],
+		[0, 1, 2, survivingChannel.id],
 	);
 	assert.deepEqual(
 		model.events.map(({ id }) => id),
@@ -97,7 +97,7 @@ test("ChartModel deletions do not renumber surviving IDs and saved IDs round-tri
 	const reopened = ChartModel.import(JSON.stringify(model.toJSON()));
 	assert.deepEqual(
 		reopened.channels.map(({ id }) => id),
-		[0, survivingChannel.id],
+		[0, 1, 2, survivingChannel.id],
 	);
 	assert.deepEqual(
 		reopened.events.map(({ id }) => id),

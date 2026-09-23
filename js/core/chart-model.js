@@ -42,6 +42,7 @@ import {
 	clone,
 	finiteNumber,
 	nextCounter,
+	defaultNewChartChannels,
 	normalizeChannels,
 	normalizeEditor,
 	normalizeMetadata,
@@ -112,7 +113,7 @@ export class ChartModel {
 			image: "",
 			editor: DEFAULT_EDITOR,
 			timing: { offset: 0, initialBpm: 120, bpmChanges: [], barLines: [] },
-			channels: [{ id: 0 }],
+			channels: defaultNewChartChannels(),
 			events: [],
 			snappees: createDefaultSnappees(),
 			...clone(overrides),
@@ -148,6 +149,9 @@ export class ChartModel {
 		const model = ChartModel.createDefault({
 			metadata: normalizeMetadata(document),
 			timing: timing.toJSON(),
+			// Imported Sunniesnow charts are not new sviber charts: keep a single channel
+			// and let the importer place events on it.
+			channels: [{ id: 0 }],
 		});
 		model.importWarnings = importSunniesnowEvents(model, document, {
 			timing,

@@ -142,6 +142,7 @@ const DEFINITIONS = [
 	define("snappee.bezierCurve", "Ctrl+B", "create-bezier-curve", { checkable: true, blockDuringPlayback: true }),
 	define("snappee.circularArc", null, "create-circular-curve", { checkable: true, blockDuringPlayback: true }),
 	define("snappee.pen", "Ctrl+P", "pen", { checkable: true, blockDuringPlayback: true }),
+	define("snappee.pencil", "Ctrl+Shift+P", null, { checkable: true, blockDuringPlayback: true }),
 	define("snappee.parametricCurve", null, null, { blockDuringPlayback: true }),
 	define("snappee.preset", null, null, { blockDuringPlayback: true }),
 	// PROMPT-v26 (read-only): activating and deactivating snappees stays available, just like
@@ -425,6 +426,7 @@ export const MENU_DEFINITION = Object.freeze([
 			item("snappee.bezierCurve"),
 			item("snappee.circularArc"),
 			item("snappee.pen"),
+			item("snappee.pencil"),
 			item("snappee.parametricCurve"),
 			separator,
 			item("snappee.preset"),

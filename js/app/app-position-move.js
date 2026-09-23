@@ -4,6 +4,7 @@ import {
 	applyTransform,
 	invertTransform,
 	isPointWithinChartBounds,
+	isSpecialSnapPoint,
 	resolveAttachedPosition,
 	sampleSnappee,
 } from "../core/geometry.js";
@@ -56,8 +57,11 @@ function applyRadialAttachedMove(model, snappee, movable, primary, point) {
 }
 
 function applyCurveAttachedMove(model, snappee, movable, primary, points, nearest) {
+	// The center of a polygon or circle is a snap point, but it is not on the curve:
+	// events sitting on it stay put while the rest of the selection slides.
+	const curvePoints = points.filter(candidate => !isSpecialSnapPoint(candidate.snapPoint));
 	const key = value => JSON.stringify(value);
-	const indices = new Map(points.map((candidate, index) => [key(candidate.snapPoint), index]));
+	const indices = new Map(curvePoints.map((candidate, index) => [key(candidate.snapPoint), index]));
 	const fromIndex = indices.get(key(primary.snapPoint));
 	const toIndex = indices.get(key(nearest.snapPoint));
 	if (fromIndex == null || toIndex == null) {
@@ -70,7 +74,7 @@ function applyCurveAttachedMove(model, snappee, movable, primary, points, neares
 	if (!closed) {
 		const minimum = Math.min(...selectedIndices);
 		const maximum = Math.max(...selectedIndices);
-		constrainedDelta = Math.max(-minimum, Math.min(points.length - 1 - maximum, delta));
+		constrainedDelta = Math.max(-minimum, Math.min(curvePoints.length - 1 - maximum, delta));
 	}
 	const snapPoints = movable.map(event => {
 		const index = indices.get(key(event.snapPoint));
@@ -79,9 +83,9 @@ function applyCurveAttachedMove(model, snappee, movable, primary, points, neares
 		}
 		let moved = index + constrainedDelta;
 		if (closed) {
-			moved = (((index + constrainedDelta) % points.length) + points.length) % points.length;
+			moved = (((index + constrainedDelta) % curvePoints.length) + curvePoints.length) % curvePoints.length;
 		}
-		return deepClone(points[moved].snapPoint);
+		return deepClone(curvePoints[moved].snapPoint);
 	});
 	assignSnapPoints(model, snappee, movable, snapPoints);
 }

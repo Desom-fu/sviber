@@ -66,8 +66,9 @@ the difficulty name uses its configured color. <!---->
 Switching charts asks whether to save pending changes, immediately writes <code>activeChart</code>, <!---->
 and loads that chart's own media. The selector is not shown in the browser, <!---->
 where only one chart is open. <!---->
-A new chart starts with an active rectangular Playfield grid from <code>(-100,50)</code> <!---->
-to <code>(100,-50)</code>, divided into 16 by 8 tiles.</p>				<!---->
+A new chart starts with three channels and an active rectangular Playfield grid from <!---->
+<code>(-100,50)</code> to <code>(100,-50)</code>, divided into 16 by 8 tiles. <!---->
+Channels can be created, deleted, and reordered, and at least one channel always remains.</p>				<!---->
 <h3 id="en-timing">Music and timing</h3>				<!---->
 <p>Set music from <b>File &gt; Set music...</b>. The offset is the audio time of beat zero; <!---->
 the initial BPM and ordered BPM changes convert beat positions to seconds. <!---->
@@ -509,11 +510,14 @@ a whole chain moves to a no-tip-point channel. Simultaneous taps export as type 
 </tr>
 <tr><td>Render video...</td><!---->
 <td>—</td><!---->
-<td>Render the current chart and music into a video with sunniesnow-record.</td><!---->
+<td>Render the current chart and music into a video with sunniesnow-record. <!---->
+Avatar sources are online, upload, Gravatar, and WeAvatar; only the field for the selected source is shown, <!---->
+filled with the value used last time.</td><!---->
 </tr><!---->
 <tr><td>Render cover...</td><!---->
 <td>—</td><!---->
-<td>Render the cover image of the current chart with sunniesnow-record.</td><!---->
+<td>Render the cover image of the current chart with sunniesnow-record. <!---->
+Nickname, avatar (including WeAvatar), width, and height follow the video dialog.</td><!---->
 </tr><!----><!---->
 <tr><td>Open project folder in file explorer</td><!---->
 <td>—</td><!---->
@@ -784,7 +788,8 @@ widths, the inspection/history split, and channel height are stored in editor pr
 </tr><!---->
 <tr><td>Regular polygon...</td><!---->
 <td>—</td><!---->
-<td>Create a polygon curve.</td><!---->
+<td>Create a polygon curve. Snap points lie on the sides; <!---->
+the center is an extra snap point numbered <code>-1</code>.</td><!---->
 </tr><!---->
 <tr><td>Bézier curve</td><!---->
 <td>Ctrl+B</td><!---->
@@ -794,7 +799,8 @@ the first point shows a preview handle. Status shows the next point's coordinate
 <tr><td>Circular arc</td><!---->
 <td>—</td><!---->
 <td>Draft an arc. Preview handle while placing; <!---->
-status shows SVG path data and the next point.</td><!---->
+status shows SVG path data and the next point. <!---->
+The center is an extra snap point numbered <code>-1</code>.</td><!---->
 </tr><!---->
 <tr><td>Pen</td><!---->
 <td>Ctrl+P</td><!---->
@@ -802,6 +808,14 @@ status shows SVG path data and the next point.</td><!---->
 First-order handles are squares, higher-order handles are circles, with connecting segments. <!---->
 Status shows SVG path data. <!---->
 The parameter form copies the SVG path and can import one from the clipboard.</td><!---->
+</tr><!---->
+<tr><td>Pencil</td><!---->
+<td>Ctrl+Shift+P</td><!---->
+<td>Freehand one stroke into a pen curve (not a new snappee type). <!---->
+Samples come from <code>getCoalescedEvents()</code> and are smoothed with <!---->
+<code>@stroke-stabilizer/core</code>. The start can snap to a snap point; <!---->
+the end can snap to a snap point or to the start of the stroke, which closes the loop. <!---->
+A snapped end adds one extra control point. The pen-curve parameter form opens afterwards.</td><!---->
 </tr><!---->
 <tr><td>Parametric curve...</td><!---->
 <td>—</td><!---->
@@ -1030,7 +1044,9 @@ only a tiny numeric tolerance is used for points that should mathematically lie 
 the boundary. Other in/out-of-bounds checks have no tolerance. <!---->
 For an open Pen or Bézier curve, the segment count is the number of intervals, <!---->
 so three segments have four snap points including both endpoints; <!---->
-a closed curve has one snap point per segment.</p>				<!---->
+a closed curve has one snap point per segment. <!---->
+Events attached to the special center snap point of a regular polygon or circular arc <!---->
+(index <code>-1</code>) stay put when a selection slides along that curve.</p>				<!---->
 <p>Timeline and stage dragging use a three-pixel pointer threshold; <!---->
 the Shift drags (main field) and the timeline's Alt+Shift drag are exceptions and apply to <!---->
 any movement. Hold <kbd>Ctrl+Space</kbd> <!---->
@@ -1289,9 +1305,18 @@ Serialize with JS <code>toJSON</code> or Ruby <code>to_h</code>/<code>to_json</c
 <tr><td><code>Snappee</code></td><!---->
 <td><code>get</code> (0-based number or name), <code>getById</code>/<code>get_by_id</code>, <!---->
 <code>selected</code>, <code>deselect</code>, <code>list</code></td><!---->
-<td>Reorder, read/write name and color, read <code>id</code>, activate/deactivate, <!---->
+<td>Reorder, read/write name and color, read <code>id</code>, <!---->
+<code>activate</code>/<code>deactivate</code>/<code>active</code>/<code>active=</code>, <!---->
 test selection, <code>select</code>, <code>pos(i)</code>/<code>pos(i,j)</code>, <!---->
-<code>duplicate(name,color)</code>, <code>delete</code>, and serialize.</td><!---->
+<code>iRange</code>/<code>i_range</code> and <code>jRange</code>/<code>j_range</code> <!---->
+(JavaScript returns <code>[start, end]</code>, Ruby returns a Range; <!---->
+<code>j</code> is meshes only and neither range includes the special snap point), <!---->
+<code>iExcludeEnd</code>/<code>i_exclude_end?</code>, <code>jExcludeEnd</code>/<code>j_exclude_end?</code>, <!---->
+<code>hasSpecial</code>/<code>has_special?</code>, <!---->
+<code>specialI</code>/<code>special_i</code> (<code>-1</code> or empty), <!---->
+<code>duplicate(name,color)</code>, <code>delete</code>, and serialize. <!---->
+Each subclass also reads and writes its own parameters, such as <code>horizontalTiles</code> <!---->
+or Ruby <code>horizontal_tiles</code>.</td><!---->
 </tr>				<!---->
 </tbody><!---->
 </table>				<!---->

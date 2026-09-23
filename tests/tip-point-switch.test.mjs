@@ -72,7 +72,7 @@ test("incremental note edits keep crossed tip-point tracks without waiting for p
 });
 
 test("writing an identity permutation deletes the switch", () => {
-	const model = ChartModel.createDefault();
+	const model = ChartModel.createDefault({ channels: [{ id: 0 }] });
 	model.addChannel(1);
 	writeTipPointSwitch(model.channels, [2, 0, 1], [1, 0]);
 	assert.equal(hasTipPointSwitches(model), true);
@@ -83,7 +83,7 @@ test("writing an identity permutation deletes the switch", () => {
 });
 
 test("inactive channels contribute no events to a tip point track", () => {
-	const model = ChartModel.createDefault();
+	const model = ChartModel.createDefault({ channels: [{ id: 0 }] });
 	model.addChannel(1);
 	model.addEvent("tap", { time: [0, 0, 1], channel: 0, x: 0, y: 0, tipPointSpawnType: "chain" });
 	model.addEvent("tap", { time: [8, 0, 1], channel: 1, x: 10, y: 0, tipPointSpawnType: "inherit" });

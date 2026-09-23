@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v0170021";
+const CACHE_VERSION = "sviber-v0180000";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -29,6 +29,9 @@ const APP_SHELL = [
 	"./js/app/app-command-bindings.js",
 	"./js/app/app-core.js",
 	"./js/app/app-curve-draft.js",
+	"./js/app/pencil-stroke.js",
+	"./js/render/stage-pencil.js",
+	"./node_modules/@stroke-stabilizer/core/dist/index.js",
 	"./js/app/app-difficulty-state.js",
 	"./js/app/app-dirty-tracking.js",
 	"./js/app/app-document-lifecycle.js",
@@ -54,6 +57,7 @@ const APP_SHELL = [
 	"./js/core/seek-to.js",
 	"./js/core/select-filter.js",
 	"./js/core/spectrogram.js",
+	"./js/core/snappee-index.js",
 	"./js/mcp/mcp-audio-snippet.js",
 	"./js/mcp/mcp-consent.js",
 	"./js/mcp/mcp-editor-handlers.js",

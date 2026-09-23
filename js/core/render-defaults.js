@@ -2,6 +2,8 @@
 
 export const RENDER_DEFAULTS_KEY = "sviber.renderDefaults";
 
+export const RENDER_AVATAR_KINDS = Object.freeze(["online", "upload", "gravatar", "weavatar"]);
+
 export function chartFileNameWithoutExt(filename) {
 	const base = String(filename || "")
 		.replace(/\\/g, "/")
@@ -34,7 +36,7 @@ export function defaultRenderOutputPath({ projectFolder, chartFileName } = {}) {
 // own width/height independently (PROMPT-v26, remembered per item from v0.17.20).
 export function normalizeRenderDefaults(source = {}) {
 	const avatar = String(source.avatar || "online");
-	const kind = ["online", "upload", "gravatar", "weavatar"].includes(avatar) ? avatar : "online";
+	const kind = RENDER_AVATAR_KINDS.includes(avatar) ? avatar : "online";
 	return {
 		nickname: source.nickname == null ? null : String(source.nickname),
 		avatar: kind,

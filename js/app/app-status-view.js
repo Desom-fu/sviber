@@ -233,6 +233,7 @@ export const withStatusView = Base =>
 				["snappee.bezierCurve", "bezierCurve"],
 				["snappee.circularArc", "circularArcCurve"],
 				["snappee.pen", "penCurve"],
+				["snappee.pencil", "pencil"],
 			]) {
 				this.registry.setChecked(id, this.curveDraft?.type === mode);
 			}

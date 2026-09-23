@@ -1,3 +1,5 @@
+import { SPECIAL_SNAP_INDEX } from "../core/geometry.js";
+
 export const INTERNAL = Symbol("sviber macro wrapper");
 export const OMITTED = Symbol("omitted macro argument");
 
@@ -202,7 +204,13 @@ export function evaluateExpression(expression, scope) {
 export function snapPointPosition(raw, point) {
 	const p = Array.isArray(point) ? point : [point];
 	let position;
-	switch (raw?.type) {
+	if (
+		(raw?.type === "regularPolygonCurve" || raw?.type === "circularArcCurve") &&
+		Number(p[0]) === SPECIAL_SNAP_INDEX
+	) {
+		position = { x: Number(raw.centerX ?? 0), y: Number(raw.centerY ?? 0) };
+	} else {
+		switch (raw?.type) {
 		case "rectangularMesh":
 			position = rectangularMeshPosition(raw, p);
 			break;
@@ -214,6 +222,9 @@ export function snapPointPosition(raw, point) {
 			break;
 		case "regularPolygonCurve":
 			position = regularPolygonCurvePosition(raw, p);
+			break;
+		case "circularArcCurve":
+			position = circularArcCurvePosition(raw, p);
 			break;
 		case "bezierCurve":
 			position = bezierCurvePosition(raw, p);
@@ -229,6 +240,7 @@ export function snapPointPosition(raw, point) {
 				x: Number(raw?.centerX ?? raw?.topLeftX ?? 0),
 				y: Number(raw?.centerY ?? raw?.topLeftY ?? 0),
 			};
+		}
 	}
 	return transformPoint(position, raw?.transformation || [1, 0, 0, 1, 0, 0]);
 }
@@ -531,6 +543,32 @@ function regularPolygonCurvePosition(raw, p) {
 	return { x: a.x + (b.x - a.x) * part, y: a.y + (b.y - a.y) * part };
 }
 
+function circularArcCurvePosition(raw, p) {
+	const centerX = Number(raw.centerX ?? 0);
+	const centerY = Number(raw.centerY ?? 0);
+	const radius = Number(raw.radius ?? 50);
+	const beginning = Number(raw.beginningAngle ?? 0);
+	const closed = Boolean(raw.closed);
+	const clockwise = Boolean(raw.clockwise);
+	const segments = Math.max(1, Number(raw.segments ?? 1));
+	let span;
+	if (closed) {
+		span = clockwise ? -Math.PI * 2 : Math.PI * 2;
+	} else {
+		const end = Number(raw.endAngle ?? raw.endingAngle ?? beginning);
+		const normalized = angle => {
+			const result = angle % (Math.PI * 2);
+			return result < 0 ? result + Math.PI * 2 : result;
+		};
+		span = clockwise ? -normalized(beginning - end) : normalized(end - beginning);
+	}
+	const angle = beginning + (span * Number(p[0] ?? 0)) / segments;
+	return {
+		x: centerX + radius * Math.cos(angle),
+		y: centerY + radius * Math.sin(angle),
+	};
+}
+
 function bezierCurvePosition(raw, p) {
 	const points = raw.controlPoints || [];
 	const t = Number(p[0] ?? 0) / Math.max(1, Number(raw.segments ?? 1));
@@ -597,6 +635,9 @@ function collectCurveSnapPoints(raw, points) {
 	const exclusiveEnd = raw.type === "regularPolygonCurve" || Boolean(raw.closed);
 	for (let i = 0; i < count + (exclusiveEnd ? 0 : 1); i += 1) {
 		points.push(i);
+	}
+	if (raw.type === "regularPolygonCurve" || raw.type === "circularArcCurve") {
+		points.push(SPECIAL_SNAP_INDEX);
 	}
 }
 

@@ -117,8 +117,14 @@ export function assignStableIds(items, factory) {
 	});
 }
 
+// A brand-new chart starts with three channels. Callers that already have a channel
+// list (including a one-channel Sunniesnow import) pass that list through unchanged.
+export function defaultNewChartChannels() {
+	return [{ id: 0 }, { id: 1 }, { id: 2 }];
+}
+
 export function normalizeChannels(channels) {
-	const source = Array.isArray(channels) && channels.length ? channels : [{ id: 0 }];
+	const source = Array.isArray(channels) && channels.length ? channels : defaultNewChartChannels();
 	return assignStableIds(source, (channel, id, index) => ({
 		...clone(channel ?? {}),
 		id,

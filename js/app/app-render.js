@@ -18,6 +18,7 @@ import {
 	avatarFieldHidden,
 	defaultRenderOutputPath,
 	loadRenderDefaults,
+	RENDER_AVATAR_KINDS,
 	renderNicknameDefault,
 	saveRenderDefaults,
 } from "../core/render-defaults.js";
@@ -384,7 +385,7 @@ function createOutputFormatSelect(documentRef, extensions, pathname) {
 	return select;
 }
 
-function formFields(app, kind, bundledFfmpeg, suggested) {
+export function formFields(app, kind, bundledFfmpeg, suggested) {
 	const isVideo = kind === "video";
 	const fields = [
 		{
@@ -408,7 +409,7 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 			id: "avatar",
 			type: "select",
 			labelKey: "field.renderAvatar",
-			options: ["online", "upload", "gravatar"].map(value => ({
+			options: RENDER_AVATAR_KINDS.map(value => ({
 				value,
 				label: i18n.t(`field.renderAvatar.${value}`),
 			})),
@@ -442,6 +443,12 @@ function formFields(app, kind, bundledFfmpeg, suggested) {
 			type: "text",
 			labelKey: "field.renderAvatarGravatar",
 			hidden: values => avatarFieldHidden("gravatar", values.avatar),
+		},
+		{
+			id: "avatarWeavatar",
+			type: "text",
+			labelKey: "field.renderAvatarWeavatar",
+			hidden: values => avatarFieldHidden("weavatar", values.avatar),
 		},
 	];
 	// Cover renders skip the video-only controls (FFmpeg bundling, speed, fps, results

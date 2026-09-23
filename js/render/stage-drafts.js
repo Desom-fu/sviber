@@ -189,7 +189,18 @@ export class StageDraftsTrait {
 		if (!draft.points?.length) {
 			return;
 		}
-		const previewPoints = this.curvePreview ? [...draft.points, this.curvePreview] : draft.points;
+		const previewPoints =
+			this.curvePreview && draft.type !== "pencil" ? [...draft.points, this.curvePreview] : draft.points;
+		if (draft.type === "pencil") {
+			context.save();
+			context.strokeStyle = draft.color || "#53baf0";
+			context.lineWidth = 1.5;
+			context.beginPath();
+			appendPolylinePath(context, mapping, draft.points || []);
+			context.stroke();
+			context.restore();
+			return;
+		}
 		context.save();
 		context.strokeStyle = draft.color || "#53baf0";
 		context.fillStyle = "#f6f8f9";
