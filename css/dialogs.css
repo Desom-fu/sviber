@@ -72,6 +72,11 @@
 	margin-bottom: 8px;
 }
 
+/* Author display beats the user-agent [hidden] rule, so a hidden field would stay on screen. */
+.dialog-field[hidden] {
+	display: none;
+}
+
 .dialog-field > label,
 .dialog-field > .field-label {
 	font-weight: 600;
