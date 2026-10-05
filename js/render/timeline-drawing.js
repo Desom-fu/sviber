@@ -25,6 +25,7 @@ import { abLoopMarks } from "./timeline-gestures.js";
 import { visibleTimelineChannels } from "./timeline-helpers.js";
 import { renderSpectrogramGridCached, spectrogramPixels } from "../core/spectrogram.js";
 import { blitSpectrogram, createSpectrogramCanvas } from "./spectrogram-blit.js";
+import { WAVEFORM_BACKGROUND, WaveformViewCache } from "./waveform-blit.js";
 import {
 	bookmarkOverlayTimes,
 	selectedEventOverlayTimes,
@@ -43,7 +44,7 @@ export class TimelineDrawingTrait {
 			this._drawSpectrogram(context, rectangle, editor);
 			return;
 		}
-		context.fillStyle = "#101216";
+		context.fillStyle = WAVEFORM_BACKGROUND;
 		context.fillRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
 		const waveform = this.callbacks.getWaveform?.();
 		if (!waveform) {
@@ -55,20 +56,17 @@ export class TimelineDrawingTrait {
 			context.stroke();
 			return;
 		}
-		const columns = waveform.getColumns(editor.visibleRangeBeginning, editor.visibleRangeEnd, rectangle.width);
-		const middle = rectangle.y + rectangle.height / 2;
-		const amplitude = rectangle.height * 0.43;
-		context.strokeStyle = "#8c9298";
-		context.globalAlpha = 0.9;
-		context.lineWidth = 1;
-		context.beginPath();
-		for (let x = 0; x < columns.length; x += 1) {
-			const peak = columns[x];
-			context.moveTo(x + 0.5, middle - peak.max * amplitude);
-			context.lineTo(x + 0.5, middle - peak.min * amplitude);
-		}
-		context.stroke();
-		context.globalAlpha = 1;
+		// Playback and cursor ticks re-render the timeline every frame. The spectrogram
+		// already keeps its painted grid; the waveform does the same so a stationary
+		// view is one drawImage, and play-follow only samples the entering strip.
+		this._waveformCache ||= new WaveformViewCache();
+		this._waveformCache.blit(
+			context,
+			rectangle,
+			waveform,
+			editor.visibleRangeBeginning,
+			editor.visibleRangeEnd,
+		);
 	}
 
 	_drawSpectrogram(context, rectangle, editor) {

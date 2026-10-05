@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v0180200";
+const CACHE_VERSION = "sviber-v0180300";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -69,6 +69,7 @@ const APP_SHELL = [
 	"./js/mcp/mcp-open-snippet.js",
 	"./js/mcp/mcp-paths.js",
 	"./js/render/spectrogram-blit.js",
+	"./js/render/waveform-blit.js",
 	"./js/app/app-layout.js",
 	"./js/app/app-lyrics-import.js",
 	"./js/app/app-quantization.js",
