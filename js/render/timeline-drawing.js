@@ -58,7 +58,8 @@ export class TimelineDrawingTrait {
 		}
 		// Playback and cursor ticks re-render the timeline every frame. The spectrogram
 		// already keeps its painted grid; the waveform does the same so a stationary
-		// view is one drawImage, and play-follow only samples the entering strip.
+		// view is one drawImage. Play-follow copies whole pixels then blits at the leftover
+		// fractional offset so the waveform stays on the same x as the beat lines.
 		this._waveformCache ||= new WaveformViewCache();
 		this._waveformCache.blit(
 			context,

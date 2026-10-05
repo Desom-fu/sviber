@@ -1,13 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { assertClose } from "./assert-close.mjs";
 
 import { WaveformPeaks } from "../js/audio/waveform.js";
 import { TimelineDrawingTrait } from "../js/render/timeline-drawing.js";
-import { WAVEFORM_STROKE, WaveformViewCache } from "../js/render/waveform-blit.js";
+import {
+	WAVEFORM_CACHE_OVERSCAN,
+	WAVEFORM_STROKE,
+	WaveformViewCache,
+	waveformBlitOffset,
+} from "../js/render/waveform-blit.js";
 
 // Playback re-renders the timeline every clock tick. The waveform cache must blit the
-// same canvas while the view is still, and a play-follow pan must only sample the
-// entering strip instead of rescanning the whole visible range.
+// same canvas while the view is still, sample only the entering strip on a pan, and
+// drawImage at a fractional offset so the waveform walks with the beat lines.
 
 function fakeCanvas(width = 0, height = 0) {
 	const canvas = { width, height };
@@ -22,6 +28,10 @@ function fakeCanvas(width = 0, height = 0) {
 			moveTo() {},
 			lineTo() {},
 			stroke() {},
+			save() {},
+			restore() {},
+			rect() {},
+			clip() {},
 			drawImage() {},
 		};
 		return canvas.context;
@@ -55,69 +65,112 @@ function mockWaveform() {
 	};
 }
 
+function destination() {
+	const drawn = [];
+	return {
+		drawn,
+		context: {
+			save() {},
+			restore() {},
+			beginPath() {},
+			rect() {},
+			clip() {},
+			drawImage(canvas, x, y, width, height) {
+				drawn.push({ canvas, x, y, width, height });
+			},
+		},
+	};
+}
+
 test("the waveform stroke color stays the documented gray", () => {
 	assert.equal(WAVEFORM_STROKE, "#8c9298");
 });
 
 test("the waveform grid is cached until the audio, the view or the size change", () => {
 	const { cache } = cacheWithCanvases();
-	const drawn = [];
-	const context = {
-		drawImage(canvas) {
-			drawn.push(canvas);
-		},
-	};
+	const dest = destination();
 	const rectangle = { x: 0, y: 0, width: 20, height: 8 };
 	const waveform = mockWaveform();
+	const canvasWidth = 20 + WAVEFORM_CACHE_OVERSCAN * 2;
 
-	cache.blit(context, rectangle, waveform, 0, 1);
+	cache.blit(dest.context, rectangle, waveform, 0, 1);
 	const first = cache.canvas;
 	assert.ok(first, "the first draw paints and caches a canvas");
-	assert.equal(drawn.at(-1), first);
+	assert.equal(dest.drawn.at(-1).canvas, first);
 	assert.equal(waveform.calls.length, 1);
-	assert.equal(waveform.calls[0].width, 20);
+	assert.equal(waveform.calls[0].width, canvasWidth);
 
-	cache.blit(context, rectangle, waveform, 0, 1);
-	assert.equal(drawn.at(-1), first, "an unchanged view blits the cached canvas");
+	cache.blit(dest.context, rectangle, waveform, 0, 1);
+	assert.equal(dest.drawn.at(-1).canvas, first, "an unchanged view blits the cached canvas");
 	assert.equal(waveform.calls.length, 1, "an unchanged view does not resample peaks");
 
-	cache.blit(context, rectangle, waveform, 0.05, 1.05);
+	cache.blit(dest.context, rectangle, waveform, 0.05, 1.05);
 	assert.equal(waveform.calls.length, 2, "a one-pixel pan samples only the entering strip");
 	assert.equal(waveform.calls[1].width, 1);
-	assert.equal(drawn.at(-1), cache.canvas);
+	assert.equal(dest.drawn.at(-1).canvas, cache.canvas);
 
-	cache.blit(context, rectangle, waveform, 0.05, 1.05);
+	cache.blit(dest.context, rectangle, waveform, 0.05, 1.05);
 	assert.equal(waveform.calls.length, 2, "the panned view is cached too");
 
 	const other = mockWaveform();
-	cache.blit(context, rectangle, other, 0.05, 1.05);
+	cache.blit(dest.context, rectangle, other, 0.05, 1.05);
 	assert.equal(other.calls.length, 1, "new audio recomputes the whole view");
-	assert.equal(other.calls[0].width, 20);
+	assert.equal(other.calls[0].width, canvasWidth);
 });
 
 test("a zoom or a seek past one screen rebuilds the whole waveform", () => {
 	const { cache } = cacheWithCanvases();
-	const context = { drawImage() {} };
+	const dest = destination();
 	const rectangle = { x: 0, y: 0, width: 20, height: 8 };
 	const waveform = mockWaveform();
-	cache.blit(context, rectangle, waveform, 0, 1);
-	cache.blit(context, rectangle, waveform, 0, 2);
-	assert.equal(waveform.calls.at(-1).width, 20, "a zoom rebuilds");
-	cache.blit(context, rectangle, waveform, 4, 5);
-	assert.equal(waveform.calls.at(-1).width, 20, "a seek past the view rebuilds");
+	const canvasWidth = 20 + WAVEFORM_CACHE_OVERSCAN * 2;
+	cache.blit(dest.context, rectangle, waveform, 0, 1);
+	cache.blit(dest.context, rectangle, waveform, 0, 2);
+	assert.equal(waveform.calls.at(-1).width, canvasWidth, "a zoom rebuilds");
+	cache.blit(dest.context, rectangle, waveform, 4, 5);
+	assert.equal(waveform.calls.at(-1).width, canvasWidth, "a seek past the view rebuilds");
+});
+
+test("play-follow keeps the waveform on the same x as the visible range", () => {
+	const { cache } = cacheWithCanvases();
+	const dest = destination();
+	const rectangle = { x: 0, y: 0, width: 20, height: 8 };
+	const waveform = mockWaveform();
+	cache.blit(dest.context, rectangle, waveform, 0, 1);
+	const samplesBefore = waveform.calls.length;
+	// 0.02s is 0.4px at 20px/s. Ten frames total 4px; the leftover must not be dropped.
+	for (let step = 1; step <= 10; step += 1) {
+		const start = step * 0.02;
+		cache.blit(dest.context, rectangle, waveform, start, start + 1);
+		const offset = waveformBlitOffset(0, start, cache.viewStart, 1, 20);
+		assert.equal(dest.drawn.at(-1).x, offset);
+		assertClose(offset, -WAVEFORM_CACHE_OVERSCAN - (start - cache.viewStart) * 20);
+	}
+	assertClose(cache.viewStart, 0.2);
+	assertClose(dest.drawn.at(-1).x, -WAVEFORM_CACHE_OVERSCAN);
+	assert.ok(waveform.calls.length - samplesBefore <= 4, "only whole entering pixels are sampled");
+});
+
+test("a sub-pixel pan does not resample peaks and still shifts the blit", () => {
+	const { cache } = cacheWithCanvases();
+	const dest = destination();
+	const rectangle = { x: 0, y: 0, width: 20, height: 8 };
+	const waveform = mockWaveform();
+	cache.blit(dest.context, rectangle, waveform, 0, 1);
+	const samples = waveform.calls.length;
+	cache.blit(dest.context, rectangle, waveform, 0.01, 1.01);
+	assert.equal(waveform.calls.length, samples);
+	assert.equal(dest.drawn.at(-1).x, waveformBlitOffset(0, 0.01, 0, 1, 20));
 });
 
 test("timeline waveform paint goes through the view cache", () => {
-	const drawn = [];
+	const dest = destination();
 	const context = {
+		...dest.context,
 		fillRect() {},
-		beginPath() {},
 		moveTo() {},
 		lineTo() {},
 		stroke() {},
-		drawImage(canvas) {
-			drawn.push(canvas);
-		},
 	};
 	const rectangle = { x: 0, y: 0, width: 16, height: 8 };
 	const trait = Object.create(TimelineDrawingTrait.prototype);
@@ -129,9 +182,9 @@ test("timeline waveform paint goes through the view cache", () => {
 	trait._drawWaveform(context, rectangle, editor);
 	const first = trait._waveformCache.canvas;
 	assert.ok(first);
-	assert.equal(drawn.at(-1), first);
+	assert.equal(dest.drawn.at(-1).canvas, first);
 	trait._drawWaveform(context, rectangle, editor);
-	assert.equal(drawn.at(-1), first);
+	assert.equal(dest.drawn.at(-1).canvas, first);
 	assert.equal(waveform.calls.length, 1);
 });
 
