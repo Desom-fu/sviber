@@ -793,6 +793,33 @@ export function sampleSnappee(snappee, options = {}) {
 	});
 }
 
+// Center snap points sit off the curve. The outline is the closed ring (or open arc)
+// plus one spoke from the center to the first vertex.
+export function snappeeOutlineParts(snappee, points) {
+	const samples = Array.isArray(points) ? points : [];
+	if (snappee?.type === "regularPolygonCurve" || snappee?.type === "circularArcCurve") {
+		const curve = [];
+		let center = null;
+		for (const point of samples) {
+			if (isSpecialSnapPoint(point.snapPoint)) {
+				center = point;
+			} else {
+				curve.push(point);
+			}
+		}
+		return {
+			curve,
+			closed: snappee.type === "regularPolygonCurve" || Boolean(snappee.closed),
+			spoke: center && curve.length ? [center, curve[0]] : null,
+		};
+	}
+	return {
+		curve: samples,
+		closed: Boolean(snappee?.closed),
+		spoke: null,
+	};
+}
+
 function sameSnapPoint(left, right) {
 	if (Array.isArray(left) || Array.isArray(right)) {
 		return (

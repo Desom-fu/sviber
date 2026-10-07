@@ -115,7 +115,9 @@ function bindPlaybackStart(app) {
 		app.playbackScheduleInvalidated = false;
 		app._rebuildRenderIndex();
 		app._syncAudioLoop();
-		const time = app.currentSeconds();
+		// Play wraps the audio clock to 0 when the previous run ended at the duration,
+		// while the editor playhead may still sit at the end. Schedule from the clock.
+		const time = Number(app.audio.currentTime);
 		const editor = app.model.editor;
 		app.playFollowOffset = initialPlayFollowOffset(editor, app.audio.direction, time, app.timeBounds());
 		app.lastPlaybackTime = time;

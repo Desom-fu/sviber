@@ -74,6 +74,76 @@ test("starting playback schedules only events at or after the exact start time",
 	assert.match(transport, /excludeHitsBeforePlaybackOrigin\((?:this|app), time\)/);
 	assert.match(transport, /\.audio\.armPlaybackSource\(\)/);
 	assert.match(transport, /collectAppHitSchedules\(/);
+	assert.match(transport, /const time = Number\(app\.audio\.currentTime\)/);
+});
+
+test("replaying after a natural end schedules hits from the wrapped audio clock", () => {
+	const early = { id: 1, type: "tap" };
+	const late = { id: 2, type: "tap" };
+	const hitCalls = [];
+	const effectCalls = [];
+	const app = {
+		playbackScheduleInvalidated: false,
+		playbackOrigin: null,
+		playFollowOffset: null,
+		lastPlaybackTime: 10,
+		renderIndex: {
+			hitRecords: [
+				{ event: early, start: 0.05 },
+				{ event: late, start: 9.5 },
+			],
+			bgNoteHitRecords: [],
+			holdReleaseRecords: [],
+		},
+		audio: {
+			playing: true,
+			direction: 1,
+			rate: 1,
+			currentTime: 0,
+			loopRange: null,
+			armPlaybackSource() {},
+			playHit: (...args) => hitCalls.push(args),
+		},
+		model: {
+			editor: {
+				currentTime: 10,
+				timeSnapped: false,
+				visibleRangeBeginning: 0,
+				visibleRangeEnd: 10,
+				lockVisibleRange: false,
+			},
+			allEvents() {
+				return [];
+			},
+		},
+		stage: { triggerHit: (...args) => effectCalls.push(args), clearHitEffects() {} },
+		scheduledHitIds: new Set(),
+		scheduledBgNoteIds: new Set(),
+		scheduledHoldReleaseIds: new Set(),
+		scheduledMetronomeBeats: new Set(),
+		_rebuildRenderIndex() {},
+		_syncAudioLoop() {},
+		currentSeconds() {
+			return 10;
+		},
+		timeBounds() {
+			return [0, 10];
+		},
+		_syncCheckedCommands() {},
+		_refreshDifficultyUi() {},
+		refreshPlaybackFrame() {},
+		_scheduleHits: SviberAppCore.prototype._scheduleHits,
+	};
+	const listeners = new Map();
+	app.audio.addEventListener = (type, callback) => listeners.set(type, callback);
+	SviberAppCore.prototype._bindAudio.call(app);
+	listeners.get("play")();
+	assert.equal(app.playbackOrigin.scheduleStartTime, 0);
+	assert.equal(hitCalls.length, 1);
+	assert.equal(hitCalls[0][0], "tap");
+	assert.ok(Math.abs(hitCalls[0][1] - 0.05) < 1e-12);
+	assert.equal(effectCalls.length, 1);
+	assert.deepEqual([...app.scheduledHitIds], [1]);
 });
 
 test("playback scheduling never backfills before the playback epoch", () => {

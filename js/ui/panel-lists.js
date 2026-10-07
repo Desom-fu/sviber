@@ -7,7 +7,7 @@
 // itself only keeps its primary toggle. Split out of js/panels.js, which re-exports these
 // classes so existing importers keep working.
 
-import { sampleSnappee } from "../core/geometry.js";
+import { sampleSnappee, snappeeOutlineParts } from "../core/geometry.js";
 import { clearElement, isInteractiveEventTarget, makeExpansionButton, makeInlineActionRow } from "./ui-shared.js";
 
 // The snappee's sampled points, scaled into the preview box. Chart y grows upwards while
@@ -111,8 +111,14 @@ function drawSnappeePreview(canvas, snappee, size) {
 	} else if (snappee.type.endsWith("Mesh")) {
 		meshLines(points, 0, 1).forEach(line => drawLine(line));
 		meshLines(points, 1, 0).forEach(line => drawLine(line));
+	} else if (snappee.type === "regularPolygonCurve" || snappee.type === "circularArcCurve") {
+		const outline = snappeeOutlineParts(snappee, points);
+		drawLine(outline.curve, outline.closed);
+		if (outline.spoke) {
+			drawLine(outline.spoke);
+		}
 	} else {
-		drawLine(points, Boolean(snappee.closed || snappee.type === "regularPolygonCurve"));
+		drawLine(points, Boolean(snappee.closed));
 	}
 	const stride = Math.max(1, Math.ceil(points.length / 80));
 	for (let index = 0; index < points.length; index += stride) {

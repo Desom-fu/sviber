@@ -396,6 +396,28 @@ test("hold release FX scheduling uses the duration without scheduling another so
 	assert.deepEqual(collectHoldReleaseSchedule(events, timing, 2.35, 2, new Set([1])), []);
 });
 
+test("AudioPlayer restarts from the beginning when play is pressed at the song end", async () => {
+	const previousRequest = globalThis.requestAnimationFrame;
+	const previousCancel = globalThis.cancelAnimationFrame;
+	globalThis.requestAnimationFrame = () => 1;
+	globalThis.cancelAnimationFrame = () => {};
+	try {
+		const player = new AudioPlayer();
+		player.context = { currentTime: 40, state: "running", destination: {} };
+		player.gain = {};
+		player.syntheticEnd = 10;
+		player.position = 10;
+		await player.play();
+		assert.equal(player.playing, true);
+		assert.equal(player.startedPosition, 0);
+		assert.equal(player.currentTime, 0);
+		player.pause();
+	} finally {
+		globalThis.requestAnimationFrame = previousRequest;
+		globalThis.cancelAnimationFrame = previousCancel;
+	}
+});
+
 test("AudioPlayer preserves negative pre-roll and schedules the music source at time zero", async () => {
 	const starts = [];
 	const context = {

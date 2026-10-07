@@ -1,4 +1,4 @@
-import { applyTransform, sampleSnappee, sampleSnappeePath } from "../core/geometry.js";
+import { applyTransform, sampleSnappee, sampleSnappeePath, snappeeOutlineParts } from "../core/geometry.js";
 import { isSnappeeVisible } from "./stage-helpers.js";
 
 // Drawing of the snappees: the guide curves and meshes that notes can be attached to.
@@ -55,6 +55,19 @@ function strokePolyline(context, points, mapping, closed, closePath) {
 	}
 	context.stroke();
 	return segments;
+}
+
+function strokeSpoke(context, mapping, spoke, segments) {
+	if (!spoke) {
+		return;
+	}
+	const from = mapping.toScreen(spoke[0]);
+	const to = mapping.toScreen(spoke[1]);
+	context.beginPath();
+	context.moveTo(from.x, from.y);
+	context.lineTo(to.x, to.y);
+	context.stroke();
+	segments.push([from, to]);
 }
 
 export class StageSnappeesTrait {
@@ -125,6 +138,12 @@ export class StageSnappeesTrait {
 			const path = this._snappeePathPoints(snappee, points);
 			return strokePolyline(context, path, mapping, snappee.closed, false);
 		}
+		if (snappee.type === "regularPolygonCurve" || snappee.type === "circularArcCurve") {
+			const outline = snappeeOutlineParts(snappee, points);
+			const segments = strokePolyline(context, outline.curve, mapping, outline.closed, true);
+			strokeSpoke(context, mapping, outline.spoke, segments);
+			return segments;
+		}
 		return strokePolyline(context, points, mapping, snappee.closed, true);
 	}
 
@@ -175,13 +194,14 @@ export class StageSnappeesTrait {
 				shape: "square",
 			}));
 		} else if (snappee.type === "circularArcCurve") {
+			const curve = snappeeOutlineParts(snappee, points).curve;
 			handles = [
 				{
 					...applyTransform({ x: snappee.centerX, y: snappee.centerY }, snappee.transformation),
 					handleIndex: "center",
 				},
-				points[0],
-				points.at(-1),
+				curve[0],
+				curve.at(-1),
 			];
 		} else if (snappee.type === "penCurve") {
 			handles = this._penCurveHandles(snappee);
