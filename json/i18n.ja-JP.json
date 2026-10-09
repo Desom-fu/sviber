@@ -393,6 +393,7 @@
   "error.projectFoldersUnavailable": "プロジェクトフォルダーは、デスクトップアプリでのみ使用できます。",
   "error.projectManifestExists": "選択したフォルダーにはすでにproject.sviberが含まれています。別のフォルダーを選択してください。",
   "error.projectManifestMissing": "選択したフォルダーには、読み取り可能なproject.sviberプロジェクトマニフェストが含まれていません。",
+  "error.projectChartMissing": "プロジェクトのチャートファイル {file} がありません。",
   "error.ffmpegMissing": "FFmpeg が見つからないため、動画をエンコードできません。同梱の FFmpeg を戻すには sviber を入れ直すか、ffmpeg を PATH に追加してください。",
   "error.ffmpegFailed": "FFmpeg が動画をエンコードできませんでした。",
   "error.avatarFileMissing": "レンダリングに必要なローカルファイル（多くはアバター）を読めません。画像を選び直すか、内蔵のデフォルトアバターを使ってください。",

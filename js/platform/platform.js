@@ -382,7 +382,15 @@ export class FileManager {
 		const manifest = normalizeProjectManifest(JSON.parse(await manifestFile.text()));
 		const charts = [];
 		for (const entry of manifest.charts) {
-			const file = await readDirectoryFile(directory, entry.file, "application/json");
+			let file;
+			try {
+				file = await readDirectoryFile(directory, entry.file, "application/json");
+			} catch (error) {
+				if (error?.code === "ENOENT" || error?.name === "NotFoundError") {
+					throw new Error(`Project chart file missing: ${entry.file}`);
+				}
+				throw error;
+			}
 			charts.push({ ...entry, document: JSON.parse(await file.text()) });
 		}
 		this.assetFiles.clear();

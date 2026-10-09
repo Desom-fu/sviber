@@ -528,11 +528,13 @@ export function tipPointVisualState(checkpoints, now) {
 		alpha = Math.max(0, 1 - (now - endTime) / TIP_POINT_ZOOM_DURATION);
 		scale = alpha;
 	}
-	const headTime = Math.min(now, endTime);
+	// Head uses live time so a zero-duration teleport sits on the last checkpoint after T,
+	// matching game-unstable TipPoint.updateTipPoint (i === -1). Trails still stop at endTime.
+	const trailEnd = Math.min(now, endTime);
 	const trailBeginning = Math.max(startTime, now - TIP_POINT_TRAIL_DURATION);
 	return {
-		head: sampleTipPointPath(checkpoints, headTime),
-		trail: tipPointPathBetween(checkpoints, trailBeginning, headTime),
+		head: sampleTipPointPath(checkpoints, now),
+		trail: tipPointPathBetween(checkpoints, trailBeginning, trailEnd),
 		alpha,
 		scale,
 	};

@@ -311,6 +311,28 @@ test("copyAssetIntoProject reuses a file already in the project folder", async (
 	}
 });
 
+test("opening a project names a missing chart file", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "sviber-missing-chart-"));
+	try {
+		await withNwRequire(async () => {
+			await writeFile(
+				path.join(directory, PROJECT_FILENAME),
+				JSON.stringify({
+					charts: [{ id: "master", file: "master.json" }],
+					activeChart: "master",
+				}),
+			);
+			const manager = new FileManager();
+			await assert.rejects(
+				() => manager.openProject({ directoryPath: directory }),
+				/Project chart file missing: master\.json/,
+			);
+		});
+	} finally {
+		await rm(directory, { recursive: true, force: true });
+	}
+});
+
 test("legacy project manifests open first and migrate on save", async () => {
 	const directory = await mkdtemp(path.join(os.tmpdir(), "sviber-legacy-project-"));
 	try {

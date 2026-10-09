@@ -530,6 +530,10 @@ export function localizedErrorMessage(error) {
 	if (/already contains (?:project\.sviber|sviber-project\.json)/i.test(message)) {
 		return i18n.t("error.projectManifestExists");
 	}
+	const missingProjectChart = message.match(/^Project chart file missing: (.+)$/);
+	if (missingProjectChart) {
+		return i18n.t("error.projectChartMissing", { file: missingProjectChart[1] });
+	}
 	if (/project\.sviber|sviber-project\.json|project manifest/i.test(message)) {
 		return i18n.t("error.projectManifestMissing");
 	}

@@ -156,6 +156,20 @@ test("tip point visual state follows spawn, trail, and fade boundaries", () => {
 	assert.equal(tipPointVisualState(shortGuide, 0.25).alpha, 1);
 });
 
+test("a teleport tip point sits on the note after the shared spawn time", () => {
+	const checkpoints = [
+		{ time: 1, x: 0, y: 100 },
+		{ time: 1, x: 0, y: 0 },
+	];
+	const atSpawn = tipPointVisualState(checkpoints, 1);
+	assert.deepEqual({ x: atSpawn.head.x, y: atSpawn.head.y }, { x: 0, y: 100 });
+	assert.equal(atSpawn.head.angle, -Math.PI / 2);
+	const duringZoom = tipPointVisualState(checkpoints, 1.15);
+	assert.deepEqual({ x: duringZoom.head.x, y: duringZoom.head.y }, { x: 0, y: 0 });
+	assert.equal(duringZoom.head.angle, -Math.PI / 2);
+	assert.ok(duringZoom.scale > 0);
+});
+
 test("tip point trail preserves game-unstable corner winding", () => {
 	const edges = tipPointTrailEdges(
 		[

@@ -393,6 +393,7 @@
   "error.projectFoldersUnavailable": "工程文件夾僅在桌面版中可用。",
   "error.projectManifestExists": "所選文件夾已包含 project.sviber，請選擇其他文件夾。",
   "error.projectManifestMissing": "所選文件夾中沒有可讀取的 project.sviber 工程清單。",
+  "error.projectChartMissing": "工程中的譜面檔案 {file} 不存在。",
   "error.ffmpegMissing": "找不到 FFmpeg，無法編碼影片。請重新安裝 sviber 以恢復內建 FFmpeg，或把 ffmpeg 加入系統 PATH。",
   "error.ffmpegFailed": "FFmpeg 無法完成影片編碼。",
   "error.avatarFileMissing": "渲染要用的本機檔案讀不到（通常是頭像）。請重新選擇圖片，或改用內建預設頭像。",

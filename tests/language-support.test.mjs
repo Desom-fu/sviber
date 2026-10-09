@@ -65,6 +65,14 @@ test("project manifest filenames are localized in errors", () => {
 		i18n.setLanguage("zh-TW", null);
 		assert.match(localizedErrorMessage(new Error("The selected folder already contains project.sviber.")), /project\.sviber/);
 		assert.match(localizedErrorMessage(new Error("The directory does not contain a Sviber project manifest.")), /project\.sviber/);
+		assert.match(
+			localizedErrorMessage(new Error("Project chart file missing: master.json")),
+			/master\.json/,
+		);
+		assert.doesNotMatch(
+			localizedErrorMessage(new Error("Project chart file missing: master.json")),
+			/操作失敗|project\.sviber/,
+		);
 		const ffmpeg = localizedErrorMessage(new Error(
 			"FFmpeg 视频编码失败: spawn ffmpeg ENOENT. FFmpeg video encoding failed: spawn ffmpeg ENOENT.",
 		));
