@@ -110,6 +110,23 @@ function bindPlaybackClock(app) {
 	});
 }
 
+// Home left-aligns the visible range onto the playhead when the playhead is outside it.
+// Natural-end replay wraps the audio clock to 0 while the range is still at the end, so
+// the same jump is needed or follow never arms.
+function bringVisibleRangeToPlayhead(app, time) {
+	const editor = app.model.editor;
+	if (editor.lockVisibleRange || !Number.isFinite(time)) {
+		return;
+	}
+	if (time >= editor.visibleRangeBeginning && time <= editor.visibleRangeEnd) {
+		return;
+	}
+	const span = editor.visibleRangeEnd - editor.visibleRangeBeginning;
+	app.setVisibleRange(time, time + span);
+	editor.timeSnapped = false;
+	editor.currentTime = time;
+}
+
 function bindPlaybackStart(app) {
 	app.audio.addEventListener("play", () => {
 		app.playbackScheduleInvalidated = false;
@@ -119,6 +136,7 @@ function bindPlaybackStart(app) {
 		// while the editor playhead may still sit at the end. Schedule from the clock.
 		const time = Number(app.audio.currentTime);
 		const editor = app.model.editor;
+		bringVisibleRangeToPlayhead(app, time);
 		app.playFollowOffset = initialPlayFollowOffset(editor, app.audio.direction, time, app.timeBounds());
 		app.lastPlaybackTime = time;
 		app.playbackOrigin ||= {

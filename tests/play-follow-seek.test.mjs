@@ -191,6 +191,116 @@ test("play arms follow anchored to the strict chart bound when the range starts 
 	assert.equal(app.playbackOrigin.time, 2);
 });
 
+test("replaying after a natural end jumps the visible range like Home", () => {
+	const app = {
+		stage: { cancelScheduledHits() {}, clearHitEffects() {} },
+		model: {
+			editor: {
+				lockVisibleRange: false,
+				visibleRangeBeginning: 90,
+				visibleRangeEnd: 100,
+				currentTime: 100,
+				timeSnapped: true,
+			},
+		},
+		audio: {
+			playing: true,
+			direction: 1,
+			currentTime: 0,
+			rate: 1,
+			armPlaybackSource() {},
+		},
+		playbackOrigin: null,
+		playFollowOffset: null,
+		lastPlaybackTime: 100,
+		scheduledHitIds: new Set(),
+		scheduledBgNoteIds: new Set(),
+		scheduledHoldReleaseIds: new Set(),
+		scheduledMetronomeBeats: new Set(),
+		renderIndex: { hitRecords: [], bgNoteHitRecords: [], holdReleaseRecords: [] },
+		_rebuildRenderIndex() {},
+		_syncAudioLoop() {},
+		currentSeconds() {
+			return 100;
+		},
+		_scheduleHits() {},
+		_syncCheckedCommands() {},
+		_refreshDifficultyUi() {},
+		refreshPlaybackFrame() {},
+		timeBounds() {
+			return [0, 100];
+		},
+		setVisibleRange(beginning, end) {
+			this.model.editor.visibleRangeBeginning = beginning;
+			this.model.editor.visibleRangeEnd = end;
+		},
+	};
+
+	const listeners = bindAudioListeners(app);
+	listeners.get("play")();
+	assert.equal(app.model.editor.visibleRangeBeginning, 0);
+	assert.equal(app.model.editor.visibleRangeEnd, 10);
+	assert.equal(app.model.editor.currentTime, 0);
+	assert.equal(app.playFollowOffset, null);
+
+	listeners.get("timeupdate")({ detail: 5 });
+	assert.deepEqual(app.playFollowOffset, { direction: 1, value: 5 });
+	listeners.get("timeupdate")({ detail: 6 });
+	assert.equal(app.model.editor.visibleRangeBeginning, 1);
+	assert.equal(app.model.editor.visibleRangeEnd, 11);
+});
+
+test("replaying after a natural end keeps a locked visible range in place", () => {
+	const app = {
+		stage: { cancelScheduledHits() {}, clearHitEffects() {} },
+		model: {
+			editor: {
+				lockVisibleRange: true,
+				visibleRangeBeginning: 90,
+				visibleRangeEnd: 100,
+				currentTime: 100,
+				timeSnapped: true,
+			},
+		},
+		audio: {
+			playing: true,
+			direction: 1,
+			currentTime: 0,
+			rate: 1,
+			armPlaybackSource() {},
+		},
+		playbackOrigin: null,
+		playFollowOffset: null,
+		lastPlaybackTime: 100,
+		scheduledHitIds: new Set(),
+		scheduledBgNoteIds: new Set(),
+		scheduledHoldReleaseIds: new Set(),
+		scheduledMetronomeBeats: new Set(),
+		renderIndex: { hitRecords: [], bgNoteHitRecords: [], holdReleaseRecords: [] },
+		_rebuildRenderIndex() {},
+		_syncAudioLoop() {},
+		currentSeconds() {
+			return 100;
+		},
+		_scheduleHits() {},
+		_syncCheckedCommands() {},
+		_refreshDifficultyUi() {},
+		refreshPlaybackFrame() {},
+		timeBounds() {
+			return [0, 100];
+		},
+		setVisibleRange() {
+			assert.fail("locked visible range must not jump");
+		},
+	};
+
+	const listeners = bindAudioListeners(app);
+	listeners.get("play")();
+	assert.equal(app.model.editor.visibleRangeBeginning, 90);
+	assert.equal(app.model.editor.visibleRangeEnd, 100);
+	assert.equal(app.playFollowOffset, false);
+});
+
 test("A-B loop reschedules note SE from the wrap time instead of the original epoch", () => {
 	const hitCalls = [];
 	const app = {
