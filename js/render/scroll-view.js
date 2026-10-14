@@ -73,6 +73,45 @@ function boxSelectionMode(event) {
 	return event.ctrlKey ? "add" : "replace";
 }
 
+// Screen-space box pick for the falling preview. Hidden background events (bg notes
+// and patterns) stay out, matching #drawEvents / timeline _boxSelectCenters.
+export function scrollEventsInBox(records, box, options = {}) {
+	const hideBackground = options.hideBackground === true;
+	const toScreen = options.toScreen;
+	const positionOf = options.positionOf;
+	const selectionId = options.selectionId;
+	const minX = Math.min(box.x1, box.x2);
+	const maxX = Math.max(box.x1, box.x2);
+	const minY = Math.min(box.y1, box.y2);
+	const maxY = Math.max(box.y1, box.y2);
+	const ids = [];
+	const seen = new Set();
+	for (const record of records || []) {
+		const event = record?.event;
+		if (!event) {
+			continue;
+		}
+		if (hideBackground && isBackgroundEvent(event)) {
+			continue;
+		}
+		const position = record.position || positionOf?.(event);
+		if (!position) {
+			continue;
+		}
+		const center = toScreen(position.x, record.start);
+		if (center.x < minX || center.x > maxX || center.y < minY || center.y > maxY) {
+			continue;
+		}
+		const id = selectionId?.(event) ?? event.id;
+		if (seen.has(id)) {
+			continue;
+		}
+		seen.add(id);
+		ids.push(id);
+	}
+	return ids;
+}
+
 export class ScrollView {
 	constructor(host, callbacks = {}) {
 		this.host = host;
@@ -483,20 +522,14 @@ export class ScrollView {
 		const mapping = this.#mapping(this.surface.width, this.surface.height);
 		const beginning = mapping.fromScreen(0, Math.max(y1, y2)).time;
 		const ending = mapping.fromScreen(0, Math.min(y1, y2)).time;
+		const hideBackground = projectState(this.state)?.editor?.showBgEventsInTimeline === false;
 		const records = this.renderIndex?.scrollEventRecords(beginning, ending) || [];
-		return records
-			.filter(record => {
-				const position = record.position || this.#position(record.event);
-				const center = mapping.toScreen(position.x, record.start);
-				return (
-					center.x >= Math.min(x1, x2) &&
-					center.x <= Math.max(x1, x2) &&
-					center.y >= Math.min(y1, y2) &&
-					center.y <= Math.max(y1, y2)
-				);
-			})
-			.map(record => this.renderIndex?.selectionTarget(record.event)?.id || record.event.id)
-			.filter((id, index, ids) => ids.indexOf(id) === index);
+		return scrollEventsInBox(records, { x1, y1, x2, y2 }, {
+			hideBackground,
+			toScreen: mapping.toScreen,
+			positionOf: event => this.#position(event),
+			selectionId: event => this.renderIndex?.selectionTarget(event)?.id || event.id,
+		});
 	}
 
 	#draw(context, width, height) {
