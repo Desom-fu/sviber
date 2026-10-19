@@ -667,9 +667,8 @@ export function drawTipPointTrail(context, points, width, scale = 1, alpha = 1, 
 	for (let index = 1; index < edges.length; index += 1) {
 		const beginning = edges[index - 1];
 		const ending = edges[index];
-		if (!(ending.time > beginning.time)) {
-			continue;
-		}
+		// Equal-time checkpoints are teleports: Sunniesnow's mesh still connects
+		// their positions, with constant opacity across that segment.
 		const beginningOpacity = opacityAt(beginning);
 		const endingOpacity = opacityAt(ending);
 		const gradient = context.createLinearGradient?.(beginning.x, beginning.y, ending.x, ending.y);
