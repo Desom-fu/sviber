@@ -880,6 +880,8 @@
   "check.requiredFingers.hint": "チャートは、指定された数の指で正規に再生可能でなければなりません。ホールドは、終了するまで独自の指をビジー状態に保ちます。",
   "check.requiredFingers.fingers": "指の数",
   "check.requiredFingers.fingers.hint": "チャートに同時に必要な指の数。",
+  "check.requiredFingers.ignoreDrag": "ドラッグを無視",
+  "check.requiredFingers.ignoreDrag.hint": "有効にすると、ドラッグは必要指の数に数えません。",
   "check.outOfBoundaryNotes": "境界外メモ",
   "check.outOfBoundaryNotes.hint": "Tap、Hold、Drag、Flick および任意で背景ノートは譜面境界内になければなりません。",
   "check.outOfBoundaryBgNotes": "境界外の背景メモ",

@@ -10,7 +10,10 @@ export const CHECK_DEFINITIONS = Object.freeze([
 	Object.freeze({
 		id: "requiredFingers",
 		target: "event",
-		parameters: Object.freeze([Object.freeze({ id: "fingers", type: "integer", default: 2, min: 1 })]),
+		parameters: Object.freeze([
+			Object.freeze({ id: "fingers", type: "integer", default: 2, min: 1 }),
+			Object.freeze({ id: "ignoreDrag", type: "checkbox", default: false }),
+		]),
 	}),
 	Object.freeze({
 		id: "outOfBoundaryNotes",

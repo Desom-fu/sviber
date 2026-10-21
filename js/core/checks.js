@@ -146,7 +146,10 @@ function checkRequiredFingers(context, violations) {
 			}
 		}
 		const downs = simultaneous.filter(record => FINGER_DOWN_TYPES.has(record.event.type));
-		const drags = simultaneous.filter(record => record.event.type === "drag");
+		let drags = [];
+		if (!context.settings.requiredFingers.ignoreDrag) {
+			drags = simultaneous.filter(record => record.event.type === "drag");
+		}
 		let used = heldUntil.length;
 		let movableHolds = heldUntil.length;
 		const covered = new Set();

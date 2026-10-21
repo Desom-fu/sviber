@@ -880,6 +880,8 @@
   "check.requiredFingers.hint": "谱面必须能用给定数量的手指以标准方式演奏；Hold 会占用自己的手指直到结束。",
   "check.requiredFingers.fingers": "手指数量",
   "check.requiredFingers.fingers.hint": "谱面同时最多可以需要多少根手指。",
+  "check.requiredFingers.ignoreDrag": "忽略 Drag",
+  "check.requiredFingers.ignoreDrag.hint": "勾选后不把 Drag 计入所需手指数。",
   "check.outOfBoundaryNotes": "音符超出边界",
   "check.outOfBoundaryNotes.hint": "Tap、Hold、Drag、Flick 以及可选的背景音符必须落在谱面边界内。",
   "check.outOfBoundaryBgNotes": "背景音符超出边界",

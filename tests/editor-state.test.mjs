@@ -85,12 +85,14 @@ test("the sviber document carries clips and checks with their parameters", () =>
 	model.addClip({ events: [], channels: [], snappees: [] }, "Intro fill");
 	model.checks.shortHold.seconds = 0.25;
 	model.checks.requiredFingers.fingers = 3;
+	model.checks.requiredFingers.ignoreDrag = true;
 	model.checks.multiCharacterCjk.enabled = false;
 	const document = model.serializeSviber();
 	assert.ok(Array.isArray(document.clips));
 	assert.equal(document.clips[0].name, "Intro fill");
 	assert.equal(document.checks.shortHold.seconds, 0.25);
 	assert.equal(document.checks.requiredFingers.fingers, 3);
+	assert.equal(document.checks.requiredFingers.ignoreDrag, true);
 	assert.equal(document.checks.multiCharacterCjk.enabled, false);
 	// Every documented check id must be present so the checks dialog never has a missing row.
 	for (const id of CHECK_IDS) {
@@ -100,5 +102,6 @@ test("the sviber document carries clips and checks with their parameters", () =>
 	assert.equal(restored.clips.length, 1);
 	assert.equal(restored.checks.shortHold.seconds, 0.25);
 	assert.equal(restored.checks.requiredFingers.fingers, 3);
+	assert.equal(restored.checks.requiredFingers.ignoreDrag, true);
 	assert.equal(restored.checks.multiCharacterCjk.enabled, false);
 });

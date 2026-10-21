@@ -269,7 +269,7 @@ test("the manual documents the v18 A-B drag, volume ceiling, and saved clips and
 	assert.match(manual, /SE volume and music volume both default to 1 and use a range slider from 0 to 2/);
 	assert.match(manual, /音效音量和音乐音量都使用 0 到 2 的滑块/);
 	assert.match(manual, /snappees, events, <code>clips<\/code>, <code>checks<\/code>, editor state/);
-	assert.match(manual, /<code>fingers<\/code> for <code>requiredFingers<\/code>/);
+	assert.match(manual, /<code>fingers<\/code> and <code>ignoreDrag<\/code> for <code>requiredFingers<\/code>/);
 	assert.doesNotMatch(manual, /music volume defaults to 1 and uses a range slider from 0 to 1/);
 	assert.doesNotMatch(manual, /clears A-B marks and creates marks at mouse down and mouse up/);
 });

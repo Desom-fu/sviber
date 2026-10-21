@@ -9,6 +9,7 @@ import {
 	CHECK_IDS,
 	createChecksSteps,
 	defaultChecks,
+	normalizeChecks,
 	runChecks,
 	sortViolations,
 } from "../js/core/checks.js";
@@ -81,6 +82,7 @@ test("all chart checks exist and are enabled by default", () => {
 		assert.equal(defaults[id].enabled, true, id);
 	}
 	assert.equal(defaults.requiredFingers.fingers, 2);
+	assert.equal(defaults.requiredFingers.ignoreDrag, false);
 	assert.equal(defaults.shortHold.seconds, 0.1);
 	assert.equal(defaults.shortBgPattern.seconds, 0.1);
 	assert.equal(defaults.shortTipPoint.seconds, 0.3);
@@ -214,6 +216,32 @@ test("requiredFingers treats a same-position tap+drag as one finger", () => {
 	addNote(split, "drag", 1, 20, 0);
 	assert.ok(violationsFor(split, "requiredFingers", { fingers: 1 }).length > 0);
 	assert.equal(violationsFor(split, "requiredFingers").length, 0);
+});
+
+test("requiredFingers ignoreDrag skips drag occupancy and still counts taps", () => {
+	const split = validChart();
+	addNote(split, "tap", 1, 0, 0);
+	addNote(split, "drag", 1, 20, 0);
+	assert.ok(violationsFor(split, "requiredFingers", { fingers: 1 }).length > 0);
+	assert.equal(violationsFor(split, "requiredFingers", { fingers: 1, ignoreDrag: true }).length, 0);
+
+	const drags = validChart();
+	addNote(drags, "drag", 1, 0, 0);
+	addNote(drags, "drag", 1, 20, 0);
+	assert.ok(violationsFor(drags, "requiredFingers", { fingers: 1 }).length > 0);
+	assert.equal(violationsFor(drags, "requiredFingers", { fingers: 1, ignoreDrag: true }).length, 0);
+
+	const taps = validChart();
+	addNote(taps, "tap", 1, 0, 0);
+	addNote(taps, "tap", 1, 20, 0);
+	assert.ok(violationsFor(taps, "requiredFingers", { fingers: 1, ignoreDrag: true }).length > 0);
+
+	assert.equal(normalizeChecks({ requiredFingers: { enabled: true, fingers: 2 } }).requiredFingers.ignoreDrag, false);
+	assert.equal(
+		normalizeChecks({ requiredFingers: { enabled: true, fingers: 2, ignoreDrag: true } }).requiredFingers
+			.ignoreDrag,
+		true,
+	);
 });
 
 test("notes on deactivated channels are ignored by note checks", () => {
@@ -426,7 +454,7 @@ test("left-column checks list cannot cover the scroll view canvas", async () => 
 test("each check carries exactly the extra parameters it documents", () => {
 	const parameters = new Map(CHECK_DEFINITIONS.map(definition =>
 		[definition.id, definition.parameters.map(parameter => parameter.id)]));
-	assert.deepEqual(parameters.get("requiredFingers"), ["fingers"]);
+	assert.deepEqual(parameters.get("requiredFingers"), ["fingers", "ignoreDrag"]);
 	assert.deepEqual(parameters.get("outOfBoundaryNotes"), ["bgNotes"]);
 	assert.deepEqual(parameters.get("shortHold"), ["seconds"]);
 	assert.deepEqual(parameters.get("shortBgPattern"), ["seconds"]);

@@ -880,6 +880,8 @@
   "check.requiredFingers.hint": "The chart must be playable canonically with the given number of fingers; a hold keeps its own finger busy until it ends.",
   "check.requiredFingers.fingers": "Number of fingers",
   "check.requiredFingers.fingers.hint": "How many fingers the chart may require at the same time.",
+  "check.requiredFingers.ignoreDrag": "Ignore drag",
+  "check.requiredFingers.ignoreDrag.hint": "When enabled, drag notes do not count toward the finger limit.",
   "check.outOfBoundaryNotes": "Out-of-boundary notes",
   "check.outOfBoundaryNotes.hint": "Taps, holds, drags, flicks and optionally bg notes must stay inside the chart boundary.",
   "check.outOfBoundaryBgNotes": "Out-of-boundary bg notes",
