@@ -117,9 +117,86 @@ async function checkSnappeePanelScrollRetention(page) {
 	assert.equal(snappeeScroll, 64, "Snappees panel rerender reset its scroll position");
 }
 
+export async function checkHistoryTrim(page) {
+	const result = await page.evaluate(async () => {
+		const [{ History }, { HistoryPanel }, { I18n }] = await Promise.all([
+			import("./js/core/history.js"),
+			import("./js/ui/panel-history.js"),
+			import("./js/ui/i18n.js"),
+		]);
+		let history = new History(0);
+		for (let value = 1; value < history.limit; value++) {
+			history.record(value, "Create Tap");
+		}
+		history.goTo(2);
+		history.markCurrent("save");
+		history.goTo(history.length - 1);
+		const element = document.createElement("div");
+		const i18n = new I18n("en-US");
+		let jumpedTo;
+		const panel = new HistoryPanel({ element, i18n, onGoTo: index => (jumpedTo = history.goTo(index)) });
+		panel.sync(history);
+		const original = new Set(element.children);
+		const savedRow = element.children[2];
+		const savedIcon = savedRow.querySelector(".history-marker");
+
+		history.record(1000, "Change selection");
+		panel.sync(history);
+		const retainedRows = [...element.children].filter(button => original.has(button)).length;
+		const markerRetained = savedRow.querySelector(".history-marker") === savedIcon;
+		savedRow.click();
+		panel.sync(history);
+		const navigation = {
+			value: jumpedTo,
+			current: savedRow.classList.contains("is-current"),
+			future: savedRow.nextElementSibling.classList.contains("is-future"),
+		};
+
+		history.markCurrent("autosave");
+		history.record(1001, "Change selection");
+		i18n.setLanguage("zh-CN", null);
+		panel.sync(history, { readOnly: true });
+		const branch = {
+			rows: element.children.length,
+			retained: savedRow === element.children[1],
+			label: savedRow.querySelector(".history-label").textContent,
+			markers: [...savedRow.querySelectorAll(".history-marker")].map(icon => icon.alt),
+			disabled: savedRow.disabled,
+			lastLabel: element.lastElementChild.querySelector(".history-label").textContent,
+		};
+
+		history = new History(-1, { initialLabel: "Other chart" });
+		history.record(-2, "Other edit");
+		panel.sync(history);
+		element.lastElementChild.click();
+		return {
+			retainedRows,
+			markerRetained,
+			navigation,
+			branch,
+			otherChart: [element.firstElementChild.querySelector(".history-label").textContent, jumpedTo],
+		};
+	});
+	assert.deepEqual(result, {
+		retainedRows: 999,
+		markerRetained: true,
+		navigation: { value: 2, current: true, future: true },
+		branch: {
+			rows: 3,
+			retained: true,
+			label: "创建 Tap",
+			markers: ["手动保存", "自动保存"],
+			disabled: true,
+			lastLabel: "更改选择",
+		},
+		otherChart: ["Other chart", -2],
+	});
+}
+
 export async function runRegressionChecks(page) {
 	await checkToolbarSeparator(page);
 	await checkTipPointInspectorRows(page);
 	await checkChannelDropdownLabels(page);
 	await checkSnappeePanelScrollRetention(page);
+	await checkHistoryTrim(page);
 }

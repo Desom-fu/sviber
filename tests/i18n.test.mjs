@@ -30,6 +30,8 @@ test("history labels are translated again after the interface language changes",
 	translations.setLanguage("zh-CN", null);
 	assert.equal(translations.localize(english), "创建 Tap");
 	assert.equal(translations.localize("Ungroup events"), "解组事件");
+	assert.equal(translations.localize("ホルドを作成"), "创建 Hold");
+	assert.equal(translations.localize("Chart-specific edit {name}"), "Chart-specific edit {name}");
 });
 
 test("Chinese calls Lyrica 阳春白雪", async () => {

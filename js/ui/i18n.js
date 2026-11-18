@@ -42,19 +42,37 @@ function escapeRegExp(value) {
 	return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function matchTemplate(template, message) {
-	const keys = [];
-	let pattern = "^";
-	let position = 0;
-	for (const match of String(template).matchAll(/\{([\w.-]+)\}/g)) {
-		pattern += `${escapeRegExp(String(template).slice(position, match.index))}(.*?)`;
-		keys.push(match[1]);
-		position = match.index + match[0].length;
+function buildLocalizationIndex() {
+	const literals = new Map();
+	const patterns = [];
+	for (const sheet of Object.values(MESSAGES)) {
+		const entries = Object.entries(sheet);
+		const eventKeys = new Map();
+		for (const [key, template] of entries) {
+			if (key.startsWith("event.") && !eventKeys.has(template)) {
+				eventKeys.set(template, key);
+			}
+			const keys = [];
+			let pattern = "^";
+			let position = 0;
+			for (const match of template.matchAll(/\{([\w.-]+)\}/g)) {
+				pattern += `${escapeRegExp(template.slice(position, match.index))}(.*?)`;
+				keys.push(match[1]);
+				position = match.index + match[0].length;
+			}
+			if (keys.length) {
+				const regexp = new RegExp(`${pattern}${escapeRegExp(template.slice(position))}$`);
+				patterns.push({ key, keys, regexp, eventKeys });
+			} else if (!literals.has(template)) {
+				// Preserve the original first match, including templates before this literal.
+				literals.set(template, { key, earlierPatterns: patterns.length });
+			}
+		}
 	}
-	pattern += `${escapeRegExp(String(template).slice(position))}$`;
-	const values = new RegExp(pattern).exec(String(message));
-	return values ? Object.fromEntries(keys.map((key, index) => [key, values[index + 1]])) : null;
+	return { literals, patterns };
 }
+
+let localizationIndex;
 
 function translatedNodes(root, selector) {
 	const result = [];
@@ -80,24 +98,27 @@ export class I18n {
 	}
 
 	localize(message) {
-		for (const sheet of Object.values(MESSAGES)) {
-			for (const [key, template] of Object.entries(sheet)) {
-				const params = matchTemplate(template, message);
-				if (!params) {
-					continue;
-				}
-				for (const [name, value] of Object.entries(params)) {
-					const localizedKey = Object.entries(sheet).find(
-						([candidate, text]) => candidate.startsWith("event.") && text === value,
-					)?.[0];
-					if (localizedKey) {
-						params[name] = this.t(localizedKey);
-					}
-				}
-				return this.t(key, params);
+		localizationIndex ??= buildLocalizationIndex();
+		const { literals, patterns } = localizationIndex;
+		const text = String(message ?? "");
+		const literal = literals.get(text);
+		const limit = literal?.earlierPatterns ?? patterns.length;
+		for (let index = 0; index < limit; index += 1) {
+			const { key, keys, regexp, eventKeys } = patterns[index];
+			const values = regexp.exec(text);
+			if (!values) {
+				continue;
 			}
+			const params = Object.fromEntries(keys.map((name, index) => [name, values[index + 1]]));
+			for (const [name, value] of Object.entries(params)) {
+				const eventKey = eventKeys.get(value);
+				if (eventKey) {
+					params[name] = this.t(eventKey);
+				}
+			}
+			return this.t(key, params);
 		}
-		return String(message ?? "");
+		return literal ? this.t(literal.key) : text;
 	}
 
 	shortcut(shortcut) {
