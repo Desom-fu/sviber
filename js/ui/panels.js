@@ -103,6 +103,9 @@ export class InspectorPanel {
 		if (control?.dataset?.hidden === "true") {
 			row.hidden = true;
 		}
+		if (control.matches("select")) {
+			control.dataset.inspectorField = labelKey;
+		}
 		const label = document.createElement("label");
 		label.textContent = this.i18n.t(labelKey);
 		row.append(label, control);
@@ -562,6 +565,8 @@ export class InspectorPanel {
 				this._flushing = false;
 			}
 		}
+		const focused = this.element.ownerDocument.activeElement;
+		const focusedField = focused && this.element.contains(focused) ? focused.dataset.inspectorField : null;
 		this.cleanup.forEach(dispose => dispose?.());
 		this.cleanup = [];
 		clearElement(this.element);
@@ -624,5 +629,12 @@ export class InspectorPanel {
 		}
 		this.element.append(group);
 		rememberInitialValues(this.element);
+		if (focusedField) {
+			// A native select change commits immediately and replaces the old control.
+			const select = group.querySelector(`select[data-inspector-field="${focusedField}"]:enabled`);
+			if (select && !select.closest("[hidden]")) {
+				select.focus({ preventScroll: true });
+			}
+		}
 	}
 }

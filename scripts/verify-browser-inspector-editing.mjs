@@ -2,6 +2,7 @@
 // mode, numeric fields accept expressions and undo cleanly, and a batch type change carries the
 // edited duration into the next note created with the tool.
 import assert from "node:assert/strict";
+import { settleFrames } from "./verify-browser-interaction-fixtures.mjs";
 
 async function checkTipPointInspectorFields(page) {
 	await page.waitForFunction(() =>
@@ -48,6 +49,23 @@ async function checkTipPointInspectorFields(page) {
 	await page.waitForFunction(
 		() => !document.querySelector('#inspector-panel label[title="生成距离"] + input')?.disabled,
 	);
+}
+
+export async function checkInspectorDropdownFocus(page) {
+	const mode = page.locator('#inspector-panel label[title="生成类型"] + select');
+	const isFocused = select => select === document.activeElement;
+	await mode.focus();
+	for (const [key, value] of [["ArrowUp", "inherit"], ["ArrowDown", "chain"]]) {
+		await page.keyboard.press(key);
+		await settleFrames(page);
+		const spawnType = await page.evaluate(() =>
+			globalThis.sviber.model.events.find(event => event.selected)?.tipPointSpawnType,
+		);
+		assert.equal(spawnType, value);
+		assert.equal(await mode.evaluate(isFocused), true, `Focus lost after ${key}`);
+	}
+	await page.keyboard.press("Tab");
+	assert.equal(await mode.evaluate(isFocused), false, "Tab must leave the dropdown");
 }
 
 async function checkExpressionInputsAndUndo(page) {
@@ -124,6 +142,7 @@ async function checkBatchTypeAndDuration(page) {
 
 export async function runInspectorEditingChecks(page) {
 	await checkTipPointInspectorFields(page);
+	await checkInspectorDropdownFocus(page);
 	await checkExpressionInputsAndUndo(page);
 	await checkBatchTypeAndDuration(page);
 }

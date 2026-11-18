@@ -94,6 +94,7 @@ test("the rebind wraps the original wiring, not the previous wrapper", async () 
 function fakeElement(tagName) {
 	return {
 		tagName,
+		ownerDocument: globalThis.document,
 		children: [],
 		className: "",
 		textContent: "",
