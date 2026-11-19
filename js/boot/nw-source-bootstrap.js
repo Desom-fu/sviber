@@ -16,7 +16,8 @@
 	globalThis.sviberSourcePreparation = (async () => {
 		const path = nw.require("node:path");
 		const fs = nw.require("node:fs");
-		const root = nw.App.startPath || globalThis.process.cwd();
+		// startPath is the caller's directory; NW.js sets cwd to the application root.
+		const root = globalThis.process.cwd();
 		const fontCache = path.join(root, "node_modules", ".cache", "sviber", "fonts");
 		const fontDestination = path.join(root, "assets", "fonts");
 		const fontNames = [

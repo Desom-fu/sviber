@@ -4,6 +4,8 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import vm from "node:vm";
+import { createRequire } from "node:module";
 import JSZip from "jszip";
 import { createNodeCliIo } from "../js/cli/cli-node-io.js";
 import { runCli } from "../js/cli/cli-operations.js";
@@ -50,6 +52,27 @@ test("NW.js node-main does not dynamic-import CLI modules on GUI launch", async 
 	assert.match(source, /require\(path\.join\(directory, "cli\.js"\)\)/);
 	assert.doesNotMatch(source, /\bimport\s*\(/);
 	assert.match(source, /startPath/);
+});
+
+test("NW.js resolves GUI paths against the launch directory after changing cwd", async () => {
+	const source = await readFile(new URL("../js/cli/cli-main.js", import.meta.url), "utf8");
+	const launchDirectory = path.join(os.tmpdir(), "sviber-launch-project");
+	const applicationDirectory = path.join(os.tmpdir(), "sviber-application");
+	for (const launch of [
+		{ startPath: launchDirectory, env: { PWD: applicationDirectory } },
+		{ env: { PWD: launchDirectory } },
+	]) {
+		for (const input of [".", "charts/master.json", path.join(launchDirectory, "absolute.json")]) {
+			const context = {
+				require: createRequire(import.meta.url),
+				process: { env: launch.env, cwd: () => applicationDirectory },
+				nw: { App: { argv: [input], startPath: launch.startPath } },
+			};
+			context.global = context;
+			await vm.runInNewContext(source, context);
+			assert.equal(context.sviberOpenPath, path.resolve(launchDirectory, input));
+		}
+	}
 });
 
 test("the CLI help message documents every documented usage", () => {

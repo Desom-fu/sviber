@@ -33,6 +33,11 @@ class ProjectFilesTrait {
 		if (!pathname) {
 			return false;
 		}
+		// The renderer can receive raw argv without node-main's resolved path.
+		const runtime = globalThis.nw.require("node:process");
+		const path = globalThis.nw.require("node:path");
+		const directory = globalThis.nw.App?.startPath || runtime.env.PWD || runtime.cwd();
+		pathname = path.resolve(directory, String(pathname));
 		globalThis.sviberOpenPath = "";
 		try {
 			const manifestDirectory = this.files.projectManifestDirectory?.(pathname);
