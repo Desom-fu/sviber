@@ -55,17 +55,29 @@ export async function checkInspectorDropdownFocus(page) {
 	const mode = page.locator('#inspector-panel label[title="生成类型"] + select');
 	const isFocused = select => select === document.activeElement;
 	await mode.focus();
-	for (const [key, value] of [["ArrowUp", "inherit"], ["ArrowDown", "chain"]]) {
+	for (const [key, value] of [
+		["ArrowUp", "inherit"],
+		["ArrowDown", "chain"],
+		["Control+z", "inherit"],
+		["Control+y", "chain"],
+	]) {
 		await page.keyboard.press(key);
 		await settleFrames(page);
 		const spawnType = await page.evaluate(() =>
 			globalThis.sviber.model.events.find(event => event.selected)?.tipPointSpawnType,
 		);
-		assert.equal(spawnType, value);
+		assert.equal(spawnType, value, `${key} did not change the spawn type to ${value}`);
 		assert.equal(await mode.evaluate(isFocused), true, `Focus lost after ${key}`);
 	}
 	await page.keyboard.press("Tab");
 	assert.equal(await mode.evaluate(isFocused), false, "Tab must leave the dropdown");
+
+	const selectedId = await page.evaluate(() => globalThis.sviber.model.events.find(event => event.selected).id);
+	await mode.focus();
+	await page.keyboard.press("x");
+	await settleFrames(page);
+	assert.equal(await mode.count(), 0, "X must deselect the note even when its dropdown has focus");
+	await page.evaluate(id => globalThis.sviber.selectEvents([id], "replace"), selectedId);
 }
 
 async function checkExpressionInputsAndUndo(page) {

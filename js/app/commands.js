@@ -860,8 +860,21 @@ export class CommandRegistry {
 			return true;
 		}
 		const focusedTarget = event.target || globalThis.document?.activeElement;
+		const inspectorDropdownFocused = focusedTarget?.matches?.("select[data-inspector-field]");
+		// Bare arrows navigate the dropdown instead of moving the selected notes.
+		if (
+			inspectorDropdownFocused &&
+			event.key.startsWith("Arrow") &&
+			!event.ctrlKey &&
+			!event.metaKey &&
+			!event.altKey &&
+			!event.shiftKey
+		) {
+			return false;
+		}
+		const inputFocused = !inspectorDropdownFocused && isEditableTarget(focusedTarget);
 		for (const definition of Object.values(this.definitions)) {
-			if (!definition.shortcut || (isEditableTarget(focusedTarget) && !definition.allowInInput)) {
+			if (!definition.shortcut || (inputFocused && !definition.allowInInput)) {
 				continue;
 			}
 			if (!matchesShortcut(event, definition.shortcut, { metaAsCtrl: this.metaAsCtrl })) {
