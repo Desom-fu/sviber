@@ -52,6 +52,7 @@ export function normalizeRenderDefaults(source = {}) {
 
 export const DEFAULT_RENDER_BLUR = 20;
 export const MAX_RENDER_BLUR = 100;
+export const PREVIEW_BACKGROUND_BRIGHTNESS = 0.5;
 export const DEFAULT_RENDER_FILL = "#000000";
 
 export function normalizeRenderFill(value) {
@@ -62,6 +63,14 @@ export function normalizeRenderFill(value) {
 export function normalizeRenderBlur(value) {
 	const blur = value == null || value === "" ? NaN : Number(value);
 	return Number.isFinite(blur) && blur >= 0 && blur <= MAX_RENDER_BLUR ? blur : DEFAULT_RENDER_BLUR;
+}
+
+export function normalizeRenderBrightness(value) {
+	const percentage = value == null || value === "" ? NaN : Number(value);
+	if (Number.isFinite(percentage) && percentage >= 0 && percentage <= 100) {
+		return percentage;
+	}
+	return PREVIEW_BACKGROUND_BRIGHTNESS * 100;
 }
 
 const VIDEO_DEFAULT_KEYS = [
@@ -76,7 +85,7 @@ const VIDEO_DEFAULT_KEYS = [
 ];
 
 const COVER_DEFAULT_KEYS = ["output", "width", "height"];
-const BACKGROUND_DEFAULT_KEYS = ["backgroundBlur", "backgroundFill"];
+const BACKGROUND_DEFAULT_KEYS = ["backgroundBlur", "backgroundBrightness", "backgroundFill"];
 
 export function normalizeVideoDefaults(source = {}) {
 	const normalized = { output: null };
@@ -85,6 +94,7 @@ export function normalizeVideoDefaults(source = {}) {
 		normalized[key] = typeof value === "boolean" ? value : value == null || value === "" ? null : Number(value);
 	}
 	normalized.backgroundBlur = normalizeRenderBlur(source?.backgroundBlur);
+	normalized.backgroundBrightness = normalizeRenderBrightness(source?.backgroundBrightness);
 	normalized.backgroundFill = normalizeRenderFill(source?.backgroundFill) ?? DEFAULT_RENDER_FILL;
 	normalized.output = source?.output == null ? null : String(source.output);
 	return normalized;
@@ -97,6 +107,7 @@ export function normalizeCoverDefaults(source = {}) {
 		normalized[key] = value == null || value === "" ? null : Number(value);
 	}
 	normalized.backgroundBlur = normalizeRenderBlur(source?.backgroundBlur);
+	normalized.backgroundBrightness = normalizeRenderBrightness(source?.backgroundBrightness);
 	normalized.backgroundFill = normalizeRenderFill(source?.backgroundFill) ?? DEFAULT_RENDER_FILL;
 	normalized.output = source?.output == null ? null : String(source.output);
 	normalized.coverTheme = normalizeCoverThemeState(source?.coverTheme);

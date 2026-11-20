@@ -8,6 +8,7 @@ export function installRenderBackground(Sunniesnow, { kind, hasImage, fill }) {
 		const { WIDTH: width, HEIGHT: height } = Sunniesnow.Config;
 		const texture = hasImage ? settings.background : null;
 		const blur = settings.backgroundBlur;
+		const brightness = settings.backgroundBrightness;
 		const canvas = app.renderer.name === "canvas";
 		const backdrop = new PIXI.Container();
 		let filter;
@@ -16,8 +17,7 @@ export function installRenderBackground(Sunniesnow, { kind, hasImage, fill }) {
 			image.anchor.set(0.5);
 			image.position.set(width / 2, height / 2);
 			image.scale.set(Math.max(width / texture.width, height / texture.height));
-			const brightness = Math.round(255 * settings.backgroundBrightness);
-			image.tint = brightness * 0x010101;
+			image.tint = Math.round(255 * brightness) * 0x010101;
 			if (!canvas && blur > 0) {
 				filter = new PIXI.BlurFilter({ strength: blur, quality: 4, repeatEdgePixels: true });
 				image.filters = [filter];
@@ -27,7 +27,8 @@ export function installRenderBackground(Sunniesnow, { kind, hasImage, fill }) {
 		const rendered = app.renderer.generateTexture({
 			target: backdrop,
 			frame: new PIXI.Rectangle(0, 0, width, height),
-			clearColor: fill,
+			// The editor darkens the composited background, including its matte.
+			clearColor: new PIXI.Color(fill).multiply([brightness, brightness, brightness]).toArray(),
 		});
 		backdrop.destroy({ children: true });
 		filter?.destroy();

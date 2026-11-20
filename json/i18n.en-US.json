@@ -1129,6 +1129,7 @@
   "field.renderOutput": "Output path",
   "validation.renderCoverPng": "Choose an output path ending in .png.",
   "field.renderBackgroundBlur": "Background blur (0–100)",
+  "field.renderBackgroundBrightness": "Background brightness (%)",
   "field.renderBackgroundFill": "Transparent area fill",
   "field.renderBackgroundFill.black": "Black",
   "field.renderBackgroundFill.white": "White",

@@ -1129,6 +1129,7 @@
   "field.renderOutput": "出力パス",
   "validation.renderCoverPng": "拡張子が .png の出力先を選んでください。",
   "field.renderBackgroundBlur": "背景のぼかし（0–100）",
+  "field.renderBackgroundBrightness": "背景の明るさ（%）",
   "field.renderBackgroundFill": "透明部分の塗りつぶし色",
   "field.renderBackgroundFill.black": "黒",
   "field.renderBackgroundFill.white": "白",

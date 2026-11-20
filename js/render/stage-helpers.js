@@ -1,4 +1,5 @@
 import { Rational } from "../core/rational.js";
+import { PREVIEW_BACKGROUND_BRIGHTNESS } from "../core/render-defaults.js";
 import { TimingMap } from "../core/timing.js";
 import {
 	CHART_BOUNDS,
@@ -52,7 +53,7 @@ export const SUNNIESNOW_SKIN = Object.freeze({
 	bgNoteFadeOutDuration: 0.25,
 	patternFadeDuration: 1 / 6,
 	backgroundBlur: 20,
-	backgroundBrightness: 0.5,
+	backgroundBrightness: PREVIEW_BACKGROUND_BRIGHTNESS,
 	selectionTint: "#ff2e59",
 	selectionLockedTint: "#e83dff",
 	tapFill: "#29a9b9",

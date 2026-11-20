@@ -174,20 +174,12 @@ export function installRecordFetchFallback(utils, fsPromises = fs.promises) {
 }
 
 // Set the stroke once, when the recorder creates each label; Pixi scales it with the text.
-function outlineAfterPopulate(component, method, textProperty) {
-	const populate = component.prototype[method];
-	component.prototype[method] = function () {
+export function installRecordTextOutlines(game, kind) {
+	const profile = kind === "cover" ? game.CoverProfile : game.ResultProfile;
+	const populate = profile.prototype.populateNickname;
+	profile.prototype.populateNickname = function () {
 		populate.call(this);
-		const style = this[textProperty].style;
+		const style = this.nickname.style;
 		style.stroke = { color: 0x000000, width: Math.max(1, style.fontSize * 0.16), join: "round" };
 	};
-}
-
-export function installRecordTextOutlines(game, kind) {
-	if (kind === "cover") {
-		outlineAfterPopulate(game.CoverProfile, "populateNickname", "nickname");
-	} else {
-		outlineAfterPopulate(game.TopLeftHud, "populateText", "text");
-		outlineAfterPopulate(game.ResultProfile, "populateNickname", "nickname");
-	}
 }

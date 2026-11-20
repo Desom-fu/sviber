@@ -1129,6 +1129,7 @@
   "field.renderOutput": "輸出路徑",
   "validation.renderCoverPng": "請選擇以 .png 結尾的輸出路徑。",
   "field.renderBackgroundBlur": "背景模糊度（0–100）",
+  "field.renderBackgroundBrightness": "背景亮度（%）",
   "field.renderBackgroundFill": "透明區域填色",
   "field.renderBackgroundFill.black": "黑色",
   "field.renderBackgroundFill.white": "白色",
