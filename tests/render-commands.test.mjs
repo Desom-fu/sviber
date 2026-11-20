@@ -12,6 +12,7 @@ import {
 	withRender,
 } from "../js/app/app-render.js";
 import { clampCoverThemeContained } from "../js/app/app-render-cover-widget.js";
+import { RENDER_DEFAULTS_KEY } from "../js/core/render-defaults.js";
 
 function makeRenderApp({ music = "song.mp3", nw = true } = {}) {
 	const shellStub = {
@@ -53,6 +54,46 @@ test("render commands are grayed out outside NW.js and without music", () => {
 	assert.equal(withoutMusic.canRenderVideo(), false, "video needs the currently loaded music");
 	assert.equal(withoutMusic.canRenderCover(), true);
 	globalThis.nw = undefined;
+});
+
+test("render dialogs do not use video paths for covers in a project", async t => {
+	const storage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+	const nw = globalThis.nw;
+	t.after(() => {
+		if (storage) {
+			Object.defineProperty(globalThis, "localStorage", storage);
+		} else {
+			delete globalThis.localStorage;
+		}
+		globalThis.nw = nw;
+	});
+	const video = { output: "D:/videos/previous.webm" };
+	let cover = {};
+	Object.defineProperty(globalThis, "localStorage", {
+		configurable: true,
+		value: { getItem: key => key === RENDER_DEFAULTS_KEY ? JSON.stringify({ video, cover }) : null },
+	});
+	const app = makeRenderApp();
+	app.files.projectPath = "D:/charts/song";
+	app.files.chartFilename = "Hard.json";
+	let output;
+	app.dialogs = {
+		form: async ({ values }) => {
+			output = values.output;
+			return null;
+		},
+	};
+
+	await app.showRenderCoverDialog();
+	assert.equal(output, "D:/charts/song/Hard.png");
+	cover = { output: "D:/charts/song/Hard.mkv" };
+	await app.showRenderCoverDialog();
+	assert.equal(output, "D:/charts/song/Hard.png");
+	cover = { output: "D:/covers/previous.PNG" };
+	await app.showRenderCoverDialog();
+	assert.equal(output, cover.output);
+	await app.showRenderVideoDialog();
+	assert.equal(output, video.output);
 });
 
 test("video options map dialog values onto sunniesnow-record settings", () => {

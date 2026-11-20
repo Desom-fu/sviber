@@ -1127,6 +1127,7 @@
   "field.quantizationTie.even": "偶数の細分に丸める",
   "field.lyricsOffset": "オフセット（秒）",
   "field.renderOutput": "出力パス",
+  "validation.renderCoverPng": "拡張子が .png の出力先を選んでください。",
   "field.renderBrowse": "参照",
   "field.renderCopyError": "エラー詳細をコピー",
   "field.renderCopyLog": "ログをコピー",

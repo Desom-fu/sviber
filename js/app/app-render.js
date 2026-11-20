@@ -68,13 +68,16 @@ async function showRenderDialog(app, kind) {
 	const suggested = defaultRenderOutputPath({
 		projectFolder: app.files.projectPath,
 		chartFileName,
+		kind,
 	}) || `${app.model.metadata.title || "chart"}-${isVideo ? "video.mkv" : "cover.png"}`;
+	// Older project cover renders could save the shared .mkv suggestion in cover defaults.
+	const output = isVideo || isPngOutput(remembered.output) ? remembered.output : null;
 	let values;
 	try {
 		values = await app.dialogs.form({
 			titleKey: isVideo ? "command.file.renderVideo" : "command.file.renderCover",
 			values: {
-				output: remembered?.output || suggested,
+				output: output || suggested,
 				nickname: renderNicknameDefault(lastRender, charter),
 				avatar: lastRender.avatar || "online",
 				avatarOnline: lastRender.avatarOnline ?? "default.svg",
@@ -332,7 +335,7 @@ function pathPickerRow({ documentRef, value, onChange, id, pick, suggestedName, 
 	browse.textContent = i18n.t("field.renderBrowse");
 	browse.addEventListener("click", async () => {
 		const format = formatSelect?.value;
-		const fallback = format || extensionOfPath(suggestedName, "png");
+		const fallback = format || "png";
 		const name = replacePathExtension(input.value || suggestedName || "", fallback);
 		let picked;
 		if (pick) {
@@ -385,6 +388,10 @@ function createOutputFormatSelect(documentRef, extensions, pathname) {
 	return select;
 }
 
+function isPngOutput(pathname) {
+	return extensionOfPath(pathname, "") === "png";
+}
+
 export function formFields(app, kind, bundledFfmpeg, suggested) {
 	const isVideo = kind === "video";
 	const fields = [
@@ -393,6 +400,7 @@ export function formFields(app, kind, bundledFfmpeg, suggested) {
 			type: "custom",
 			labelKey: "field.renderOutput",
 			required: true,
+			validate: isVideo ? undefined : value => isPngOutput(value) ? "" : "validation.renderCoverPng",
 			// Custom fields receive an environment object ({ document, i18n, value, onChange })
 			// and return a control object ({ element, read }); see createCustomControl.
 			render: ({ document: documentRef, value, onChange }) => pathPickerRow({

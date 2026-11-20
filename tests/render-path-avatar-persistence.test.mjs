@@ -92,6 +92,7 @@ test("video and cover dialogs remember their fields independently", () => {
 		fake,
 	);
 	const both = loadRenderDefaults(fake);
+	assert.equal(both.video.output, "C:/out/last-video.mkv");
 	assert.equal(both.video.width, 1280, "the video size is untouched by the cover dialog");
 	assert.equal(both.cover.width, 3840);
 	assert.equal(both.cover.output, "C:/out/cover.png");

@@ -1127,6 +1127,7 @@
   "field.quantizationTie.even": "取偶数细分",
   "field.lyricsOffset": "偏移（秒）",
   "field.renderOutput": "输出路径",
+  "validation.renderCoverPng": "请选择以 .png 结尾的输出路径。",
   "field.renderBrowse": "浏览",
   "field.renderCopyError": "复制错误详情",
   "field.renderCopyLog": "复制日志",

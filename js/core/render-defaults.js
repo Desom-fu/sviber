@@ -24,11 +24,12 @@ export function joinFilesystemPath(directory, filename) {
 	return `${value.replace(/[\\/]+$/, "")}${slash}${filename}`;
 }
 
-export function defaultRenderOutputPath({ projectFolder, chartFileName } = {}) {
+export function defaultRenderOutputPath({ projectFolder, chartFileName, kind = "video" } = {}) {
 	if (!projectFolder) {
 		return "";
 	}
-	return joinFilesystemPath(projectFolder, `${chartFileNameWithoutExt(chartFileName)}.mkv`);
+	const extension = kind === "cover" ? "png" : "mkv";
+	return joinFilesystemPath(projectFolder, `${chartFileNameWithoutExt(chartFileName)}.${extension}`);
 }
 
 // Shared fields (nickname, avatar source) apply to both the video and the cover dialog;

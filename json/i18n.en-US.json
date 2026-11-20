@@ -1127,6 +1127,7 @@
   "field.quantizationTie.even": "To the even subdivision",
   "field.lyricsOffset": "Offset (s)",
   "field.renderOutput": "Output path",
+  "validation.renderCoverPng": "Choose an output path ending in .png.",
   "field.renderBrowse": "Browse",
   "field.renderCopyError": "Copy error details",
   "field.renderCopyLog": "Copy log",

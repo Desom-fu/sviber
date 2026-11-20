@@ -119,10 +119,15 @@ function pickNwPath(configure) {
 const FOCUS_POLL_INTERVAL_MS = 150;
 const FOCUS_SETTLE_TIMEOUT_MS = 3000;
 
-export function pickNwSavePath(suggestedName, accept) {
+export function pickNwSavePath(suggestedPath, accept) {
+	const path = nwModules()?.path;
 	return pickNwPath(input => {
 		input.accept = accept;
-		input.setAttribute("nwsaveas", suggestedName);
+		input.setAttribute("nwsaveas", path ? path.basename(suggestedPath) : suggestedPath);
+		const directory = path?.dirname(suggestedPath);
+		if (directory && directory !== ".") {
+			input.setAttribute("nwworkingdir", directory);
+		}
 	});
 }
 
