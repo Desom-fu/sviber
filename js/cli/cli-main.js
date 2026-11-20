@@ -66,8 +66,8 @@ function nodeMainDirectory() {
 	} catch {
 		/* ignore */
 	}
-	const root = global.nw?.App?.startPath || process.cwd();
-	return path.join(root, "js", "cli");
+	const entry = global.nw?.App?.manifest?.["node-main"] || "js/cli/cli-main.js";
+	return path.dirname(path.resolve(process.cwd(), entry));
 }
 
 function argumentList() {
@@ -108,6 +108,12 @@ function firstInputPath(argv) {
 	return null;
 }
 
+function resolveInputPath(input) {
+	// NW.js changes cwd to the application directory before node-main runs.
+	const directory = global.nw?.App?.startPath || process.env.PWD || process.cwd();
+	return path.resolve(directory, input);
+}
+
 function loadCliModules() {
 	const directory = nodeMainDirectory();
 	return {
@@ -122,7 +128,7 @@ async function main() {
 	if (!isCliOperation(argv)) {
 		const input = firstInputPath(argv);
 		if (input) {
-			global.sviberOpenPath = path.resolve(input);
+			global.sviberOpenPath = resolveInputPath(input);
 		}
 		showWindow();
 		return;
@@ -140,7 +146,7 @@ async function main() {
 	}
 	if (!cli.isHeadlessInvocation(args)) {
 		if (args.input) {
-			global.sviberOpenPath = path.resolve(args.input);
+			global.sviberOpenPath = resolveInputPath(args.input);
 		}
 		showWindow();
 		return;

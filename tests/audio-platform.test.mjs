@@ -131,6 +131,7 @@ test("source NW.js startup prepares the same local decoder bundle", async () => 
 	assert.match(bootstrap, /bundleAudioDecoder\(/);
 	assert.doesNotMatch(bootstrap, /bundleAudioDecoderSync/);
 	assert.ok(index.indexOf("js/boot/nw-source-bootstrap.js") < index.indexOf("js/app/app.js"));
+	assert.ok(index.indexOf("js/boot/nw-source-bootstrap.js") < index.indexOf("js/boot/font-loader.js"));
 	assert.match(buildScript, /bundleAudioDecoderFile/);
 });
 

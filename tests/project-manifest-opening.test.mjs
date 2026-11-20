@@ -50,3 +50,37 @@ test("opening a project manifest path loads its containing project", async () =>
 		await rm(directory, { recursive: true, force: true });
 	}
 });
+
+test("renderer argv fallback opens a relative project from the original launch directory", async () => {
+	const directory = await mkdtemp(path.join(os.tmpdir(), "sviber-relative-open-"));
+	const previousNw = globalThis.nw;
+	const previousPath = globalThis.sviberOpenPath;
+	const require = createRequire(import.meta.url);
+	try {
+		const chart = ChartModel.createDefault({ metadata: { difficultyName: "Master" } });
+		await writeFile(path.join(directory, "master.json"), chart.serialize(2));
+		await writeFile(
+			path.join(directory, PROJECT_FILENAME),
+			JSON.stringify({ charts: [{ id: "master", file: "master.json" }], activeChart: "master" }),
+		);
+		globalThis.nw = {
+			App: { argv: ["."], startPath: directory },
+			require,
+		};
+		globalThis.sviberOpenPath = "";
+		const App = withProjectFiles(class {});
+		const app = new App();
+		app.files = new FileManager();
+		let openedDirectory;
+		app.openProject = async options => {
+			openedDirectory = options.directoryPath;
+			return true;
+		};
+		assert.equal(await app.openArgvPath(), true);
+		assert.equal(openedDirectory, directory);
+	} finally {
+		restoreGlobal("nw", previousNw);
+		restoreGlobal("sviberOpenPath", previousPath);
+		await rm(directory, { recursive: true, force: true });
+	}
+});
