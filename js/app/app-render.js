@@ -3,6 +3,7 @@
 
 import { composeTraits } from "../core/mixin.js";
 import { i18n } from "../ui/i18n.js";
+import { backgroundFillField } from "../ui/background-fill-field.js";
 import { localizedErrorMessage } from "./app-helpers.js";
 import { pickNwOpenPath, pickNwSavePath } from "../platform/platform-host.js";
 import { createCoverThemeWidget, resolveCoverThemeImageSource } from "./app-render-cover-widget.js";
@@ -400,41 +401,6 @@ function isPngOutput(pathname) {
 	return extensionOfPath(pathname, "") === "png";
 }
 
-function renderFillControl({ document: documentRef, i18n: labels, value, onChange }) {
-	const row = documentRef.createElement("div");
-	row.className = "render-fill-row";
-	const input = documentRef.createElement("input");
-	input.type = "text";
-	input.value = value;
-	input.spellcheck = false;
-	input.setAttribute("aria-label", labels.t("field.renderBackgroundFill"));
-	const presets = [["black", "#000000"], ["white", "#ffffff"]];
-	const buttons = presets.map(([name, hex]) => {
-		const button = documentRef.createElement("button");
-		button.type = "button";
-		button.className = "dialog-button";
-		button.textContent = labels.t(`field.renderBackgroundFill.${name}`);
-		button.addEventListener("click", () => {
-			input.value = hex;
-			update();
-		});
-		return button;
-	});
-	function updatePresets() {
-		const color = normalizeRenderFill(input.value);
-		buttons.forEach((button, index) => button.setAttribute("aria-pressed", String(color === presets[index][1])));
-	}
-
-	function update() {
-		updatePresets();
-		onChange?.({ id: "backgroundFill", value: input.value });
-	}
-	updatePresets();
-	row.append(input, ...buttons);
-	input.addEventListener("input", update);
-	return { element: row, read: () => input.value, focus: () => input.focus() };
-}
-
 function renderBackgroundFields() {
 	return [
 		{
@@ -455,14 +421,7 @@ function renderBackgroundFields() {
 			step: "any",
 			required: true,
 		},
-		{
-			id: "backgroundFill",
-			type: "custom",
-			labelKey: "field.renderBackgroundFill",
-			required: true,
-			validate: value => normalizeRenderFill(value) ? "" : "validation.renderBackgroundFill",
-			render: renderFillControl,
-		},
+		backgroundFillField,
 	];
 }
 

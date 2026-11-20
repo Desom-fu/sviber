@@ -1,5 +1,6 @@
 import { i18n, SUPPORTED_LANGUAGES } from "../ui/i18n.js";
 import { clamp } from "../core/math-utils.js";
+import { DEFAULT_RENDER_FILL, normalizeRenderFill } from "../core/render-defaults.js";
 import { walkEvents } from "../core/grouping.js";
 import { CommandRegistry } from "./commands.js";
 import { DialogManager, MenuBar, ToastManager, Toolbar, TooltipManager } from "../ui/ui.js";
@@ -65,6 +66,7 @@ export const RECENT_OPEN_KEY = "sviber.recentOpen";
 export const DEFAULT_PREFERENCES = Object.freeze({
 	theme: "system",
 	language: "system",
+	backgroundFill: DEFAULT_RENDER_FILL,
 	noteSpeed: 2,
 	inputOffset: 0,
 	visibleChannels: 3,
@@ -126,6 +128,7 @@ function normalizePreferences(source = {}) {
 	return {
 		theme: preferenceChoice(source.theme, ["system", "light", "dark"], DEFAULT_PREFERENCES.theme),
 		language: preferenceChoice(source.language, ["system", ...SUPPORTED_LANGUAGES], DEFAULT_PREFERENCES.language),
+		backgroundFill: normalizeRenderFill(source.backgroundFill) ?? DEFAULT_PREFERENCES.backgroundFill,
 		noteSpeed: noteSpeed > 0 ? noteSpeed : DEFAULT_PREFERENCES.noteSpeed,
 		inputOffset: clampNumber(source.inputOffset, DEFAULT_PREFERENCES.inputOffset, -2, 2),
 		visibleChannels: Math.round(clampNumber(source.visibleChannels, DEFAULT_PREFERENCES.visibleChannels, 1, 16)),

@@ -1,5 +1,6 @@
 import { Rational } from "../core/rational.js";
 import { TimingMap } from "../core/timing.js";
+import { DEFAULT_RENDER_FILL } from "../core/render-defaults.js";
 import {
 	CHART_BOUNDS,
 	applyTransform,
@@ -167,6 +168,9 @@ export class StageViewCore {
 	}
 
 	setState(state, options = {}) {
+		if (this.backgroundImage && state?.preferences?.backgroundFill !== this.state?.preferences?.backgroundFill) {
+			this.backgroundDirty = true;
+		}
 		this.state = state;
 		this._staticLayerValid = false;
 		const project = projectState(state);
@@ -184,6 +188,7 @@ export class StageViewCore {
 	setBackground(image) {
 		this.backgroundImage = image;
 		this.backgroundDirty = true;
+		this._staticLayerValid = false;
 		this.render();
 	}
 
@@ -321,7 +326,8 @@ export class StageViewCore {
 		this.backgroundSource.width = width;
 		this.backgroundSource.height = height;
 		const source = this.backgroundSource.getContext("2d", { alpha: false });
-		source.fillStyle = "#ffffff";
+		const fill = this.state?.preferences?.backgroundFill ?? DEFAULT_RENDER_FILL;
+		source.fillStyle = this.backgroundImage ? fill : "#ffffff";
 		source.fillRect(0, 0, width, height);
 		if (this.backgroundImage) {
 			const imageWidth = this.backgroundImage.naturalWidth || this.backgroundImage.width || width;

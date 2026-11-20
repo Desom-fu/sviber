@@ -4,6 +4,7 @@ import { composeTraits } from "../core/mixin.js";
 import { i18n, SUPPORTED_LANGUAGES } from "../ui/i18n.js";
 import { ChartModel } from "../core/chart-model.js";
 import { Rational } from "../core/rational.js";
+import { backgroundFillField } from "../ui/background-fill-field.js";
 import {
 	loadPreferences,
 	localizedErrorMessage,
@@ -57,6 +58,7 @@ function preferenceFields(app) {
 				...SUPPORTED_LANGUAGES.map(value => ({ value, labelKey: `option.language.${value}` })),
 			],
 		},
+		backgroundFillField,
 		{ id: "noteSpeed", type: "number", labelKey: "field.noteSpeed", positive: true, min: 0.01, step: "any" },
 		{
 			id: "inputOffset",
