@@ -6,8 +6,8 @@
 //
 //   * `MIXED` marks a value the selected items disagree on; a control renders it as a blank
 //     with a placeholder and reports nothing until the user types something.
-//   * a value is committed on `change` and on Enter, never on every keystroke, so typing a
-//     partial number never rewrites the chart.
+//   * a value is committed on change or Enter; rational controls also commit when focus
+//     leaves the group rather than when moving between its parts.
 //   * a control that does not apply is hidden rather than removed (`setControlHidden`), so the
 //     inspector keeps a stable row order as the selection changes.
 //
@@ -25,8 +25,9 @@ export { MIXED, commonValue };
 export function makeRationalControl(documentRef, value, onChange) {
 	const wrapper = documentRef.createElement("div");
 	wrapper.className = "rational-input";
+	const mixed = value === MIXED;
 	let tuple = [0, 0, 1];
-	if (value !== MIXED) {
+	if (!mixed) {
 		try {
 			tuple = Rational.from(value ?? 0).toJSON();
 		} catch {
@@ -37,17 +38,24 @@ export function makeRationalControl(documentRef, value, onChange) {
 		const input = documentRef.createElement("input");
 		input.type = "number";
 		input.step = "1";
-		input.value = value === MIXED ? "" : tuple[index];
-		input.placeholder = value === MIXED ? "-" : "";
+		input.value = mixed ? "" : tuple[index];
+		input.placeholder = mixed ? String(tuple[index]) : "";
 		if (index === 2) {
 			input.min = "1";
 		}
 		return input;
 	});
 	wrapper.append(controls[0], "+", controls[1], "/", controls[2]);
-	let lastEmitted = null;
+	let lastEmitted = mixed ? null : tuple.join(",");
 	const emit = () => {
-		const values = controls.map(input => Number(input.value));
+		if (controls.some(input => input.validity?.badInput)) {
+			return;
+		}
+		// A mixed value stays unchanged until the user supplies a whole beat or numerator.
+		if (mixed && controls[0].value === "" && controls[1].value === "") {
+			return;
+		}
+		const values = controls.map((input, index) => Number(input.value || (mixed ? tuple[index] : 0)));
 		if (values.every(Number.isSafeInteger) && values[2] > 0) {
 			const tuple = values.join(",");
 			if (tuple === lastEmitted) {
@@ -58,10 +66,13 @@ export function makeRationalControl(documentRef, value, onChange) {
 		}
 	};
 	for (const input of controls) {
-		// The inspector flush commits pending edits by dispatching `change` on each dirty input;
-		// the wrapper only hears `focusout`, which never fires once a re-render has detached the
-		// fields, so the rational parts must emit on change too.
-		input.addEventListener("change", emit);
+		// Native changes can fire when tabbing between the parts. Commit only when leaving
+		// the group, pressing Enter, or flushing a pending edit before a re-render.
+		input.addEventListener("change", event => {
+			if (!event.isTrusted) {
+				emit();
+			}
+		});
 		input.addEventListener("keydown", event => {
 			if (event.key === "Enter") {
 				event.preventDefault();
@@ -258,12 +269,16 @@ export function bindEscapeRestore(root) {
 		}
 		event.preventDefault();
 		event.stopPropagation();
-		const initial = input.dataset.initialValue;
-		if (initial !== undefined) {
-			if (input.type === "checkbox" || input.type === "radio") {
-				input.checked = initial === "true";
-			} else {
-				input.value = initial;
+		// A rational field is one value even though it uses three inputs.
+		const controls = input.closest(".rational-input")?.querySelectorAll("input") || [input];
+		for (const control of controls) {
+			const initial = control.dataset.initialValue;
+			if (initial !== undefined) {
+				if (control.type === "checkbox" || control.type === "radio") {
+					control.checked = initial === "true";
+				} else {
+					control.value = initial;
+				}
 			}
 		}
 		input.blur();

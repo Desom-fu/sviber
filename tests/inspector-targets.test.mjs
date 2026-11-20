@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 import { withEventEditing } from "../js/app/app-event-editing.js";
 import { InspectorPanel } from "../js/ui/panels.js";
-import { makeRationalControl } from "../js/ui/panel-controls.js";
+import { makeRationalControl, MIXED } from "../js/ui/panel-controls.js";
 import { ChartModel } from "../js/core/chart-model.js";
 import { Rational } from "../js/core/rational.js";
 import { History } from "../js/core/history.js";
@@ -197,4 +197,19 @@ test("a rational control commits through the change event the inspector flush di
 	// change (flush or blur) and the wrapper focusout can both fire for the same tuple.
 	denominator.dispatchEvent({ type: "change" });
 	assert.equal(committed.length, 1, "an unchanged tuple is not emitted twice");
+});
+
+test("a mixed rational field accepts a whole beat without requiring a denominator", () => {
+	const committed = [];
+	const documentRef = { createElement: tag => fakeElement(tag) };
+	const control = makeRationalControl(documentRef, MIXED, value => committed.push(value));
+	const [whole] = control.children;
+	const enter = () => whole.dispatchEvent({ type: "keydown", key: "Enter", preventDefault() {} });
+	enter();
+	assert.deepEqual(committed, [], "an untouched mixed field leaves the selection unchanged");
+	whole.value = "6";
+	whole.dispatchEvent({ type: "change", isTrusted: true });
+	assert.deepEqual(committed, [], "moving to the next part does not commit a partial beat");
+	enter();
+	assert.deepEqual(committed, [[6, 0, 1]]);
 });
