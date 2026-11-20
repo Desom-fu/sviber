@@ -28,6 +28,7 @@ import {
 	bundledFfmpegCandidate,
 	defaultAvatarCandidate,
 	installRecordFetchFallback,
+	installRecordTextOutlines,
 	prepareAvatarOptions,
 	resolveFfmpegForRecord,
 	sviberAppRoot,
@@ -288,6 +289,7 @@ async function runRender(io, args, input) {
 	const os = await import("node:os");
 	const path = await import("node:path");
 	installRecordFetchFallback(SunniesnowRecord.Utils, fs.promises);
+	installRecordTextOutlines(SunniesnowRecord, isVideo ? "video" : "cover");
 	const exists = target => {
 		try {
 			return Boolean(target) && fs.existsSync(target);

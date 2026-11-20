@@ -24,6 +24,7 @@ import {
 	bundledFfmpegCandidate,
 	defaultAvatarCandidate,
 	installRecordFetchFallback,
+	installRecordTextOutlines,
 	prepareAvatarOptions,
 	resolveFfmpegForRecord,
 	sviberAppRoot,
@@ -165,6 +166,7 @@ async function runRequestedRender() {
 	// the chart exists. Resolve them to local files, and point video at the bundled
 	// FFmpeg executable instead of the bare name "ffmpeg".
 	installRecordFetchFallback(Sunniesnow.Utils, fs.promises);
+	installRecordTextOutlines(Sunniesnow, request.kind);
 	const exists = target => {
 		try {
 			return Boolean(target) && fs.existsSync(target);
