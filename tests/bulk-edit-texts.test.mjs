@@ -8,19 +8,19 @@ import {
 	bulkEditableEventsInChannel,
 } from "../js/core/bulk-edit-texts.js";
 
-test("bulk edit texts round-trip movable and unmovable events", () => {
+test("channel bulk edit round-trips movable and unmovable texts in beat order", () => {
 	const model = ChartModel.createDefault();
-	const tap = model.addEvent("tap", { time: [0, 0, 1], text: "a b", x: 0, y: 0 });
-	const hold = model.addEvent("hold", { time: [1, 0, 1], text: "x", duration: [1, 0, 1], x: 0, y: 0 });
-	const big = model.addEvent("bigText", { time: [2, 0, 1], text: "hello", duration: [1, 0, 1] });
-	const encoded = eventTextsToString([tap, hold, big]);
+	const big = model.addEvent("bigText", { time: [1, 1, 2], text: "hello", duration: [1, 0, 1] });
+	const tap = model.addEvent("tap", { time: [1, 1, 3], text: "a b", x: 0, y: 0 });
+	const hold = model.addEvent("hold", { time: [1, 1, 3], text: "x", duration: [1, 0, 1], x: 0, y: 0 });
+	const encoded = eventTextsToString(bulkEditableEventsInChannel(model, 0));
 	assert.equal(encoded, "a\\sb x\nhello");
-	stringToEventTexts("p q\nworld", [tap, hold, big]);
+	stringToEventTexts("p q\nworld", bulkEditableEventsInChannel(model, 0));
 	assert.equal(tap.text, "p");
 	assert.equal(hold.text, "q");
 	assert.equal(big.text, "world");
 	assert.equal(convertBackslashEscapes("a\\sb"), "a b");
-	assert.equal(bulkEditableEventsInChannel(model, 0).length, 3);
+	assert.deepEqual(model.events.map(event => event.id), [big.id, tap.id, hold.id]);
 });
 
 test("bulk edit texts ignore leftover tokens and clear missing ones", () => {

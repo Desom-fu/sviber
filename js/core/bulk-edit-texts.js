@@ -71,9 +71,9 @@ export function stringToEventTexts(string, events) {
 }
 
 export function bulkEditableEventsInChannel(model, channelId) {
-	return (model?.allEvents?.({ includeGroups: false }) || model?.events || []).filter(
-		event => isBulkEditableEvent(event) && event.channel === channelId,
-	);
+	return (model?.allEvents?.({ includeGroups: false }) || model?.events || [])
+		.filter(event => isBulkEditableEvent(event) && event.channel === channelId)
+		.sort((left, right) => Rational.compare(left.time, right.time) || left.id - right.id);
 }
 
 // v25: the selection-based "Bulk edit texts..." dialog edits the selected textable events

@@ -44,9 +44,12 @@ class BulkEditTextsTrait {
 	}
 
 	async showBulkEditTextsByChannelDialog() {
+		const eventsByChannel = new Map();
 		const initialDrafts = new Map();
 		for (const channel of this.model.channels) {
-			initialDrafts.set(channel.id, eventTextsToString(bulkEditableEventsInChannel(this.model, channel.id)));
+			const events = bulkEditableEventsInChannel(this.model, channel.id);
+			eventsByChannel.set(channel.id, events);
+			initialDrafts.set(channel.id, eventTextsToString(events));
 		}
 		const current = this.model.editor.currentChannel;
 		let activeId = current;
@@ -56,10 +59,6 @@ class BulkEditTextsTrait {
 		const drafts = new Map();
 		const edited = new Set();
 		const savedCaret = new Map();
-		const eventsByChannel = new Map();
-		for (const channel of this.model.channels) {
-			eventsByChannel.set(channel.id, bulkEditableEventsInChannel(this.model, channel.id));
-		}
 		const values = await this.dialogs.form({
 			titleKey: "dialog.bulkEditTextsByChannel",
 			values: { channel: current, text: initialDrafts.get(current) || "" },
