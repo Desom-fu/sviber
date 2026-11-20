@@ -16,8 +16,12 @@ import {
 import { uniqueChartFilename } from "../core/project.js";
 import {
 	avatarFieldHidden,
+	DEFAULT_RENDER_FILL,
 	defaultRenderOutputPath,
 	loadRenderDefaults,
+	MAX_RENDER_BLUR,
+	normalizeRenderBlur,
+	normalizeRenderFill,
 	RENDER_AVATAR_KINDS,
 	renderNicknameDefault,
 	saveRenderDefaults,
@@ -88,6 +92,8 @@ async function showRenderDialog(app, kind) {
 				speed: remembered?.speed ?? "2",
 				width: remembered?.width ?? "1920",
 				height: remembered?.height ?? "1080",
+				backgroundBlur: remembered.backgroundBlur,
+				backgroundFill: remembered.backgroundFill,
 				fps: remembered?.fps ?? "60",
 				resultsDuration: remembered?.resultsDuration ?? "1",
 				waitForMusic: remembered?.waitForMusic ?? true,
@@ -392,6 +398,63 @@ function isPngOutput(pathname) {
 	return extensionOfPath(pathname, "") === "png";
 }
 
+function renderFillControl({ document: documentRef, i18n: labels, value, onChange }) {
+	const row = documentRef.createElement("div");
+	row.className = "render-fill-row";
+	const input = documentRef.createElement("input");
+	input.type = "text";
+	input.value = value;
+	input.spellcheck = false;
+	input.setAttribute("aria-label", labels.t("field.renderBackgroundFill"));
+	const presets = [["black", "#000000"], ["white", "#ffffff"]];
+	const buttons = presets.map(([name, hex]) => {
+		const button = documentRef.createElement("button");
+		button.type = "button";
+		button.className = "dialog-button";
+		button.textContent = labels.t(`field.renderBackgroundFill.${name}`);
+		button.addEventListener("click", () => {
+			input.value = hex;
+			update();
+		});
+		return button;
+	});
+	function updatePresets() {
+		const color = normalizeRenderFill(input.value);
+		buttons.forEach((button, index) => button.setAttribute("aria-pressed", String(color === presets[index][1])));
+	}
+
+	function update() {
+		updatePresets();
+		onChange?.({ id: "backgroundFill", value: input.value });
+	}
+	updatePresets();
+	row.append(input, ...buttons);
+	input.addEventListener("input", update);
+	return { element: row, read: () => input.value, focus: () => input.focus() };
+}
+
+function renderBackgroundFields() {
+	return [
+		{
+			id: "backgroundBlur",
+			type: "number",
+			labelKey: "field.renderBackgroundBlur",
+			min: 0,
+			max: MAX_RENDER_BLUR,
+			step: "any",
+			required: true,
+		},
+		{
+			id: "backgroundFill",
+			type: "custom",
+			labelKey: "field.renderBackgroundFill",
+			required: true,
+			validate: value => normalizeRenderFill(value) ? "" : "validation.renderBackgroundFill",
+			render: renderFillControl,
+		},
+	];
+}
+
 export function formFields(app, kind, bundledFfmpeg, suggested) {
 	const isVideo = kind === "video";
 	const fields = [
@@ -412,6 +475,7 @@ export function formFields(app, kind, bundledFfmpeg, suggested) {
 				extensions: isVideo ? VIDEO_OUTPUT_EXTENSIONS : null,
 			}),
 		},
+		...renderBackgroundFields(),
 		{ id: "nickname", type: "text", labelKey: "field.renderNickname" },
 		{
 			id: "avatar",
@@ -523,6 +587,8 @@ export function buildRenderRecordOptions(kind, outputPath, values, bundledFfmpeg
 		avatarWeavatar: values.avatar === "weavatar" ? values.avatarWeavatar || undefined : undefined,
 		width: Math.max(1, Math.round(Number(values.width) || 1920)),
 		height: Math.max(1, Math.round(Number(values.height) || 1080)),
+		backgroundBlur: normalizeRenderBlur(values.backgroundBlur),
+		backgroundFill: normalizeRenderFill(values.backgroundFill) ?? DEFAULT_RENDER_FILL,
 		output: outputPath,
 	};
 	if (kind === "video") {

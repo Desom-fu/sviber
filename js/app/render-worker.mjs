@@ -206,7 +206,16 @@ async function runRequestedRender() {
 	const runner = request.kind === "video" ? SunniesnowRecord.Record : SunniesnowRecord.CoverGen;
 	// Record and CoverGen convert string option values through toBlob, which reads file
 	// paths from disk — so the level archive is handed over as a plain path.
-	const options = { ...request.options, levelFileUpload: request.levelFile };
+	const { backgroundFill, ...options } = request.options;
+	options.levelFileUpload = request.levelFile;
+	if (backgroundFill) {
+		const { installRenderBackground } = await import("./render-background.js");
+		installRenderBackground(Sunniesnow, {
+			kind: request.kind,
+			hasImage: options.background !== "none",
+			fill: backgroundFill,
+		});
+	}
 	if (request.kind === "video") {
 		applyVideoEncoderDefaults(options, os.cpus().length);
 		installRecordEncoderGuards(SunniesnowRecord.Record);

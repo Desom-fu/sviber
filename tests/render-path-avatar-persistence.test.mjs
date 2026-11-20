@@ -60,6 +60,8 @@ test("video and cover dialogs remember their fields independently", () => {
 			speed: 1.5,
 			width: 1280,
 			height: 720,
+			backgroundBlur: 0,
+			backgroundFill: "#ABC",
 			fps: 30,
 			useBundledFfmpeg: false,
 			waitForMusic: false,
@@ -86,6 +88,8 @@ test("video and cover dialogs remember their fields independently", () => {
 			output: "C:/out/cover.png",
 			width: 3840,
 			height: 2160,
+			backgroundBlur: 37.5,
+			backgroundFill: "#ffffff",
 			coverThemeState: { x: 0.25, y: -0.5, width: 0.75, contained: true },
 		},
 		"cover",
@@ -96,6 +100,10 @@ test("video and cover dialogs remember their fields independently", () => {
 	assert.equal(both.video.width, 1280, "the video size is untouched by the cover dialog");
 	assert.equal(both.cover.width, 3840);
 	assert.equal(both.cover.output, "C:/out/cover.png");
+	assert.equal(both.video.backgroundBlur, 0);
+	assert.equal(both.video.backgroundFill, "#aabbcc");
+	assert.equal(both.cover.backgroundBlur, 37.5);
+	assert.equal(both.cover.backgroundFill, "#ffffff");
 	assert.deepEqual(both.cover.coverTheme, { x: 0.25, y: -0.5, width: 0.75, contained: true });
 	assert.equal(both.avatar, "weavatar", "the shared fields update from either dialog");
 });

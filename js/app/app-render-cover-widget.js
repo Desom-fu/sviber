@@ -57,7 +57,7 @@ export function createCoverThemeWidget({
 	// fully inside the visible frame; unchecked keeps the old free-form behavior.
 	const containedInput = createContainmentCheckbox(documentRef, initial);
 	const containedLabel = documentRef.createElement("label");
-	containedLabel.className = "cover-theme-widget-contained-label";
+	containedLabel.className = "checkbox-line";
 	containedLabel.append(
 		containedInput.element,
 		documentRef.createTextNode(i18n.t("field.renderCoverThemeContained")),

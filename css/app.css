@@ -1037,6 +1037,19 @@ textarea:focus-visible,
 	width: 5.5em;
 }
 
+.render-fill-row {
+	display: flex;
+	gap: 6px;
+}
+
+.render-fill-row > input {
+	flex: 1;
+}
+
+.render-fill-row > button[aria-pressed="true"] {
+	border-color: var(--focus);
+}
+
 .render-progress {
 	display: grid;
 	gap: 6px;

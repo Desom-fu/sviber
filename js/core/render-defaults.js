@@ -50,6 +50,20 @@ export function normalizeRenderDefaults(source = {}) {
 	};
 }
 
+export const DEFAULT_RENDER_BLUR = 20;
+export const MAX_RENDER_BLUR = 100;
+export const DEFAULT_RENDER_FILL = "#000000";
+
+export function normalizeRenderFill(value) {
+	const hex = /^#?([\da-f]{3}|[\da-f]{6})$/i.exec(String(value ?? "").trim())?.[1].toLowerCase();
+	return hex ? `#${hex.length === 3 ? hex.replace(/./g, "$&$&") : hex}` : null;
+}
+
+export function normalizeRenderBlur(value) {
+	const blur = value == null || value === "" ? NaN : Number(value);
+	return Number.isFinite(blur) && blur >= 0 && blur <= MAX_RENDER_BLUR ? blur : DEFAULT_RENDER_BLUR;
+}
+
 const VIDEO_DEFAULT_KEYS = [
 	"output",
 	"useBundledFfmpeg",
@@ -62,6 +76,7 @@ const VIDEO_DEFAULT_KEYS = [
 ];
 
 const COVER_DEFAULT_KEYS = ["output", "width", "height"];
+const BACKGROUND_DEFAULT_KEYS = ["backgroundBlur", "backgroundFill"];
 
 export function normalizeVideoDefaults(source = {}) {
 	const normalized = { output: null };
@@ -69,6 +84,8 @@ export function normalizeVideoDefaults(source = {}) {
 		const value = source?.[key];
 		normalized[key] = typeof value === "boolean" ? value : value == null || value === "" ? null : Number(value);
 	}
+	normalized.backgroundBlur = normalizeRenderBlur(source?.backgroundBlur);
+	normalized.backgroundFill = normalizeRenderFill(source?.backgroundFill) ?? DEFAULT_RENDER_FILL;
 	normalized.output = source?.output == null ? null : String(source.output);
 	return normalized;
 }
@@ -79,6 +96,8 @@ export function normalizeCoverDefaults(source = {}) {
 		const value = source?.[key];
 		normalized[key] = value == null || value === "" ? null : Number(value);
 	}
+	normalized.backgroundBlur = normalizeRenderBlur(source?.backgroundBlur);
+	normalized.backgroundFill = normalizeRenderFill(source?.backgroundFill) ?? DEFAULT_RENDER_FILL;
 	normalized.output = source?.output == null ? null : String(source.output);
 	normalized.coverTheme = normalizeCoverThemeState(source?.coverTheme);
 	return normalized;
@@ -123,12 +142,17 @@ export function saveRenderDefaults(values, kind, storage = globalThis.localStora
 	}
 	const normalized = normalizeRenderDefaults({ ...previous, ...shared });
 	if (storedKind === "video") {
-		normalized.video = normalizeVideoDefaults({ ...previous.video, ...pickDefined(values, VIDEO_DEFAULT_KEYS) });
+		normalized.video = normalizeVideoDefaults({
+			...previous.video,
+			...pickDefined(values, VIDEO_DEFAULT_KEYS),
+			...pickDefined(values, BACKGROUND_DEFAULT_KEYS),
+		});
 	}
 	if (storedKind === "cover") {
 		normalized.cover = normalizeCoverDefaults({
 			...previous.cover,
 			...pickDefined(values, COVER_DEFAULT_KEYS),
+			...pickDefined(values, BACKGROUND_DEFAULT_KEYS),
 			coverTheme: values.coverThemeState ?? previous.cover.coverTheme,
 		});
 	}
