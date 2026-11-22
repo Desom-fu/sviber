@@ -30,11 +30,11 @@ const INTEGER_DIFFICULTY_NAMES = new Set(["Easy", "Normal", "Hard", "Master"]);
 const CJK_PATTERN =
 	/[\u2e80-\u303f\u3040-\u30ff\u3130-\u318f\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\uf900-\ufaff\uff00-\uffef]/u;
 
-function eventPosition(event, snappees) {
-	return resolveAttachedPosition(event, snappees) ?? { x: Number(event.x) || 0, y: Number(event.y) || 0 };
+function eventPosition(event, snappees, options) {
+	return resolveAttachedPosition(event, snappees, options) ?? { x: Number(event.x) || 0, y: Number(event.y) || 0 };
 }
 
-function spawnPosition(settings, targetPosition, snappees) {
+function spawnPosition(settings, targetPosition, snappees, options) {
 	if (!settings.tipPointSpawnAbsolutePosition) {
 		const distance = Math.max(0, Number(settings.tipPointSpawnDistance ?? 100));
 		const angle = Number(settings.tipPointSpawnAngle ?? Math.PI / 2);
@@ -44,7 +44,7 @@ function spawnPosition(settings, targetPosition, snappees) {
 		};
 	}
 	return (
-		resolveAttachedPosition(settings, snappees, { prefix: "tipPointSpawn" }) ?? {
+		resolveAttachedPosition(settings, snappees, options ?? { prefix: "tipPointSpawn" }) ?? {
 			x: Number(settings.tipPointSpawnX) || 0,
 			y: Number(settings.tipPointSpawnY ?? 100),
 		}
@@ -225,7 +225,7 @@ function checkDurations(context, violations) {
 
 function tipPointCheckpoints(guide, context) {
 	const points = guide.events.map(event => ({ event, ...context.positionOf(event), time: context.startOf(event) }));
-	const spawn = spawnPosition(guide.spawnSettings, points[0], context.snappees);
+	const spawn = spawnPosition(guide.spawnSettings, points[0], context.snappeeMap, context.spawnResolveOptions);
 	return [{ event: null, x: spawn.x, y: spawn.y, time: guide.spawnTime }, ...points];
 }
 
@@ -389,29 +389,44 @@ function checkDriftingTipPoints(context, violations) {
 	}
 }
 
-function drawRank(context, event) {
-	const typeLayer = event.type === "bgNote" ? 0 : 1;
-	const channelIndex = context.channels.findIndex(channel => channel.id === event.channel);
-	return [typeLayer, context.startOf(event), channelIndex, context.sequenceOf(event)];
+function isRecordDrawnAbove(above, below) {
+	if (above.typeLayer !== below.typeLayer) {
+		return above.typeLayer > below.typeLayer;
+	}
+	if (above.start !== below.start) {
+		return above.start > below.start;
+	}
+	if (above.channelIndex !== below.channelIndex) {
+		return above.channelIndex > below.channelIndex;
+	}
+	return above.sequence > below.sequence;
 }
 
-function isDrawnAbove(context, above, below) {
-	const left = drawRank(context, above);
-	const right = drawRank(context, below);
-	for (let index = 0; index < left.length; index += 1) {
-		if (left[index] !== right[index]) {
-			return left[index] > right[index];
+function recordCoversTextPoint(other, record) {
+	if (other === record || !isRecordDrawnAbove(other, record)) {
+		return false;
+	}
+	const maxDistance = other.isHold ? 6.25 + CHECK_EPSILON : CHECK_EPSILON;
+	const dx = record.position.x - other.position.x;
+	const dy = record.position.y - other.position.y;
+	if (Math.abs(dx) > maxDistance || Math.abs(dy) > maxDistance) {
+		return false;
+	}
+	return Math.hypot(dx, dy) <= maxDistance;
+}
+
+function lowerBoundStart(records, target) {
+	let low = 0;
+	let high = records.length;
+	while (low < high) {
+		const mid = (low + high) >>> 1;
+		if (records[mid].start < target) {
+			low = mid + 1;
+		} else {
+			high = mid;
 		}
 	}
-	return false;
-}
-
-function distanceBetween(left, right) {
-	return Math.hypot(left.x - right.x, left.y - right.y);
-}
-
-function samePosition(left, right) {
-	return distanceBetween(left, right) <= CHECK_EPSILON;
+	return low;
 }
 
 function coversRange(start, end, ranges) {
@@ -437,22 +452,30 @@ function coversRange(start, end, ranges) {
 // requires a positive overlap instead.
 function checkConflictingBgPatterns(context, violations) {
 	const strict = context.settings.conflictingBgPatterns.strict !== false;
-	const patterns = context.leafEvents.filter(event => PATTERN_TYPES.has(event.type));
+	const patterns = context.leafEvents
+		.filter(event => PATTERN_TYPES.has(event.type))
+		.map((event, order) => ({
+			event,
+			order,
+			start: context.startOf(event),
+			end: context.endOf(event),
+		}))
+		.sort((left, right) => left.start - right.start || left.order - right.order);
 	for (let i = 0; i < patterns.length; i += 1) {
 		const first = patterns[i];
-		const firstStart = context.startOf(first);
-		const firstEnd = context.endOf(first);
 		for (let j = i + 1; j < patterns.length; j += 1) {
 			const second = patterns[j];
-			const secondStart = context.startOf(second);
-			const secondEnd = context.endOf(second);
-			const firstCondition = strict ? secondStart <= firstEnd : secondStart < firstEnd;
-			const secondCondition = strict ? firstStart <= secondEnd : firstStart < secondEnd;
-			if (firstCondition && secondCondition) {
+			if (strict ? second.start > first.end : second.start >= first.end) {
+				break;
+			}
+			const secondCondition = strict ? first.start <= second.end : first.start < second.end;
+			if (secondCondition) {
+				const orderedFirst = first.order < second.order ? first : second;
+				const orderedSecond = first.order < second.order ? second : first;
 				violations.push(
 					violation("conflictingBgPatterns", {
-						time: Math.min(firstStart, secondStart),
-						eventIds: [first.id, second.id],
+						time: Math.min(first.start, second.start),
+						eventIds: [orderedFirst.event.id, orderedSecond.event.id],
 					}),
 				);
 			}
@@ -464,31 +487,69 @@ function checkBlockedTexts(context, violations) {
 	const candidates = context.leafEvents.filter(
 		event => event.type === "tap" || event.type === "hold" || event.type === "flick" || event.type === "bgNote",
 	);
-	for (const event of candidates) {
-		if (!String(event.text ?? "")) {
+	if (!candidates.some(event => Boolean(String(event.text ?? "")))) {
+		return;
+	}
+	const channelOrder = new Map(context.channels.map((channel, index) => [channel.id, index]));
+	const byStart = candidates
+		.map((event, order) => ({
+			event,
+			order,
+			hasText: Boolean(String(event.text ?? "")),
+			typeLayer: event.type === "bgNote" ? 0 : 1,
+			start: context.startOf(event),
+			end: context.endOf(event),
+			channelIndex: channelOrder.get(event.channel) ?? -1,
+			sequence: context.sequenceOf(event),
+			position: context.positionOf(event),
+			isHold: event.type === "hold",
+		}))
+		.sort((left, right) => left.start - right.start || left.order - right.order);
+	const activeDuration = [];
+	const blocked = [];
+	let windowLeft = 0;
+	for (let index = 0; index < byStart.length; index += 1) {
+		const record = byStart[index];
+		if (!record.hasText) {
 			continue;
 		}
-		const start = context.startOf(event);
-		const end = context.endOf(event);
-		const position = context.positionOf(event);
+		const windowStart = record.start - CHECK_EPSILON;
+		const windowEnd = record.end + CHECK_EPSILON;
+		while (windowLeft < byStart.length && byStart[windowLeft].start < windowStart) {
+			if (byStart[windowLeft].end >= windowStart) {
+				activeDuration.push(byStart[windowLeft]);
+			}
+			windowLeft += 1;
+		}
+		let write = 0;
+		for (let read = 0; read < activeDuration.length; read += 1) {
+			const entry = activeDuration[read];
+			if (entry.end >= windowStart) {
+				activeDuration[write] = entry;
+				write += 1;
+			}
+		}
+		activeDuration.length = write;
 		const ranges = [];
-		for (const other of candidates) {
-			if (other === event || !isDrawnAbove(context, other, event)) {
-				continue;
+		for (let activeIndex = 0; activeIndex < activeDuration.length; activeIndex += 1) {
+			const other = activeDuration[activeIndex];
+			if (recordCoversTextPoint(other, record)) {
+				ranges.push([other.start, other.end]);
 			}
-			const otherPosition = context.positionOf(other);
-			const close =
-				samePosition(position, otherPosition) ||
-				(other.type === "hold" && distanceBetween(position, otherPosition) <= 6.25 + CHECK_EPSILON);
-			if (!close) {
-				continue;
+		}
+		for (let scan = windowLeft; scan < byStart.length && byStart[scan].start <= windowEnd; scan += 1) {
+			const other = byStart[scan];
+			if (other.end >= windowStart && recordCoversTextPoint(other, record)) {
+				ranges.push([other.start, other.end]);
 			}
-			ranges.push([context.startOf(other), context.endOf(other)]);
 		}
-		if (!coversRange(start, end, ranges)) {
-			continue;
+		if (coversRange(record.start, record.end, ranges)) {
+			blocked.push(record);
 		}
-		violations.push(violation("blockedTexts", { time: start, eventIds: [event.id] }));
+	}
+	blocked.sort((left, right) => left.order - right.order);
+	for (const record of blocked) {
+		violations.push(violation("blockedTexts", { time: record.start, eventIds: [record.event.id] }));
 	}
 }
 
@@ -500,31 +561,59 @@ function checkDragScreening(context, violations) {
 	const settings = context.settings.dragScreening;
 	const screeningTime = Math.max(0, Number(settings.seconds));
 	const screeningDistance = Math.max(0, Number(settings.distance));
+	const maxDistance = screeningDistance + CHECK_EPSILON;
 	const notes = context.leafEvents
 		.filter(event => NOTE_TYPES.has(event.type))
-		.map(event => ({ event, start: context.startOf(event), position: context.positionOf(event) }));
-	const nonDrags = notes.filter(record => record.event.type !== "drag");
-	const near = (left, right) =>
-		Math.hypot(left.position.x - right.position.x, left.position.y - right.position.y) <=
-		screeningDistance + CHECK_EPSILON;
-	for (const drag of notes.filter(record => record.event.type === "drag")) {
+		.map((event, order) => ({
+			event,
+			order,
+			start: context.startOf(event),
+			position: context.positionOf(event),
+		}));
+	const drags = notes.filter(record => record.event.type === "drag");
+	if (!drags.length) {
+		return;
+	}
+	const byStart = notes.slice().sort((left, right) => left.start - right.start || left.order - right.order);
+	const near = (left, right) => {
+		const dx = left.position.x - right.position.x;
+		const dy = left.position.y - right.position.y;
+		if (Math.abs(dx) > maxDistance || Math.abs(dy) > maxDistance) {
+			return false;
+		}
+		return Math.hypot(dx, dy) <= maxDistance;
+	};
+	for (const drag of drags) {
 		const t0 = drag.start;
-		const coveredBefore = notes.some(
-			record =>
-				record !== drag &&
-				record.start >= t0 - screeningTime - CHECK_EPSILON &&
-				record.start <= t0 + CHECK_EPSILON &&
-				near(record, drag),
-		);
+		const beforeEnd = t0 + CHECK_EPSILON;
+		let coveredBefore = false;
+		for (
+			let index = lowerBoundStart(byStart, t0 - screeningTime - CHECK_EPSILON);
+			index < byStart.length && byStart[index].start <= beforeEnd;
+			index += 1
+		) {
+			const record = byStart[index];
+			if (record !== drag && near(record, drag)) {
+				coveredBefore = true;
+				break;
+			}
+		}
 		if (coveredBefore) {
 			continue;
 		}
-		const hitAfter = nonDrags.some(
-			record =>
-				record.start >= t0 - CHECK_EPSILON &&
-				record.start <= t0 + screeningTime + CHECK_EPSILON &&
-				near(record, drag),
-		);
+		const afterEnd = t0 + screeningTime + CHECK_EPSILON;
+		let hitAfter = false;
+		for (
+			let index = lowerBoundStart(byStart, t0 - CHECK_EPSILON);
+			index < byStart.length && byStart[index].start <= afterEnd;
+			index += 1
+		) {
+			const record = byStart[index];
+			if (record.event.type !== "drag" && near(record, drag)) {
+				hitAfter = true;
+				break;
+			}
+		}
 		if (!hitAfter) {
 			continue;
 		}
@@ -667,6 +756,10 @@ function buildContext(model, options) {
 	const timing = model.timing;
 	const settings = normalizeChecks(options.checks ?? model.checks);
 	const snappees = model.snappees || [];
+	const snappeeMap = new Map(snappees.map(snappee => [snappee.id, snappee]));
+	const sampleCache = new Map();
+	const resolveOptions = { sampleCache };
+	const spawnResolveOptions = { prefix: "tipPointSpawn", sampleCache };
 	// v0.16.23: notes on deactivated channels are drafts — every note check ignores them.
 	// Deactivation (active: false) is a per-lane switch, distinct from hiding (hidden),
 	// which only collapses the lane out of the timeline without touching checks.
@@ -704,7 +797,7 @@ function buildContext(model, options) {
 	};
 	const positionOf = event => {
 		if (!positionCache.has(event.id)) {
-			positionCache.set(event.id, eventPosition(event, snappees));
+			positionCache.set(event.id, eventPosition(event, snappeeMap, resolveOptions));
 		}
 		return positionCache.get(event.id);
 	};
@@ -714,6 +807,9 @@ function buildContext(model, options) {
 		timing,
 		settings,
 		snappees,
+		snappeeMap,
+		resolveOptions,
+		spawnResolveOptions,
 		leafEvents,
 		startOf,
 		endOf,

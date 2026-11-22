@@ -452,11 +452,12 @@ export class ChartModel {
 		return this;
 	}
 
-	_exportEvent(event) {
+	_exportEvent(event, exportContext = null) {
 		const time = this.timing.beatToSeconds(event.time);
 		const properties = {};
 		if (MOVABLE_TYPES.has(event.type)) {
-			const position = resolveAttachedPosition(event, this.snappees) ?? {
+			const snappees = exportContext?.snappees ?? this.snappees;
+			const position = resolveAttachedPosition(event, snappees, exportContext?.resolveOptions) ?? {
 				x: finiteNumber(event.x, 0),
 				y: finiteNumber(event.y, 0),
 			};
@@ -475,7 +476,7 @@ export class ChartModel {
 		return { type: event.type, time, properties };
 	}
 
-	_spawnPosition(event, targetPosition) {
+	_spawnPosition(event, targetPosition, exportContext = null) {
 		if (!event.tipPointSpawnAbsolutePosition) {
 			const distance = Math.max(0, finiteNumber(event.tipPointSpawnDistance, 100));
 			const angle = finiteNumber(event.tipPointSpawnAngle, Math.PI / 2);
@@ -484,8 +485,10 @@ export class ChartModel {
 				y: targetPosition.y + distance * Math.sin(angle),
 			};
 		}
+		const snappees = exportContext?.snappees ?? this.snappees;
+		const options = exportContext?.spawnResolveOptions ?? { prefix: "tipPointSpawn" };
 		return (
-			resolveAttachedPosition(event, this.snappees, { prefix: "tipPointSpawn" }) ?? {
+			resolveAttachedPosition(event, snappees, options) ?? {
 				x: finiteNumber(event.tipPointSpawnX, 0),
 				y: finiteNumber(event.tipPointSpawnY, 100),
 			}
@@ -501,13 +504,27 @@ export class ChartModel {
 		return targetTime - Math.max(0, finiteNumber(spawnSettings.tipPointSpawnTime, 1));
 	}
 
-	_makePlaceholder(targetEvent, spawnSettings, tipPoint, sequence, channelIndex) {
-		const targetPosition = resolveAttachedPosition(targetEvent, this.snappees) ?? {
-			x: finiteNumber(targetEvent.x, 0),
-			y: finiteNumber(targetEvent.y, 0),
-		};
-		const spawnPosition = this._spawnPosition(spawnSettings, targetPosition);
-		const targetTime = this.timing.beatToSeconds(targetEvent.time);
+	_makePlaceholder(
+		targetEvent,
+		spawnSettings,
+		tipPoint,
+		sequence,
+		channelIndex,
+		exportContext = null,
+		exportedTarget = null,
+	) {
+		let targetPosition;
+		if (exportedTarget?.properties) {
+			targetPosition = { x: exportedTarget.properties.x, y: exportedTarget.properties.y };
+		} else {
+			const snappees = exportContext?.snappees ?? this.snappees;
+			targetPosition = resolveAttachedPosition(targetEvent, snappees, exportContext?.resolveOptions) ?? {
+				x: finiteNumber(targetEvent.x, 0),
+				y: finiteNumber(targetEvent.y, 0),
+			};
+		}
+		const spawnPosition = this._spawnPosition(spawnSettings, targetPosition, exportContext);
+		const targetTime = exportedTarget ? exportedTarget.time : this.timing.beatToSeconds(targetEvent.time);
 		const spawnTime = this._spawnTime(targetEvent, spawnSettings, targetTime);
 		return {
 			exported: {
@@ -524,12 +541,20 @@ export class ChartModel {
 	// Walks one channel in time order and turns sviber's per-note spawn modes into the
 	// shared `tipPoint` names Sunniesnow uses, appending the placeholder that anchors each
 	// trail to `placeholders`.
-	_assignChannelTipPoints(records, channel, placeholders, nextTipPointName) {
-		const channelEvents = records
-			.filter(({ event }) => event.channel === channel.id && TIP_POINTABLE_TYPES.has(event.type))
-			.toSorted(
-				(left, right) => Rational.compare(left.event.time, right.event.time) || left.sequence - right.sequence,
-			);
+	_assignChannelTipPoints(
+		records,
+		channel,
+		placeholders,
+		nextTipPointName,
+		exportContext = null,
+		prefiltered = null,
+	) {
+		const source =
+			prefiltered ??
+			records.filter(({ event }) => event.channel === channel.id && TIP_POINTABLE_TYPES.has(event.type));
+		const channelEvents = source.toSorted(
+			(left, right) => Rational.compare(left.event.time, right.event.time) || left.sequence - right.sequence,
+		);
 		let previousMode = "none";
 		let previousSettings = null;
 		let chainTipPoint = null;
@@ -547,6 +572,8 @@ export class ChartModel {
 							chainTipPoint,
 							record.sequence,
 							record.channelIndex,
+							exportContext,
+							record.exported,
 						),
 					);
 				}
@@ -564,6 +591,8 @@ export class ChartModel {
 						tipPoint,
 						record.sequence,
 						record.channelIndex,
+						exportContext,
+						record.exported,
 					),
 				);
 				chainTipPoint = null;
@@ -590,20 +619,49 @@ export class ChartModel {
 		const activeChannels = new Set(
 			this.channels.filter(channel => channel.active !== false).map(channel => channel.id),
 		);
+		const sampleCache = new Map();
+		const exportContext = {
+			snappees: new Map(this.snappees.map(snappee => [snappee.id, snappee])),
+			resolveOptions: { sampleCache },
+			spawnResolveOptions: { prefix: "tipPointSpawn", sampleCache },
+		};
 		const records = this.allEvents({ includeGroups: false })
 			.filter(event => event.type !== "comment" && activeChannels.has(event.channel))
 			.map((event, sequence) => ({
 				event,
-				exported: this._exportEvent(event),
+				exported: this._exportEvent(event, exportContext),
 				channelIndex: channelOrder.get(event.channel) ?? Infinity,
 				sequence,
 				placeholder: false,
 			}));
+		const tipPointRecordsByChannel = new Map();
+		for (const record of records) {
+			if (!TIP_POINTABLE_TYPES.has(record.event.type)) {
+				continue;
+			}
+			let list = tipPointRecordsByChannel.get(record.event.channel);
+			if (!list) {
+				list = [];
+				tipPointRecordsByChannel.set(record.event.channel, list);
+			}
+			list.push(record);
+		}
 		const placeholders = [];
 		let guideSerial = 0;
 		const nextTipPointName = event => `sviber-tip-${event.id}-${guideSerial++}`;
 		for (const channel of this.channels) {
-			this._assignChannelTipPoints(records, channel, placeholders, nextTipPointName);
+			const channelRecords = tipPointRecordsByChannel.get(channel.id);
+			if (!channelRecords?.length) {
+				continue;
+			}
+			this._assignChannelTipPoints(
+				records,
+				channel,
+				placeholders,
+				nextTipPointName,
+				exportContext,
+				channelRecords,
+			);
 		}
 		return [...records, ...placeholders]
 			.toSorted(

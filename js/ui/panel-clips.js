@@ -105,7 +105,11 @@ export class ClipsPanel {
 		const name = document.createElement("span");
 		name.className = "snappee-name";
 		name.textContent = clip.name;
-		const actions = makeInlineActionRow(document, this.i18n, this.tooltip, [
+		const actions = makeInlineActionRow(
+			document,
+			this.i18n,
+			this.tooltip,
+			[
 				{
 					icon: "up",
 					tooltipKey: "panel.clip.moveUp",
@@ -132,7 +136,9 @@ export class ClipsPanel {
 					disabled: readOnly,
 					onSelect: () => this.onDelete(index),
 				},
-		]);
+			],
+			this.cleanup,
+		);
 		actions.hidden = clip.expanded !== true;
 		const expansion = makeExpansionButton(
 			document,
@@ -140,6 +146,7 @@ export class ClipsPanel {
 			this.tooltip,
 			clip.expanded === true,
 			expanded => this.onToggleExpanded(index, expanded),
+			this.cleanup,
 		);
 		item.append(
 			canvas,

@@ -356,8 +356,13 @@ export class TimelineView {
 	// Same mapping as _eventPosition, but for every channel/time — even ones currently
 	// scrolled out of the timeline viewport. Rubber-band hit testing uses this so the
 	// selection region is content-space, not "what the last paint happened to draw".
-	_contentLanePosition(event, layout, project, offsets, record = null) {
-		const channelIndex = visibleTimelineChannels(project).findIndex(channel => channel.id === event.channel);
+	_contentLanePosition(event, layout, project, offsets, record = null, channelIndices = null) {
+		let channelIndex;
+		if (channelIndices) {
+			channelIndex = channelIndices.get(event.channel) ?? -1;
+		} else {
+			channelIndex = visibleTimelineChannels(project).findIndex(channel => channel.id === event.channel);
+		}
 		if (channelIndex < 0) {
 			return null;
 		}

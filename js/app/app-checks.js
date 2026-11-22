@@ -100,7 +100,7 @@ class ChecksTrait {
 		const slice = deadline => {
 			if (token !== this.checksRefreshToken) {
 				this.checksRunActive = false;
-				if (this.checksRefreshPending) {
+				if (this.checksRefreshPending && !this.checksQuietTimer) {
 					this._pumpChecksRefresh();
 				}
 				return;
@@ -122,7 +122,7 @@ class ChecksTrait {
 			this.checkViolations = sorted;
 			this.checksPanel.render(sorted);
 			this._updateChecksTabCount(sorted.length);
-			if (this.checksRefreshPending) {
+			if (this.checksRefreshPending && !this.checksQuietTimer) {
 				this._pumpChecksRefresh();
 			}
 		};

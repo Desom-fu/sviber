@@ -84,6 +84,7 @@ export function removeEventsFromIndex(index, removedEvents) {
 	rebuildTapOrder(index);
 	rebuildDoubleTaps(index, changedDoubleTapTimes);
 	index.maximumTime = index.eventRecords.reduce((maximum, record) => Math.max(maximum, record.end + 10), 10);
+	index.contentRevision = (index.contentRevision || 0) + 1;
 	return true;
 }
 
@@ -275,5 +276,6 @@ export function removeChannelFromIndex(index, channelId, removedEvents) {
 	index.tipGuides = index.allTipGuides.filter(guide => index.activeChannelIds.has(guide.events[0]?.channel));
 	index.tipGuideIndex = new IntervalIndex(index.tipGuides);
 	index.setActiveChannels(index.project.channels);
+	index.contentRevision = (index.contentRevision || 0) + 1;
 	return channelId != null;
 }

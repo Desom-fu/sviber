@@ -773,19 +773,60 @@ export class TimelineDrawingTrait {
 		);
 	}
 
+	_scrollbarHeatmapRuns(project, bounds, width) {
+		const binCount = Math.max(1, Math.floor(Number(width) || 1));
+		const index = this.renderIndex;
+		let key = null;
+		if (index) {
+			const channels = (project?.channels || [])
+				.map(channel => `${channel.id}:${channel.active !== false}`)
+				.join(",");
+			const rev = index.contentRevision || 0;
+			key = `${rev}|${index.eventRecords.length}|${bounds[0]}|${bounds[1]}|${binCount}|${channels}`;
+			if (this._scrollbarHeatmapCache?.index === index && this._scrollbarHeatmapCache.key === key) {
+				return this._scrollbarHeatmapCache.runs;
+			}
+		}
+		const colors = scrollbarHeatmapColors(
+			scrollbarNoteDensity(this._scrollbarHeatmapRecords(project), bounds, binCount),
+		);
+		const runs = [];
+		for (let start = 0; start < colors.length; ) {
+			const color = colors[start];
+			let end = start + 1;
+			while (end < colors.length && colors[end] === color) {
+				end += 1;
+			}
+			runs.push({ color, start, length: end - start });
+			start = end;
+		}
+		if (index) {
+			this._scrollbarHeatmapCache = { index, key, count: colors.length, runs };
+		}
+		return runs;
+	}
+
+	_drawScrollbarHeatmap(context, rectangle, project, bounds) {
+		const binCount = Math.max(1, Math.floor(Number(rectangle.width) || 1));
+		const runs = this._scrollbarHeatmapRuns(project, bounds, binCount);
+		const binWidth = rectangle.width / binCount;
+		for (const run of runs) {
+			context.fillStyle = run.color;
+			context.fillRect(
+				rectangle.x + run.start * binWidth,
+				rectangle.y,
+				run.length * binWidth + 1,
+				rectangle.height,
+			);
+		}
+	}
+
 	_drawScrollbar(context, rectangle, project, current) {
 		const bounds = this._timeBounds(project);
 		const beginningX = this._scrollX(project.editor.visibleRangeBeginning, rectangle, bounds);
 		const endingX = this._scrollX(project.editor.visibleRangeEnd, rectangle, bounds);
 		const currentX = this._scrollX(current, rectangle, bounds);
-		const colors = scrollbarHeatmapColors(
-			scrollbarNoteDensity(this._scrollbarHeatmapRecords(project), bounds, rectangle.width),
-		);
-		const binWidth = rectangle.width / Math.max(1, colors.length);
-		colors.forEach((color, index) => {
-			context.fillStyle = color;
-			context.fillRect(rectangle.x + index * binWidth, rectangle.y, binWidth + 1, rectangle.height);
-		});
+		this._drawScrollbarHeatmap(context, rectangle, project, bounds);
 		this._drawSnappeeScrollbarMarks?.(context, rectangle, project, bounds);
 		this._drawSelectedEventScrollbarLines(context, rectangle, project, bounds);
 		context.strokeStyle = "#56db79";

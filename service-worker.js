@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "sviber-v0182200";
+const CACHE_VERSION = "sviber-v0182300";
 const SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL = [
@@ -142,6 +142,7 @@ const APP_SHELL = [
 	"./js/core/chart-vocabulary.js",
 	"./js/core/checks-config.js",
 	"./js/core/checks.js",
+	"./js/core/geometry-resolve.js",
 	"./js/core/geometry.js",
 	"./js/core/grouping.js",
 	"./js/core/history.js",

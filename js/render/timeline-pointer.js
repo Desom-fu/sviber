@@ -611,8 +611,11 @@ export class TimelinePointerTrait {
 			this.renderIndex?.activeChannelIds ||
 			new Set(project.channels.filter(channel => channel.active !== false).map(channel => channel.id));
 		const hideBackground = project.editor?.showBgEventsInTimeline === false;
-		const events = flattenEvents(project.events || [], false);
+		const events = this.renderIndex?.leafEvents || flattenEvents(project.events || [], false);
 		const offsets = this.renderIndex?.eventLaneOffsets || this._eventLaneOffsets(events);
+		const channelIndices = new Map(
+			visibleTimelineChannels(project).map((channel, index) => [channel.id, index]),
+		);
 		const centers = [];
 		for (const event of events) {
 			if (event.type === "group" || !activeChannelIds.has(event.channel)) {
@@ -622,7 +625,7 @@ export class TimelinePointerTrait {
 				continue;
 			}
 			const record = this.renderIndex?.recordFor(event);
-			const position = this._contentLanePosition(event, layout, project, offsets, record);
+			const position = this._contentLanePosition(event, layout, project, offsets, record, channelIndices);
 			if (!position) {
 				continue;
 			}

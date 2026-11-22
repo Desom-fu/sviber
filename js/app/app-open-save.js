@@ -500,6 +500,9 @@ class OpenSaveTrait {
 		if (!this.liveHosting?.server || !(this.liveHosting.reloadPort > 0)) {
 			return;
 		}
+		if (this.liveHosting.clients && this.liveHosting.clients.size === 0) {
+			return;
+		}
 		const entry = this.activeDifficultyState?.();
 		if (!entry) {
 			return;

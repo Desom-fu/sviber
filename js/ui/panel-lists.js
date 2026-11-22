@@ -365,6 +365,7 @@ export class SnappeesPanel {
 			this.i18n,
 			this.tooltip,
 			snappeeMenuItems(this, snappee, index, model, readOnly),
+			this.cleanup,
 		);
 		actions.hidden = snappee.expanded !== true;
 		const expansion = makeExpansionButton(
@@ -373,6 +374,7 @@ export class SnappeesPanel {
 			this.tooltip,
 			snappee.expanded === true,
 			expanded => this.onToggleExpanded(snappee.id, expanded),
+			this.cleanup,
 		);
 		item.append(
 			preview,
@@ -502,6 +504,7 @@ export class ChannelsPanel {
 			this.i18n,
 			this.tooltip,
 			channelMenuItems(this, channel, index, model, readOnly),
+			this.cleanup,
 		);
 		actions.hidden = channel.expanded !== true;
 		const expansion = makeExpansionButton(
@@ -510,6 +513,7 @@ export class ChannelsPanel {
 			this.tooltip,
 			channel.expanded === true,
 			expanded => this.onToggleExpanded(channel.id, expanded),
+			this.cleanup,
 		);
 		item.append(
 			ordinal,

@@ -59,6 +59,7 @@ export class ChartRenderIndex {
 		this.timing = timing;
 		this.selectionScope = options.selectionScope ?? null;
 		this.timelineTipRevision = 0;
+		this.contentRevision = 0;
 		this.approachSpeed = Number(options.noteSpeed) > 0 ? Number(options.noteSpeed) : SUNNIESNOW_SKIN.approachSpeed;
 		this.snappeeSamples = new Map();
 		this.snappeePaths = new Map();

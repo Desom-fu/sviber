@@ -1,4 +1,5 @@
 import { SPECIAL_SNAP_INDEX, isSpecialSnapPoint, snappeeIndexSpec } from "./snappee-index.js";
+import { findSnappeeById, resolveAnalyticLocalPoint, resolveSampledCandidate } from "./geometry-resolve.js";
 
 export { SPECIAL_SNAP_INDEX, isSpecialSnapPoint, snappeeIndexSpec };
 
@@ -56,11 +57,26 @@ export function normalizeTransform(transform = IDENTITY_TRANSFORM) {
 	if (!Array.isArray(transform) || transform.length !== 6) {
 		throw new TypeError("transformation must be a six-number array");
 	}
-	return transform.map((value, index) => finiteNumber(value, `transformation[${index}]`));
+	return [
+		finiteNumber(transform[0], "transformation[0]"),
+		finiteNumber(transform[1], "transformation[1]"),
+		finiteNumber(transform[2], "transformation[2]"),
+		finiteNumber(transform[3], "transformation[3]"),
+		finiteNumber(transform[4], "transformation[4]"),
+		finiteNumber(transform[5], "transformation[5]"),
+	];
 }
 
 export function applyTransform(input, transform = IDENTITY_TRANSFORM) {
-	const [a, b, c, d, tx, ty] = normalizeTransform(transform);
+	if (!Array.isArray(transform) || transform.length !== 6) {
+		throw new TypeError("transformation must be a six-number array");
+	}
+	const a = finiteNumber(transform[0], "transformation[0]");
+	const b = finiteNumber(transform[1], "transformation[1]");
+	const c = finiteNumber(transform[2], "transformation[2]");
+	const d = finiteNumber(transform[3], "transformation[3]");
+	const tx = finiteNumber(transform[4], "transformation[4]");
+	const ty = finiteNumber(transform[5], "transformation[5]");
 	const x = finiteNumber(input?.x ?? input?.[0], "point.x");
 	const y = finiteNumber(input?.y ?? input?.[1], "point.y");
 	return { x: a * x + c * y + tx, y: b * x + d * y + ty };
@@ -478,8 +494,8 @@ export function sampleSnappeePath(snappee, options = {}) {
 	if (snappee.closed && raw.length > 1 && distance(raw[0], raw.at(-1)) > EPSILON) {
 		raw.push({ ...raw[0] });
 	}
-	const transform = normalizeTransform(snappee.transformation ?? IDENTITY_TRANSFORM);
-	return raw.map(point => applyTransform(point, transform));
+	const [a, b, c, d, tx, ty] = normalizeTransform(snappee.transformation ?? IDENTITY_TRANSFORM);
+	return raw.map(item => ({ x: a * item.x + c * item.y + tx, y: b * item.x + d * item.y + ty }));
 }
 
 function normalizedPositiveAngle(angle) {
@@ -780,17 +796,20 @@ export function sampleSnappee(snappee, options = {}) {
 	if (!sampler) {
 		throw new TypeError(`Unsupported snappee type: ${snappee.type}`);
 	}
-	const transform = normalizeTransform(snappee.transformation ?? IDENTITY_TRANSFORM);
-	return sampler(snappee, options.evaluator).map(raw => {
-		const transformed = applyTransform(raw, transform);
-		return {
-			x: transformed.x,
-			y: transformed.y,
-			snapPoint: Array.isArray(raw.snapPoint) ? [...raw.snapPoint] : raw.snapPoint,
+	const [a, b, c, d, tx, ty] = normalizeTransform(snappee.transformation ?? IDENTITY_TRANSFORM);
+	const rawPoints = sampler(snappee, options.evaluator);
+	const result = new Array(rawPoints.length);
+	for (let index = 0; index < rawPoints.length; index += 1) {
+		const raw = rawPoints[index];
+		result[index] = {
+			x: a * raw.x + c * raw.y + tx,
+			y: b * raw.x + d * raw.y + ty,
+			snapPoint: Array.isArray(raw.snapPoint) ? raw.snapPoint.slice() : raw.snapPoint,
 			localX: raw.x,
 			localY: raw.y,
 		};
-	});
+	}
+	return result;
 }
 
 // Center snap points sit off the curve. The outline is the closed ring (or open arc)
@@ -945,23 +964,45 @@ export function snapSnappeeTranslation(snappee, delta, snappees, options = {}) {
 
 export function resolveAttachedPosition(value, snappees, options = {}) {
 	const prefix = options.prefix ?? "";
-	const field = name => (prefix ? `${prefix}${name[0].toUpperCase()}${name.slice(1)}` : name);
-	if (!value?.[field("attached")]) {
-		const x = Number(value?.[field("x")]);
-		const y = Number(value?.[field("y")]);
+	const attached = prefix ? value?.[`${prefix}Attached`] : value?.attached;
+	if (!attached) {
+		const x = Number(prefix ? value?.[`${prefix}X`] : value?.x);
+		const y = Number(prefix ? value?.[`${prefix}Y`] : value?.y);
 		if (!Number.isFinite(x) || !Number.isFinite(y)) {
 			return null;
 		}
 		return { x, y, attached: false };
 	}
-	const id = value[field("snappee")];
-	const snappee = snappeeCollection(snappees).find(candidate => candidate.id === id);
+	const snappee = findSnappeeById(snappees, prefix ? value[`${prefix}Snappee`] : value.snappee);
 	if (!snappee) {
 		return null;
 	}
-	const requested = value[field("snapPoint")];
-	const candidate = sampleSnappee(snappee, options).find(item => sameSnapPoint(item.snapPoint, requested));
-	return candidate ? { ...candidate, attached: true, snappee } : null;
+	if (!SAMPLERS[snappee.type]) {
+		throw new TypeError(`Unsupported snappee type: ${snappee.type}`);
+	}
+	const requested = prefix ? value[`${prefix}SnapPoint`] : value.snapPoint;
+	const [a, b, c, d, tx, ty] = normalizeTransform(snappee.transformation ?? IDENTITY_TRANSFORM);
+	const local = resolveAnalyticLocalPoint(snappee, requested, evaluateExpression, options.evaluator);
+	if (local === null) {
+		return null;
+	}
+	if (local !== undefined) {
+		return {
+			x: a * local.x + c * local.y + tx,
+			y: b * local.x + d * local.y + ty,
+			snapPoint: local.snapPoint,
+			localX: local.x,
+			localY: local.y,
+			attached: true,
+			snappee,
+		};
+	}
+	const candidate = resolveSampledCandidate(snappee, requested, sampleSnappee, sameSnapPoint, options);
+	if (!candidate) {
+		return null;
+	}
+	const snapPoint = Array.isArray(candidate.snapPoint) ? candidate.snapPoint.slice() : candidate.snapPoint;
+	return { ...candidate, snapPoint, attached: true, snappee };
 }
 
 export const SNAPPEE_TYPES = Object.freeze(Object.keys(SAMPLERS));

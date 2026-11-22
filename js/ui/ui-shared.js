@@ -66,7 +66,7 @@ export function isInteractiveEventTarget(event) {
 
 // The expandable inline action row shared by the list panels (clips, snappees, channels): the
 // row itself carries one icon button per action, and the expansion button toggles it.
-export function makeInlineActionRow(documentRef, i18n, tooltip, items) {
+export function makeInlineActionRow(documentRef, i18n, tooltip, items, cleanup = null) {
 	const row = documentRef.createElement("div");
 	row.className = "item-expanded-actions";
 	for (const item of items) {
@@ -86,13 +86,16 @@ export function makeInlineActionRow(documentRef, i18n, tooltip, items) {
 				item.onSelect?.();
 			}
 		});
-		tooltip?.register(button, item.tooltipKey);
+		const dispose = tooltip?.register(button, item.tooltipKey);
+		if (Array.isArray(cleanup) && dispose) {
+			cleanup.push(dispose);
+		}
 		row.append(button);
 	}
 	return row;
 }
 
-export function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle) {
+export function makeExpansionButton(documentRef, i18n, tooltip, expanded, onToggle, cleanup = null) {
 	const button = documentRef.createElement("button");
 	button.type = "button";
 	button.className = "snappee-action item-expand-button";
@@ -107,6 +110,9 @@ export function makeExpansionButton(documentRef, i18n, tooltip, expanded, onTogg
 		event.stopPropagation();
 		onToggle(!expanded);
 	});
-	tooltip?.register(button, expanded ? "panel.item.collapse" : "panel.item.expand");
+	const dispose = tooltip?.register(button, expanded ? "panel.item.collapse" : "panel.item.expand");
+	if (Array.isArray(cleanup) && dispose) {
+		cleanup.push(dispose);
+	}
 	return button;
 }

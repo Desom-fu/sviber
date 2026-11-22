@@ -144,6 +144,7 @@ export class ChartIndexMutationsTrait {
 		} else {
 			this.timelineTipRevision += 1;
 		}
+		this.contentRevision += 1;
 		return true;
 	}
 
@@ -513,7 +514,11 @@ export class ChartIndexMutationsTrait {
 					Rational.from(change.oldEvent.time).compare(Rational.from(change.newEvent.time)) === 0,
 			)
 		) {
-			return this._replaceEventsIncremental(replacements);
+			const replaced = this._replaceEventsIncremental(replacements);
+			if (replaced) {
+				this.contentRevision += 1;
+			}
+			return replaced;
 		}
 		return false;
 	}
@@ -605,6 +610,7 @@ export class ChartIndexMutationsTrait {
 			);
 		}
 		this.maximumTime = Math.max(this.maximumTime, record.end + 10);
+		this.contentRevision += 1;
 		return true;
 	}
 
@@ -682,6 +688,7 @@ export class ChartIndexMutationsTrait {
 			}
 			this.doubleTapPairsByTime.get(key).push(pair);
 		}
+		this.contentRevision += 1;
 		return true;
 	}
 
