@@ -87,9 +87,6 @@ class FreeTransformTrait {
 			const height = timelineRowHeight(this.preferences, shownChannels);
 			document.querySelector(".workspace")?.style.setProperty("--timeline-height", `${height}px`);
 		}
-		if (options.channelState) {
-			this.registry?.notifyAll?.();
-		}
 		if (options.clipsOnly) {
 			this.clipsPanel?.render?.(this.model, { readOnly: this.model.editor.readOnly });
 		}
@@ -108,6 +105,7 @@ class FreeTransformTrait {
 		if (!options.skipCommands) {
 			this._syncCheckedCommands?.();
 		}
+		this.registry?.notifyAll?.();
 		this._syncDocumentTitle?.();
 	}
 

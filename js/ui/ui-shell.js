@@ -136,7 +136,15 @@ export class MenuBar {
 		this.document.addEventListener("keydown", this.onDocumentKeyDown, true);
 		this.document.addEventListener("pointerdown", this.onDocumentPointerDown, true);
 		this.document.addEventListener("click", this.onDocumentClick, true);
-		this.unsubscribeRegistry = this.registry.subscribe(() => this.updateState(null));
+		this.unsubscribeRegistry = this.registry.subscribe(() => {
+			if (this.openIndex >= 0) {
+				this.updateState(
+					this.definition[this.openIndex].items
+						.filter(entry => entry.type === "command")
+						.map(entry => entry.command),
+				);
+			}
+		});
 		this.unsubscribeLanguage = this.i18n.subscribe(() => this.updateLabels());
 	}
 

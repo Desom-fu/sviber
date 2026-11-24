@@ -415,8 +415,6 @@ class EventToolsTrait {
 		if (target != null) {
 			this.timeline?.revealChannel?.(target);
 		}
-		this.registry.notify("events.moveChannelAbove");
-		this.registry.notify("events.moveChannelBelow");
 		return result;
 	}
 

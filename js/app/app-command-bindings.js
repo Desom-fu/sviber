@@ -10,6 +10,13 @@ function register(app, id, action, enabled = true) {
 	app.registry.register(id, { action, enabled });
 }
 
+function directlySelectedEvents(app) {
+	if (app.renderIndex?.eventSource === app.model.events) {
+		return app.renderIndex.selectedEvents.filter(event => event.selected);
+	}
+	return selected(app.model);
+}
+
 function registerFileCommands(app) {
 	register(app, "file.newProject", () => void app.newProject());
 	register(app, "file.newChart", () => void app.newChart());
@@ -314,16 +321,15 @@ function registerSnappeeCommands(app) {
 		app,
 		"snappee.attach",
 		() => app.attachSelected(),
-		() => {
-			const movable = selected(app.model).some(event => MOVABLE_TYPES.has(event.type));
-			return movable && app.model.snappees.some(snappee => snappee.active);
-		},
+		() =>
+			app.model.snappees.some(snappee => snappee.active) &&
+			directlySelectedEvents(app).some(event => MOVABLE_TYPES.has(event.type)),
 	);
 	register(
 		app,
 		"snappee.detach",
 		() => app.detachSelected(),
-		() => selected(app.model).some(event => event.attached),
+		() => directlySelectedEvents(app).some(event => event.attached),
 	);
 	register(app, "snappee.attachCurveOrder", () => app.attachSelectedToCurveByOrder(), () => app.canAttachToCurve());
 	register(app, "snappee.attachCurveTime", () => app.attachSelectedToCurveByTime(), () => app.canAttachToCurve());

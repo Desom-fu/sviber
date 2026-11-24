@@ -241,7 +241,13 @@ class AttachmentTrait {
 	}
 
 	canSetSnappeesActive() {
-		return selected(this.model).length > 0 || this.model.snappees.some(snappee => snappee.selected);
+		if (this.model.snappees.some(snappee => snappee.selected)) {
+			return true;
+		}
+		if (this.renderIndex?.eventSource === this.model.events) {
+			return this.renderIndex.selectedEvents.length > 0;
+		}
+		return selected(this.model).length > 0;
 	}
 
 	deactivateAllSnappees() {

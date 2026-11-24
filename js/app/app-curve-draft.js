@@ -32,6 +32,7 @@ class CurveDraftTrait {
 		// render too — stageOnly would leave the highlight stale until some unrelated render.
 		this.refreshInteractionPreview?.({ rebuildIndex: false });
 		this._syncCheckedCommands?.();
+		this.registry?.notifyAll?.();
 		return true;
 	}
 

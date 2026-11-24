@@ -55,17 +55,53 @@ export class TransformTargetsTrait {
 					}
 					return groupedDescendants.has(event) && !event.attached;
 				});
+		const directEventSet = new Set(directEvents);
 		const affectedEvents = allEvents.filter(
 			event =>
-				directEvents.includes(event) ||
+				directEventSet.has(event) ||
 				(event.attached && attachedIds.has(event.snappee) && MOVABLE_TYPES.has(event.type)),
 		);
 		return { attachedIds, directEvents, affectedEvents };
 	}
 
 	transformationAvailable(model = this.model) {
-		const { attachedIds, directEvents } = this.transformationTargets(model);
-		return attachedIds.size > 0 || directEvents.length > 0;
+		const useIndex = model === this.model && this.renderIndex?.eventSource === model.events;
+		const candidates = useIndex ? this.renderIndex.selectedEvents : model.allEvents();
+		let hasSelected = false;
+		let availableSnappees = null;
+		const isAttachedToKnownSnappee = event => {
+			if (!event.attached) {
+				return false;
+			}
+			availableSnappees ||= new Set((model.snappees || []).map(snappee => snappee.id));
+			return availableSnappees.has(event.snappee);
+		};
+		for (const event of candidates) {
+			if (!event.selected) {
+				continue;
+			}
+			hasSelected = true;
+			if (event.locked) {
+				continue;
+			}
+			if (isAttachedToKnownSnappee(event) || (!event.attached && MOVABLE_TYPES.has(event.type))) {
+				return true;
+			}
+			if (event.type === "group") {
+				for (const item of model.groupDescendants(event.id)) {
+					if (item.locked) {
+						continue;
+					}
+					if (isAttachedToKnownSnappee(item) || (!item.attached && MOVABLE_TYPES.has(item.type))) {
+						return true;
+					}
+				}
+			}
+		}
+		if (hasSelected) {
+			return false;
+		}
+		return (model.snappees || []).some(snappee => snappee.selected && snappee.active !== false);
 	}
 
 	transformSelectionBounds(model = this.model) {
