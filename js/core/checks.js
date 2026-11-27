@@ -128,8 +128,9 @@ function reportFingerViolation(violations, record, limit) {
 
 function checkRequiredFingers(context, violations) {
 	const limit = Math.max(1, Math.floor(context.settings.requiredFingers.fingers));
+	const ignoreDrag = Boolean(context.settings.requiredFingers.ignoreDrag);
 	const notes = context.leafEvents
-		.filter(event => NOTE_TYPES.has(event.type))
+		.filter(event => NOTE_TYPES.has(event.type) && (!ignoreDrag || event.type !== "drag"))
 		.map(event => ({ event, start: context.startOf(event), end: context.endOf(event) }))
 		.sort((left, right) => left.start - right.start || left.event.id - right.event.id);
 	const heldUntil = [];
@@ -146,10 +147,7 @@ function checkRequiredFingers(context, violations) {
 			}
 		}
 		const downs = simultaneous.filter(record => FINGER_DOWN_TYPES.has(record.event.type));
-		let drags = [];
-		if (!context.settings.requiredFingers.ignoreDrag) {
-			drags = simultaneous.filter(record => record.event.type === "drag");
-		}
+		const drags = ignoreDrag ? [] : simultaneous.filter(record => record.event.type === "drag");
 		let used = heldUntil.length;
 		let movableHolds = heldUntil.length;
 		const covered = new Set();

@@ -24,9 +24,11 @@ The desktop app registers <code>.sviber</code>, <!---->
 <code>.json</code>, and <code>.txt</code> file associations; <!---->
 opening a supplied path starts a new instance.</p>				<!---->
 <p>New charts default to difficulty name Master with its preset color (Special with its own <!---->
-preset color when Master already exists in the project), difficulty 12, offset 0, <!---->
-and initial BPM 120; the charter defaults to the name last entered while creating a chart, <!---->
-and opening or importing a chart does not change that default. <!---->
+preset color when Master already exists in the project), difficulty 12, title "New chart", <!---->
+offset 0, and initial BPM 120; when a project already has a chart open, title, offset, <!---->
+and initial BPM default to the currently open chart's values. The charter defaults to the <!---->
+name last entered while creating a chart, and opening or importing a chart does not change <!---->
+that default. <!---->
 The difficulty color switches to a preset only when the user actually edits the difficulty <!---->
 name. <b>New project...</b> asks whether to add a currently open standalone chart. <!---->
 <b>New chart...</b> <!---->
@@ -134,7 +136,9 @@ The vertical channel-scroll position is saved in <code>sviber.editor.timelineCha
 and restored when the chart is loaded. <!---->
 Timeline and stage drags are coalesced to animation frames; <!---->
 their lightweight previews update the canvases and status only, <!---->
-while panels and history are refreshed when the gesture ends.</p>				<!---->
+while panels and history are refreshed when the gesture ends. <!---->
+All texts in the channels view (channel names, texts on event icons and tails, <!---->
+and beat numbers) use the same font families as the main editor HUD.</p>				<!---->
 <p>Ordinary wheel movement seeks by one subdivision. <kbd>Ctrl</kbd><!---->
 +wheel zooms the visible range, <!---->
 keeping the current time's visual position if it is inside the range, <!---->
@@ -176,7 +180,8 @@ Seeking while stopped snaps to the nearest subdivision except when a command exp
 requests an exact time.</p>				<!---->
 <h3 id="en-status">Status panel</h3>				<!---->
 <p>The status panel has no title. It shows the time to three decimal places, <!---->
-the current beat using the current subdivision denominator, <!---->
+the current beat using the current subdivision denominator (its integer part is always the <!---->
+floor of the beat, e.g. −1 for −1/2), <!---->
 and the playback speed together on one line without labels, <!---->
 with time left, beat centered, and speed right, wrapping when they cannot share a line, <!---->
 followed by comments active at the current time and the current operation. <!---->
@@ -208,7 +213,7 @@ the scale outside is light gray; ticks and numbers are dark gray. <!---->
 A very noticeable triangle marker follows the mouse. <!---->
 Major and minor ticks change with main-field zoom.</li><!---->
 <li><b>Read-only</b>: keeps event selection, time/range navigation, Music commands, <!---->
-comments, difficulty selection, <!---->
+comments, difficulty selection, both bulk-edit-text viewers (non-editable text box), <!---->
 and channel/snappee activation available while disabling other chart, snappee, channel, <!---->
 history, and macro mutations. The macro window remains available; <!---->
 global macros stay editable, project macros become read-only, and no macro can run.</li><!---->
@@ -319,6 +324,8 @@ Hold <kbd>Ctrl+Space</kbd> to pan the falling preview: <!---->
 dragging downward moves toward later time, and dragging upward moves toward earlier time. <!---->
 While dragging, time does not snap and snapped-time operations are disabled; <!---->
 it snaps on mouse up if music is not playing. <!---->
+All texts in the scroll view (channel names, texts on event icons, and beat numbers) <!---->
+use the same font families as the main editor HUD. <!---->
 The scroll view never edits event positions or times.</p>				<!---->
 <h3 id="en-panels">Inspector, Channels, Snappees, and History</h3>				<!---->
 <p>The Inspector shows common properties of the selected events and shows a gray message <!---->
@@ -378,7 +385,9 @@ otherwise the superscript must be empty. Click opens Edit chart properties.</li>
 and flick need a finger down at their time; simultaneous ones need that many fingers. <!---->
 A drag needs a finger at its position but can share one with a same-position tap. <!---->
 A hold keeps its finger until it ends, so a tap during a hold needs another finger, <!---->
-while a drag during a hold does not. Click selects the event that needs the extra finger.</li>					<!---->
+while a drag during a hold does not. A boolean <code>ignoreDrag</code> parameter <!---->
+(false by default) makes the check ignore drag events. <!---->
+Click selects the event that needs the extra finger.</li>					<!---->
 <li><b>Out-of-boundary notes</b>: tap, hold, drag, flick, and bg notes must stay inside <!---->
 the chart boundary. A boolean parameter (true by default) includes bg notes. <!---->
 Click selects the event.</li>					<!---->
@@ -692,9 +701,21 @@ Click the active tool again to exit it.</td><!---->
 <td>Ctrl+M</td><!---->
 <td>Add an editor-only comment.</td><!---->
 </tr><!---->
+<tr><td>Spawn from right / above / left / below</td><!---->
+<td>^ / * / $ / @</td><!---->
+<td>Set the relative tip-point spawn direction to 0, π/2, π, or −π/2 for selected <!---->
+tip-pointable events with relative spawn positions (including inherited ones, updating <!---->
+the inherited source). Additional shortcuts cover all eight multiples of π/4: <!---->
+^ (0), ( (π/4), * (π/2), &amp; (3π/4), $ (π), ! (−3π/4), @ (−π/2), and # (−π/4).</td><!---->
+</tr><!---->
 <tr><td>Group / Ungroup</td><!---->
 <td>Ctrl+G / Ctrl+Shift+G</td><!---->
 <td>Recursively group selected events or restore the selected group's children.</td><!---->
+</tr><!---->
+<tr><td>Edit in inspector</td><!---->
+<td>E</td><!---->
+<td>Show the Inspector panel if hidden and focus the previously interacted input in this <!---->
+session (or the first input if none or absent).</td><!---->
 </tr><!---->
 <tr><td>Lock / Unlock</td><!---->
 <td>Ctrl+L / Ctrl+Shift+L</td><!---->
@@ -710,13 +731,14 @@ sound their SE, cannot be connected by a tip point, and stay translucent and sel
 <td>Place drag notes along the selected curve.</td><!---->
 </tr><!---->
 <tr><td>Bulk edit texts...</td><!---->
-<td>—</td><!---->
-<td>Edit the texts of all selected textable events (except comments) in one form, sorted by time and then by <!---->
-channel.</td><!---->
+<td>Ctrl+E</td><!---->
+<td>Edit the texts of all selected textable events (except comments) in one form, sorted by <!---->
+time and then by channel. Still opens in read-only mode with a non-editable text box.</td><!---->
 </tr><!---->
 <tr><td>Bulk edit texts by channel...</td><!---->
 <td>—</td><!---->
-<td>Edit texts of textable events (except comments) by channel, sorted by event time.</td><!---->
+<td>Edit texts of textable events (except comments) by channel, sorted by event time. <!---->
+Still opens in read-only mode with a non-editable text box.</td><!---->
 </tr><!---->
 <tr><td>Import lyrics/subtitle file...</td><!---->
 <td>—</td><!---->
@@ -953,6 +975,10 @@ and the constant-tone metronome can still play.</td><!---->
 <tr><td>Seek to start</td><!---->
 <td>Home</td><!---->
 <td>Seek to the earlier of audio beginning and beat zero.</td><!---->
+</tr><!---->
+<tr><td>Seek to last event</td><!---->
+<td>End</td><!---->
+<td>Seek to the time of the event with the largest time.</td><!---->
 </tr><!---->
 <tr><td>Seek forward / backward</td><!---->
 <td>. / ,</td><!---->
@@ -1369,12 +1395,15 @@ Conversion preserves usable fields and removes fields invalid for the destinatio
 and on groups as a whole for lock/active.</td><!---->
 </tr>					<!---->
 <tr><td><code>location</code>, <code>text</code>, <code>anchor</code>, <code>tipPoint</code><!---->
-/<code>tip_point</code>/<code>tp</code>, <code>angle</code>, <code>time</code>, <code>channel</code>, <!---->
+/<code>tip_point</code>/<code>tp</code>, <code>angle</code>, <code>time</code>, <!---->
+<code>duration</code>, <code>endTime</code>/<code>end_time</code>, <code>channel</code>, <!---->
 <code>events</code>, <code>color</code></td><!---->
 <td>Each is valid only for the event types described by its capability. <!---->
 Moving a group translates every descendant; assigning its anchor does not. <!---->
 Group time is its earliest descendant time, <!---->
-and assigning it translates all descendant times.</td><!---->
+and assigning it translates all descendant times. <!---->
+For perdurant events, assigning <code>endTime</code>/<code>end_time</code> sets <!---->
+<code>duration</code> by subtracting start time.</td><!---->
 </tr>					<!---->
 <tr><td><code>delete</code></td><!---->
 <td>Removes the event and invalidates its wrapper.</td><!---->
@@ -1509,7 +1538,9 @@ one, or two rational <code>abLoopMarks</code>. Events store <code>active</code>.
 object stores <code>barLines</code> alongside BPM changes. <!---->
 Rational inputs use integer + numerator/denominator controls. <!---->
 Validation waits until focus leaves the complete group. A positive denominator is required; <!---->
-numerator and denominator that are not coprime are accepted and automatically reduced.</p>				<!---->
+numerator and denominator that are not coprime are accepted and automatically reduced. <!---->
+JSON rational 3-tuples always store the floor as the integer part (for example, −1/2 is <!---->
+<code>[-1, 1, 2]</code>).</p>				<!---->
 <h3 id="en-preferences">Preferences, language, and appearance</h3>				<!---->
 <p>Preferences are global and do not create chart history. They include Light, Dark, <!---->
 or System theme; interface language; note speed; input offset; visible channel count <!---->

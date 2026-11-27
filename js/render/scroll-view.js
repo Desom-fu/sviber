@@ -18,6 +18,7 @@ import {
 	timingFor,
 } from "./timeline-helpers.js";
 import { SUNNIESNOW_PLAYFIELD_WIDTH } from "./stage-helpers.js";
+import { HUD_FONT_FAMILY } from "./stage-hud.js";
 import { MOVABLE_TYPES, buildTipPointGuides, tipPointSpawnPosition } from "./stage-helpers.js";
 import { descendants, flattenEvents } from "../core/grouping.js";
 import { eventClickSelectionMode } from "./selection.js";
@@ -314,7 +315,7 @@ export class ScrollView {
 			}
 			context.stroke();
 		}
-		context.font = "10px 'Cascadia Mono', Consolas, monospace";
+		context.font = `10px ${HUD_FONT_FAMILY}`;
 		context.textAlign = "left";
 		context.globalAlpha = 0.95;
 		context.fillStyle = "#ff405d";

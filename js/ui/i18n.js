@@ -136,6 +136,7 @@ export class I18n {
 			Del: "shortcut.delete",
 			Insert: "shortcut.insert",
 			Home: "shortcut.home",
+			End: "shortcut.end",
 			ArrowUp: "shortcut.arrowup",
 			Up: "shortcut.arrowup",
 			ArrowDown: "shortcut.arrowdown",

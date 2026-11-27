@@ -18,6 +18,10 @@ import {
 	groupEventLeaves,
 } from "./app-helpers.js";
 import { flattenEvents } from "../core/grouping.js";
+import {
+	hasRelativeSpawnDirectionTarget,
+	relativeSpawnDirectionTargets,
+} from "./app-tip-point-modes.js";
 
 export function toggledCreationMode(current, type) {
 	return current === type ? null : type;
@@ -454,6 +458,26 @@ class EventToolsTrait {
 
 	canSetEventsActive(active) {
 		return selected(this.model).some(event => Boolean(event.active) !== active);
+	}
+
+	canSetSelectedSpawnDirection() {
+		return hasRelativeSpawnDirectionTarget(this.model);
+	}
+
+	setSelectedSpawnDirection(angle) {
+		const numericAngle = Number(angle);
+		if (!Number.isFinite(numericAngle) || !this.canSetSelectedSpawnDirection()) {
+			return false;
+		}
+		let updated = false;
+		this.commit(i18n.t("history.editSpawnDirection"), model => {
+			const targets = relativeSpawnDirectionTargets(model);
+			for (const target of targets) {
+				target.tipPointSpawnAngle = numericAngle;
+				updated = true;
+			}
+		});
+		return updated;
 	}
 
 	reverseSelectedTime() {

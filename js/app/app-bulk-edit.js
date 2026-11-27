@@ -12,21 +12,40 @@ import {
 } from "../core/bulk-edit-texts.js";
 import { Rational } from "../core/rational.js";
 
+const READ_ONLY_CLOSE_BUTTONS = Object.freeze([
+	Object.freeze({ id: "close", labelKey: "dialog.close", primary: true, value: null, cancel: true, validate: false }),
+]);
+
 class BulkEditTextsTrait {
 	// v25: edits the texts of all selected textable events except `comment`, sorted by
 	// time and then by channel; there is no channel `<select>` in this popup form.
+	// v28: stays available in read-only mode with a non-editable text box.
 	async showBulkEditTextsDialog() {
 		const events = bulkEditableSelectedEvents(this.model);
 		if (!events.length) {
 			return false;
 		}
+		const readOnly = Boolean(this.model.editor?.readOnly);
 		const initial = eventTextsToString(events);
-		const values = await this.dialogs.form({
+		const dialogOptions = {
 			titleKey: "dialog.bulkEditTexts",
 			values: { text: initial },
-			fields: [{ id: "text", type: "textarea", labelKey: "field.eventTexts", stacked: true, rows: 12 }],
-		});
-		if (!values || values.text === initial) {
+			fields: [
+				{
+					id: "text",
+					type: "textarea",
+					labelKey: "field.eventTexts",
+					stacked: true,
+					rows: 12,
+					readOnly,
+				},
+			],
+		};
+		if (readOnly) {
+			dialogOptions.buttons = [...READ_ONLY_CLOSE_BUTTONS];
+		}
+		const values = await this.dialogs.form(dialogOptions);
+		if (readOnly || !values || values.text === initial) {
 			return false;
 		}
 		this.commit(i18n.t("history.bulkEditTexts"), model => {
@@ -44,6 +63,7 @@ class BulkEditTextsTrait {
 	}
 
 	async showBulkEditTextsByChannelDialog() {
+		const readOnly = Boolean(this.model.editor?.readOnly);
 		const eventsByChannel = new Map();
 		const initialDrafts = new Map();
 		for (const channel of this.model.channels) {
@@ -59,7 +79,7 @@ class BulkEditTextsTrait {
 		const drafts = new Map();
 		const edited = new Set();
 		const savedCaret = new Map();
-		const values = await this.dialogs.form({
+		const dialogOptions = {
 			titleKey: "dialog.bulkEditTextsByChannel",
 			values: { channel: current, text: initialDrafts.get(current) || "" },
 			fields: [
@@ -69,39 +89,55 @@ class BulkEditTextsTrait {
 					labelKey: "field.channel",
 					options: this.model.channels.map(channel => ({ value: channel.id, label: channel.name })),
 				},
-				{ id: "text", type: "textarea", labelKey: "field.eventTexts", stacked: true, rows: 12 },
+				{
+					id: "text",
+					type: "textarea",
+					labelKey: "field.eventTexts",
+					stacked: true,
+					rows: 12,
+					readOnly,
+				},
 			],
 			onChange: (next, { entries }) => {
 				const textControl = entries.find(entry => entry.field.id === "text")?.control;
 				if (!textControl) {
 					return;
 				}
-				drafts.set(activeId, textControl.read());
-				if (textControl.read() !== initialDrafts.get(activeId)) {
-					edited.add(activeId);
-					savedCaret.set(activeId, {
-						start: textControl.element.selectionStart ?? 0,
-						end: textControl.element.selectionEnd ?? 0,
-					});
+				if (!readOnly) {
+					drafts.set(activeId, textControl.read());
+					if (textControl.read() !== initialDrafts.get(activeId)) {
+						edited.add(activeId);
+						savedCaret.set(activeId, {
+							start: textControl.element.selectionStart ?? 0,
+							end: textControl.element.selectionEnd ?? 0,
+						});
+					}
 				}
 				const nextId = Number(next.channel);
 				if (nextId === activeId) {
 					return;
 				}
 				activeId = nextId;
-				const nextText = drafts.get(nextId) ?? initialDrafts.get(nextId) ?? "";
+				let nextText = initialDrafts.get(nextId) ?? "";
+				if (!readOnly && drafts.has(nextId)) {
+					nextText = drafts.get(nextId);
+				}
 				textControl.element.value = nextText;
 				let caret = savedCaret.get(nextId);
-				if (!edited.has(nextId)) {
+				if (readOnly || !edited.has(nextId)) {
 					caret = caretForCurrentTime(this, eventsByChannel.get(nextId) || [], nextText);
 				}
 				if (caret) {
 					textControl.element.setSelectionRange(caret.start, caret.end ?? caret.start);
 				}
 			},
-		});
-		if (!values) {
-			return;
+		};
+		if (readOnly) {
+			dialogOptions.buttons = [...READ_ONLY_CLOSE_BUTTONS];
+		}
+		const values = await this.dialogs.form(dialogOptions);
+		if (readOnly || !values) {
+			return false;
 		}
 		drafts.set(Number(values.channel), values.text);
 		this.commit(i18n.t("history.bulkEditTexts"), model => {
@@ -113,6 +149,7 @@ class BulkEditTextsTrait {
 				stringToEventTexts(text, bulkEditableEventsInChannel(model, channel.id));
 			}
 		});
+		return true;
 	}
 
 }

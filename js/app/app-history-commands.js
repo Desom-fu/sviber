@@ -407,6 +407,43 @@ class HistoryCommandsTrait {
 		}
 	}
 
+	seekLastEvent() {
+		let latest = null;
+		for (const event of this.model.allEvents({ includeGroups: false })) {
+			if (event.time == null) {
+				continue;
+			}
+			const beat = Rational.from(event.time);
+			if (!latest || beat.compare(latest) > 0) {
+				latest = beat;
+			}
+		}
+		if (!latest) {
+			return false;
+		}
+		const target = this.timing().beatToSeconds(latest);
+		const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
+		if (this.audio?.playing) {
+			this.audio.seek(target);
+			if (
+				!this.model.editor.lockVisibleRange &&
+				(target < this.model.editor.visibleRangeBeginning || target > this.model.editor.visibleRangeEnd)
+			) {
+				this.setVisibleRange(target - span / 2, target + span / 2, true);
+			}
+			return true;
+		}
+		this.seekBeat(latest.toJSON());
+		const current = this.currentSeconds();
+		if (
+			!this.model.editor.lockVisibleRange &&
+			(current < this.model.editor.visibleRangeBeginning || current > this.model.editor.visibleRangeEnd)
+		) {
+			this.setVisibleRange(current - span / 2, current + span / 2, true);
+		}
+		return true;
+	}
+
 	seekSeconds(delta) {
 		const seconds = Math.max(
 			this.timeBounds()[0],

@@ -81,6 +81,36 @@ const MATRIX_LABEL_KEYS = [
 	"field.matrixTy",
 ];
 
+const INSPECTOR_INPUT_SELECTOR = "input, select, textarea";
+
+function isFocusableInspectorInput(element) {
+	if (!element || element.disabled || element.hidden) {
+		return false;
+	}
+	let current = element.parentElement;
+	while (current) {
+		const tag = String(current.tagName || "").toUpperCase();
+		if (current.hidden || (tag === "FIELDSET" && current.disabled)) {
+			return false;
+		}
+		current = current.parentElement;
+	}
+	return true;
+}
+
+function tagInspectorRowInputs(labelKey, control) {
+	const controls = [];
+	if (control?.matches?.(INSPECTOR_INPUT_SELECTOR)) {
+		controls.push(control);
+	} else if (control?.querySelectorAll) {
+		controls.push(...control.querySelectorAll(INSPECTOR_INPUT_SELECTOR));
+	}
+	controls.forEach((input, index) => {
+		const suffix = input.type === "radio" ? input.value : index;
+		input.dataset.inspectorInputKey = `${labelKey}:${suffix}`;
+	});
+}
+
 export class InspectorPanel {
 	// The original app wiring, which accepts (property, value, targets). Every render wraps it
 	// with that render's targets; wrapping the previous wrapper instead would silently drop all
@@ -95,6 +125,52 @@ export class InspectorPanel {
 		this.onChange = this.#appOnChange;
 		this.onTransformChange = options.onTransformChange || (() => {});
 		this.cleanup = [];
+		this.lastInteractedInputKey = null;
+		this._suppressFocusTracking = false;
+	}
+
+	#bindInteractionTracking() {
+		if (!this.element?.addEventListener) {
+			return null;
+		}
+		const record = event => {
+			if (event.type === "focusin" && this._suppressFocusTracking) {
+				return;
+			}
+			const target = event.target?.closest?.(INSPECTOR_INPUT_SELECTOR);
+			if (target && this.element.contains(target) && target.dataset?.inspectorInputKey) {
+				this.lastInteractedInputKey = target.dataset.inspectorInputKey;
+			}
+		};
+		for (const type of ["focusin", "pointerdown", "input", "change"]) {
+			this.element.addEventListener(type, record);
+		}
+		return () => {
+			for (const type of ["focusin", "pointerdown", "input", "change"]) {
+				this.element.removeEventListener(type, record);
+			}
+		};
+	}
+
+	focusPreferredInput() {
+		const inputs = [...(this.element?.querySelectorAll?.(INSPECTOR_INPUT_SELECTOR) || [])];
+		const focusable = inputs.filter(input => isFocusableInspectorInput(input));
+		if (!focusable.length) {
+			return null;
+		}
+		let preferred = null;
+		if (this.lastInteractedInputKey) {
+			preferred =
+				focusable.find(input => input.dataset?.inspectorInputKey === this.lastInteractedInputKey) || null;
+		}
+		const target = preferred || focusable[0];
+		this._suppressFocusTracking = true;
+		try {
+			target.focus?.();
+		} finally {
+			this._suppressFocusTracking = false;
+		}
+		return target;
 	}
 
 	#row(labelKey, control, tooltipKey = null) {
@@ -106,6 +182,7 @@ export class InspectorPanel {
 		if (control.matches("select")) {
 			control.dataset.inspectorField = labelKey;
 		}
+		tagInspectorRowInputs(labelKey, control);
 		const label = document.createElement("label");
 		label.textContent = this.i18n.t(labelKey);
 		row.append(label, control);
@@ -571,6 +648,7 @@ export class InspectorPanel {
 		this.cleanup = [];
 		clearElement(this.element);
 		this.escapeBound ||= Boolean((this.cleanupEscape = bindEscapeRestore(this.element)));
+		this.interactionBound ||= Boolean((this.cleanupInteraction = this.#bindInteractionTracking()));
 		const { selectedGroups, selected } = this.#selectionOf(model, context);
 		// Every field created below commits against THIS selection, even when its edit is only
 		// flushed later: the flush at the top of the next render still runs through the previous
@@ -633,7 +711,12 @@ export class InspectorPanel {
 			// A native select change commits immediately and replaces the old control.
 			const select = group.querySelector(`select[data-inspector-field="${focusedField}"]:enabled`);
 			if (select && !select.closest("[hidden]")) {
-				select.focus({ preventScroll: true });
+				this._suppressFocusTracking = true;
+				try {
+					select.focus({ preventScroll: true });
+				} finally {
+					this._suppressFocusTracking = false;
+				}
 			}
 		}
 	}

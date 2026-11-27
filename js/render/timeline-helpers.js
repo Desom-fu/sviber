@@ -1,4 +1,5 @@
 import { TimingMap } from "../core/timing.js";
+import { HUD_FONT_FAMILY } from "./stage-hud.js";
 
 const TIMELINE_NOTE_TYPES = new Set(["tap", "hold", "flick"]);
 
@@ -261,7 +262,7 @@ export function drawTimelineEventIcon(context, event, x, y, color, radius = 8) {
 	if (["grid", "hexagon", "checkerboard", "diamondGrid", "pentagon", "turntable", "hexagram"].includes(event.type)) {
 		drawPatternIcon(context, event.type, x, y, radius, color);
 	} else if (event.type === "bigText") {
-		context.font = `bold ${Math.max(9, 13 * scale)}px sans-serif`;
+		context.font = `bold ${Math.max(9, 13 * scale)}px ${HUD_FONT_FAMILY}`;
 		context.textAlign = "center";
 		context.textBaseline = "middle";
 		context.fillText("T", x, y);
@@ -292,7 +293,7 @@ export function drawTimelineEventIcon(context, event, x, y, color, radius = 8) {
 		context.fill();
 		if (event.text) {
 			context.fillStyle = "#111417";
-			context.font = `bold ${Math.max(6, 8 * scale)}px sans-serif`;
+			context.font = `bold ${Math.max(6, 8 * scale)}px ${HUD_FONT_FAMILY}`;
 			context.textAlign = "center";
 			context.textBaseline = "middle";
 			context.fillText(String(event.text).slice(0, 3), x, y);
@@ -310,7 +311,7 @@ export function drawTimelineEventIcon(context, event, x, y, color, radius = 8) {
 		context.fill();
 		if (event.text) {
 			context.fillStyle = "#111417";
-			context.font = `bold ${Math.max(6, 8 * scale)}px sans-serif`;
+			context.font = `bold ${Math.max(6, 8 * scale)}px ${HUD_FONT_FAMILY}`;
 			context.textAlign = "center";
 			context.textBaseline = "middle";
 			context.fillText(String(event.text).slice(0, 3), x, y);

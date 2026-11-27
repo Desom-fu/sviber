@@ -1,4 +1,5 @@
 import { SPECIAL_SNAP_INDEX } from "../core/geometry.js";
+import { Rational } from "../core/rational.js";
 
 export const INTERNAL = Symbol("sviber macro wrapper");
 export const OMITTED = Symbol("omitted macro argument");
@@ -114,30 +115,23 @@ export function angleValue(value) {
 }
 
 export function beatTuple(value) {
-	const parsed = parseBeatParts(value);
-	let { numerator, denominator } = parsed;
-	if (!Number.isSafeInteger(numerator) || !Number.isSafeInteger(denominator) || denominator === 0) {
-		throw new TypeError("beat must be a number or rational tuple");
-	}
-	if (denominator < 0) {
-		numerator = -numerator;
-		denominator = -denominator;
-	}
-	const divisor = gcd(numerator, denominator);
-	numerator /= divisor;
-	denominator /= divisor;
-	const whole = Math.trunc(numerator / denominator);
-	const remainder = numerator - whole * denominator;
-	return [whole, remainder, denominator];
+	return beatRational(value).toJSON();
 }
 
 export function beatNumber(value) {
-	const tuple = beatTuple(value);
-	return Number(tuple[0]) + Number(tuple[1]) / Number(tuple[2]);
+	return beatRational(value).toNumber();
 }
 
 export function addBeat(left, right) {
-	return beatTuple(beatNumber(left) + beatNumber(right));
+	return beatRational(left).add(beatRational(right)).toJSON();
+}
+
+export function subBeat(left, right) {
+	return beatRational(left).sub(beatRational(right)).toJSON();
+}
+
+export function compareBeat(left, right) {
+	return beatRational(left).compare(beatRational(right));
 }
 
 export function normalizeColor(value) {
@@ -433,18 +427,21 @@ export class AffineMatrix2D {
 	}
 }
 
-function parseBeatParts(value) {
+function beatRational(value) {
 	if (Array.isArray(value) && value.length === 3 && value.every(Number.isSafeInteger)) {
 		if (value[2] === 0) {
 			throw new TypeError("beat denominator must not be zero");
 		}
-		return { denominator: Number(value[2]), numerator: Number(value[0]) * Number(value[2]) + Number(value[1]) };
+		return Rational.from(value);
 	}
 	if (Array.isArray(value) && value.length === 2 && value.every(Number.isSafeInteger)) {
-		return { numerator: value[0], denominator: value[1] };
+		if (value[1] === 0) {
+			throw new TypeError("beat denominator must not be zero");
+		}
+		return Rational.from(value);
 	}
 	if (typeof value === "number" && Number.isFinite(value)) {
-		return { denominator: 1_000_000, numerator: Math.round(value * 1_000_000) };
+		return Rational.fromNumber(value);
 	}
 	throw new TypeError("beat must be a number or rational tuple");
 }

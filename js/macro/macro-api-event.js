@@ -5,9 +5,11 @@ import {
 	beatNumber,
 	beatTuple,
 	clone,
+	compareBeat,
 	createBinder,
 	ensureAlive,
 	normalizeColor,
+	subBeat,
 } from "./macro-api-math.js";
 import { POSITION_FIELDS, tipPointFields } from "./macro-api-location.js";
 
@@ -42,6 +44,7 @@ export const DURATION_TYPES = new Set([
 	"hexagram",
 	"comment",
 ]);
+const ZERO_DURATION_TYPES = new Set(["bgNote", "comment"]);
 export const TEXT_TYPES = new Set(["tap", "hold", "flick", "bgNote", "bigText", "comment"]);
 export const BACKGROUND_EVENT_TYPES = new Set([
 	"bgNote",
@@ -219,6 +222,22 @@ export class Event {
 
 	set time(value) {
 		assignEventTime(api(this), this, value);
+	}
+
+	get duration() {
+		return readEventDuration(this);
+	}
+
+	set duration(value) {
+		assignEventDuration(this, value);
+	}
+
+	get endTime() {
+		return readEventEndTime(this);
+	}
+
+	set endTime(value) {
+		assignEventEndTime(this, value);
 	}
 
 	get channel() {
@@ -409,6 +428,37 @@ function assignEventTime(ctx, self, value) {
 			child.time = addBeat(child.time, delta);
 		}
 	}
+}
+
+function readEventDuration(self) {
+	assertPerdurant(self);
+	return beatTuple(alive(self).duration);
+}
+
+function assignEventDuration(self, value) {
+	assertPerdurant(self);
+	const raw = alive(self);
+	const duration = beatTuple(value);
+	const order = compareBeat(duration, 0);
+	if (order < 0) {
+		throw new RangeError("duration must be non-negative");
+	}
+	if (order === 0 && !ZERO_DURATION_TYPES.has(raw.type)) {
+		throw new RangeError("duration must be positive");
+	}
+	raw.duration = duration;
+}
+
+function readEventEndTime(self) {
+	assertPerdurant(self);
+	const raw = alive(self);
+	return addBeat(raw.time, raw.duration);
+}
+
+function assignEventEndTime(self, value) {
+	assertPerdurant(self);
+	const raw = alive(self);
+	assignEventDuration(self, subBeat(value, raw.time));
 }
 
 function readEventChannel(ctx, self) {
@@ -679,6 +729,12 @@ function assertGroupField(self, message) {
 function assertHasText(self) {
 	if (!self.textable) {
 		throw new Error(`${self.type} events do not have text`);
+	}
+}
+
+function assertPerdurant(self) {
+	if (!self.perdurant) {
+		throw new Error(`${self.type} events do not have a duration`);
 	}
 }
 

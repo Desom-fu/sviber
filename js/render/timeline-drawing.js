@@ -2,6 +2,7 @@ import { Rational } from "../core/rational.js";
 import { resolveAttachedPosition } from "../core/geometry.js";
 import { descendants, flattenEvents } from "../core/grouping.js";
 import { buildTipPointGuides, drawTipPointTrail, tipPointSpawnPosition, tipPointVisualState } from "./stage.js";
+import { HUD_FONT_FAMILY } from "./stage-hud.js";
 import {
 	TIMELINE_COMMENT_TEXT_COLOR,
 	TIMELINE_DURATION_TYPES as DURATION_TYPES,
@@ -184,7 +185,7 @@ export class TimelineDrawingTrait {
 			subdivision,
 		);
 		context.save();
-		context.font = "10px 'Cascadia Mono', Consolas, monospace";
+		context.font = `10px ${HUD_FONT_FAMILY}`;
 		context.textBaseline = "top";
 		for (const line of lines) {
 			const x = this._timeToX(this.timing.beatToSeconds(line.beat), layout.waveform.width);
@@ -218,7 +219,7 @@ export class TimelineDrawingTrait {
 		context.moveTo(0, Math.round(layout.channels.y) + 0.5);
 		context.lineTo(layout.channels.width, Math.round(layout.channels.y) + 0.5);
 		context.stroke();
-		context.font = "10px 'Cascadia Mono', Consolas, monospace";
+		context.font = `10px ${HUD_FONT_FAMILY}`;
 		context.textBaseline = "top";
 		const ordered = project.channels || [];
 		const selectedHiddenRecords = this.renderIndex?.selectedRecords || [];
@@ -469,7 +470,7 @@ export class TimelineDrawingTrait {
 	_drawEventLabel(context, event, position, endX, color) {
 		context.save();
 		context.fillStyle = event.type === "comment" ? TIMELINE_COMMENT_TEXT_COLOR : color;
-		context.font = "11px sans-serif";
+		context.font = `11px ${HUD_FONT_FAMILY}`;
 		context.textBaseline = "bottom";
 		context.fillText(
 			String(event.text).slice(0, 40),
@@ -681,7 +682,7 @@ export class TimelineDrawingTrait {
 
 	_drawBpmChanges(context, rectangle, project) {
 		context.save();
-		context.font = "bold 11px 'Cascadia Mono', Consolas, monospace";
+		context.font = `bold 11px ${HUD_FONT_FAMILY}`;
 		context.textBaseline = "bottom";
 		for (let index = 0; index < project.timing.bpmChanges.length; index += 1) {
 			const change = project.timing.bpmChanges[index];

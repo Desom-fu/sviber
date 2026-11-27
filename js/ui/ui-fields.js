@@ -327,6 +327,9 @@ function buildTextareaControl({ documentRef, field, value }) {
 	if (field.placeholder) {
 		textarea.placeholder = field.placeholder;
 	}
+	if (field.readOnly) {
+		textarea.readOnly = true;
+	}
 	return { element: textarea, read: () => textarea.value, focus: () => textarea.focus() };
 }
 

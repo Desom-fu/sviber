@@ -5,7 +5,7 @@ import { NOTE_TYPES, SUNNIESNOW_AUTOPLAY_GRADIENT } from "./stage-helpers.js";
 // counter with its autoplay banner and the progress bar. It reads the chart but never
 // mutates it, which keeps it clear of the pointer handling that shares the same canvas.
 
-const HUD_FONT_FAMILY = "'Noto Sans Math', 'Noto Sans CJK TC', sans-serif";
+export const HUD_FONT_FAMILY = "'Noto Sans Math', 'Noto Sans CJK TC', sans-serif";
 
 // One half of the frame: a rectangle with a notched right edge, mirrored for the other side.
 function drawHudFrameHalf(context, width, unit, mirrored) {

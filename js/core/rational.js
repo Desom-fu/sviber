@@ -105,8 +105,9 @@ function roundRatio(numerator, denominator) {
 /**
  * An immutable exact rational number.
  *
- * JSON tuples use `whole + numerator / denominator`. Negative mixed numbers
- * are canonicalized toward zero, for example -1.5 is `[-1, -1, 2]`.
+ * JSON tuples use `whole + numerator / denominator` where `whole` is always
+ * the floor of the number and `0 <= numerator < denominator`. For example,
+ * -0.5 is `[-1, 1, 2]` and -1.5 is `[-2, 1, 2]`.
  */
 export class Rational {
 	constructor(numerator = 0, denominator = 1) {
@@ -283,8 +284,12 @@ export class Rational {
 	}
 
 	toJSON() {
-		const whole = this.numerator / this.denominator;
-		const remainder = this.numerator % this.denominator;
+		let whole = this.numerator / this.denominator;
+		let remainder = this.numerator % this.denominator;
+		if (remainder < 0n) {
+			whole -= 1n;
+			remainder += this.denominator;
+		}
 		return [
 			safeNumber(whole, "whole"),
 			safeNumber(remainder, "fraction numerator"),

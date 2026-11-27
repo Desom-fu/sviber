@@ -608,10 +608,8 @@ module SviberMacroInternals
     def normalize_beat(value) = beat_from_rational(rational_data(value))
 
     def beat_from_rational(number)
-      numerator = number.numerator
-      denominator = number.denominator
-      whole = numerator.negative? ? -(numerator.abs / denominator) : numerator / denominator
-      [whole, numerator - whole * denominator, denominator]
+      whole, remainder = number.numerator.divmod(number.denominator)
+      [whole, remainder, number.denominator]
     end
 
     def css_color(value)
@@ -1623,6 +1621,33 @@ class Event
     else
       raw["time"] = SviberMacroInternals.beat_from_rational(target)
     end
+    value
+  end
+
+  def duration
+    raise RuntimeError, "#{type} events do not have a duration" unless perdurant?
+    SviberMacroInternals.rational_data(record["duration"])
+  end
+
+  def duration=(value)
+    raise RuntimeError, "#{type} events do not have a duration" unless perdurant?
+    raw = record
+    target = SviberMacroInternals.rational(value)
+    raise ArgumentError, "duration must be non-negative" if target.negative?
+    raise ArgumentError, "duration must be positive" if target.zero? && !%w[bgNote comment].include?(raw["type"])
+    raw["duration"] = SviberMacroInternals.beat_from_rational(target)
+    value
+  end
+
+  def end_time
+    raise RuntimeError, "#{type} events do not have a duration" unless perdurant?
+    time + duration
+  end
+
+  def end_time=(value)
+    raise RuntimeError, "#{type} events do not have a duration" unless perdurant?
+    target = SviberMacroInternals.rational(value)
+    self.duration = target - time
     value
   end
 

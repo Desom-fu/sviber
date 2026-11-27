@@ -84,6 +84,14 @@ class LayoutTrait {
 		this.persistLayoutPreferences({ rightPanelsHidden: !this.preferences.rightPanelsHidden });
 	}
 
+	editInInspector() {
+		if (this.preferences?.rightPanelsHidden) {
+			this.persistLayoutPreferences({ rightPanelsHidden: false });
+		}
+		this.activateSideTab?.("inspector");
+		return this.inspectorPanel?.focusPreferredInput?.() ?? null;
+	}
+
 	resetLayoutDimensions() {
 		this.persistLayoutPreferences({
 			leftPanelWidthFraction: DEFAULT_PREFERENCES.leftPanelWidthFraction,

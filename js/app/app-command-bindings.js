@@ -3,6 +3,7 @@
 
 import { composeTraits } from "../core/mixin.js";
 import { MOVABLE_TYPES, selected } from "./app-helpers.js";
+import { SPAWN_DIRECTIONS } from "./app-tip-point-modes.js";
 import { eventUsesChannel } from "../core/grouping.js";
 import { Rational } from "../core/rational.js";
 
@@ -172,6 +173,14 @@ function registerEventCommands(app) {
 	register(app, "events.bgPattern", () => void app.showBackgroundPatternDialog(), () => app.currentChannelActive());
 	register(app, "events.bpmChange", () => void app.showBpmDialog());
 	register(app, "events.comment", () => void app.showCommentDialog());
+	for (const { id, angle } of SPAWN_DIRECTIONS) {
+		register(
+			app,
+			id,
+			() => app.setSelectedSpawnDirection(angle),
+			() => app.canSetSelectedSpawnDirection(),
+		);
+	}
 	register(app, "events.group", () => app.groupSelected(), () =>
 		selected(app.model).some(event => !event.locked),
 	);
@@ -181,6 +190,7 @@ function registerEventCommands(app) {
 		() => app.ungroupSelected(),
 		() => selected(app.model).some(event => event.type === "group" && !event.locked),
 	);
+	register(app, "events.editInInspector", () => app.editInInspector());
 	register(
 		app,
 		"events.lock",
@@ -426,6 +436,7 @@ function registerMusicCommands(app) {
 		return void app.toggleReversePlayback();
 	});
 	register(app, "music.seekStart", () => app.seekStart());
+	register(app, "music.seekLastEvent", () => app.seekLastEvent());
 	register(app, "music.seekForward", () => app.navigateWheel(1, false));
 	register(app, "music.seekBackward", () => app.navigateWheel(-1, false));
 	register(app, "music.seekForward3", () => app.seekSeconds(3));

@@ -7,11 +7,11 @@ import { TimingMap } from "../js/core/timing.js";
 import { assertClose } from "./assert-close.mjs";
 
 test("Rational canonicalizes mixed tuples and round-trips negative decimals", () => {
-	assert.deepEqual(Rational.from([0, -3, 6]).toJSON(), [0, -1, 2]);
-	assert.deepEqual(Rational.from([-2, 1, 2]).toJSON(), [-1, -1, 2]);
+	assert.deepEqual(Rational.from([0, -3, 6]).toJSON(), [-1, 1, 2]);
+	assert.deepEqual(Rational.from([-2, 1, 2]).toJSON(), [-2, 1, 2]);
 
 	const negativeDecimal = Rational.from("-1.5");
-	assert.deepEqual(negativeDecimal.toJSON(), [-1, -1, 2]);
+	assert.deepEqual(negativeDecimal.toJSON(), [-2, 1, 2]);
 	assert.equal(Rational.from(negativeDecimal.toString()).toNumber(), -1.5);
 	assert.equal(Rational.from(String(negativeDecimal.toNumber())).toNumber(), -1.5);
 });
@@ -22,7 +22,7 @@ test("Rational arithmetic, comparison, and snapping remain exact", () => {
 	assert.equal(compare([0, -1, 2], [0, -2, 3]), 1);
 
 	assert.deepEqual(snap([0, 1, 4], 2).toJSON(), [0, 1, 2]);
-	assert.deepEqual(snap([0, -1, 4], 2).toJSON(), [0, -1, 2]);
+	assert.deepEqual(snap([0, -1, 4], 2).toJSON(), [-1, 1, 2]);
 	assert.deepEqual(snap([0, 1, 5], 2).toJSON(), [0, 0, 1]);
 	assert.deepEqual(snap([0, -1, 5], 2).toJSON(), [0, 0, 1]);
 });

@@ -262,7 +262,8 @@ class ChecksTrait {
 			const group = result[definition.id] || {};
 			next[definition.id] = { enabled: Boolean(group.enabled) };
 			for (const parameter of definition.parameters) {
-				next[definition.id][parameter.id] = Number(group[parameter.id]);
+				next[definition.id][parameter.id] =
+					parameter.type === "checkbox" ? Boolean(group[parameter.id]) : Number(group[parameter.id]);
 			}
 		}
 		this.commit(i18n.t("history.editChecks"), model => {

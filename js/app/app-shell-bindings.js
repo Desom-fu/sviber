@@ -83,22 +83,26 @@ export const withShellBindings = Base =>
 			}
 		}
 
-		_bindTabs() {
+		activateSideTab(activeId) {
 			const tabs = PANEL_TABS.map(id => ({
 				id,
 				tab: document.getElementById(`${id}-tab`),
 				panel: document.getElementById(`${id}-panel`),
 			}));
-			const setTab = activeId => {
-				for (const item of tabs) {
-					const active = item.id === activeId;
-					item.tab.classList.toggle("is-active", active);
-					item.tab.setAttribute("aria-selected", String(active));
+			for (const item of tabs) {
+				const active = item.id === activeId;
+				item.tab?.classList?.toggle("is-active", active);
+				item.tab?.setAttribute?.("aria-selected", String(active));
+				if (item.panel) {
 					item.panel.hidden = !active;
 				}
-			};
-			for (const item of tabs) {
-				item.tab.addEventListener("click", () => setTab(item.id));
+			}
+		}
+
+		_bindTabs() {
+			for (const id of PANEL_TABS) {
+				const tab = document.getElementById(`${id}-tab`);
+				tab?.addEventListener("click", () => this.activateSideTab(id));
 			}
 		}
 
