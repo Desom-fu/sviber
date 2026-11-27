@@ -29,7 +29,11 @@ function selectedUnlockedLeaves(model) {
 	];
 }
 
-function relativeSpawnOwner(event, activeLeafEvents, model) {
+function activeChannelSet(model) {
+	return new Set((model.channels || []).filter(channel => channel.active !== false).map(channel => channel.id));
+}
+
+function relativeSpawnOwner(event, activeLeafEvents, activeChannels, model) {
 	if (!TIP_POINTABLE_TYPES.has(event.type)) {
 		return null;
 	}
@@ -40,7 +44,7 @@ function relativeSpawnOwner(event, activeLeafEvents, model) {
 	if (declared === "chain" || declared === "drop") {
 		return event.tipPointSpawnAbsolutePosition ? null : event;
 	}
-	if (event.active === false) {
+	if (event.active === false || !activeChannels.has(event.channel)) {
 		return null;
 	}
 	const source = inheritedTipPointSource(activeLeafEvents, event, model);
@@ -57,14 +61,18 @@ export function relativeSpawnDirectionTargets(model) {
 	if (!leaves.length) {
 		return [];
 	}
+	let activeChannels = null;
 	let activeLeafEvents = null;
 	const owners = new Map();
 	for (const event of leaves) {
 		const declared = DECLARED_SPAWN_TYPES.has(event.tipPointSpawnType) ? event.tipPointSpawnType : "inherit";
 		if (declared === "inherit" && !activeLeafEvents) {
-			activeLeafEvents = model.allEvents({ includeGroups: false }).filter(item => item.active !== false);
+			activeChannels = activeChannelSet(model);
+			activeLeafEvents = model
+				.allEvents({ includeGroups: false })
+				.filter(item => item.active !== false && activeChannels.has(item.channel));
 		}
-		const owner = relativeSpawnOwner(event, activeLeafEvents, model);
+		const owner = relativeSpawnOwner(event, activeLeafEvents, activeChannels, model);
 		if (owner) {
 			owners.set(owner.id, owner);
 		}
@@ -77,13 +85,17 @@ export function hasRelativeSpawnDirectionTarget(model) {
 	if (!leaves.length) {
 		return false;
 	}
+	let activeChannels = null;
 	let activeLeafEvents = null;
 	for (const event of leaves) {
 		const declared = DECLARED_SPAWN_TYPES.has(event.tipPointSpawnType) ? event.tipPointSpawnType : "inherit";
 		if (declared === "inherit" && !activeLeafEvents) {
-			activeLeafEvents = model.allEvents({ includeGroups: false }).filter(item => item.active !== false);
+			activeChannels = activeChannelSet(model);
+			activeLeafEvents = model
+				.allEvents({ includeGroups: false })
+				.filter(item => item.active !== false && activeChannels.has(item.channel));
 		}
-		if (relativeSpawnOwner(event, activeLeafEvents, model)) {
+		if (relativeSpawnOwner(event, activeLeafEvents, activeChannels, model)) {
 			return true;
 		}
 	}

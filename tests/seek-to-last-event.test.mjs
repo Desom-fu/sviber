@@ -77,4 +77,13 @@ test("seekLastEvent moves current time to the event with the largest time includ
 	// Visible range shifts so the target 7.75 s is contained within it.
 	assert.ok(model.editor.visibleRangeBeginning <= 7.75);
 	assert.ok(model.editor.visibleRangeEnd >= 7.75);
+
+	// During playback, seeking past the music end still updates currentTime and visible range.
+	model.addEvent("tap", { time: [300, 0, 1], x: 0, y: 0 });
+	app.timeBounds = includeCurrent => [0, includeCurrent ? Math.max(120, app.currentSeconds()) : 120];
+	app.audio.playing = true;
+	assert.equal(app.seekLastEvent(), true);
+	assert.equal(app.audio.soughtTo, 150);
+	assert.equal(model.editor.currentTime, 150);
+	assert.ok(model.editor.visibleRangeEnd >= 150);
 });

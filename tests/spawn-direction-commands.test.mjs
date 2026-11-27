@@ -190,4 +190,16 @@ test("spawn direction commands work on grouped events and respect locked sources
 	assert.equal(app.canSetSelectedSpawnDirection(), true);
 	assert.equal(app.setSelectedSpawnDirection(-Math.PI / 4), true);
 	assert.equal(groupedNote.tipPointSpawnAngle, -Math.PI / 4);
+
+	// Repeating the same direction does not push a redundant history entry.
+	const historyLength = app.history.entries.length;
+	assert.equal(app.setSelectedSpawnDirection(-Math.PI / 4), true);
+	assert.equal(app.history.entries.length, historyLength);
+
+	// Inactive channels do not contribute inherited relative spawn targets.
+	group.selected = false;
+	model.channels[0].active = false;
+	childInherited.selected = true;
+	assert.equal(app.canSetSelectedSpawnDirection(), false);
+	assert.equal(app.setSelectedSpawnDirection(0), false);
 });

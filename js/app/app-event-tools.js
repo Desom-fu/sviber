@@ -466,8 +466,15 @@ class EventToolsTrait {
 
 	setSelectedSpawnDirection(angle) {
 		const numericAngle = Number(angle);
-		if (!Number.isFinite(numericAngle) || !this.canSetSelectedSpawnDirection()) {
+		if (!Number.isFinite(numericAngle)) {
 			return false;
+		}
+		const currentTargets = relativeSpawnDirectionTargets(this.model);
+		if (!currentTargets.length) {
+			return false;
+		}
+		if (currentTargets.every(target => target.tipPointSpawnAngle === numericAngle)) {
+			return true;
 		}
 		let updated = false;
 		this.commit(i18n.t("history.editSpawnDirection"), model => {

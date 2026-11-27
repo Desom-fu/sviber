@@ -425,12 +425,16 @@ class HistoryCommandsTrait {
 		const span = this.model.editor.visibleRangeEnd - this.model.editor.visibleRangeBeginning;
 		if (this.audio?.playing) {
 			this.audio.seek(target);
+			this.model.editor.timeSnapped = false;
+			this.model.editor.currentTime = target;
 			if (
 				!this.model.editor.lockVisibleRange &&
 				(target < this.model.editor.visibleRangeBeginning || target > this.model.editor.visibleRangeEnd)
 			) {
 				this.setVisibleRange(target - span / 2, target + span / 2, true);
 			}
+			this.refreshPlaybackFrame?.();
+			this.requestStatusUpdate?.();
 			return true;
 		}
 		this.seekBeat(latest.toJSON());
